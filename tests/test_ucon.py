@@ -39,3 +39,6 @@ class TestScale(TestCase):
         with self.assertRaises(KeyError):
             Scale.kibi / Scale.kilo
 
+    def test___lt__(self):
+        self.assertLess(Scale.kilo, Scale.one)
+
