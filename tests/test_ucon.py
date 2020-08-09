@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from ucon import Scale
+from ucon import ScaledUnit
 from ucon import Unit
 from ucon import Units
 
@@ -49,4 +50,14 @@ class TestScale(TestCase):
         for scale in Scale:
             self.assertTrue(isinstance(scale.value, int) or isinstance(scale.value, float))
         self.assertIsInstance(Scale.all(), dict)
+
+
+class TestScaledUnit(TestCase):
+
+    scaled_unit = ScaledUnit(unit=Units.gram, scale=Scale.one)
+
+    def test___repr__(self):
+        self.assertIn(str(self.scaled_unit.scale.value), str(self.scaled_unit))
+        self.assertIn(self.scaled_unit.scale.name, str(self.scaled_unit))
+        self.assertIn(self.scaled_unit.unit.name, str(self.scaled_unit))
 
