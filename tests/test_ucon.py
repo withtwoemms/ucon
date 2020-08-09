@@ -1,5 +1,6 @@
 from unittest import TestCase
 
+from ucon import Scale
 from ucon import Unit
 from ucon import Units
 
@@ -25,4 +26,16 @@ class TestUnits(TestCase):
         for unit in Units:
             self.assertIsInstance(unit.value, Unit)
         self.assertIsInstance(Units.all(), dict)
+
+
+class TestScale(TestCase):
+
+    def test___truediv__(self):
+        self.assertEqual(Scale.deca, Scale.one / Scale.deci)
+        self.assertEqual(Scale.deci, Scale.one / Scale.deca)
+        self.assertEqual(Scale._kibi, Scale.one / Scale.kibi)
+        self.assertEqual(Scale.milli, Scale.one / Scale.deca / Scale.deca / Scale.deca)
+        self.assertEqual(Scale.deca, Scale.kilo / Scale.hecto)
+        with self.assertRaises(KeyError):
+            Scale.kibi / Scale.kilo
 
