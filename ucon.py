@@ -30,3 +30,32 @@ class Units(Enum):
     @staticmethod
     def all():
         return dict(list(map(lambda x: (x.value, x.value.aliases), Units)))
+
+
+class Scale(Enum):
+    mebi = 1024**2
+    kibi = 1024
+    kilo = 1000
+    hecto = 100
+    deca = 10
+    one = 1
+    deci = 1/deca
+    centi = 1/hecto
+    milli = 1/kilo
+    _kibi = 1/kibi
+    _mebi = 1/mebi
+
+
+    @staticmethod
+    def all():
+        return dict(list(map(lambda x: (float(x.value), x.name), Scale)))
+
+    def __truediv__(self, another_scale):
+        return Scale[Scale.all()[float(self.value / another_scale.value)]]
+
+    def __lt__(self, another_scale):
+        return self.value > another_scale.value
+
+    def __gt__(self, another_scale):
+        return self.value < another_scale.value
+
