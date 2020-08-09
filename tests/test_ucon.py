@@ -45,3 +45,8 @@ class TestScale(TestCase):
     def test___gt__(self):
         self.assertGreater(Scale.one, Scale.kilo)
 
+    def test_all(self):
+        for scale in Scale:
+            self.assertTrue(isinstance(scale.value, int) or isinstance(scale.value, float))
+        self.assertIsInstance(Scale.all(), dict)
+
