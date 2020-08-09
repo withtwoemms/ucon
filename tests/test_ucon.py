@@ -21,3 +21,8 @@ class TestUnits(TestCase):
         self.assertEqual(Units.gram, Units.gram / Units.none)
         self.assertEqual(Units.gram, Units.none / Units.gram)
 
+    def test_all(self):
+        for unit in Units:
+            self.assertIsInstance(unit.value, Unit)
+        self.assertIsInstance(Units.all(), dict)
+
