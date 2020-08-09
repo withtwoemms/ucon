@@ -42,3 +42,6 @@ class TestScale(TestCase):
     def test___lt__(self):
         self.assertLess(Scale.kilo, Scale.one)
 
+    def test___gt__(self):
+        self.assertGreater(Scale.one, Scale.kilo)
+
