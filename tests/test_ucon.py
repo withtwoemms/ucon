@@ -1,5 +1,6 @@
 from unittest import TestCase
 
+from ucon import Number
 from ucon import Scale
 from ucon import ScaledUnit
 from ucon import Unit
@@ -78,4 +79,15 @@ class TestScaledUnit(TestCase):
         self.assertEqual(Units.gram, (unitless/gram).unit)
         with self.assertRaises(RuntimeError):
             gram / volt
+
+
+class TestNumber(TestCase):
+
+    gram = ScaledUnit(unit=Units.gram, scale=Scale.one)
+    number = Number(unit=gram, quantity=1)
+
+    def test___repr__(self):
+        self.assertIn(str(self.number.quantity), str(self.number))
+        self.assertIn(self.number.unit.scale.name, str(self.number))
+        self.assertIn(self.number.unit.unit.name, str(self.number))
 
