@@ -67,3 +67,15 @@ class TestScaledUnit(TestCase):
         self.assertEqual(1/Scale.kilo.value, to_scaled_unit.scale.value)
         self.assertEqual(Scale.kilo.name, to_scaled_unit.scale.name)
 
+    def test___truediv__(self):
+        gram = self.scaled_unit
+        milligram = ScaledUnit(unit=Units.gram, scale=Scale.milli)
+        volt = ScaledUnit(unit=Units.volt, scale=Scale.milli)
+        unitless = ScaledUnit()
+        self.assertEqual(1000, (gram/milligram).scale.value)
+        self.assertEqual(Units.none, (gram/gram).unit)
+        self.assertEqual(Units.gram, (gram/unitless).unit)
+        self.assertEqual(Units.gram, (unitless/gram).unit)
+        with self.assertRaises(RuntimeError):
+            gram / volt
+
