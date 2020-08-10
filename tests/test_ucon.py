@@ -61,3 +61,9 @@ class TestScaledUnit(TestCase):
         self.assertIn(self.scaled_unit.scale.name, str(self.scaled_unit))
         self.assertIn(self.scaled_unit.unit.name, str(self.scaled_unit))
 
+    def test_to(self):
+        to_scaled_unit = self.scaled_unit.to(Scale.kilo)
+        self.assertIsInstance(to_scaled_unit.scale, ScaledUnit.Factor)
+        self.assertEqual(1/Scale.kilo.value, to_scaled_unit.scale.value)
+        self.assertEqual(Scale.kilo.name, to_scaled_unit.scale.name)
+
