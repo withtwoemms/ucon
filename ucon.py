@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import ipdb
+
 from enum import Enum
 
 
@@ -58,4 +62,30 @@ class Scale(Enum):
 
     def __gt__(self, another_scale):
         return self.value < another_scale.value
+
+
+class ScaledUnit:
+    def __init__(self, unit: Unit = Units.none, scale: Scale = Scale.one):
+        self.unit = unit
+        self.scale = scale
+
+    def to(self, new_scale: Scale) -> ScaledUnit:
+        return ScaledUnit(self.unit, ScaledUnit.Factor(self.scale.value/new_scale.value, new_scale.name))
+
+    # NOTE: specifying a return class of the containing class made possible by __future__.annotations
+    def __truediv__(self, another_scaled_unit) -> ScaledUnit:
+        unit = self.unit / another_scaled_unit.unit
+        if self.unit == Units.none:
+            scale = self.to(another_scaled_unit.scale).scale
+        else:
+            scale = self.scale / another_scaled_unit.scale
+        return ScaledUnit(unit, scale)
+
+    def __repr__(self):
+        return f'<|{self.scale.value} {self.scale.name}{self.unit.value.name}>'
+
+    class Factor:
+        def __init__(self, value, name):
+            self.value = value
+            self.name = name
 
