@@ -6,7 +6,7 @@ TESTDIR = tests
 
 
 .PHONY: all
-all: venv install clean
+all: venv install clean-install
 
 .PHONY: clean
 clean: clean-install clean-venv clean-pyc
@@ -57,7 +57,7 @@ endif
 	@$(VENV_PYTHON) -m unittest $(TESTDIR)$(if $(TESTCASE),.$(TESTCASE),)
 
 .PHONY: tests ## runs all tests in TESTDIR
-tests:
+tests: $(VENV_PYTHON)
 	@$(VENV_PYTHON) -m unittest discover $(TESTDIR)
 
 .PHONY: tree ## outputs a file system diagram
