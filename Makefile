@@ -1,7 +1,7 @@
 SYSTEM_PYTHON = $(shell which python3)
 PROJECT_NAME = $(shell basename $(CURDIR))
 VENV = $(PROJECT_NAME)-venv
-VENV_PYTHON = $(VENV)/bin/python3
+VENV_PYTHON = $(VENV)/bin/python
 TESTDIR = tests
 
 
@@ -57,7 +57,7 @@ endif
 	@$(VENV_PYTHON) -m unittest $(TESTDIR)$(if $(TESTCASE),.$(TESTCASE),)
 
 .PHONY: tests ## runs all tests in TESTDIR
-tests: $(VENV_PYTHON)
+tests:
 	@$(VENV_PYTHON) -m unittest discover $(TESTDIR)
 
 .PHONY: tree ## outputs a file system diagram
