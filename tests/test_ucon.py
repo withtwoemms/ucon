@@ -31,6 +31,31 @@ class TestUnits(TestCase):
         self.assertIsInstance(Units.all(), dict)
 
 
+class TestExponent(TestCase):
+
+    thousand = Exponent(10, 3)
+    thousandth = Exponent(10, -3)
+
+    def test_parts(self):
+        self.assertEqual((10, 3), self.thousand.parts())
+        self.assertEqual((10, -3), self.thousandth.parts())
+
+    def test___truediv__(self):
+        self.assertEqual(1000, self.thousand.evaluated)
+        self.assertEqual(float(1/1000), self.thousandth.evaluated)
+        self.assertEqual(float(1000000), (self.thousand / self.thousandth))
+
+    def test___lt__(self):
+        self.assertLess(self.thousandth, self.thousand)
+
+    def test___gt__(self):
+        self.assertGreater(self.thousand, self.thousandth)
+
+    def test___repr__(self):
+        self.assertEqual(str(self.thousand), '<10^3>')
+        self.assertEqual(str(self.thousandth), '<10^-3>')
+
+
 class TestScale(TestCase):
 
     def test___truediv__(self):
