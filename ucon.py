@@ -146,7 +146,6 @@ class Number:
     def simplify(self):
         return Number(ScaledUnit(self.unit.unit), self.value)
 
-    # TODO -- write tests
     def to(self, new_scale: Scale):
         return Number(ScaledUnit(self.unit.unit, new_scale), self.quantity / new_scale.value.evaluated)
 
