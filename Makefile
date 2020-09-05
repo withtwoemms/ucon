@@ -2,7 +2,7 @@ SYSTEM_PYTHON = $(shell which python3.8)
 PROJECT_NAME = $(shell basename $(CURDIR))
 VENV = $(PROJECT_NAME)-venv
 VENV_PYTHON = $(VENV)/bin/python
-TESTDIR = tests/
+TESTDIR = tests
 
 
 .PHONY: all
@@ -52,8 +52,15 @@ install: $(VENV) $(VENV_PYTHON)
 system-install:
 	@pip install -r requirements.txt
 
+.PHONY: test ## runs specific TestCase in TESTDIR
+test: $(VENV_PYTHON)
+ifeq ($(TESTCASE),)
+	$(error TESTCASE not specified)
+endif
+	@$(VENV_PYTHON) -m unittest $(TESTDIR)$(if $(TESTCASE),.$(TESTCASE),)
+
 .PHONY: tests ## runs all tests in TESTDIR
-tests: $(VENV_PYTHON) $(TESTDIR)
+tests: $(VENV_PYTHON)
 	@$(VENV_PYTHON) -m unittest discover $(TESTDIR)
 
 .PHONY: tree ## outputs a file system diagram
