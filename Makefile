@@ -1,4 +1,4 @@
-SYSTEM_PYTHON = $(shell which python3.8)
+SYSTEM_PYTHON = $(shell which python3)
 PROJECT_NAME = $(shell basename $(CURDIR))
 VENV = $(PROJECT_NAME)-venv
 VENV_PYTHON = $(VENV)/bin/python
