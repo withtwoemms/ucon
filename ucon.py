@@ -38,7 +38,6 @@ class Units(Enum):
         return dict(list(map(lambda x: (x.value, x.value.aliases), Units)))
 
 
-# TODO -- write tests
 class Exponent:
     bases ={2: log2, 10: log10}
 
@@ -53,13 +52,13 @@ class Exponent:
         return self.base, self.power
 
     def __truediv__(self, another_exponent):
-        self.evaluated / another_exponent.evaluated
+        return self.evaluated / another_exponent.evaluated
 
     def __lt__(self, another_exponent):
-        return self.evaluated > another_exponent.evaluated
+        return self.evaluated < another_exponent.evaluated
 
     def __gt__(self, another_exponent):
-        return self.evaluated < another_exponent.evaluated
+        return self.evaluated > another_exponent.evaluated
 
     def __eq__(self, another_exponent):
         return self.evaluated == another_exponent.evaluated
@@ -110,10 +109,10 @@ class Scale(Enum):
             return Scale[Scale.by_value()[closest_val]]
 
     def __lt__(self, another_scale):
-        return self.value > another_scale.value
+        return self.value < another_scale.value
 
     def __gt__(self, another_scale):
-        return self.value < another_scale.value
+        return self.value > another_scale.value
 
     def __eq__(self, another_scale):
         return self.value == another_scale.value
