@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # NOTE: prevents the use of < python3.7
 
 from enum import Enum
 from functools import reduce
