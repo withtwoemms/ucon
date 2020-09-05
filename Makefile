@@ -6,10 +6,7 @@ TESTDIR = tests
 
 
 .PHONY: all
-all:
-	@make venv
-	@make install
-	@make clean-install
+all: venv install clean
 
 .PHONY: clean
 clean: clean-install clean-venv clean-pyc
