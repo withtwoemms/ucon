@@ -8,6 +8,10 @@ TESTDIR = tests
 .PHONY: all
 all: venv install clean-install
 
+.PHONY: build ## builds distributable python package
+build: $(VENV) $(VENV_PYTHON)
+	@$(VENV_PYTHON) setup.py bdist_wheel
+
 .PHONY: clean
 clean: clean-install clean-venv clean-pyc
 
