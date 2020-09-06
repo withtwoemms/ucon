@@ -1,3 +1,4 @@
+from os import environ as envvars
 from pathlib import Path
 from setuptools import setup, find_packages
 
@@ -5,7 +6,7 @@ from setuptools import setup, find_packages
 setup(
     name='ucon',
     description='a tool for dimensional analysis: a "Unit CONverter"',
-    version_format='{tag}.dev{commitcount}+{gitsha}',
+    version_format=envvars.get('VERSION', '{tag}.dev{commitcount}+{gitsha}'),
     license='MIT',
     setup_requires=[
         'setuptools-git-version==1.0.3'
