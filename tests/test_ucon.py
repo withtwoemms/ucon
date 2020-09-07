@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from ucon import Number
 from ucon import Exponent
+from ucon import Ratio
 from ucon import Scale
 from ucon import Unit
 from ucon import Units
@@ -119,4 +120,39 @@ class TestNumber(TestCase):
         self.assertEqual(some_quotient.value, 0.01)
         self.assertEqual(another_quotient.value, 100.0)
         self.assertEqual(that_quotient.value, 0.00009765625)
+
+
+class TestRatio(TestCase):
+
+    point_five = Number(quantity=0.5)
+    one = Number()
+    two = Number(quantity=2)
+    three = Number(quantity=3)
+    four = Number(quantity=4)
+
+    one_half = Ratio(numerator=one, denominator=two)
+    three_fourths = Ratio(numerator=three, denominator=four)
+    one_ratio = Ratio(numerator=one)
+    three_halves = Ratio(numerator=three, denominator=two)
+    two_ratio = Ratio(numerator=two, denominator=one)
+
+    def test_evaluate(self):
+        self.assertEqual(self.one_ratio.numerator, self.one)
+        self.assertEqual(self.one_ratio.denominator, self.one)
+        self.assertEqual(self.one_ratio.evaluate(), self.one)
+        self.assertEqual(self.two_ratio.evaluate(), self.two)
+
+    def test_reciprocal(self):
+        self.assertEqual(self.two_ratio.reciprocal().numerator, self.one)
+        self.assertEqual(self.two_ratio.reciprocal().denominator, self.two)
+        self.assertEqual(self.two_ratio.reciprocal().evaluate(), self.point_five)
+
+    def test___mult__(self):
+        # TODO -- add cases involving numbers with unit and scale
+        self.assertEqual(self.three_halves * self.one_half, self.three_fourths)
+
+    def test___repr__(self):
+        self.assertEqual(str(self.one_ratio), '<1.0 >')
+        self.assertEqual(str(self.two_ratio), '<2 > / <1 >')
+        self.assertEqual(str(self.two_ratio.evaluate()), '<2.0 >')
 
