@@ -30,20 +30,20 @@ class Units(Enum):
         elif another_unit == Units.none:
             return self
         else:
-            # TODO -- support division of different units. Will likely need a concept like "RatioUnits"
-            raise RuntimeError(f'Unsupported unit division: {self.name} / {another_unit.name}')
+            raise ValueError(f'Unsupported unit division: {self.name} / {another_unit.name}. Consider using Ratio.')
 
     @staticmethod
     def all():
         return dict(list(map(lambda x: (x.value, x.value.aliases), Units)))
 
 
+# TODO -- consider using a dataclass
 class Exponent:
     bases ={2: log2, 10: log10}
 
     def __init__(self, base: int, power: int):
         if base not in self.bases.keys():
-            raise RuntimeError(f'Only the following bases are supported: {reduce(lambda a,b: f"{a}, {b}", self.bases.keys())}')
+            raise ValueError(f'Only the following bases are supported: {reduce(lambda a,b: f"{a}, {b}", self.bases.keys())}')
         self.base = base
         self.power = power
         self.evaluated = base ** power
@@ -118,8 +118,9 @@ class Scale(Enum):
         return self.value == another_scale.value
 
 
+# TODO -- consider using a dataclass
 class Number:
-    def __init__(self, unit: Unit, scale: Scale = Scale.one, quantity = 1):
+    def __init__(self, unit: Unit = Units.none, scale: Scale = Scale.one, quantity = 1):
         self.unit = unit
         self.scale = scale
         self.quantity = quantity
@@ -132,6 +133,13 @@ class Number:
         new_quantity = self.quantity / new_scale.value.evaluated
         return Number(unit=self.unit, scale=new_scale, quantity=new_quantity)
 
+    def as_ratio(self):
+        return Ratio(self)
+
+    def __mul__(self, another_number):
+        new_quantity = self.quantity * another_number.quantity
+        return Number(unit=self.unit, scale=self.scale, quantity=new_quantity)
+
     def __truediv__(self, another_number) -> Number:
         unit = self.unit / another_number.unit
         scale = self.scale / another_number.scale
@@ -139,15 +147,45 @@ class Number:
         return Number(unit, scale, quantity)
 
     def __eq__(self, another_number):
-        return (self.unit == another_number.unit) and \
-               (self.quantity == another_number.quantity) and \
-               (self.value == another_number.value)
+        if isinstance(another_number, Number):
+            return (self.unit == another_number.unit) and \
+                   (self.quantity == another_number.quantity) and \
+                   (self.value == another_number.value)
+        elif isinstance(another_number, Ratio):
+            return self == another_number.evaluate()
+        else:
+            raise ValueError(f'"{another_number}" is not a Number or Ratio. Comparison not possible.')
 
     def __repr__(self):
         return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.value.name}>'
 
 
-# TODO -- write tests
+# TODO -- consider using a dataclass
 class Ratio:
-    NotImplemented
+    def __init__(self, numerator: Number = Number(), denominator: Number = Number()):
+        self.numerator = numerator
+        self.denominator = denominator
+
+    def reciprocal(self) -> Ratio:
+        return Ratio(numerator=self.denominator, denominator=self.numerator)
+
+    def evaluate(self) -> Number:
+        return self.numerator / self.denominator
+
+    def __mul__(self, another_ratio):
+        new_numerator = self.numerator / another_ratio.denominator
+        new_denominator = self.denominator / another_ratio.numerator
+        return Ratio(numerator=new_numerator, denominator=new_denominator)
+
+    def __eq__(self, another_ratio):
+        if isinstance(another_ratio, Ratio):
+            return self.evaluate() == another_ratio.evaluate()
+        elif isinstance(another_ratio, Number):
+            return self.evaluate() == another_ratio
+        else:
+            raise ValueError(f'"{another_ratio}" is not a Ratio or Number. Comparison not possible.')
+
+    def __repr__(self):
+        # TODO -- resolve int/float inconsistency
+        return f'{self.evaluate()}' if self.numerator == self.denominator else f'{self.numerator} / {self.denominator}'
 

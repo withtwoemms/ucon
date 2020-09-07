@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from ucon import Number
 from ucon import Exponent
+from ucon import Ratio
 from ucon import Scale
 from ucon import Unit
 from ucon import Units
@@ -24,6 +25,9 @@ class TestUnits(TestCase):
         self.assertEqual(Units.gram, Units.gram / Units.none)
         self.assertEqual(Units.gram, Units.none / Units.gram)
 
+        with self.assertRaises(ValueError):
+            Units.gram / Units.liter
+
     def test_all(self):
         for unit in Units:
             self.assertIsInstance(unit.value, Unit)
@@ -34,6 +38,10 @@ class TestExponent(TestCase):
 
     thousand = Exponent(10, 3)
     thousandth = Exponent(10, -3)
+
+    def test___init__(self):
+        with self.assertRaises(ValueError):
+            Exponent(5, 3)  # no support for base 5 logarithms
 
     def test_parts(self):
         self.assertEqual((10, 3), self.thousand.parts())
@@ -84,6 +92,12 @@ class TestNumber(TestCase):
 
     number = Number(unit=Units.gram, quantity=1)
 
+    def test_as_ratio(self):
+        ratio = self.number.as_ratio()
+        self.assertIsInstance(ratio, Ratio)
+        self.assertEqual(ratio.numerator, self.number)
+        self.assertEqual(ratio.denominator, Number())
+
     def test_simplify(self):
         ten_decagrams = Number(unit=Units.gram, scale=Scale.deca, quantity=10)
         point_one_decagrams = Number(unit=Units.gram, scale=Scale.deca, quantity=0.1)
@@ -119,4 +133,56 @@ class TestNumber(TestCase):
         self.assertEqual(some_quotient.value, 0.01)
         self.assertEqual(another_quotient.value, 100.0)
         self.assertEqual(that_quotient.value, 0.00009765625)
+
+    def test___eq__(self):
+        self.assertEqual(self.number, Ratio(self.number))  # 1 gram / 1
+        with self.assertRaises(ValueError):
+            self.number == 1
+
+
+class TestRatio(TestCase):
+
+    point_five = Number(quantity=0.5)
+    one = Number()
+    two = Number(quantity=2)
+    three = Number(quantity=3)
+    four = Number(quantity=4)
+
+    one_half = Ratio(numerator=one, denominator=two)
+    three_fourths = Ratio(numerator=three, denominator=four)
+    one_ratio = Ratio(numerator=one)
+    three_halves = Ratio(numerator=three, denominator=two)
+    two_ratio = Ratio(numerator=two, denominator=one)
+
+    bromine_density = Ratio(Number(Units.gram, quantity=3.119), Number(Units.liter, Scale.milli))
+
+    def test_evaluate(self):
+        self.assertEqual(self.one_ratio.numerator, self.one)
+        self.assertEqual(self.one_ratio.denominator, self.one)
+        self.assertEqual(self.one_ratio.evaluate(), self.one)
+        self.assertEqual(self.two_ratio.evaluate(), self.two)
+
+    def test_reciprocal(self):
+        self.assertEqual(self.two_ratio.reciprocal().numerator, self.one)
+        self.assertEqual(self.two_ratio.reciprocal().denominator, self.two)
+        self.assertEqual(self.two_ratio.reciprocal().evaluate(), self.point_five)
+
+    def test___mul__(self):
+        self.assertEqual(self.three_halves * self.one_half, self.three_fourths)
+        self.assertEqual(self.three_halves * self.one_half, self.three_fourths)
+
+        # How many grams of bromine are in 2 milliliters?
+        two_milliliters_bromine = Number(Units.liter, Scale.milli, 2)
+        answer = two_milliliters_bromine.as_ratio() * self.bromine_density
+        self.assertEqual(answer.evaluate().value, 6.238) # Grams
+
+    def test___eq__(self):
+        self.assertEqual(self.one_half, self.point_five)
+        with self.assertRaises(ValueError):
+            self.one_half == 1/2
+
+    def test___repr__(self):
+        self.assertEqual(str(self.one_ratio), '<1.0 >')
+        self.assertEqual(str(self.two_ratio), '<2 > / <1 >')
+        self.assertEqual(str(self.two_ratio.evaluate()), '<2.0 >')
 
