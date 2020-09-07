@@ -137,21 +137,24 @@ class ScaledUnit:
 
 
 class Number:
-    def __init__(self, unit: ScaledUnit, quantity = 1):
-        self.unit = unit  # TODO -- address the self.unit.unit redundancy
+    def __init__(self, unit: Unit, scale: Scale = Scale.one, quantity = 1):
+        self.unit = unit
+        self.scale = scale
         self.quantity = quantity
-        self.value = round(self.quantity * self.unit.scale.value.evaluated, 15)
+        self.value = round(self.quantity * self.scale.value.evaluated, 15)
 
     def simplify(self):
-        return Number(ScaledUnit(self.unit.unit), self.value)
+        return Number(unit=self.unit, quantity=self.value)
 
     def to(self, new_scale: Scale):
-        return Number(ScaledUnit(self.unit.unit, new_scale), self.quantity / new_scale.value.evaluated)
+        new_quantity = self.quantity / new_scale.value.evaluated
+        return Number(unit=self.unit, scale=new_scale, quantity=new_quantity)
 
     def __truediv__(self, another_number) -> Number:
-        scaled_unit = self.unit / another_number.unit
+        unit = self.unit / another_number.unit
+        scale = self.scale / another_number.scale
         quantity = self.quantity / another_number.quantity
-        return Number(scaled_unit, quantity)
+        return Number(unit, scale, quantity)
 
     def __eq__(self, another_number):
         return (self.unit == another_number.unit) and \
@@ -159,9 +162,10 @@ class Number:
                (self.value == another_number.value)
 
     def __repr__(self):
-        return f'<{self.quantity} {"" if self.unit.scale.name == "one" else self.unit.scale.name}{self.unit.unit.value.name}>'
+        return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.value.name}>'
 
 
 # TODO -- write tests
 class Ratio:
     NotImplemented
+
