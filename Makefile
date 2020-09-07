@@ -45,6 +45,10 @@ commands:
 git-tag:
 	@echo $(shell git describe --tags)
 
+.PHONY: git-tag-pre-release
+git-tag-pre-release:
+	@echo $(shell echo $(shell make git-tag) | cut -d '-' -f1)rc$(shell echo $(shell make git-tag) | cut -d '-' -f2)
+
 .PHONY: install ## installs dependencies in a virtualenv
 install: $(VENV) $(VENV_PYTHON)
 	@$(VENV_PYTHON) -m pip install -r requirements.txt
