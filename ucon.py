@@ -173,8 +173,8 @@ class Ratio:
         return self.numerator / self.denominator
 
     def __mul__(self, another_ratio):
-        new_numerator = self.numerator * another_ratio.numerator
-        new_denominator = self.denominator * another_ratio.denominator
+        new_numerator = self.numerator / another_ratio.denominator
+        new_denominator = self.denominator / another_ratio.numerator
         return Ratio(numerator=new_numerator, denominator=new_denominator)
 
     def __eq__(self, another_ratio):
