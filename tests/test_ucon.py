@@ -85,6 +85,12 @@ class TestNumber(TestCase):
 
     number = Number(unit=Units.gram, quantity=1)
 
+    def test_as_ratio(self):
+        ratio = self.number.as_ratio()
+        self.assertIsInstance(ratio, Ratio)
+        self.assertEqual(ratio.numerator, self.number)
+        self.assertEqual(ratio.denominator, Number())
+
     def test_simplify(self):
         ten_decagrams = Number(unit=Units.gram, scale=Scale.deca, quantity=10)
         point_one_decagrams = Number(unit=Units.gram, scale=Scale.deca, quantity=0.1)
