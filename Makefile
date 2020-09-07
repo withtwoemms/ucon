@@ -8,6 +8,10 @@ TESTDIR = tests
 .PHONY: all
 all: venv install clean-install
 
+.PHONY: build ## builds distributable python package
+build: $(VENV) $(VENV_PYTHON)
+	@$(VENV_PYTHON) setup.py sdist
+
 .PHONY: clean
 clean: clean-install clean-venv clean-pyc
 
@@ -40,6 +44,10 @@ commands:
 .PHONY: git-tag
 git-tag:
 	@echo $(shell git describe --tags)
+
+.PHONY: git-tag-pre-release
+git-tag-pre-release:
+	@echo $(shell echo $(shell make git-tag) | cut -d '-' -f1)rc$(shell echo $(shell make git-tag) | cut -d '-' -f2)
 
 .PHONY: install ## installs dependencies in a virtualenv
 install: $(VENV) $(VENV_PYTHON)
