@@ -25,6 +25,9 @@ class TestUnits(TestCase):
         self.assertEqual(Units.gram, Units.gram / Units.none)
         self.assertEqual(Units.gram, Units.none / Units.gram)
 
+        with self.assertRaises(ValueError):
+            Units.gram / Units.liter
+
     def test_all(self):
         for unit in Units:
             self.assertIsInstance(unit.value, Unit)
@@ -35,6 +38,10 @@ class TestExponent(TestCase):
 
     thousand = Exponent(10, 3)
     thousandth = Exponent(10, -3)
+
+    def test___init__(self):
+        with self.assertRaises(ValueError):
+            Exponent(5, 3)  # no support for base 5 logarithms
 
     def test_parts(self):
         self.assertEqual((10, 3), self.thousand.parts())
@@ -127,6 +134,10 @@ class TestNumber(TestCase):
         self.assertEqual(another_quotient.value, 100.0)
         self.assertEqual(that_quotient.value, 0.00009765625)
 
+    def test___eq__(self):
+        with self.assertRaises(ValueError):
+            self.number == 1
+
 
 class TestRatio(TestCase):
 
@@ -163,6 +174,10 @@ class TestRatio(TestCase):
         two_milliliters_bromine = Number(Units.liter, Scale.milli, 2)
         answer = two_milliliters_bromine.as_ratio() * self.bromine_density
         self.assertEqual(answer.evaluate().value, 0.006238) # Liters
+
+    def test___eq__(self):
+        with self.assertRaises(ValueError):
+            self.one_half == 1/2
 
     def test___repr__(self):
         self.assertEqual(str(self.one_ratio), '<1.0 >')
