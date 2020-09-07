@@ -119,7 +119,7 @@ class Scale(Enum):
 
 
 class Number:
-    def __init__(self, unit: Unit, scale: Scale = Scale.one, quantity = 1):
+    def __init__(self, unit: Unit = Units.none, scale: Scale = Scale.one, quantity = 1):
         self.unit = unit
         self.scale = scale
         self.quantity = quantity
@@ -132,6 +132,10 @@ class Number:
         new_quantity = self.quantity / new_scale.value.evaluated
         return Number(unit=self.unit, scale=new_scale, quantity=new_quantity)
 
+    def __mul__(self, another_number):
+        new_quantity = self.quantity * another_number.quantity
+        return Number(unit=self.unit, scale=self.scale, quantity=new_quantity)
+
     def __truediv__(self, another_number) -> Number:
         unit = self.unit / another_number.unit
         scale = self.scale / another_number.scale
@@ -139,6 +143,9 @@ class Number:
         return Number(unit, scale, quantity)
 
     def __eq__(self, another_number):
+        # TODO -- support comparison with Ratio via type coercion
+        if not isinstance(another_number, Number):
+            raise RuntimeError(f'"{another_number}" is not a Number. Only Numbers can be compared.')
         return (self.unit == another_number.unit) and \
                (self.quantity == another_number.quantity) and \
                (self.value == another_number.value)
@@ -147,7 +154,29 @@ class Number:
         return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.value.name}>'
 
 
-# TODO -- write tests
 class Ratio:
-    NotImplemented
+    def __init__(self, numerator: Number = Number(), denominator: Number = Number()):
+        self.numerator = numerator
+        self.denominator = denominator
+
+    def reciprocal(self) -> Ratio:
+        return Ratio(numerator=self.denominator, denominator=self.numerator)
+
+    def evaluate(self) -> Number:
+        return self.numerator / self.denominator
+
+    def __mul__(self, another_ratio):
+        new_numerator = self.numerator * another_ratio.numerator
+        new_denominator = self.denominator * another_ratio.denominator
+        return Ratio(numerator=new_numerator, denominator=new_denominator)
+
+    def __eq__(self, another_ratio):
+        # TODO -- support comparison with Number via type coercion
+        if not isinstance(another_ratio, Ratio):
+            raise RuntimeError(f'"{another_ratio}" is not a Ratio. Only Ratios can be compared.')
+        return self.evaluate() == another_ratio.evaluate()
+
+    def __repr__(self):
+        # TODO -- resolve int/float inconsistency
+        return f'{self.evaluate()}' if self.numerator == self.denominator else f'{self.numerator} / {self.denominator}'
 
