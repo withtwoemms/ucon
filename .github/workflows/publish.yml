@@ -38,6 +38,9 @@ jobs:
         with:
           python-version: 3.8
 
+      - name: Set VERSION
+        run: echo '::set-env name=VERSION::$(make git-tag)'
+
       - name: Make virtual environment
         run: make
 
