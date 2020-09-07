@@ -147,12 +147,14 @@ class Number:
         return Number(unit, scale, quantity)
 
     def __eq__(self, another_number):
-        # TODO -- support comparison with Ratio via type coercion
-        if not isinstance(another_number, Number):
-            raise ValueError(f'"{another_number}" is not a Number. Only Numbers can be compared.')
-        return (self.unit == another_number.unit) and \
-               (self.quantity == another_number.quantity) and \
-               (self.value == another_number.value)
+        if isinstance(another_number, Number):
+            return (self.unit == another_number.unit) and \
+                   (self.quantity == another_number.quantity) and \
+                   (self.value == another_number.value)
+        elif isinstance(another_number, Ratio):
+            return self == another_number.evaluate()
+        else:
+            raise ValueError(f'"{another_number}" is not a Number or Ratio. Comparison not possible.')
 
     def __repr__(self):
         return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.value.name}>'
@@ -176,10 +178,12 @@ class Ratio:
         return Ratio(numerator=new_numerator, denominator=new_denominator)
 
     def __eq__(self, another_ratio):
-        # TODO -- support comparison with Number via type coercion
-        if not isinstance(another_ratio, Ratio):
-            raise ValueError(f'"{another_ratio}" is not a Ratio. Only Ratios can be compared.')
-        return self.evaluate() == another_ratio.evaluate()
+        if isinstance(another_ratio, Ratio):
+            return self.evaluate() == another_ratio.evaluate()
+        elif isinstance(another_ratio, Number):
+            return self.evaluate() == another_ratio
+        else:
+            raise ValueError(f'"{another_ratio}" is not a Ratio or Number. Comparison not possible.')
 
     def __repr__(self):
         # TODO -- resolve int/float inconsistency
