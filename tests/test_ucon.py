@@ -3,7 +3,6 @@ from unittest import TestCase
 from ucon import Number
 from ucon import Exponent
 from ucon import Scale
-from ucon import ScaledUnit
 from ucon import Unit
 from ucon import Units
 
@@ -79,29 +78,6 @@ class TestScale(TestCase):
         for scale in Scale:
             self.assertTrue(isinstance(scale.value, Exponent))
         self.assertIsInstance(Scale.all(), dict)
-
-
-class TestScaledUnit(TestCase):
-
-    scaled_unit = ScaledUnit(unit=Units.gram, scale=Scale.one)
-
-    def test___repr__(self):
-        self.assertIn(str(self.scaled_unit.unit.name), str(self.scaled_unit))
-        self.assertIn(str(self.scaled_unit.scale.value.evaluated), str(self.scaled_unit))
-        self.assertIn(self.scaled_unit.unit.name, str(self.scaled_unit))
-
-    def test___truediv__(self):
-        gram = self.scaled_unit
-        milligram = ScaledUnit(unit=Units.gram, scale=Scale.milli)
-        volt = ScaledUnit(unit=Units.volt, scale=Scale.milli)
-        unitless = ScaledUnit()
-
-        self.assertEqual(1000, (gram/milligram).scale.value.evaluated)
-        self.assertEqual(Units.none, (gram/gram).unit)
-        self.assertEqual(Units.gram, (gram/unitless).unit)
-        self.assertEqual(Units.gram, (unitless/gram).unit)
-        with self.assertRaises(RuntimeError):
-            gram / volt
 
 
 class TestNumber(TestCase):

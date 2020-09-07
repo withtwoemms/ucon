@@ -118,24 +118,6 @@ class Scale(Enum):
         return self.value == another_scale.value
 
 
-class ScaledUnit:
-    def __init__(self, unit: Unit = Units.none, scale: Scale = Scale.one):
-        self.unit = unit
-        self.scale = scale
-
-    # NOTE: specifying a return class of the containing class made possible by __future__.annotations
-    def __truediv__(self, another_scaled_unit) -> ScaledUnit:
-        unit = self.unit / another_scaled_unit.unit
-        scale = self.scale / another_scaled_unit.scale
-        return ScaledUnit(unit, scale)
-
-    def __eq__(self, another_scaled_unit):
-        return (self.unit == another_scaled_unit.unit) and (self.scale == another_scaled_unit.scale)
-
-    def __repr__(self):
-        return f'<|{self.scale.value.evaluated} {self.unit.value.name}>'
-
-
 class Number:
     def __init__(self, unit: Unit, scale: Scale = Scale.one, quantity = 1):
         self.unit = unit
