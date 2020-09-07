@@ -38,14 +38,11 @@ jobs:
         with:
           python-version: 3.8
 
-      - name: Set VERSION
-        run: echo '::set-env name=VERSION::$(echo $(make git-tag))'
-
       - name: Make virtual environment
         run: make
 
       - name: Build distribution 📦
-        run: make build
+        run: VERSION=$(make git-tag) make build
 
       - name: Publish distribution 📦 to Test PyPI
         uses: pypa/gh-action-pypi-publish@master
