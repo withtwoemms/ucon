@@ -132,6 +132,9 @@ class Number:
         new_quantity = self.quantity / new_scale.value.evaluated
         return Number(unit=self.unit, scale=new_scale, quantity=new_quantity)
 
+    def as_ratio(self):
+        return Ratio(self)
+
     def __mul__(self, another_number):
         new_quantity = self.quantity * another_number.quantity
         return Number(unit=self.unit, scale=self.scale, quantity=new_quantity)
