@@ -167,14 +167,14 @@ class TestRatio(TestCase):
         self.assertEqual(self.two_ratio.reciprocal().denominator, self.two)
         self.assertEqual(self.two_ratio.reciprocal().evaluate(), self.point_five)
 
-    def test___mult__(self):
+    def test___mul__(self):
         self.assertEqual(self.three_halves * self.one_half, self.three_fourths)
         self.assertEqual(self.three_halves * self.one_half, self.three_fourths)
 
         # How many grams of bromine are in 2 milliliters?
         two_milliliters_bromine = Number(Units.liter, Scale.milli, 2)
         answer = two_milliliters_bromine.as_ratio() * self.bromine_density
-        self.assertEqual(answer.evaluate().value, 0.006238) # Liters
+        self.assertEqual(answer.evaluate().value, 6.238) # Grams
 
     def test___eq__(self):
         self.assertEqual(self.one_half, self.point_five)
