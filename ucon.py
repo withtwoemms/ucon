@@ -30,20 +30,20 @@ class Units(Enum):
         elif another_unit == Units.none:
             return self
         else:
-            # TODO -- support division of different units. Will likely need a concept like "RatioUnits"
-            raise RuntimeError(f'Unsupported unit division: {self.name} / {another_unit.name}')
+            raise ValueError(f'Unsupported unit division: {self.name} / {another_unit.name}. Consider using Ratio.')
 
     @staticmethod
     def all():
         return dict(list(map(lambda x: (x.value, x.value.aliases), Units)))
 
 
+# TODO -- consider using a dataclass
 class Exponent:
     bases ={2: log2, 10: log10}
 
     def __init__(self, base: int, power: int):
         if base not in self.bases.keys():
-            raise RuntimeError(f'Only the following bases are supported: {reduce(lambda a,b: f"{a}, {b}", self.bases.keys())}')
+            raise ValueError(f'Only the following bases are supported: {reduce(lambda a,b: f"{a}, {b}", self.bases.keys())}')
         self.base = base
         self.power = power
         self.evaluated = base ** power
@@ -118,6 +118,7 @@ class Scale(Enum):
         return self.value == another_scale.value
 
 
+# TODO -- consider using a dataclass
 class Number:
     def __init__(self, unit: Unit = Units.none, scale: Scale = Scale.one, quantity = 1):
         self.unit = unit
@@ -148,7 +149,7 @@ class Number:
     def __eq__(self, another_number):
         # TODO -- support comparison with Ratio via type coercion
         if not isinstance(another_number, Number):
-            raise RuntimeError(f'"{another_number}" is not a Number. Only Numbers can be compared.')
+            raise ValueError(f'"{another_number}" is not a Number. Only Numbers can be compared.')
         return (self.unit == another_number.unit) and \
                (self.quantity == another_number.quantity) and \
                (self.value == another_number.value)
@@ -157,6 +158,7 @@ class Number:
         return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.value.name}>'
 
 
+# TODO -- consider using a dataclass
 class Ratio:
     def __init__(self, numerator: Number = Number(), denominator: Number = Number()):
         self.numerator = numerator
@@ -176,7 +178,7 @@ class Ratio:
     def __eq__(self, another_ratio):
         # TODO -- support comparison with Number via type coercion
         if not isinstance(another_ratio, Ratio):
-            raise RuntimeError(f'"{another_ratio}" is not a Ratio. Only Ratios can be compared.')
+            raise ValueError(f'"{another_ratio}" is not a Ratio. Only Ratios can be compared.')
         return self.evaluate() == another_ratio.evaluate()
 
     def __repr__(self):
