@@ -42,7 +42,7 @@ jobs:
         run: make
 
       - name: Build distribution 📦
-        run: VERSION=$(make git-tag) make build
+        run: VERSION=$(make git-tag-pre-release) make build
 
       - name: Publish distribution 📦 to Test PyPI
         uses: pypa/gh-action-pypi-publish@master
