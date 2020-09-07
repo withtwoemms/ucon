@@ -135,6 +135,7 @@ class TestNumber(TestCase):
         self.assertEqual(that_quotient.value, 0.00009765625)
 
     def test___eq__(self):
+        self.assertEqual(self.number, Ratio(self.number))  # 1 gram / 1
         with self.assertRaises(ValueError):
             self.number == 1
 
@@ -176,6 +177,7 @@ class TestRatio(TestCase):
         self.assertEqual(answer.evaluate().value, 0.006238) # Liters
 
     def test___eq__(self):
+        self.assertEqual(self.one_half, self.point_five)
         with self.assertRaises(ValueError):
             self.one_half == 1/2
 
