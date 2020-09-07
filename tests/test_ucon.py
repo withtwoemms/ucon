@@ -136,6 +136,8 @@ class TestRatio(TestCase):
     three_halves = Ratio(numerator=three, denominator=two)
     two_ratio = Ratio(numerator=two, denominator=one)
 
+    bromine_density = Ratio(Number(Units.gram, quantity=3.119), Number(Units.liter, Scale.milli))
+
     def test_evaluate(self):
         self.assertEqual(self.one_ratio.numerator, self.one)
         self.assertEqual(self.one_ratio.denominator, self.one)
@@ -148,8 +150,13 @@ class TestRatio(TestCase):
         self.assertEqual(self.two_ratio.reciprocal().evaluate(), self.point_five)
 
     def test___mult__(self):
-        # TODO -- add cases involving numbers with unit and scale
         self.assertEqual(self.three_halves * self.one_half, self.three_fourths)
+        self.assertEqual(self.three_halves * self.one_half, self.three_fourths)
+
+        # How many grams of bromine are in 2 milliliters?
+        two_milliliters_bromine = Number(Units.liter, Scale.milli, 2)
+        answer = two_milliliters_bromine.as_ratio() * self.bromine_density
+        self.assertEqual(answer.evaluate().value, 0.006238) # Liters
 
     def test___repr__(self):
         self.assertEqual(str(self.one_ratio), '<1.0 >')
