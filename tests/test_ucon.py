@@ -106,26 +106,21 @@ class TestScaledUnit(TestCase):
 
 class TestNumber(TestCase):
 
-    gram = ScaledUnit(unit=Units.gram, scale=Scale.one)
-    milligram = ScaledUnit(unit=Units.gram, scale=Scale.milli)
-    decagram = ScaledUnit(unit=Units.gram, scale=Scale.deca)
-    kibigram = ScaledUnit(unit=Units.gram, scale=Scale.kibi)
-
-    number = Number(unit=gram, quantity=1)
+    number = Number(unit=Units.gram, quantity=1)
 
     def test_simplify(self):
-        ten_decagrams = Number(unit=self.decagram, quantity=10)
-        point_one_decagrams = Number(unit=self.decagram, quantity=0.1)
-        two_kibigrams = Number(unit=self.kibigram, quantity=2)
+        ten_decagrams = Number(unit=Units.gram, scale=Scale.deca, quantity=10)
+        point_one_decagrams = Number(unit=Units.gram, scale=Scale.deca, quantity=0.1)
+        two_kibigrams = Number(unit=Units.gram, scale=Scale.kibi, quantity=2)
 
-        self.assertEqual(Number(unit=self.gram, quantity=100), ten_decagrams.simplify())
-        self.assertEqual(Number(unit=self.gram, quantity=1), point_one_decagrams.simplify())
-        self.assertEqual(Number(unit=self.gram, quantity=2048), two_kibigrams.simplify())
+        self.assertEqual(Number(unit=Units.gram, quantity=100), ten_decagrams.simplify())
+        self.assertEqual(Number(unit=Units.gram, quantity=1), point_one_decagrams.simplify())
+        self.assertEqual(Number(unit=Units.gram, quantity=2048), two_kibigrams.simplify())
 
     def test_to(self):
-        thousandth_of_a_kilogram = Number(ScaledUnit(unit=Units.gram, scale=Scale.kilo), 0.001)
-        thousand_milligrams = Number(ScaledUnit(unit=Units.gram, scale=Scale.milli), 1000)
-        kibigram_fraction = Number(self.kibigram, 0.0009765625)
+        thousandth_of_a_kilogram = Number(unit=Units.gram, scale=Scale.kilo, quantity=0.001)
+        thousand_milligrams = Number(unit=Units.gram, scale=Scale.milli, quantity=1000)
+        kibigram_fraction = Number(unit=Units.gram, scale=Scale.kibi, quantity=0.0009765625)
 
         self.assertEqual(thousandth_of_a_kilogram, self.number.to(Scale.kilo))
         self.assertEqual(thousand_milligrams, self.number.to(Scale.milli))
@@ -133,13 +128,13 @@ class TestNumber(TestCase):
 
     def test___repr__(self):
         self.assertIn(str(self.number.quantity), str(self.number))
-        self.assertIn(str(self.number.unit.scale.value.evaluated), str(self.number))
-        self.assertIn(self.number.unit.unit.name, str(self.number))
+        self.assertIn(str(self.number.scale.value.evaluated), str(self.number))
+        self.assertIn(self.number.unit.name, str(self.number))
 
     def test___truediv__(self):
-        some_number = Number(unit=self.decagram, quantity=10)
-        another_number = Number(unit=self.milligram, quantity=10)
-        that_number = Number(unit=self.kibigram, quantity=10)
+        some_number = Number(unit=Units.gram, scale=Scale.deca, quantity=10)
+        another_number = Number(unit=Units.gram, scale=Scale.milli, quantity=10)
+        that_number = Number(unit=Units.gram, scale=Scale.kibi, quantity=10)
 
         some_quotient = self.number / some_number
         another_quotient = self.number / another_number
