@@ -6,6 +6,8 @@ from setuptools import setup, find_packages
 setup(
     name='ucon',
     description='a tool for dimensional analysis: a "Unit CONverter"',
+    long_description=Path(__file__).absolute().parent.joinpath('README.md').read_text(),
+    long_description_content_type='text/markdown',
     version_format=envvars.get('VERSION', '{tag}.dev{commitcount}+{gitsha}'),
     license='MIT',
     setup_requires=[
