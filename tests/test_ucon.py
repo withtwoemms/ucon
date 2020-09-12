@@ -168,8 +168,9 @@ class TestRatio(TestCase):
         self.assertEqual(self.two_ratio.reciprocal().evaluate(), self.point_five)
 
     def test___mul__(self):
+        # Does commutivity hold?
         self.assertEqual(self.three_halves * self.one_half, self.three_fourths)
-        self.assertEqual(self.three_halves * self.one_half, self.three_fourths)
+        self.assertEqual(self.one_half * self.three_halves, self.three_fourths)
 
         # How many grams of bromine are in 2 milliliters?
         two_milliliters_bromine = Number(Units.liter, Scale.milli, 2)
