@@ -17,10 +17,13 @@ class Unit:
 
 class Units(Enum):
     none = Unit('')
-    volt = Unit('volt', 'v', 'V')
-    liter = Unit('liter', 'l', 'L')
-    gram = Unit('gram', 'g', 'G')
-    second = Unit('second', 's', 'secs')
+    volt = Unit('volt', 'v', 'V')  # NOTE: a "volt" is a derived unit; treat accordingly in future
+    liter = Unit('liter', 'l', 'L')         # volume
+    gram = Unit('gram', 'g', 'G')           # mass
+    second = Unit('second', 's', 'secs')    # time
+    kelvin = Unit('kelvin', 'K')            # temperature
+    mole = Unit('mole', 'mol')              # amount
+    coulomb = Unit('coulomb', 'C')          # charge
 
     def __truediv__(self, another_unit) -> Unit:
         if self.name == another_unit.name:
