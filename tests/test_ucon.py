@@ -20,6 +20,10 @@ class TestUnit(TestCase):
 
 class TestUnits(TestCase):
 
+    def test_has_expected_basic_units(self):
+        expected_basic_units = {'none', 'volt', 'liter', 'gram', 'second', 'kelvin', 'mole', 'coulomb'}
+        self.assertEqual(set(item.name for item in Units), expected_basic_units)
+
     def test___truediv__(self):
         self.assertEqual(Units.none, Units.gram / Units.gram)
         self.assertEqual(Units.gram, Units.gram / Units.none)
