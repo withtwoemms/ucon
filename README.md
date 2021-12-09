@@ -29,6 +29,14 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
       1       |  1 mL bromine
 ```
 
+# Setup
+
+Ensure `nox` is installed.
+```
+pip install nox
+```
+Run `nox -s ucon` to install `ucon` and run tests.
+
 # Usage
 
 The above calculation can be achieved using types defined in the `ucon` module.
