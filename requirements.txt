@@ -1,2 +1,3 @@
 bpython==0.19
+coverage==5.5
 ipdb==0.13.3

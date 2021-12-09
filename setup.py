@@ -1,6 +1,6 @@
 from os import environ as envvars
 from pathlib import Path
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 setup(
@@ -8,12 +8,12 @@ setup(
     description='a tool for dimensional analysis: a "Unit CONverter"',
     long_description=Path(__file__).absolute().parent.joinpath('README.md').read_text(),
     long_description_content_type='text/markdown',
-    version_format=envvars.get('VERSION', '{tag}.dev{commitcount}+{gitsha}'),
+    use_scm_version={'local_scheme': 'no-local-version'} if envvars.get('LOCAL_VERSION_SCHEME') else True,
     license='MIT',
     setup_requires=[
-        'setuptools-git-version==1.0.3'
+        'setuptools_scm==6.3.2'
     ],
-    packages=find_packages(exclude=['tests']),
+    py_modules=['ucon'],
     maintainer='Emmanuel I. Obi',
     maintainer_email='withtwoemms@gmail.com',
     url='https://github.com/withtwoemms/ucon',
@@ -26,5 +26,7 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ]
 )
