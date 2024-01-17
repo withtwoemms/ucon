@@ -4,40 +4,8 @@ from enum import Enum
 from functools import reduce
 from math import log2
 from math import log10
-
-
-class Unit:
-    def __init__(self, name, *aliases):
-        self.name = name
-        self.aliases = aliases
-
-    def __repr__(self):
-        return f'<{self.name}>'
-
-
-class Units(Enum):
-    none = Unit('')
-    volt = Unit('volt', 'v', 'V')  # NOTE: a "volt" is a derived unit; treat accordingly in future
-    liter = Unit('liter', 'l', 'L')         # volume
-    gram = Unit('gram', 'g', 'G')           # mass
-    second = Unit('second', 's', 'secs')    # time
-    kelvin = Unit('kelvin', 'K')            # temperature
-    mole = Unit('mole', 'mol')              # amount
-    coulomb = Unit('coulomb', 'C')          # charge
-
-    def __truediv__(self, another_unit) -> Unit:
-        if self.name == another_unit.name:
-            return Units.none
-        elif self == Units.none:
-            return another_unit
-        elif another_unit == Units.none:
-            return self
-        else:
-            raise ValueError(f'Unsupported unit division: {self.name} / {another_unit.name}. Consider using Ratio.')
-
-    @staticmethod
-    def all():
-        return dict(list(map(lambda x: (x.value, x.value.aliases), Units)))
+from ucon.unit import Units as _Units
+from ucon.unit import Unit as _Unit
 
 
 # TODO -- consider using a dataclass
@@ -123,7 +91,7 @@ class Scale(Enum):
 
 # TODO -- consider using a dataclass
 class Number:
-    def __init__(self, unit: Unit = Units.none, scale: Scale = Scale.one, quantity = 1):
+    def __init__(self, unit: _Unit = _Units.none.value, scale: Scale = Scale.one, quantity = 1):
         self.unit = unit
         self.scale = scale
         self.quantity = quantity
@@ -140,10 +108,13 @@ class Number:
         return Ratio(self)
 
     def __mul__(self, another_number):
-        new_quantity = self.quantity * another_number.quantity
-        return Number(unit=self.unit, scale=self.scale, quantity=new_quantity)
+        return Number(
+            unit=self.unit * another_number.unit,
+            scale=self.scale,
+            quantity=self.quantity * another_number.quantity,
+        )
 
-    def __truediv__(self, another_number) -> Number:
+    def __truediv__(self, another_number: Number) -> Number:
         unit = self.unit / another_number.unit
         scale = self.scale / another_number.scale
         quantity = self.quantity / another_number.quantity
@@ -160,7 +131,7 @@ class Number:
             raise ValueError(f'"{another_number}" is not a Number or Ratio. Comparison not possible.')
 
     def __repr__(self):
-        return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.value.name}>'
+        return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.name}>'
 
 
 # TODO -- consider using a dataclass
@@ -176,9 +147,23 @@ class Ratio:
         return self.numerator / self.denominator
 
     def __mul__(self, another_ratio):
-        new_numerator = self.numerator / another_ratio.denominator
-        new_denominator = self.denominator / another_ratio.numerator
-        return Ratio(numerator=new_numerator, denominator=new_denominator)
+        if self.numerator.unit == another_ratio.denominator.unit:
+            factor = self.numerator / another_ratio.denominator
+            numerator, denominator = factor * another_ratio.numerator, self.denominator
+        elif self.denominator.unit == another_ratio.numerator.unit:
+            factor = another_ratio.numerator / self.denominator
+            numerator, denominator = factor * self.numerator, another_ratio.denominator
+        else:
+            factor = Number()
+            another_number = another_ratio.evaluate()
+            numerator, denominator = self.numerator * another_number, self.denominator
+        return Ratio(numerator=numerator, denominator=denominator)
+
+    def __truediv__(self, another_ratio):
+        return Ratio(
+            numerator=self.numerator * another_ratio.denominator,
+            denominator=self.denominator * another_ratio.numerator,
+        )
 
     def __eq__(self, another_ratio):
         if isinstance(another_ratio, Ratio):
@@ -191,4 +176,3 @@ class Ratio:
     def __repr__(self):
         # TODO -- resolve int/float inconsistency
         return f'{self.evaluate()}' if self.numerator == self.denominator else f'{self.numerator} / {self.denominator}'
-
