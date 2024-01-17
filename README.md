@@ -34,9 +34,9 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 
 Ensure `nox` is installed.
 ```
-pip install nox
+pip install -r requirements.txt
 ```
-Run `nox -s ucon` to install `ucon` and run tests.
+Run `nox -s install` to install `ucon` and `nox -s test` to run tests.
 
 # Usage
 

@@ -1,11 +1,11 @@
 from unittest import TestCase
 
-from ucon import Number
 from ucon import Exponent
 from ucon import Ratio
 from ucon import Scale
-from ucon import Unit
 from ucon import Units
+from ucon.core import Unit
+from ucon.core import Number
 
 
 class TestUnit(TestCase):

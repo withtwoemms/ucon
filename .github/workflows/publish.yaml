@@ -17,8 +17,11 @@ jobs:
         with:
           python-version: 3.9
 
-      - name: Provision virtual environment and run tests
-        run: pip install nox && nox -s ucon
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: nox -s test
 
 
   publish:
@@ -36,10 +39,10 @@ jobs:
           python-version: 3.9
 
       - name: Install dependencies
-        run: pip install nox
+        run: pip install -r requirements.txt
 
       - name: Build distribution 📦
-        run: PYTHONWARNINGS=ignore LOCAL_VERSION_SCHEME=true nox -s build-ucon
+        run: PYTHONWARNINGS=ignore LOCAL_VERSION_SCHEME=true nox -s build
 
       - name: Publish distribution 📦 to Test PyPI
         uses: pypa/gh-action-pypi-publish@master
