@@ -18,10 +18,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install nox
-        run: pip install nox
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: Provision virtual environment and run tests
+      - name: Run tests
         run: nox -s test
 
       - name: Upload coverage
