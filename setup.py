@@ -1,6 +1,6 @@
 from os import environ as envvars
 from pathlib import Path
-from setuptools import setup
+from setuptools import find_packages, setup
 
 
 setup(
@@ -13,7 +13,8 @@ setup(
     setup_requires=[
         'setuptools_scm==6.3.2'
     ],
-    py_modules=['ucon'],
+    packages=find_packages(exclude=['tests']),
+    author='Emmanuel I. Obi',
     maintainer='Emmanuel I. Obi',
     maintainer_email='withtwoemms@gmail.com',
     url='https://github.com/withtwoemms/ucon',
