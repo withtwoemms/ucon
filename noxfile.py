@@ -112,7 +112,3 @@ def test(session):
 @nox.session(name=f'build')
 def build(session):
     session.run('python', 'setup.py', 'sdist')
-
-
-# TODO (withtwoemms) -- leverage gitpython to show version on-demand
-
