@@ -62,6 +62,9 @@ class Vector:
     def __eq__(self, vector) -> bool:
         return tuple(self) == tuple(vector)
 
+    def __hash__(self) -> int:
+        return hash(tuple(self))
+
 
 class UnitType(Enum):
     none = Vector()
@@ -118,6 +121,9 @@ class UnitType(Enum):
     def __eq__(self, unit_type) -> bool:
         return self.value == unit_type.value
 
+    def __hash__(self) -> int:
+        return hash(self.value)
+
 
 class Unit:
     def __init__(self, *aliases: str, name: str = '', type: UnitType = UnitType.none):
@@ -163,6 +169,9 @@ class Unit:
     def __eq__(self, unit) -> bool:
         return (self.name == unit.name) and (self.type == unit.type)
 
+    def __hash__(self) -> int:
+        return hash(tuple([self.name, self.type,]))
+
 
 # International System of Units (SI)
 class Units(Enum):
@@ -180,6 +189,13 @@ class Units(Enum):
     ohm = Unit('Ω', name='ohm', type=UnitType.resistance)
     joule = Unit('J', name='joule', type=UnitType.energy)
     watt = Unit('W', name='watt', type=UnitType.power)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+    def __iter__(self):
+        for unit in self:
+            yield unit
 
     def __truediv__(self, unit: 'Units') -> 'Unit':
         return self.value / unit.value
