@@ -174,7 +174,7 @@ class Unit:
 
 
 # International System of Units (SI)
-class Units(Enum):
+class SIUnit(Enum):
     none = Unit()
     gram = Unit('g', 'G', name='gram', type=UnitType.mass)
     meter = Unit('m', 'M', name='meter', type=UnitType.length)
@@ -197,10 +197,10 @@ class Units(Enum):
         for unit in self:
             yield unit
 
-    def __truediv__(self, unit: 'Units') -> 'Unit':
+    def __truediv__(self, unit: 'SIUnit') -> 'Unit':
         return self.value / unit.value
 
-    def __mul__(self, unit: 'Units') -> 'Unit':
+    def __mul__(self, unit: 'SIUnit') -> 'Unit':
         return self.value * unit.value
 
     def __eq__(self, unit) -> bool:
@@ -208,4 +208,4 @@ class Units(Enum):
 
     @staticmethod
     def all():
-        return dict(list(map(lambda x: (x.value, x.value.aliases), Units)))
+        return dict(list(map(lambda x: (x.value, x.value.aliases), SIUnit)))

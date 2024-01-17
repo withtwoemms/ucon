@@ -6,7 +6,7 @@ from math import log2
 from math import log10
 
 from ucon.unit import Unit
-from ucon.unit import Units
+from ucon.unit import SIUnit
 
 
 # TODO -- consider using a dataclass
@@ -92,7 +92,7 @@ class Scale(Enum):
 
 # TODO -- consider using a dataclass
 class Number:
-    def __init__(self, unit: Unit = Units.none.value, scale: Scale = Scale.one, quantity = 1):
+    def __init__(self, unit: Unit = SIUnit.none.value, scale: Scale = Scale.one, quantity = 1):
         self.unit = unit
         self.scale = scale
         self.quantity = quantity
