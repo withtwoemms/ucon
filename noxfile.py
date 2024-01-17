@@ -11,6 +11,9 @@ PROJECT_NAME = 'ucon'
 VENV = f'{PROJECT_NAME}-venv'
 USEVENV = envvar.get('USEVENV', False)
 
+if USEVENV:
+    assert USEVENV in ('none', 'virtualenv', 'conda', 'mamba', 'venv')
+
 OFFICIAL = bool(strtobool(envvar.get('OFFICIAL', 'False')))
 COVERAGE = bool(strtobool(envvar.get('COVERAGE', 'True')))
 TESTDIR = f'tests/'
