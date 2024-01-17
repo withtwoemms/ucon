@@ -13,7 +13,7 @@ USEVENV = envvar.get('USEVENV', False)
 
 OFFICIAL = bool(strtobool(envvar.get('OFFICIAL', 'False')))
 COVERAGE = bool(strtobool(envvar.get('COVERAGE', 'True')))
-TESTDIR = f'tests.{PROJECT_NAME}'
+TESTDIR = f'tests/'
 TESTNAME = envvar.get('TESTNAME', '')
 
 
@@ -90,6 +90,8 @@ def test(session):
             'coverage', 'run', '--source', '.', '--branch',
             '--omit', '**tests/*,**/site-packages/*.py,noxfile.py,setup.py',
             '-m', 'unittest', TESTNAME if TESTNAME else f'discover',
+            '--start-directory', TESTDIR,
+            '--top-level-directory', '.',
             external=external
         )
         session.run('coverage', 'report', '-m', external=external)
@@ -98,6 +100,8 @@ def test(session):
         session.run(
             'python', '-m',
             'unittest', TESTNAME if TESTNAME else f'discover',
+            '--start-directory', TESTDIR,
+            '--top-level-directory', '.',
             external=external
         )
 
