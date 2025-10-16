@@ -1,5 +1,3 @@
-from __future__ import annotations  # NOTE: prevents the use of < python3.7
-
 from enum import Enum
 from functools import reduce
 from math import log2
@@ -11,7 +9,7 @@ from ucon.unit import SIUnit
 
 # TODO -- consider using a dataclass
 class Exponent:
-    bases ={2: log2, 10: log10}
+    bases = {2: log2, 10: log10}
 
     def __init__(self, base: int, power: int):
         if base not in self.bases.keys():
@@ -74,7 +72,7 @@ class Scale(Enum):
 
         if Scale.one in [self, another_scale]:
             power = Exponent.bases[2](exp_quotient)
-            return Scale[Scale.all()[Exponent(2, power).parts()]]
+            return Scale[Scale.all()[Exponent(2, int(power)).parts()]]
         else:
             scale_exp_values = [Scale[Scale.all()[pair]].value.evaluated for pair in Scale.all().keys()]
             closest_val = min(scale_exp_values, key=lambda val: abs(val - exp_quotient))
@@ -115,7 +113,7 @@ class Number:
             quantity=self.quantity * another_number.quantity,
         )
 
-    def __truediv__(self, another_number: Number) -> Number:
+    def __truediv__(self, another_number: 'Number') -> 'Number':
         unit = self.unit / another_number.unit
         scale = self.scale / another_number.scale
         quantity = self.quantity / another_number.quantity
@@ -141,7 +139,7 @@ class Ratio:
         self.numerator = numerator
         self.denominator = denominator
 
-    def reciprocal(self) -> Ratio:
+    def reciprocal(self) -> 'Ratio':
         return Ratio(numerator=self.denominator, denominator=self.numerator)
 
     def evaluate(self) -> Number:
