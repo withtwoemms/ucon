@@ -189,6 +189,7 @@ class SIUnit(Enum):
     ohm = Unit('Ω', name='ohm', type=UnitType.resistance)
     joule = Unit('J', name='joule', type=UnitType.energy)
     watt = Unit('W', name='watt', type=UnitType.power)
+    newton = Unit('N', name='newton', type=UnitType.force)
 
     def __hash__(self) -> int:
         return hash(self.value)
