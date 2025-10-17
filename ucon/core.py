@@ -3,8 +3,8 @@ from functools import reduce
 from math import log2
 from math import log10
 
+from ucon import units
 from ucon.unit import Unit
-from ucon.unit import SIUnit
 
 
 # TODO -- consider using a dataclass
@@ -90,7 +90,7 @@ class Scale(Enum):
 
 # TODO -- consider using a dataclass
 class Number:
-    def __init__(self, unit: Unit = SIUnit.none.value, scale: Scale = Scale.one, quantity = 1):
+    def __init__(self, unit: Unit = units.none, scale: Scale = Scale.one, quantity = 1):
         self.unit = unit
         self.scale = scale
         self.quantity = quantity
@@ -106,7 +106,7 @@ class Number:
     def as_ratio(self):
         return Ratio(self)
 
-    def __mul__(self, another_number):
+    def __mul__(self, another_number: 'Number') -> 'Number':
         return Number(
             unit=self.unit * another_number.unit,
             scale=self.scale,
@@ -145,7 +145,7 @@ class Ratio:
     def evaluate(self) -> Number:
         return self.numerator / self.denominator
 
-    def __mul__(self, another_ratio):
+    def __mul__(self, another_ratio: 'Ratio') -> 'Ratio':
         if self.numerator.unit == another_ratio.denominator.unit:
             factor = self.numerator / another_ratio.denominator
             numerator, denominator = factor * another_ratio.numerator, self.denominator
@@ -158,13 +158,13 @@ class Ratio:
             numerator, denominator = self.numerator * another_number, self.denominator
         return Ratio(numerator=numerator, denominator=denominator)
 
-    def __truediv__(self, another_ratio):
+    def __truediv__(self, another_ratio: 'Ratio') -> 'Ratio':
         return Ratio(
             numerator=self.numerator * another_ratio.denominator,
             denominator=self.denominator * another_ratio.numerator,
         )
 
-    def __eq__(self, another_ratio):
+    def __eq__(self, another_ratio: 'Ratio') -> bool:
         if isinstance(another_ratio, Ratio):
             return self.evaluate() == another_ratio.evaluate()
         elif isinstance(another_ratio, Number):

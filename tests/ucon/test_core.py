@@ -4,8 +4,8 @@ from ucon import Number
 from ucon import Exponent
 from ucon import Ratio
 from ucon import Scale
-from ucon import SIUnit
 from ucon import Dimension
+from ucon import units
 from ucon.unit import Unit
 
 
@@ -24,13 +24,14 @@ class TestUnits(TestCase):
 
     def test_has_expected_basic_units(self):
         expected_basic_units = {'none', 'volt', 'liter', 'gram', 'second', 'kelvin', 'mole', 'coulomb'}
-        self.assertTrue(expected_basic_units.issubset(set(unit.name for unit in SIUnit)))
+        missing = {name for name in expected_basic_units if not units.have(name)}
+        assert not missing, f"Missing expected units: {missing}"
 
     def test___truediv__(self):
-        self.assertEqual(SIUnit.none.value, SIUnit.gram.value / SIUnit.gram.value)
-        self.assertEqual(SIUnit.gram.value, SIUnit.gram.value / SIUnit.none.value)
+        self.assertEqual(units.none, units.gram / units.gram)
+        self.assertEqual(units.gram, units.gram / units.none)
 
-        self.assertEqual(Unit(name='(g/L)', dimension=Dimension.density), SIUnit.gram / SIUnit.liter)
+        self.assertEqual(Unit(name='(g/L)', dimension=Dimension.density), units.gram / units.liter)
 
 
 class TestExponent(TestCase):
@@ -89,7 +90,7 @@ class TestScale(TestCase):
 
 class TestNumber(TestCase):
 
-    number = Number(unit=SIUnit.gram.value, quantity=1)
+    number = Number(unit=units.gram, quantity=1)
 
     def test_as_ratio(self):
         ratio = self.number.as_ratio()
@@ -98,18 +99,18 @@ class TestNumber(TestCase):
         self.assertEqual(ratio.denominator, Number())
 
     def test_simplify(self):
-        ten_decagrams = Number(unit=SIUnit.gram, scale=Scale.deca, quantity=10)
-        point_one_decagrams = Number(unit=SIUnit.gram, scale=Scale.deca, quantity=0.1)
-        two_kibigrams = Number(unit=SIUnit.gram, scale=Scale.kibi, quantity=2)
+        ten_decagrams = Number(unit=units.gram, scale=Scale.deca, quantity=10)
+        point_one_decagrams = Number(unit=units.gram, scale=Scale.deca, quantity=0.1)
+        two_kibigrams = Number(unit=units.gram, scale=Scale.kibi, quantity=2)
 
-        self.assertEqual(Number(unit=SIUnit.gram, quantity=100), ten_decagrams.simplify())
-        self.assertEqual(Number(unit=SIUnit.gram, quantity=1), point_one_decagrams.simplify())
-        self.assertEqual(Number(unit=SIUnit.gram, quantity=2048), two_kibigrams.simplify())
+        self.assertEqual(Number(unit=units.gram, quantity=100), ten_decagrams.simplify())
+        self.assertEqual(Number(unit=units.gram, quantity=1), point_one_decagrams.simplify())
+        self.assertEqual(Number(unit=units.gram, quantity=2048), two_kibigrams.simplify())
 
     def test_to(self):
-        thousandth_of_a_kilogram = Number(unit=SIUnit.gram.value, scale=Scale.kilo, quantity=0.001)
-        thousand_milligrams = Number(unit=SIUnit.gram.value, scale=Scale.milli, quantity=1000)
-        kibigram_fraction = Number(unit=SIUnit.gram.value, scale=Scale.kibi, quantity=0.0009765625)
+        thousandth_of_a_kilogram = Number(unit=units.gram, scale=Scale.kilo, quantity=0.001)
+        thousand_milligrams = Number(unit=units.gram, scale=Scale.milli, quantity=1000)
+        kibigram_fraction = Number(unit=units.gram, scale=Scale.kibi, quantity=0.0009765625)
 
         self.assertEqual(thousandth_of_a_kilogram, self.number.to(Scale.kilo))
         self.assertEqual(thousand_milligrams, self.number.to(Scale.milli))
@@ -121,9 +122,9 @@ class TestNumber(TestCase):
         self.assertIn(self.number.unit.name, str(self.number))
 
     def test___truediv__(self):
-        some_number = Number(unit=SIUnit.gram.value, scale=Scale.deca, quantity=10)
-        another_number = Number(unit=SIUnit.gram.value, scale=Scale.milli, quantity=10)
-        that_number = Number(unit=SIUnit.gram.value, scale=Scale.kibi, quantity=10)
+        some_number = Number(unit=units.gram, scale=Scale.deca, quantity=10)
+        another_number = Number(unit=units.gram, scale=Scale.milli, quantity=10)
+        that_number = Number(unit=units.gram, scale=Scale.kibi, quantity=10)
 
         some_quotient = self.number / some_number
         another_quotient = self.number / another_number
@@ -170,10 +171,10 @@ class TestRatio(TestCase):
         self.assertEqual(self.one_half * self.three_halves, self.three_fourths)
 
     def test___mul__(self):
-        bromine_density = Ratio(Number(SIUnit.gram.value, quantity=3.119), Number(SIUnit.liter.value, Scale.milli))
+        bromine_density = Ratio(Number(units.gram, quantity=3.119), Number(units.liter, Scale.milli))
     
         # How many grams of bromine are in 2 milliliters?
-        two_milliliters_bromine = Number(SIUnit.liter.value, Scale.milli, 2)
+        two_milliliters_bromine = Number(units.liter, Scale.milli, 2)
         ratio = two_milliliters_bromine.as_ratio() * bromine_density
         answer = ratio.evaluate()
         self.assertEqual(answer.unit.dimension, Dimension.mass)
@@ -181,12 +182,12 @@ class TestRatio(TestCase):
 
     def test___truediv__(self):
         seconds_per_hour = Ratio(
-            numerator=Number(unit=SIUnit.second.value, quantity=3600),
-            denominator=Number(unit=SIUnit.hour.value, quantity=1)
+            numerator=Number(unit=units.second, quantity=3600),
+            denominator=Number(unit=units.hour, quantity=1)
         )
 
         # How many Wh from 20 kJ?
-        twenty_kilojoules = Number(unit=SIUnit.joule.value, scale=Scale.kilo, quantity=20)
+        twenty_kilojoules = Number(unit=units.joule, scale=Scale.kilo, quantity=20)
         ratio = twenty_kilojoules.as_ratio() / seconds_per_hour
         answer = ratio.evaluate()
         self.assertEqual(answer.unit.dimension, Dimension.energy)

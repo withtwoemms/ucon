@@ -1,5 +1,3 @@
-from enum import Enum
-
 from ucon.dimension import Dimension
 
 
@@ -44,47 +42,8 @@ class Unit:
     def __mul__(self, unit: 'Unit') -> 'Unit':
         return Unit(name=self.generate_name(unit, '*'), dimension=self.dimension * unit.dimension)
 
-    def __eq__(self, unit) -> bool:
+    def __eq__(self, unit: 'Unit') -> bool:
         return (self.name == unit.name) and (self.dimension == unit.dimension)
 
     def __hash__(self) -> int:
         return hash(tuple([self.name, self.dimension,]))
-
-
-# International System of Units (SI)
-class SIUnit(Enum):
-    none = Unit()
-    gram = Unit('g', 'G', name='gram', dimension=Dimension.mass)
-    meter = Unit('m', 'M', name='meter', dimension=Dimension.length)
-    second = Unit('s', 'sec', name='second', dimension=Dimension.time)
-    hour = Unit('h', 'H', name='hour', dimension=Dimension.time)
-    liter = Unit('L', 'l', name='liter', dimension=Dimension.volume)
-    volt = Unit('V', name='volt', dimension=Dimension.voltage)
-    kelvin = Unit('K', name='kelvin', dimension=Dimension.temperature)
-    mole = Unit('mol', 'n', name='mole', dimension=Dimension.amount_of_substance)
-    coulomb = Unit('C', name='coulomb', dimension=Dimension.charge)
-    ampere = Unit('I', 'amp', name='ampere', dimension=Dimension.current)
-    ohm = Unit('Ω', name='ohm', dimension=Dimension.resistance)
-    joule = Unit('J', name='joule', dimension=Dimension.energy)
-    watt = Unit('W', name='watt', dimension=Dimension.power)
-    newton = Unit('N', name='newton', dimension=Dimension.force)
-
-    def __hash__(self) -> int:
-        return hash(self.value)
-
-    def __iter__(self):
-        for unit in self:
-            yield unit
-
-    def __truediv__(self, unit: 'SIUnit') -> 'Unit':
-        return self.value / unit.value
-
-    def __mul__(self, unit: 'SIUnit') -> 'Unit':
-        return self.value * unit.value
-
-    def __eq__(self, unit) -> bool:
-        return self.value == unit.value 
-
-    @staticmethod
-    def all():
-        return dict(list(map(lambda x: (x.value, x.value.aliases), SIUnit)))
