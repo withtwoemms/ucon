@@ -1,5 +1,5 @@
 from ucon.core import Exponent, Number, Scale, Ratio
-from ucon.unit import SIUnit, UnitType
+from ucon.unit import SIUnit, Dimension
 
 
 __all__ = [
@@ -8,5 +8,5 @@ __all__ = [
     'Scale',
     'Ratio',
     'SIUnit',
-    'UnitType',
+    'Dimension',
 ]

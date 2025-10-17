@@ -5,7 +5,7 @@ from ucon import Exponent
 from ucon import Ratio
 from ucon import Scale
 from ucon import SIUnit
-from ucon import UnitType
+from ucon import Dimension
 from ucon.unit import Unit
 
 
@@ -14,7 +14,7 @@ class TestUnit(TestCase):
     unit_name = 'second'
     unit_type = 'time'
     unit_aliases = ('seconds', 'secs', 's', 'S')
-    unit = Unit(*unit_aliases, name=unit_name, type=UnitType.time)
+    unit = Unit(*unit_aliases, name=unit_name, dimension=Dimension.time)
 
     def test___repr__(self):
         self.assertEqual(f'<{self.unit_type} | {self.unit_name}>', str(self.unit))
@@ -30,7 +30,7 @@ class TestUnits(TestCase):
         self.assertEqual(SIUnit.none.value, SIUnit.gram.value / SIUnit.gram.value)
         self.assertEqual(SIUnit.gram.value, SIUnit.gram.value / SIUnit.none.value)
 
-        self.assertEqual(Unit(name='(g/L)', type=UnitType.density), SIUnit.gram / SIUnit.liter)
+        self.assertEqual(Unit(name='(g/L)', dimension=Dimension.density), SIUnit.gram / SIUnit.liter)
 
 
 class TestExponent(TestCase):
@@ -176,7 +176,7 @@ class TestRatio(TestCase):
         two_milliliters_bromine = Number(SIUnit.liter.value, Scale.milli, 2)
         ratio = two_milliliters_bromine.as_ratio() * bromine_density
         answer = ratio.evaluate()
-        self.assertEqual(answer.unit.type, UnitType.mass)
+        self.assertEqual(answer.unit.dimension, Dimension.mass)
         self.assertEqual(answer.value, 6.238) # Grams
 
     def test___truediv__(self):
@@ -189,7 +189,7 @@ class TestRatio(TestCase):
         twenty_kilojoules = Number(unit=SIUnit.joule.value, scale=Scale.kilo, quantity=20)
         ratio = twenty_kilojoules.as_ratio() / seconds_per_hour
         answer = ratio.evaluate()
-        self.assertEqual(answer.unit.type, UnitType.energy)
+        self.assertEqual(answer.unit.dimension, Dimension.energy)
         self.assertEqual(round(answer.value, 5), 5.55556)  # Watt * hours
 
     def test___eq__(self):

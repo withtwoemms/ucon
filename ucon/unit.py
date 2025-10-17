@@ -66,7 +66,7 @@ class Vector:
         return hash(tuple(self))
 
 
-class UnitType(Enum):
+class Dimension(Enum):
     none = Vector()
 
     # -- BASIS ---------------------------------------
@@ -112,11 +112,11 @@ class UnitType(Enum):
     voltage = Vector(-3, 2, 1, -1, 0, 0, 0)
     volume = Vector(0, 3, 0, 0, 0, 0, 0)
 
-    def __truediv__(self, unit_type: 'UnitType') -> 'UnitType':
-        return UnitType(self.value - unit_type.value)
+    def __truediv__(self, unit_type: 'Dimension') -> 'Dimension':
+        return Dimension(self.value - unit_type.value)
 
-    def __mul__(self, unit_type: 'UnitType') -> 'UnitType':
-        return UnitType(self.value + unit_type.value)
+    def __mul__(self, unit_type: 'Dimension') -> 'Dimension':
+        return Dimension(self.value + unit_type.value)
 
     def __eq__(self, unit_type) -> bool:
         return self.value == unit_type.value
@@ -126,21 +126,21 @@ class UnitType(Enum):
 
 
 class Unit:
-    def __init__(self, *aliases: str, name: str = '', type: UnitType = UnitType.none):
-        self.type = type
+    def __init__(self, *aliases: str, name: str = '', dimension: Dimension = Dimension.none):
+        self.dimension = dimension
         self.name = name
         self.aliases = aliases
         self.shorthand = aliases[0] if aliases else self.name
 
     def __repr__(self):
         addendum = f' | {self.name}' if self.name else ''
-        return f'<{self.type.name}{addendum}>'
+        return f'<{self.dimension.name}{addendum}>'
 
     # TODO -- limit `operator` param choices
     def generate_name(self, unit: 'Unit', operator: str):
-        if (self.type is UnitType.none) and not (unit.type is UnitType.none):
+        if (self.dimension is Dimension.none) and not (unit.dimension is Dimension.none):
             return unit.name
-        if not (self.type is UnitType.none) and (unit.type is UnitType.none):
+        if not (self.dimension is Dimension.none) and (unit.dimension is Dimension.none):
             return self.name
 
         if not self.shorthand and not unit.shorthand:
@@ -155,41 +155,41 @@ class Unit:
 
     def __truediv__(self, unit: 'Unit') -> 'Unit':
         # TODO -- define __eq__ for simplification, here
-        if (self.name == unit.name) and (self.type == unit.type):
+        if (self.name == unit.name) and (self.dimension == unit.dimension):
             return Unit()
 
-        if (unit.type is UnitType.none):
+        if (unit.dimension is Dimension.none):
             return self
         
-        return Unit(name=self.generate_name(unit, '/'), type=self.type / unit.type)
+        return Unit(name=self.generate_name(unit, '/'), dimension=self.dimension / unit.dimension)
 
     def __mul__(self, unit: 'Unit') -> 'Unit':
-        return Unit(name=self.generate_name(unit, '*'), type=self.type * unit.type)
+        return Unit(name=self.generate_name(unit, '*'), dimension=self.dimension * unit.dimension)
 
     def __eq__(self, unit) -> bool:
-        return (self.name == unit.name) and (self.type == unit.type)
+        return (self.name == unit.name) and (self.dimension == unit.dimension)
 
     def __hash__(self) -> int:
-        return hash(tuple([self.name, self.type,]))
+        return hash(tuple([self.name, self.dimension,]))
 
 
 # International System of Units (SI)
 class SIUnit(Enum):
     none = Unit()
-    gram = Unit('g', 'G', name='gram', type=UnitType.mass)
-    meter = Unit('m', 'M', name='meter', type=UnitType.length)
-    second = Unit('s', 'sec', name='second', type=UnitType.time)
-    hour = Unit('h', 'H', name='hour', type=UnitType.time)
-    liter = Unit('L', 'l', name='liter', type=UnitType.volume)
-    volt = Unit('V', name='volt', type=UnitType.voltage)
-    kelvin = Unit('K', name='kelvin', type=UnitType.temperature)
-    mole = Unit('mol', 'n', name='mole', type=UnitType.amount_of_substance)
-    coulomb = Unit('C', name='coulomb', type=UnitType.charge)
-    ampere = Unit('I', 'amp', name='ampere', type=UnitType.current)
-    ohm = Unit('Ω', name='ohm', type=UnitType.resistance)
-    joule = Unit('J', name='joule', type=UnitType.energy)
-    watt = Unit('W', name='watt', type=UnitType.power)
-    newton = Unit('N', name='newton', type=UnitType.force)
+    gram = Unit('g', 'G', name='gram', dimension=Dimension.mass)
+    meter = Unit('m', 'M', name='meter', dimension=Dimension.length)
+    second = Unit('s', 'sec', name='second', dimension=Dimension.time)
+    hour = Unit('h', 'H', name='hour', dimension=Dimension.time)
+    liter = Unit('L', 'l', name='liter', dimension=Dimension.volume)
+    volt = Unit('V', name='volt', dimension=Dimension.voltage)
+    kelvin = Unit('K', name='kelvin', dimension=Dimension.temperature)
+    mole = Unit('mol', 'n', name='mole', dimension=Dimension.amount_of_substance)
+    coulomb = Unit('C', name='coulomb', dimension=Dimension.charge)
+    ampere = Unit('I', 'amp', name='ampere', dimension=Dimension.current)
+    ohm = Unit('Ω', name='ohm', dimension=Dimension.resistance)
+    joule = Unit('J', name='joule', dimension=Dimension.energy)
+    watt = Unit('W', name='watt', dimension=Dimension.power)
+    newton = Unit('N', name='newton', dimension=Dimension.force)
 
     def __hash__(self) -> int:
         return hash(self.value)
