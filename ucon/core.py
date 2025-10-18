@@ -31,6 +31,8 @@ class Exponent:
         return self.evaluated > another_exponent.evaluated
 
     def __eq__(self, another_exponent):
+        if not isinstance(another_exponent, Exponent):
+            raise TypeError(f'Cannot compare Exponent to non-Exponent type: {type(another_exponent)}')
         return self.evaluated == another_exponent.evaluated
 
     def __repr__(self):

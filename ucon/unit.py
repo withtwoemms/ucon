@@ -43,6 +43,8 @@ class Unit:
         return Unit(name=self.generate_name(unit, '*'), dimension=self.dimension * unit.dimension)
 
     def __eq__(self, unit: 'Unit') -> bool:
+        if not isinstance(unit, Unit):
+            raise TypeError(f'Cannot compare Unit to non-Unit type: {type(unit)}')
         return (self.name == unit.name) and (self.dimension == unit.dimension)
 
     def __hash__(self) -> int:

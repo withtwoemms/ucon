@@ -59,11 +59,14 @@ class Vector:
         values = tuple(diff(pair) for pair in zip(tuple(self), tuple(vector)))
         return Vector(*values)
 
-    def __eq__(self, vector) -> bool:
+    def __eq__(self, vector: 'Vector') -> bool:
+        assert isinstance(vector, Vector), "Can only compare Vector to another Vector"
         return tuple(self) == tuple(vector)
 
     def __hash__(self) -> int:
-        return hash(tuple(self))
+        # Hash based on the string because tuples have been shown to collide
+        # Not the most performant, but effective
+        return hash(str(tuple(self)))
 
 
 class Dimension(Enum):
@@ -113,12 +116,18 @@ class Dimension(Enum):
     volume = Vector(0, 3, 0, 0, 0, 0, 0)
 
     def __truediv__(self, dimension: 'Dimension') -> 'Dimension':
+        if not isinstance(dimension, Dimension):
+            raise TypeError(f"Cannot divide Dimension by non-Dimension type: {type(dimension)}")
         return Dimension(self.value - dimension.value)
 
     def __mul__(self, dimension: 'Dimension') -> 'Dimension':
+        if not isinstance(dimension, Dimension):
+            raise TypeError(f"Cannot multiply Dimension by non-Dimension type: {type(dimension)}")
         return Dimension(self.value + dimension.value)
 
     def __eq__(self, dimension) -> bool:
+        if not isinstance(dimension, Dimension):
+            raise TypeError(f"Cannot compare Dimension with non-Dimension type: {type(dimension)}")
         return self.value == dimension.value
 
     def __hash__(self) -> int:
