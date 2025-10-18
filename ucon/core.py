@@ -1,48 +1,38 @@
-from __future__ import annotations  # NOTE: prevents the use of < python3.7
+"""
+ucon.core
+==========
 
+Implements the **quantitative core** of the *ucon* system — the machinery that
+manages numeric quantities, scaling prefixes, and dimensional relationships.
+
+Classes
+-------
+- :class:`Exponent` — Represents an exponential base/power pair (e.g., 10³).
+- :class:`Scale` — Enumerates SI and binary magnitude prefixes (kilo, milli, etc.).
+- :class:`Number` — Couples a numeric value with a unit and scale.
+- :class:`Ratio` — Represents a ratio between two :class:`Number` objects.
+
+Together, these classes allow full arithmetic, conversion, and introspection
+of physical quantities with explicit dimensional semantics.
+"""
 from enum import Enum
 from functools import reduce
 from math import log2
 from math import log10
 
-
-class Unit:
-    def __init__(self, name, *aliases):
-        self.name = name
-        self.aliases = aliases
-
-    def __repr__(self):
-        return f'<{self.name}>'
-
-
-class Units(Enum):
-    none = Unit('')
-    volt = Unit('volt', 'v', 'V')  # NOTE: a "volt" is a derived unit; treat accordingly in future
-    liter = Unit('liter', 'l', 'L')         # volume
-    gram = Unit('gram', 'g', 'G')           # mass
-    second = Unit('second', 's', 'secs')    # time
-    kelvin = Unit('kelvin', 'K')            # temperature
-    mole = Unit('mole', 'mol')              # amount
-    coulomb = Unit('coulomb', 'C')          # charge
-
-    def __truediv__(self, another_unit) -> Unit:
-        if self.name == another_unit.name:
-            return Units.none
-        elif self == Units.none:
-            return another_unit
-        elif another_unit == Units.none:
-            return self
-        else:
-            raise ValueError(f'Unsupported unit division: {self.name} / {another_unit.name}. Consider using Ratio.')
-
-    @staticmethod
-    def all():
-        return dict(list(map(lambda x: (x.value, x.value.aliases), Units)))
+from ucon import units
+from ucon.unit import Unit
 
 
 # TODO -- consider using a dataclass
 class Exponent:
-    bases ={2: log2, 10: log10}
+    """
+    Represents a **base–exponent pair** (e.g., 10³ or 2¹⁰).
+
+    Provides comparison and division semantics used internally to represent
+    magnitude prefixes (e.g., kilo, mega, micro).
+    """
+    bases = {2: log2, 10: log10}
 
     def __init__(self, base: int, power: int):
         if base not in self.bases.keys():
@@ -64,6 +54,8 @@ class Exponent:
         return self.evaluated > another_exponent.evaluated
 
     def __eq__(self, another_exponent):
+        if not isinstance(another_exponent, Exponent):
+            raise TypeError(f'Cannot compare Exponent to non-Exponent type: {type(another_exponent)}')
         return self.evaluated == another_exponent.evaluated
 
     def __repr__(self):
@@ -71,6 +63,15 @@ class Exponent:
 
 
 class Scale(Enum):
+    """
+    Enumerates common **magnitude prefixes** for units and quantities.
+
+    Examples include:
+    - Binary prefixes (kibi, mebi)
+    - Decimal prefixes (milli, kilo, mega)
+
+    Each entry stores its numeric scaling factor (e.g., `kilo = 10³`).
+    """
     mebi  = Exponent(2, 20)
     kibi  = Exponent(2, 10)
     mega  = Exponent(10, 6)
@@ -105,7 +106,7 @@ class Scale(Enum):
 
         if Scale.one in [self, another_scale]:
             power = Exponent.bases[2](exp_quotient)
-            return Scale[Scale.all()[Exponent(2, power).parts()]]
+            return Scale[Scale.all()[Exponent(2, int(power)).parts()]]
         else:
             scale_exp_values = [Scale[Scale.all()[pair]].value.evaluated for pair in Scale.all().keys()]
             closest_val = min(scale_exp_values, key=lambda val: abs(val - exp_quotient))
@@ -123,7 +124,20 @@ class Scale(Enum):
 
 # TODO -- consider using a dataclass
 class Number:
-    def __init__(self, unit: Unit = Units.none, scale: Scale = Scale.one, quantity = 1):
+    """
+    Represents a **numeric quantity** with an associated :class:`Unit` and :class:`Scale`.
+
+    Combines magnitude, unit, and scale into a single, composable object that
+    supports dimensional arithmetic and conversion:
+
+        >>> from ucon import core, units
+        >>> length = core.Number(unit=units.meter, quantity=5)
+        >>> time = core.Number(unit=units.second, quantity=2)
+        >>> speed = length / time
+        >>> speed
+        <2.5 (m/s)>
+    """
+    def __init__(self, unit: Unit = units.none, scale: Scale = Scale.one, quantity = 1):
         self.unit = unit
         self.scale = scale
         self.quantity = quantity
@@ -139,11 +153,14 @@ class Number:
     def as_ratio(self):
         return Ratio(self)
 
-    def __mul__(self, another_number):
-        new_quantity = self.quantity * another_number.quantity
-        return Number(unit=self.unit, scale=self.scale, quantity=new_quantity)
+    def __mul__(self, another_number: 'Number') -> 'Number':
+        return Number(
+            unit=self.unit * another_number.unit,
+            scale=self.scale,
+            quantity=self.quantity * another_number.quantity,
+        )
 
-    def __truediv__(self, another_number) -> Number:
+    def __truediv__(self, another_number: 'Number') -> 'Number':
         unit = self.unit / another_number.unit
         scale = self.scale / another_number.scale
         quantity = self.quantity / another_number.quantity
@@ -160,27 +177,51 @@ class Number:
             raise ValueError(f'"{another_number}" is not a Number or Ratio. Comparison not possible.')
 
     def __repr__(self):
-        return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.value.name}>'
+        return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.name}>'
 
 
 # TODO -- consider using a dataclass
 class Ratio:
+    """
+    Represents a **ratio of two Numbers**, preserving their unit semantics.
+
+    Useful for expressing physical relationships like efficiency, density,
+    or dimensionless comparisons:
+
+        >>> ratio = Ratio(length, time)
+        >>> ratio.evaluate()
+        <2.5 (m/s)>
+    """
     def __init__(self, numerator: Number = Number(), denominator: Number = Number()):
         self.numerator = numerator
         self.denominator = denominator
 
-    def reciprocal(self) -> Ratio:
+    def reciprocal(self) -> 'Ratio':
         return Ratio(numerator=self.denominator, denominator=self.numerator)
 
     def evaluate(self) -> Number:
         return self.numerator / self.denominator
 
-    def __mul__(self, another_ratio):
-        new_numerator = self.numerator / another_ratio.denominator
-        new_denominator = self.denominator / another_ratio.numerator
-        return Ratio(numerator=new_numerator, denominator=new_denominator)
+    def __mul__(self, another_ratio: 'Ratio') -> 'Ratio':
+        if self.numerator.unit == another_ratio.denominator.unit:
+            factor = self.numerator / another_ratio.denominator
+            numerator, denominator = factor * another_ratio.numerator, self.denominator
+        elif self.denominator.unit == another_ratio.numerator.unit:
+            factor = another_ratio.numerator / self.denominator
+            numerator, denominator = factor * self.numerator, another_ratio.denominator
+        else:
+            factor = Number()
+            another_number = another_ratio.evaluate()
+            numerator, denominator = self.numerator * another_number, self.denominator
+        return Ratio(numerator=numerator, denominator=denominator)
 
-    def __eq__(self, another_ratio):
+    def __truediv__(self, another_ratio: 'Ratio') -> 'Ratio':
+        return Ratio(
+            numerator=self.numerator * another_ratio.denominator,
+            denominator=self.denominator * another_ratio.numerator,
+        )
+
+    def __eq__(self, another_ratio: 'Ratio') -> bool:
         if isinstance(another_ratio, Ratio):
             return self.evaluate() == another_ratio.evaluate()
         elif isinstance(another_ratio, Number):
@@ -191,4 +232,3 @@ class Ratio:
     def __repr__(self):
         # TODO -- resolve int/float inconsistency
         return f'{self.evaluate()}' if self.numerator == self.denominator else f'{self.numerator} / {self.denominator}'
-
