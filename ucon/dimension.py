@@ -1,3 +1,25 @@
+"""
+ucon.dimension
+===============
+
+Defines the algebra of **physical dimensions**--the foundation of all unit
+relationships and dimensional analysis in *ucon*.
+
+Each :class:`Dimension` represents a physical quantity (time, mass, length, etc.)
+expressed as a 7-element exponent vector following the SI base system:
+
+    (T, L, M, I, Θ, J, N) :: (s * m * kg * A * K * cd * mol)
+     time, length, mass, current, temperature, luminous intensity, substance
+
+Derived dimensions are expressed as algebraic sums or differences of these base
+vectors (e.g., `velocity = length / time`, `force = mass * acceleration`).
+
+Classes
+-------
+- :class:`Vector` — Represents the exponent vector of a physical quantity.
+- :class:`Dimension` — Enum of known physical quantities, each with a `Vector`
+  value and operator overloads for dimensional algebra.
+"""
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial, reduce
@@ -10,10 +32,15 @@ diff: Callable[[Iterable], int] = partial(reduce, subtraction)
 @dataclass
 class Vector:
     """
-    A collection of exponent values corresponding to the designated quantity
+    Represents the **exponent vector** of a physical quantity.
 
-    (s * m * kg * A * K * cd * mol)
-    (T * L *  M * I * Θ *  J *   N)
+    Each component corresponds to the power of a base dimension in the SI system:
+    time (T), length (L), mass (M), current (I), temperature (Θ),
+    luminous intensity (J), and amount of substance (N).
+
+    Arithmetic operations correspond to dimensional composition:
+    - Addition (`+`) → multiplication of quantities
+    - Subtraction (`-`) → division of quantities
 
     e.g.
     Vector(T=1, L=0, M=0, I=0, Θ=0, J=0, N=0)   => "time"
@@ -70,6 +97,17 @@ class Vector:
 
 
 class Dimension(Enum):
+    """
+    Represents a **physical dimension** defined by a :class:`Vector`.
+
+    Each dimension corresponds to a distinct combination of base exponents.
+    Dimensions are algebraically composable via multiplication and division:
+
+        >>> Dimension.length / Dimension.time
+        <Dimension.velocity: Vector(T=-1, L=1, M=0, I=0, Θ=0, J=0, N=0)>
+
+    This algebra forms the foundation for unit compatibility and conversion.
+    """
     none = Vector()
 
     # -- BASIS ---------------------------------------

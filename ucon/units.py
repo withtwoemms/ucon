@@ -1,3 +1,29 @@
+"""
+ucon.units
+===========
+
+Defines and registers the canonical **unit set** for the *ucon* library.
+
+This module exports the standard SI base and derived units, along with a few
+common non-SI units. Each unit is a pre-constructed :class:`ucon.unit.Unit`
+object associated with a :class:`ucon.dimension.Dimension`.
+
+Example
+-------
+>>> from ucon import units
+>>> units.meter.dimension
+<Dimension.length>
+>>> units.newton.dimension
+<Dimension.force>
+
+Includes convenience utilities such as :func:`have(name)` for unit membership
+checks.
+
+Notes
+-----
+The design allows for future extensibility: users can register their own units,
+systems, or aliases dynamically, without modifying the core definitions.
+"""
 from ucon.dimension import Dimension
 from ucon.unit import Unit
 

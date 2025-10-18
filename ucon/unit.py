@@ -1,7 +1,48 @@
+"""
+ucon.unit
+==========
+
+Defines the **Unit** abstraction — the symbolic and algebraic representation of
+a measurable quantity associated with a :class:`ucon.dimension.Dimension`.
+
+A :class:`Unit` pairs a human-readable name and aliases with its underlying
+dimension.
+
+Units are composable:
+
+    >>> from ucon import units
+    >>> units.meter / units.second
+    <velocity | (m/s)>
+
+They can be multiplied or divided to form compound units, and their dimensional
+relationships are preserved algebraically.
+"""
 from ucon.dimension import Dimension
 
 
 class Unit:
+    """
+    Represents a **unit of measure** associated with a :class:`Dimension`.
+
+    Parameters
+    ----------
+    *aliases : str
+        Optional shorthand symbols (e.g., "m", "sec").
+    name : str
+        Canonical name of the unit (e.g., "meter").
+    dimension : Dimension
+        The physical dimension this unit represents.
+
+    Notes
+    -----
+    Units participate in algebraic operations that produce new compound units:
+
+        >>> density = units.gram / units.liter
+        >>> density.dimension
+        <Dimension.density: Vector(T=0, L=-3, M=1, I=0, Θ=0, J=0, N=0)>
+
+    The combination rules follow the same algebra as :class:`Dimension`.
+    """
     def __init__(self, *aliases: str, name: str = '', dimension: Dimension = Dimension.none):
         self.dimension = dimension
         self.name = name

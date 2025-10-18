@@ -1,3 +1,20 @@
+"""
+ucon.core
+==========
+
+Implements the **quantitative core** of the *ucon* system — the machinery that
+manages numeric quantities, scaling prefixes, and dimensional relationships.
+
+Classes
+-------
+- :class:`Exponent` — Represents an exponential base/power pair (e.g., 10³).
+- :class:`Scale` — Enumerates SI and binary magnitude prefixes (kilo, milli, etc.).
+- :class:`Number` — Couples a numeric value with a unit and scale.
+- :class:`Ratio` — Represents a ratio between two :class:`Number` objects.
+
+Together, these classes allow full arithmetic, conversion, and introspection
+of physical quantities with explicit dimensional semantics.
+"""
 from enum import Enum
 from functools import reduce
 from math import log2
@@ -9,6 +26,12 @@ from ucon.unit import Unit
 
 # TODO -- consider using a dataclass
 class Exponent:
+    """
+    Represents a **base–exponent pair** (e.g., 10³ or 2¹⁰).
+
+    Provides comparison and division semantics used internally to represent
+    magnitude prefixes (e.g., kilo, mega, micro).
+    """
     bases = {2: log2, 10: log10}
 
     def __init__(self, base: int, power: int):
@@ -40,6 +63,15 @@ class Exponent:
 
 
 class Scale(Enum):
+    """
+    Enumerates common **magnitude prefixes** for units and quantities.
+
+    Examples include:
+    - Binary prefixes (kibi, mebi)
+    - Decimal prefixes (milli, kilo, mega)
+
+    Each entry stores its numeric scaling factor (e.g., `kilo = 10³`).
+    """
     mebi  = Exponent(2, 20)
     kibi  = Exponent(2, 10)
     mega  = Exponent(10, 6)
@@ -92,6 +124,19 @@ class Scale(Enum):
 
 # TODO -- consider using a dataclass
 class Number:
+    """
+    Represents a **numeric quantity** with an associated :class:`Unit` and :class:`Scale`.
+
+    Combines magnitude, unit, and scale into a single, composable object that
+    supports dimensional arithmetic and conversion:
+
+        >>> from ucon import core, units
+        >>> length = core.Number(unit=units.meter, quantity=5)
+        >>> time = core.Number(unit=units.second, quantity=2)
+        >>> speed = length / time
+        >>> speed
+        <2.5 (m/s)>
+    """
     def __init__(self, unit: Unit = units.none, scale: Scale = Scale.one, quantity = 1):
         self.unit = unit
         self.scale = scale
@@ -137,6 +182,16 @@ class Number:
 
 # TODO -- consider using a dataclass
 class Ratio:
+    """
+    Represents a **ratio of two Numbers**, preserving their unit semantics.
+
+    Useful for expressing physical relationships like efficiency, density,
+    or dimensionless comparisons:
+
+        >>> ratio = Ratio(length, time)
+        >>> ratio.evaluate()
+        <2.5 (m/s)>
+    """
     def __init__(self, numerator: Number = Number(), denominator: Number = Number()):
         self.numerator = numerator
         self.denominator = denominator
