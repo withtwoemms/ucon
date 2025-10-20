@@ -1,42 +1,35 @@
 name: publish
 
 on:
-  push:
-    branches: [main]
-    tags: ['*']
+  workflow_run:
+    workflows: ["tests"]
+    types:
+      - completed
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.9
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run tests
-        run: nox -s test
-
-
   publish:
-    needs: check
+    name: Publish distributions
     runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0 # NOTE: fetches all history for all branches and tags
+    # Only run if tests succeeded and the triggering workflow was for main or a tag
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      (
+        github.event.workflow_run.head_branch == 'main' ||
+        startsWith(github.event.workflow_run.head_branch, 'refs/tags/')
+      )
 
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v2
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
         with:
-          python-version: 3.9
+          ref: ${{ github.event.workflow_run.head_commit.id }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -44,19 +37,32 @@ jobs:
       - name: Build distribution 📦
         run: PYTHONWARNINGS=ignore LOCAL_VERSION_SCHEME=true nox -s build
 
+      # --- PUBLISH TO TEST PYPI (mainline merges) ---
       - name: Publish distribution 📦 to Test PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        if: ${{ github.event.workflow_run.head_branch == 'main' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.test_pypi_password }}
           skip_existing: true
           repository_url: https://test.pypi.org/legacy/
 
+      - name: Verify tag is on mainline
+        if: startsWith(github.event.workflow_run.head_branch, 'refs/tags/')
+        run: |
+          git fetch origin main --depth=1
+          TAG=${GITHUB_REF#refs/tags/}
+          TAG_COMMIT=$(git rev-list -n 1 "$TAG")
+          if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+            echo "::error::Tag $TAG is not based on main; skipping publish."
+            exit 1
+          fi
+
+      # --- PUBLISH TO PROD PYPI (tagged releases) ---
       - name: Publish distribution 📦 to PyPI
-        if: startsWith(github.ref, 'refs/tags')
-        uses: pypa/gh-action-pypi-publish@master
+        if: startsWith(github.event.workflow_run.head_branch, 'refs/tags/')
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.pypi_password }}
           skip_existing: true
-
