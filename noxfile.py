@@ -35,7 +35,6 @@ OFFICIAL = bool(strtobool(env.get("OFFICIAL", "False")))
 COVERAGE = bool(strtobool(env.get("COVERAGE", "True")))
 
 supported_python_versions = [
-    "3.6",
     "3.7",
     "3.8",
     "3.9",
