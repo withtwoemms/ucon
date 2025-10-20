@@ -2,7 +2,7 @@ name: tests
 
 on:
   push:
-    branches: ['**']     # any branch push
+    branches: [main]     # any branch push
     tags: ['*']          # any tag push
   pull_request:
     branches: ['**']     # run for all PRs and pushes to open PRs
@@ -11,13 +11,6 @@ jobs:
   check:
     name: Test matrix
     runs-on: ubuntu-22.04
-
-    # Run for:
-    #   * all PRs (includes pushes to open PRs)
-    #   * all pushes that aren't part of a PR (feature branches, main, tags)
-    if: >
-      (github.event_name == 'pull_request') ||
-      (github.event_name == 'push' && github.event.pull_request == null)
 
     strategy:
       fail-fast: false
@@ -43,7 +36,7 @@ jobs:
         run: nox -s test
 
       - name: Upload coverage to Codecov
-        if: success() && github.repository_owner == secrets.REPO_OWNER
+        if: success() && github.repository_owner == 'withtwoemms'
         run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
 
       - name: Archive coverage report
