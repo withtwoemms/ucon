@@ -1,114 +1,129 @@
 import nox
 import re
-
-from distutils.util import strtobool
 from subprocess import check_output
+from os import environ as env
 from typing import List
-from os import environ as envvar
 
 
-PROJECT_NAME = 'ucon'
-VENV = f'{PROJECT_NAME}-venv'
-USEVENV = envvar.get('USEVENV', False)
-
-if USEVENV:
-    assert USEVENV in ('none', 'virtualenv', 'conda', 'mamba', 'venv')
-
-OFFICIAL = bool(strtobool(envvar.get('OFFICIAL', 'False')))
-COVERAGE = bool(strtobool(envvar.get('COVERAGE', 'True')))
-TESTDIR = f'tests/'
-TESTNAME = envvar.get('TESTNAME', '')
+@nox.session(name="build")
+def build(session):
+    """Build a source and wheel distribution."""
+    session.install("build")
+    session.run("python", "-m", "build")
 
 
-external = False if USEVENV else True
-supported_python_versions = [
-    '3.6',
-    '3.7',
-    '3.8',
-    '3.9',
-    '3.10',
-]
-
-nox.options.default_venv_backend = 'none' if not USEVENV else USEVENV
-
-def session_name(suffix: str):
-    return f'{VENV}-{suffix}' if USEVENV else suffix
-
-
-def semver(version: str):
-    unofficial_semver = r'^([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+)?(.+)$'
-    official_semver = r'^([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+)?$'
-    _semver = re.search(official_semver, version) or re.search(unofficial_semver, version)
-    if _semver:
-        return [val for val in _semver.groups() if val]
-
-
-def is_official(semver: List[str]):
+def strtobool(value: str) -> bool:
     """
-    TODO (withtwoemms) -- create SemVer type to replace List[str]
+    Converts a string representation of truth to bool.
+    True values are 'y', 'yes', 't', 'true', 'on', and '1';
+    false values are 'n', 'no', 'f', 'false', 'off', and '0'.
+    Raises ValueError if val isn't in one of the aforementioned true or false values.
     """
-    if len(semver) > 3:
+    value = value.lower()
+    if value in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    elif value in ("n", "no", "f", "false", "off", "0"):
         return False
     else:
-        return True
+        raise ValueError(f"Invalid truth value: '{value}'")
 
 
-def latest_version(official: bool = False):
-    output = check_output('git for-each-ref --sort=creatordate --format %(refname) refs/tags'.split())
-    all_versions = (
-        version.lstrip('refs/tags/')
-        for version in reversed(output.decode().strip('\n').split('\n'))
+PROJECT_NAME = "ucon"
+TESTDIR = "tests/"
+TESTNAME = env.get("TESTNAME", "")
+OFFICIAL = bool(strtobool(env.get("OFFICIAL", "False")))
+COVERAGE = bool(strtobool(env.get("COVERAGE", "True")))
+
+supported_python_versions = [
+    "3.6",
+    "3.7",
+    "3.8",
+    "3.9",
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+]
+
+nox.options.sessions = ["test"]
+nox.options.reuse_existing_virtualenvs = True
+nox.options.stop_on_first_error = False
+
+
+# ------------------------------
+# Helpers
+# ------------------------------
+
+def semver(version: str):
+    pattern = (
+        r"^([0-9]+)\.([0-9]+)\.([0-9]+)"
+        r"(?:-([0-9A-Za-z.-]+))?"
+        r"(?:\+[0-9A-Za-z.-]+)?$"
     )
+    match = re.search(pattern, version)
+    return [val for val in match.groups() if val] if match else None
 
+
+def is_official(parts: List[str]) -> bool:
+    return len(parts or []) == 3
+
+
+def latest_version(official: bool = False) -> str:
+    """Get the latest tagged version from git."""
+    output = check_output(
+        ["git", "for-each-ref", "--sort=creatordate", "--format", "%(refname)", "refs/tags"]
+    )
+    tags = [
+        v.lstrip("refs/tags/")
+        for v in reversed(output.decode().strip().splitlines())
+        if v.strip()
+    ]
     if not official:
-        return next(all_versions)
+        return tags[0] if tags else "0.0.0"
+    for v in tags:
+        if is_official(semver(v)):
+            return v
+    return "0.0.0"
 
-    for version in all_versions:
-        if official and is_official(semver(version)):
-            return version
 
+# ------------------------------
+# Sessions
+# ------------------------------
 
-@nox.session(name=session_name('version'), python=supported_python_versions)
+@nox.session(name="version", python=supported_python_versions)
 def version(session):
-    print(latest_version(official=OFFICIAL))
+    """Print latest git tag (official or all)."""
+    session.log(f"Latest version: {latest_version(official=OFFICIAL)}")
 
 
-@nox.session(name=session_name('install'), python=supported_python_versions)
+@nox.session(name="install", python=supported_python_versions)
 def install(session):
-    session.run(
-        'python', '-m',
-        'pip', '--disable-pip-version-check', 'install', '.',
-        external=external
-    )
+    """Install the current package."""
+    session.install(".")
+    session.log("Installed project into virtualenv.")
 
 
-@nox.session(name=session_name('test'), python=supported_python_versions)
+@nox.session(name="test", python=supported_python_versions)
 def test(session):
-    if USEVENV:
-        install(session)
+    """Run the test suite (with coverage if enabled)."""
+    session.install(".")
+    session.install("coverage")
+
+    args = [
+        "-m", "unittest",
+        TESTNAME or "discover",
+        "--start-directory", TESTDIR,
+        "--top-level-directory", ".",
+    ]
 
     if COVERAGE:
         session.run(
-            'python', '-m',
-            'coverage', 'run', '--source', '.', '--branch',
-            '--omit', '**tests/*,**/site-packages/*.py,noxfile.py,setup.py',
-            '-m', 'unittest', TESTNAME if TESTNAME else f'discover',
-            '--start-directory', TESTDIR,
-            '--top-level-directory', '.',
-            external=external
+            "coverage", "run", "--source=.", "--branch",
+            "--omit=**/tests/*,**/site-packages/*.py,noxfile.py,setup.py",
+            *args
         )
-        session.run('coverage', 'report', '-m', external=external)
-        session.run('coverage', 'xml', external=external)
+        session.run("coverage", "report", "-m")
+        session.run("coverage", "xml")
     else:
-        session.run(
-            'python', '-m',
-            'unittest', TESTNAME if TESTNAME else f'discover',
-            '--start-directory', TESTDIR,
-            '--top-level-directory', '.',
-            external=external
-        )
-
-
-@nox.session(name=f'build')
-def build(session):
-    session.run('python', 'setup.py', 'sdist')
+        session.run("python", *args)
