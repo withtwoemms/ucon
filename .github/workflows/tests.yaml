@@ -1,17 +1,33 @@
 name: tests
 
-on: [push]
+on:
+  push:
+    branches: ['**']     # any branch push
+    tags: ['*']          # any tag push
+  pull_request:
+    branches: ['**']     # run for all PRs and pushes to open PRs
 
 jobs:
   check:
+    name: Test matrix
     runs-on: ubuntu-22.04
+
+    # Run for:
+    #   * all PRs (includes pushes to open PRs)
+    #   * all pushes that aren't part of a PR (feature branches, main, tags)
+    if: >
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'push' && github.event.pull_request == null)
+
     strategy:
+      fail-fast: false
       max-parallel: 3
       matrix:
         python-version: ['3.7', '3.8', '3.9', '3.10']
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
@@ -19,15 +35,19 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Run tests
         run: nox -s test
 
-      - name: Upload coverage
+      - name: Upload coverage to Codecov
+        if: success() && github.repository_owner == secrets.REPO_OWNER
         run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
 
       - name: Archive coverage report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: python-${{ matrix.python-version }}-code-coverage-report-${{ github.run_id }}-${{ github.run_attempt }}
