@@ -20,7 +20,6 @@ Classes
 - :class:`Dimension` — Enum of known physical quantities, each with a `Vector`
   value and operator overloads for dimensional algebra.
 """
-from dataclasses import dataclass
 from enum import Enum
 from functools import partial, reduce
 from operator import __sub__ as subtraction
@@ -29,7 +28,6 @@ from typing import Callable, Iterable, Iterator
 
 diff: Callable[[Iterable], int] = partial(reduce, subtraction)
 
-@dataclass
 class Vector:
     """
     Represents the **exponent vector** of a physical quantity.
@@ -47,13 +45,23 @@ class Vector:
     Vector(T=0, L=2, M=0, I=0, Θ=0, J=0, N=0)   => "area"
     Vector(T=-2, L=1, M=1, I=0, Θ=0, J=0, N=0)  => "force"
     """
-    T: int = 0  # time
-    L: int = 0  # length
-    M: int = 0  # mass
-    I: int = 0  # current
-    Θ: int = 0  # temperature
-    J: int = 0  # luminous intensity
-    N: int = 0  # amount of substance
+    def __init__(
+        self,
+        T: int = 0,  # time
+        L: int = 0,  # length
+        M: int = 0,  # mass
+        I: int = 0,  # current
+        Θ: int = 0,  # temperature
+        J: int = 0,  # luminous intensity
+        N: int = 0,  # amount of substance
+    ):
+        self.T = T
+        self.L = L
+        self.M = M
+        self.I = I
+        self.Θ = Θ
+        self.J = J
+        self.N = N
 
     def __iter__(self) -> Iterator[int]:
         yield self.T
