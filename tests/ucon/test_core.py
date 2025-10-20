@@ -25,7 +25,7 @@ class TestExponent(TestCase):
     def test___truediv__(self):
         self.assertEqual(1000, self.thousand.evaluated)
         self.assertEqual(float(1/1000), self.thousandth.evaluated)
-        self.assertEqual(float(1000000), (self.thousand / self.thousandth))
+        self.assertEqual(float(1000000), (self.thousand / self.thousandth).evaluated)
 
     def test___lt__(self):
         self.assertLess(self.thousandth, self.thousand)
@@ -34,8 +34,8 @@ class TestExponent(TestCase):
         self.assertGreater(self.thousand, self.thousandth)
 
     def test___repr__(self):
-        self.assertEqual(str(self.thousand), '<10^3>')
-        self.assertEqual(str(self.thousandth), '<10^-3>')
+        self.assertEqual(str(self.thousand), '10^3')
+        self.assertEqual(str(self.thousandth), '10^-3')
 
 
 class TestScale(TestCase):
@@ -182,10 +182,12 @@ class TestRatio(TestCase):
 class TestExponentEdgeCases(TestCase):
 
     def test_valid_exponent_evaluates_correctly(self):
-        e = Exponent(10, 3)
+        base, power = 10, 3
+        e = Exponent(base, power)
         self.assertEqual(e.evaluated, 1000)
-        self.assertEqual(e.parts(), (10, 3))
-        self.assertIn("^", repr(e))
+        self.assertEqual(e.parts(), (base, power))
+        self.assertEqual(f'{base}^{power}', str(e))
+        self.assertEqual(f'Exponent(base={base}, power={power})', repr(e))
 
     def test_invalid_base_raises_value_error(self):
         with self.assertRaises(ValueError):
@@ -198,10 +200,10 @@ class TestExponentEdgeCases(TestCase):
         self.assertTrue(e2 > e1)
         self.assertFalse(e1 == e2)
 
-    def test_division_returns_float_ratio(self):
+    def test_division_returns_exponent(self):
         e1 = Exponent(10, 3)
         e2 = Exponent(10, 2)
-        self.assertEqual(e1 / e2, 10.0)
+        self.assertEqual(e1 / e2, Exponent(10, 1))
 
     def test_equality_with_different_type(self):
         with self.assertRaises(TypeError):
