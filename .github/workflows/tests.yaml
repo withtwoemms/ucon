@@ -43,7 +43,7 @@ jobs:
         run: nox -s test
 
       - name: Upload coverage to Codecov
-        if: success() && github.repository_owner == secrets.REPO_OWNER
+        if: success() && github.repository_owner == 'withtwoemms'
         run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
 
       - name: Archive coverage report
