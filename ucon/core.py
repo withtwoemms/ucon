@@ -19,6 +19,7 @@ from enum import Enum
 from functools import reduce, total_ordering
 from math import log2
 from math import log10
+from typing import Tuple, Union
 
 from ucon import units
 from ucon.unit import Unit
@@ -37,7 +38,7 @@ class Exponent:
 
     __slots__ = ("base", "power")
 
-    def __init__(self, base: int, power: int | float):
+    def __init__(self, base: int, power: Union[int, float]):
         if base not in self.bases.keys():
             raise ValueError(f'Only the following bases are supported: {reduce(lambda a,b: f"{a}, {b}", self.bases.keys())}')
         self.base = base
@@ -48,7 +49,7 @@ class Exponent:
         """Return the numeric value of base ** power."""
         return self.base ** self.power
 
-    def parts(self) -> tuple[int, int | float]:
+    def parts(self) -> Tuple[int, Union[int, float]]:
         """Return (base, power) tuple, used for Scale lookups."""
         return self.base, self.power
 
