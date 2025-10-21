@@ -16,15 +16,17 @@ Together, these classes allow full arithmetic, conversion, and introspection
 of physical quantities with explicit dimensional semantics.
 """
 from enum import Enum
-from functools import reduce
+from functools import reduce, total_ordering
 from math import log2
 from math import log10
+from typing import Tuple, Union
 
 from ucon import units
 from ucon.unit import Unit
 
 
 # TODO -- consider using a dataclass
+@total_ordering
 class Exponent:
     """
     Represents a **base–exponent pair** (e.g., 10³ or 2¹⁰).
@@ -34,32 +36,89 @@ class Exponent:
     """
     bases = {2: log2, 10: log10}
 
-    def __init__(self, base: int, power: int):
+    __slots__ = ("base", "power")
+
+    def __init__(self, base: int, power: Union[int, float]):
         if base not in self.bases.keys():
             raise ValueError(f'Only the following bases are supported: {reduce(lambda a,b: f"{a}, {b}", self.bases.keys())}')
         self.base = base
         self.power = power
-        self.evaluated = base ** power
 
-    def parts(self):
+    @property
+    def evaluated(self) -> float:
+        """Return the numeric value of base ** power."""
+        return self.base ** self.power
+
+    def parts(self) -> Tuple[int, Union[int, float]]:
+        """Return (base, power) tuple, used for Scale lookups."""
         return self.base, self.power
 
-    def __truediv__(self, another_exponent):
-        return self.evaluated / another_exponent.evaluated
+    def __eq__(self, other: 'Exponent'):
+        if not isinstance(other, Exponent):
+            raise TypeError(f'Cannot compare Exponent to non-Exponent type: {type(other)}')
+        return self.evaluated == other.evaluated
 
-    def __lt__(self, another_exponent):
-        return self.evaluated < another_exponent.evaluated
+    def __lt__(self, other: 'Exponent'):
+        if not isinstance(other, Exponent):
+            return NotImplemented
+        return self.evaluated < other.evaluated
 
-    def __gt__(self, another_exponent):
-        return self.evaluated > another_exponent.evaluated
+    def __hash__(self):
+        # Hash by rounded numeric equivalence to maintain cross-base consistency
+        return hash(round(self.evaluated, 15))
 
-    def __eq__(self, another_exponent):
-        if not isinstance(another_exponent, Exponent):
-            raise TypeError(f'Cannot compare Exponent to non-Exponent type: {type(another_exponent)}')
-        return self.evaluated == another_exponent.evaluated
+    # ---------- Arithmetic Semantics ----------
 
-    def __repr__(self):
-        return f'<{self.base}^{self.power}>'
+    def __truediv__(self, other: 'Exponent'):
+        """
+        Divide two Exponents.
+        - If bases match, returns a relative Exponent.
+        - If bases differ, returns a numeric ratio (float).
+        """
+        if not isinstance(other, Exponent):
+            return NotImplemented
+        if self.base == other.base:
+            return Exponent(self.base, self.power - other.power)
+        return self.evaluated / other.evaluated
+
+    def __mul__(self, other: 'Exponent'):
+        if not isinstance(other, Exponent):
+            return NotImplemented
+        if self.base == other.base:
+            return Exponent(self.base, self.power + other.power)
+        return float(self.evaluated * other.evaluated)
+
+    # ---------- Conversion Utilities ----------
+
+    def to_base(self, new_base: int) -> "Exponent":
+        """
+        Convert this Exponent to another base representation.
+
+        Example:
+            Exponent(2, 10).to_base(10)
+            # → Exponent(base=10, power=3.010299956639812)
+        """
+        if new_base not in self.bases:
+            supported = ", ".join(map(str, self.bases))
+            raise ValueError(f"Unsupported base {new_base!r}. Supported bases: {supported}")
+        new_power = self.bases[new_base](self.evaluated)
+        return Exponent(new_base, new_power)
+
+    # ---------- Numeric Interop ----------
+
+    def __float__(self) -> float:
+        return float(self.evaluated)
+
+    def __int__(self) -> int:
+        return int(self.evaluated)
+
+    # ---------- Representation ----------
+
+    def __repr__(self) -> str:
+        return f"Exponent(base={self.base}, power={self.power})"
+
+    def __str__(self) -> str:
+        return f"{self.base}^{self.power}"
 
 
 class Scale(Enum):
