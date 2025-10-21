@@ -22,10 +22,10 @@ jobs:
         run: |
           git fetch origin main --depth=1 || true
           if git diff --quiet origin/main -- ucon/ tests/ noxfile.py setup.py requirements*.txt; then
-            echo "No code changes detected."
+            echo "::notice::No relevant code changes detected."
             echo "code_changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "Code changes detected."
+            echo "::notice::Code changes detected."
             echo "code_changed=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -76,3 +76,11 @@ jobs:
         with:
           name: python-${{ matrix.python-version }}-code-coverage-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ github.workspace }}/coverage.xml
+
+  no_changes:
+    name: Skip notice
+    needs: detect_changes
+    if: needs.detect_changes.outputs.code_changed == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "::notice::No source changes detected — skipping tests."
