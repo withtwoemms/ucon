@@ -45,7 +45,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 
 `ucon` models unit math through a hierarchy where each layer builds on the last:
 
-```
+```mermaid
 ---
 config:
   layout: elk
