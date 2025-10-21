@@ -1,16 +1,38 @@
 name: tests
 
 on:
-  workflow_call:
+  push:
+    branches: [main]     # any branch push
+    tags: ['*']          # any tag push
+  pull_request:
+    branches: ['**']     # run for all PRs and pushes to open PRs
 
 jobs:
-  check:
-    name: Test matrix
-    runs-on: ubuntu-22.04
+  detect_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code_changed: ${{ steps.diff.outputs.code_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          git fetch origin main --depth=1 || true
+          if git diff --quiet origin/main -- ucon/ tests/ noxfile.py setup.py requirements*.txt; then
+            echo "::notice::No relevant code changes detected."
+            echo "code_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Code changes detected."
+            echo "code_changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
+  run_tests:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.code_changed == 'true'
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
-      max-parallel: 3
       matrix:
         python-version:
           - '3.7'
@@ -23,29 +45,9 @@ jobs:
           - '3.14'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run tests
-        run: nox -s test
-
-      - name: Upload coverage to Codecov
-        if: success() && github.repository_owner == 'withtwoemms'
-        run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Archive coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-${{ matrix.python-version }}-code-coverage-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ github.workspace }}/coverage.xml
+      - run: pip install -r requirements.txt
+      - run: nox -s test
