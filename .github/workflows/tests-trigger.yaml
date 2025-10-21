@@ -31,3 +31,4 @@ jobs:
     if: needs.detect_changes.outputs.code_changed == 'true'
     needs: detect_changes
     uses: ./.github/workflows/tests.yaml
+    secrets: inherit
