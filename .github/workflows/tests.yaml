@@ -51,3 +51,25 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -r requirements.txt
       - run: nox -s test
+
+  gate:
+    needs: [detect_changes, run_tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      # No-code-change path: pass immediately
+      - name: Skip tests allowed
+        if: needs.detect_changes.outputs.code_changed == 'false'
+        run: echo "No source changes; tests not required. Passing gate."
+
+      # Code changed but tests failed: fail the gate
+      - name: Fail when tests failed
+        if: needs.detect_changes.outputs.code_changed == 'true' && needs.run_tests.result != 'success'
+        run: |
+          echo "::error::Source changed but tests did not succeed (result=${{ needs.run_tests.result }})."
+          exit 1
+
+      # Code changed and tests passed: pass the gate
+      - name: Tests passed — gate open
+        if: needs.detect_changes.outputs.code_changed == 'true' && needs.run_tests.result == 'success'
+        run: echo "Tests succeeded. Passing gate."
