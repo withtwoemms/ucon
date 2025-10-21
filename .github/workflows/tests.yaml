@@ -4,8 +4,20 @@ on:
   push:
     branches: [main]     # any branch push
     tags: ['*']          # any tag push
+    paths:
+      - "ucon/**"
+      - "tests/**"
+      - "noxfile.py"
+      - "setup.py"
+      - "requirements*.txt"
   pull_request:
     branches: ['**']     # run for all PRs and pushes to open PRs
+    paths:
+      - "ucon/**"
+      - "tests/**"
+      - "noxfile.py"
+      - "setup.py"
+      - "requirements*.txt"
 
 jobs:
   check:
