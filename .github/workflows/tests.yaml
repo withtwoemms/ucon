@@ -8,8 +8,31 @@ on:
     branches: ['**']     # run for all PRs and pushes to open PRs
 
 jobs:
+  detect_changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    outputs:
+      code_changed: ${{ steps.diff.outputs.code_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: diff
+        run: |
+          git fetch origin main --depth=1 || true
+          if git diff --quiet origin/main -- ucon/ tests/ noxfile.py setup.py requirements*.txt; then
+            echo "No code changes detected."
+            echo "code_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Code changes detected."
+            echo "code_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   check:
     name: Test matrix
+    needs: detect_changes
+    if: needs.detect_changes.outputs.code_changed == 'true'
     runs-on: ubuntu-22.04
 
     strategy:
