@@ -133,6 +133,7 @@ class Scale(Enum):
     """
     mebi  = Exponent(2, 20)
     kibi  = Exponent(2, 10)
+    giga  = Exponent(10, 9)
     mega  = Exponent(10, 6)
     kilo  = Exponent(10, 3)
     hecto = Exponent(10, 2)
@@ -142,6 +143,7 @@ class Scale(Enum):
     centi = Exponent(10,-2)
     milli = Exponent(10,-3)
     micro = Exponent(10,-6)
+    nano = Exponent(10,-9)
     _kibi = Exponent(2,-10)
     _mebi = Exponent(2,-20)
 
