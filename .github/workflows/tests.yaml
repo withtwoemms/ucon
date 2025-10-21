@@ -1,38 +1,11 @@
 name: tests
 
 on:
-  push:
-    branches: [main]     # any branch push
-    tags: ['*']          # any tag push
-  pull_request:
-    branches: ['**']     # run for all PRs and pushes to open PRs
+  workflow_call:
 
 jobs:
-  detect_changes:
-    name: Detect code changes
-    runs-on: ubuntu-latest
-    outputs:
-      code_changed: ${{ steps.diff.outputs.code_changed }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - id: diff
-        run: |
-          git fetch origin main --depth=1 || true
-          if git diff --quiet origin/main -- ucon/ tests/ noxfile.py setup.py requirements*.txt; then
-            echo "::notice::No relevant code changes detected."
-            echo "code_changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::Code changes detected."
-            echo "code_changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
   check:
     name: Test matrix
-    needs: detect_changes
-    if: needs.detect_changes.outputs.code_changed == 'true'
     runs-on: ubuntu-22.04
 
     strategy:
@@ -76,11 +49,3 @@ jobs:
         with:
           name: python-${{ matrix.python-version }}-code-coverage-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ github.workspace }}/coverage.xml
-
-  no_changes:
-    name: Skip notice
-    needs: detect_changes
-    if: needs.detect_changes.outputs.code_changed == 'false'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "::notice::No source changes detected — skipping tests."
