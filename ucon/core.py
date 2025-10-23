@@ -174,6 +174,28 @@ class Scale(Enum):
         """Return binary (base-2) scales only."""
         return list(s for s in cls if s.value.base == 2)
 
+    @classmethod
+    def nearest(cls, value: float, include_binary: bool = False, undershoot_bias: float = 0.75) -> "Scale":
+        """
+        Return the Scale that best normalizes `value` toward 1 in log-space.
+        Optionally restricts to base-10 prefixes unless `include_binary=True`.
+        """
+        if value == 0:
+            return Scale.one
+
+        abs_val = abs(value)
+        candidates = cls._decimal_scales() if not include_binary else list(cls)
+
+        def distance(scale: "Scale") -> float:
+            ratio = abs_val / scale.value.evaluated
+            diff = log10(ratio)
+            # Bias overshoots slightly more than undershoots
+            if ratio < 1:
+                diff /= undershoot_bias
+            return abs(diff)
+
+        return min(candidates, key=distance)
+
     def __truediv__(self, another_scale):
         power_diff = self.value.power - another_scale.value.power
         if self.value == another_scale.value:
