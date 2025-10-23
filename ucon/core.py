@@ -162,6 +162,18 @@ class Scale(Enum):
         """
         return {round(s.value.evaluated, 15): s.name for s in Scale}
 
+    @classmethod
+    @lru_cache(maxsize=1)
+    def _decimal_scales(cls):
+        """Return decimal (base-10) scales only."""
+        return list(s for s in cls if s.value.base == 10)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def _binary_scales(cls):
+        """Return binary (base-2) scales only."""
+        return list(s for s in cls if s.value.base == 2)
+
     def __truediv__(self, another_scale):
         power_diff = self.value.power - another_scale.value.power
         if self.value == another_scale.value:
