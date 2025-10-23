@@ -198,23 +198,38 @@ class Scale(Enum):
 
         return min(candidates, key=distance)
 
-    def __truediv__(self, another_scale):
-        power_diff = self.value.power - another_scale.value.power
-        if self.value == another_scale.value:
+    def __truediv__(self, other: 'Scale'):
+        """
+        Divide one Scale by another.
+
+        Always returns a `Scale`, representing the resulting order of magnitude.
+        If no exact prefix match exists, returns the nearest known Scale.
+        """
+        if not isinstance(other, Scale):
+            return NotImplemented
+
+        if self == other:
             return Scale.one
-        if self.value.base == another_scale.value.base:
-            return Scale[Scale.all()[Exponent(self.value.base, power_diff).parts()]]
 
-        base_quotient = self.value.base / another_scale.value.base
-        exp_quotient = round((base_quotient ** another_scale.value.power) * (self.value.base ** power_diff), 15)
+        if other is Scale.one:
+            return self
 
-        if Scale.one in [self, another_scale]:
-            power = Exponent.bases[2](exp_quotient)
-            return Scale[Scale.all()[Exponent(2, int(power)).parts()]]
+        should_consider_binary = (self.value.base == 2) or (other.value.base == 2)
+
+        if self is Scale.one:
+            result = Exponent(other.value.base, -other.value.power)
+            name = Scale.all().get((result.base, result.power))
+            if name:
+                return Scale[name]
+            return Scale.nearest(float(result), include_binary=should_consider_binary)
+
+        result: Union[Exponent, float] = self.value / other.value
+        if isinstance(result, Exponent):
+            match = Scale.all().get(result.parts())
+            if match:
+                return Scale[match]
         else:
-            scale_exp_values = [Scale[Scale.all()[pair]].value.evaluated for pair in Scale.all().keys()]
-            closest_val = min(scale_exp_values, key=lambda val: abs(val - exp_quotient))
-            return Scale[Scale.by_value()[closest_val]]
+            return Scale.nearest(float(result), include_binary=should_consider_binary)
 
     def __lt__(self, other: 'Scale'):
         return self.value < other.value
