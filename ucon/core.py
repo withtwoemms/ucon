@@ -131,6 +131,7 @@ class Scale(Enum):
 
     Each entry stores its numeric scaling factor (e.g., `kilo = 10³`).
     """
+    gibi  = Exponent(2, 30)
     mebi  = Exponent(2, 20)
     kibi  = Exponent(2, 10)
     giga  = Exponent(10, 9)
@@ -144,8 +145,9 @@ class Scale(Enum):
     milli = Exponent(10,-3)
     micro = Exponent(10,-6)
     nano = Exponent(10,-9)
-    _kibi = Exponent(2,-10)
-    _mebi = Exponent(2,-20)
+    _kibi = Exponent(2,-10)   # "kibi" inverse
+    _mebi = Exponent(2,-20)   # "mebi" inverse
+    _gibi = Exponent(2,-30)   # "gibi" inverse
 
     @staticmethod
     @lru_cache(maxsize=1)
