@@ -105,6 +105,7 @@ class TestScale(TestCase):
         self.assertEqual(Scale.deca, Scale.kilo / Scale.hecto)
         self.assertEqual(Scale._kibi, Scale.one / Scale.kibi)
         self.assertEqual(Scale.kibi, Scale.kibi / Scale.one)
+        self.assertEqual(Scale.one, Scale.one / Scale.one)
         self.assertEqual(Scale.one, Scale.kibi / Scale.kibi)
         self.assertEqual(Scale.one, Scale.kibi / Scale.kilo)
 
@@ -118,6 +119,92 @@ class TestScale(TestCase):
         for scale in Scale:
             self.assertTrue(isinstance(scale.value, Exponent))
         self.assertIsInstance(Scale.all(), dict)
+
+
+class TestScaleDivisionAdditional(TestCase):
+
+    def test_division_same_base_large_gap(self):
+        # kilo / milli = mega
+        self.assertEqual(Scale.kilo / Scale.milli, Scale.mega)
+        # milli / kilo = micro
+        self.assertEqual(Scale.milli / Scale.kilo, Scale.micro)
+
+    def test_division_cross_base_scales(self):
+        # Decimal vs binary cross-base — should return nearest matching scale
+        result = Scale.kilo / Scale.kibi
+        self.assertIsInstance(result, Scale)
+        # They’re roughly equal, so nearest should be Scale.one
+        self.assertEqual(result, Scale.one)
+
+    def test_division_binary_inverse_scales(self):
+        self.assertEqual(Scale.kibi / Scale.kibi, Scale.one)
+        self.assertEqual(Scale.kibi / Scale.mebi, Scale._kibi)
+        self.assertEqual(Scale.mebi / Scale.kibi, Scale.kibi)
+
+    def test_division_unmatched_returns_nearest(self):
+        # giga / kibi is a weird combo → nearest mega or similar
+        result = Scale.giga / Scale.kibi
+        self.assertIsInstance(result, Scale)
+        self.assertIn(result, Scale)
+
+    def test_division_type_safety(self):
+        # Ensure non-Scale raises NotImplemented
+        with self.assertRaises(TypeError):
+            Scale.kilo / 42
+
+
+class TestScaleNearestAdditional(TestCase):
+
+    def test_nearest_handles_zero(self):
+        self.assertEqual(Scale.nearest(0), Scale.one)
+
+    def test_nearest_handles_negative_values(self):
+        # Only magnitude matters, not sign
+        self.assertEqual(Scale.nearest(-1000), Scale.kilo)
+        self.assertEqual(Scale.nearest(-0.001), Scale.milli)
+
+    def test_nearest_with_undershoot_bias_effect(self):
+        # Lower bias should make undershoot (ratios < 1) less penalized
+        # This test ensures the bias argument doesn’t break ordering
+        s_default = Scale.nearest(50_000, undershoot_bias=0.75)
+        s_stronger_bias = Scale.nearest(50_000, undershoot_bias=0.9)
+        # The result shouldn't flip to something wildly different
+        self.assertIn(s_default, [Scale.kilo, Scale.mega])
+        self.assertIn(s_stronger_bias, [Scale.kilo, Scale.mega])
+
+    def test_nearest_respects_binary_preference_flag(self):
+        # Confirm that enabling binary changes candidate set
+        decimal_result = Scale.nearest(2**10)
+        binary_result = Scale.nearest(2**10, include_binary=True)
+        self.assertNotEqual(decimal_result, binary_result)
+        self.assertEqual(binary_result, Scale.kibi)
+
+    def test_nearest_upper_and_lower_extremes(self):
+        self.assertEqual(Scale.nearest(10**9), Scale.giga)
+        self.assertEqual(Scale.nearest(10**-9), Scale.nano)
+
+
+class TestScaleInternals(TestCase):
+
+    def test_decimal_and_binary_sets_are_disjoint(self):
+        decimal_bases = {s.value.base for s in Scale._decimal_scales()}
+        binary_bases = {s.value.base for s in Scale._binary_scales()}
+        self.assertNotEqual(decimal_bases, binary_bases)
+        self.assertEqual(decimal_bases, {10})
+        self.assertEqual(binary_bases, {2})
+
+    def test_all_and_by_value_consistency(self):
+        mapping = Scale.all()
+        value_map = Scale.by_value()
+        # Each value’s evaluated form should appear in by_value keys
+        for (base, power), name in mapping.items():
+            val = Scale[name].value.evaluated
+            self.assertIn(round(val, 15), value_map)
+
+    def test_all_and_by_value_are_cached(self):
+        # Call multiple times and ensure they’re same object (cached)
+        self.assertIs(Scale.all(), Scale.all())
+        self.assertIs(Scale.by_value(), Scale.by_value())
 
 
 class TestNumber(TestCase):
@@ -287,6 +374,21 @@ class TestExponentEdgeCases(TestCase):
 
 
 class TestScaleEdgeCases(TestCase):
+
+    def test_nearest_prefers_decimal_by_default(self):
+        self.assertEqual(Scale.nearest(1024), Scale.kilo)
+        self.assertEqual(Scale.nearest(50_000), Scale.kilo)
+        self.assertEqual(Scale.nearest(1/1024), Scale.milli)
+
+    def test_nearest_includes_binary_when_opted_in(self):
+        self.assertEqual(Scale.nearest(1/1024, include_binary=True), Scale._kibi)
+        self.assertEqual(Scale.nearest(1024, include_binary=True), Scale.kibi)
+        self.assertEqual(Scale.nearest(50_000, include_binary=True), Scale.kibi)
+        self.assertEqual(Scale.nearest(2**20, include_binary=True), Scale.mebi)
+
+    def test_nearest_subunit_behavior(self):
+        self.assertEqual(Scale.nearest(0.0009), Scale.milli)
+        self.assertEqual(Scale.nearest(1e-7), Scale.micro)
 
     def test_division_same_base_scales(self):
         result = Scale.kilo / Scale.milli
