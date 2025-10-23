@@ -16,7 +16,7 @@ Together, these classes allow full arithmetic, conversion, and introspection
 of physical quantities with explicit dimensional semantics.
 """
 from enum import Enum
-from functools import reduce, total_ordering
+from functools import lru_cache, reduce, total_ordering
 from math import log2
 from math import log10
 from typing import Tuple, Union
@@ -148,12 +148,19 @@ class Scale(Enum):
     _mebi = Exponent(2,-20)
 
     @staticmethod
-    def all():
-        return dict(map(lambda x: ((x.value.base, x.value.power), x.name), Scale))
+    @lru_cache(maxsize=1)
+    def all() -> dict[tuple[int, int], str]:
+        """Return a map from (base, power) → Scale name."""
+        return {(s.value.base, s.value.power): s.name for s in Scale}
 
     @staticmethod
-    def by_value():
-        return dict(map(lambda x: (x.value.evaluated, x.name), Scale))
+    @lru_cache(maxsize=1)
+    def by_value() -> dict[float, str]:
+        """
+        Return a map from evaluated numeric value → Scale name.
+        Cached after first access.
+        """
+        return {round(s.value.evaluated, 15): s.name for s in Scale}
 
     def __truediv__(self, another_scale):
         power_diff = self.value.power - another_scale.value.power
