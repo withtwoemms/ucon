@@ -173,14 +173,14 @@ class Scale(Enum):
             closest_val = min(scale_exp_values, key=lambda val: abs(val - exp_quotient))
             return Scale[Scale.by_value()[closest_val]]
 
-    def __lt__(self, another_scale):
-        return self.value < another_scale.value
+    def __lt__(self, other: 'Scale'):
+        return self.value < other.value
 
-    def __gt__(self, another_scale):
-        return self.value > another_scale.value
+    def __gt__(self, other: 'Scale'):
+        return self.value > other.value
 
-    def __eq__(self, another_scale):
-        return self.value == another_scale.value
+    def __eq__(self, other: 'Scale'):
+        return self.value == other.value
 
 
 # TODO -- consider using a dataclass
