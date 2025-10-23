@@ -60,7 +60,7 @@ jobs:
 
       # --- PUBLISH TO PROD PYPI (tagged releases) ---
       - name: Publish distribution 📦 to PyPI
-        if: startsWith(github.event.workflow_run.head_branch, 'refs/tags/')
+        if: startsWith(github.event.workflow_run.ref, 'refs/tags/')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
