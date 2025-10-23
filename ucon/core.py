@@ -19,7 +19,7 @@ from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from math import log2
 from math import log10
-from typing import Tuple, Union
+from typing import Dict, Tuple, Union
 
 from ucon import units
 from ucon.unit import Unit
@@ -151,13 +151,13 @@ class Scale(Enum):
 
     @staticmethod
     @lru_cache(maxsize=1)
-    def all() -> dict[tuple[int, int], str]:
+    def all() -> Dict[Tuple[int, int], str]:
         """Return a map from (base, power) → Scale name."""
         return {(s.value.base, s.value.power): s.name for s in Scale}
 
     @staticmethod
     @lru_cache(maxsize=1)
-    def by_value() -> dict[float, str]:
+    def by_value() -> Dict[float, str]:
         """
         Return a map from evaluated numeric value → Scale name.
         Cached after first access.
