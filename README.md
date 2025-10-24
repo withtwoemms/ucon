@@ -1,13 +1,14 @@
-<img src="https://gist.githubusercontent.com/withtwoemms/0cb9e6bc8df08f326771a89eeb790f8e/raw/dde6c7d3b8a7d79eb1006ace03fb834e044cdebc/ucon-logo.png" align="left" width="420" />
+<img src="https://gist.githubusercontent.com/withtwoemms/0cb9e6bc8df08f326771a89eeb790f8e/raw/dde6c7d3b8a7d79eb1006ace03fb834e044cdebc/ucon-logo.png" align="left" width="200" />
 
 # ucon
 
 > Pronounced: _yoo · cahn_
-> A lightweight, **unit-aware computation library** for Python — built on first-principles.
 
 [![tests](https://github.com/withtwoemms/ucon/workflows/tests/badge.svg)](https://github.com/withtwoemms/ucon/actions?query=workflow%3Atests)
 [![codecov](https://codecov.io/gh/withtwoemms/ucon/graph/badge.svg?token=BNONQTRJWG)](https://codecov.io/gh/withtwoemms/ucon)
 [![publish](https://github.com/withtwoemms/ucon/workflows/publish/badge.svg)](https://github.com/withtwoemms/ucon/actions?query=workflow%3Apublish)
+
+> A lightweight, **unit-aware computation library** for Python — built on first-principles.
 
 ---
 
@@ -45,35 +46,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 
 `ucon` models unit math through a hierarchy where each layer builds on the last:
 
-```mermaid
----
-config:
-  layout: elk
-  elk:
-    mergeEdges: true  # Combines parallel edges
-    nodePlacementStrategy: SIMPLE # Other options: SIMPLE, NETWORK_SIMPLEX, BRANDES_KOEPF (default)
----
-flowchart LR
-%% --- Algebraic substrate ---
-subgraph "Algebraic Substrate"
-  A[Exponent] --> B[Scale]
-end
-%% --- Physical ontology ---
-subgraph "Physical Ontology"
-  D[Dimension] --> E[Unit]
-end
-%% --- Value layer ---
-subgraph "Value Layer"
-  F[Number]
-  G[Ratio]
-end
-%% --- Cross-layer relationships ---
-E --> F
-B --> F
-%% Ratio composes Numbers and also evaluates to a Number
-F --> G
-G --> F
-```
+<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/f3518d37445301950026fc9ffd1bd062768005fe/ucon.data-model.png align="center" alt="ucon Data Model" width=600/>
 
 ## Why `ucon`?
 
