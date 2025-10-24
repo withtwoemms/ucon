@@ -45,35 +45,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 
 `ucon` models unit math through a hierarchy where each layer builds on the last:
 
-```mermaid
----
-config:
-  layout: elk
-  elk:
-    mergeEdges: true  # Combines parallel edges
-    nodePlacementStrategy: SIMPLE # Other options: SIMPLE, NETWORK_SIMPLEX, BRANDES_KOEPF (default)
----
-flowchart LR
-%% --- Algebraic substrate ---
-subgraph "Algebraic Substrate"
-  A[Exponent] --> B[Scale]
-end
-%% --- Physical ontology ---
-subgraph "Physical Ontology"
-  D[Dimension] --> E[Unit]
-end
-%% --- Value layer ---
-subgraph "Value Layer"
-  F[Number]
-  G[Ratio]
-end
-%% --- Cross-layer relationships ---
-E --> F
-B --> F
-%% Ratio composes Numbers and also evaluates to a Number
-F --> G
-G --> F
-```
+![Alt text](./docs/assets/ucon.data-model.svg "Data Model Diagram")
 
 ## Why `ucon`?
 
