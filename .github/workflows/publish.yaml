@@ -2,30 +2,20 @@ name: publish
 
 on:
   push:
-    branches: [main]
-    tags: ['*']
+    branches: [main]   # mainline merges → Test PyPI
+    tags: ['*']        # tags → Test & Prod PyPI
 
 jobs:
   publish:
-    name: Publish distributions
     runs-on: ubuntu-latest
-
-    # Only run if tests succeeded and the triggering workflow was for main or a tag
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      (
-        github.event.workflow_run.head_branch == 'main' ||
-        startsWith(github.event.workflow_run.ref, 'refs/tags/')
-      )
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_commit.id }}
-          fetch-depth: 0
+          fetch-depth: 0  # needed for ancestry check
 
-      - name: Set up Python 3.14
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
@@ -36,9 +26,8 @@ jobs:
       - name: Build distribution 📦
         run: PYTHONWARNINGS=ignore LOCAL_VERSION_SCHEME=true nox -s build
 
-      # --- PUBLISH TO TEST PYPI (mainline merges) ---
-      - name: Publish distribution 📦 to Test PyPI
-        if: ${{ github.event.workflow_run.head_branch == 'main' }}
+      - name: Publish to Test PyPI
+        if: github.ref == 'refs/heads/main'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
@@ -47,7 +36,7 @@ jobs:
           repository_url: https://test.pypi.org/legacy/
 
       - name: Verify tag is on mainline
-        if: startsWith(github.event.workflow_run.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           git fetch origin main --depth=1
           TAG=${GITHUB_REF#refs/tags/}
@@ -57,9 +46,17 @@ jobs:
             exit 1
           fi
 
-      # --- PUBLISH TO PROD PYPI (tagged releases) ---
-      - name: Publish distribution 📦 to PyPI
-        if: startsWith(github.event.workflow_run.ref, 'refs/tags/')
+      - name: 🧪 Publish tag build to Test PyPI
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.test_pypi_password }}
+          skip_existing: true
+          repository_url: https://test.pypi.org/legacy/
+
+      - name: 🚀 Publish to Prod PyPI
+        if: startsWith(github.ref, 'refs/tags/')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
