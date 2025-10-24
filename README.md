@@ -46,7 +46,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 
 `ucon` models unit math through a hierarchy where each layer builds on the last:
 
-![Alt text](https://private-user-images.githubusercontent.com/7152453/505356617-0de63681-8c46-41d5-a0bf-a859ca9ab81b.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NjEzMjAzMjksIm5iZiI6MTc2MTMyMDAyOSwicGF0aCI6Ii83MTUyNDUzLzUwNTM1NjYxNy0wZGU2MzY4MS04YzQ2LTQxZDUtYTBiZi1hODU5Y2E5YWI4MWIucG5nP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI1MTAyNCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNTEwMjRUMTUzMzQ5WiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9MzdhYjNiYjlmYTRlNDBiNzdkY2YxNzJiODU1ZGEwNGM2ZThlZGQ4MTc2OTgyY2Y1NWMxNjZhYzViMDg2MmY4NiZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.aQz0gq_44Yygw4wTMe3bER2xR6NiVM7Yb_rFIimD2hM "Data Model Diagram")
+<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/f3518d37445301950026fc9ffd1bd062768005fe/ucon.data-model.png align="center" alt="ucon Data Model" width=600/>
 
 ## Why `ucon`?
 
