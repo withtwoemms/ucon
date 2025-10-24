@@ -2,43 +2,12 @@ name: tests
 
 on:
   push:
-    branches: [main]     # any branch push
-    tags: ['*']          # any tag push
+    branches: [main]
   pull_request:
-    branches: ['**']     # run for all PRs and pushes to open PRs
+    branches: ['**']
 
 jobs:
-  detect_changes:
-    runs-on: ubuntu-latest
-    outputs:
-      code_changed: ${{ steps.diff.outputs.code_changed }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: diff
-        run: |
-          git fetch origin main --depth=1 || true
-
-          #-- If this is a tag push, force code_changed=true -----------------------
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "::notice::Detected tag push (${GITHUB_REF}); forcing tests to run."
-            echo "code_changed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          #-- Otherwise detect actual source changes -------------------------------
-          if git diff --quiet origin/main -- ucon/ tests/ noxfile.py setup.py requirements*.txt; then
-            echo "::notice::No relevant code changes detected."
-            echo "code_changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::Code changes detected."
-            echo "code_changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
   run_tests:
-    needs: detect_changes
-    if: needs.detect_changes.outputs.code_changed == 'true'
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -54,31 +23,29 @@ jobs:
           - '3.14'
 
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -r requirements.txt
-      - run: nox -s test
 
-  gate:
-    needs: [detect_changes, run_tests]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      # No-code-change path: pass immediately
-      - name: Skip tests allowed
-        if: needs.detect_changes.outputs.code_changed == 'false'
-        run: echo "No source changes; tests not required. Passing gate."
-
-      # Code changed but tests failed: fail the gate
-      - name: Fail when tests failed
-        if: needs.detect_changes.outputs.code_changed == 'true' && needs.run_tests.result != 'success'
+      - name: Install dependencies
         run: |
-          echo "::error::Source changed but tests did not succeed (result=${{ needs.run_tests.result }})."
-          exit 1
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      # Code changed and tests passed: pass the gate
-      - name: Tests passed — gate open
-        if: needs.detect_changes.outputs.code_changed == 'true' && needs.run_tests.result == 'success'
-        run: echo "Tests succeeded. Passing gate."
+      - name: Run tests
+        run: nox -s test
+
+      - name: Upload coverage to Codecov
+        if: success() && github.repository_owner == 'withtwoemms'
+        run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Archive coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-${{ matrix.python-version }}-coverage-${{ github.run_id }}
+          path: ${{ github.workspace }}/coverage.xml
