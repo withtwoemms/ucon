@@ -1,10 +1,9 @@
 name: publish
 
 on:
-  workflow_run:
-    workflows: ["tests"]
-    types:
-      - completed
+  push:
+    branches: [main]
+    tags: ['*']
 
 jobs:
   publish:
