@@ -35,17 +35,6 @@ jobs:
           skip_existing: true
           repository_url: https://test.pypi.org/legacy/
 
-      - name: Verify tag is on mainline
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          git fetch origin main --depth=1
-          TAG=${GITHUB_REF#refs/tags/}
-          TAG_COMMIT=$(git rev-list -n 1 "$TAG")
-          if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
-            echo "::error::Tag $TAG is not based on main; skipping publish."
-            exit 1
-          fi
-
       - name: 🧪 Publish tag build to Test PyPI
         if: startsWith(github.ref, 'refs/tags/')
         uses: pypa/gh-action-pypi-publish@release/v1
