@@ -15,6 +15,7 @@ Classes
 Together, these classes allow full arithmetic, conversion, and introspection
 of physical quantities with explicit dimensional semantics.
 """
+from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from math import log2
@@ -241,7 +242,7 @@ class Scale(Enum):
         return self.value == other.value
 
 
-# TODO -- consider using a dataclass
+@dataclass
 class Number:
     """
     Represents a **numeric quantity** with an associated :class:`Unit` and :class:`Scale`.
@@ -256,11 +257,14 @@ class Number:
         >>> speed
         <2.5 (m/s)>
     """
-    def __init__(self, unit: Unit = units.none, scale: Scale = Scale.one, quantity = 1):
-        self.unit = unit
-        self.scale = scale
-        self.quantity = quantity
-        self.value = round(self.quantity * self.scale.value.evaluated, 15)
+    quantity: Union[float, int] = 1.0
+    unit: Unit = units.none
+    scale: Scale = Scale.one
+
+    @property
+    def value(self) -> float:
+        """Return numeric magnitude as quantity × scale factor."""
+        return round(self.quantity * self.scale.value.evaluated, 15)
 
     def simplify(self):
         return Number(unit=self.unit, quantity=self.value)
