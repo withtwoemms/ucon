@@ -48,7 +48,7 @@ jobs:
           repository_url: https://test.pypi.org/legacy/
 
       - name: Verify tag is on mainline
-        if: startsWith(github.event.workflow_run.head_branch, 'refs/tags/')
+        if: startsWith(github.event.workflow_run.ref, 'refs/tags/')
         run: |
           git fetch origin main --depth=1
           TAG=${GITHUB_REF#refs/tags/}
