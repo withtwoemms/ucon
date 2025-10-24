@@ -2,19 +2,15 @@ name: tests
 
 on:
   push:
-    branches: [main]     # any branch push
-    tags: ['*']          # any tag push
+    branches: [main]
   pull_request:
-    branches: ['**']     # run for all PRs and pushes to open PRs
+    branches: ['**']
 
 jobs:
-  check:
-    name: Test matrix
+  run_tests:
     runs-on: ubuntu-22.04
-
     strategy:
       fail-fast: false
-      max-parallel: 3
       matrix:
         python-version:
           - '3.7'
@@ -51,5 +47,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: python-${{ matrix.python-version }}-code-coverage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          name: python-${{ matrix.python-version }}-coverage-${{ github.run_id }}
           path: ${{ github.workspace }}/coverage.xml
