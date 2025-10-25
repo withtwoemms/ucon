@@ -314,15 +314,18 @@ class Number:
         quantity = self.quantity / another_number.quantity
         return Number(unit, scale, quantity)
 
-    def __eq__(self, another_number):
-        if isinstance(another_number, Number):
-            return (self.unit == another_number.unit) and \
-                   (self.quantity == another_number.quantity) and \
-                   (self.value == another_number.value)
-        elif isinstance(another_number, Ratio):
-            return self == another_number.evaluate()
-        else:
-            raise ValueError(f'"{another_number}" is not a Number or Ratio. Comparison not possible.')
+    def __eq__(self, other: Union['Number', 'Ratio']) -> bool:
+        if not isinstance(other, (Number, Ratio)):
+            raise TypeError(f'Cannot compare Number to non-Number/Ratio type: {type(other)}')
+
+        elif isinstance(other, Ratio):
+            other = other.evaluate()
+
+        # Compare on evaluated numeric magnitude and exact unit
+        return (
+            self.unit == other.unit and
+            abs(self.value - other.value) < 1e-12
+        )
 
     def __repr__(self):
         return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.name}>'
