@@ -199,6 +199,31 @@ class Scale(Enum):
 
         return min(candidates, key=distance)
 
+    def __mul__(self, other: 'Scale'):
+        """
+        Multiply two Scales together.
+
+        Always returns a `Scale`, representing the resulting order of magnitude.
+        If no exact prefix match exists, returns the nearest known Scale.
+        """
+        if not isinstance(other, Scale):
+            return NotImplemented
+
+        if self is Scale.one:
+            return other
+        if other is Scale.one:
+            return self
+
+        result = self.value * other.value  # delegates to Exponent.__mul__
+        include_binary = 2 in {self.value.base, other.value.base}
+
+        if isinstance(result, Exponent):
+            match = Scale.all().get(result.parts())
+            if match:
+                return Scale[match]
+
+        return Scale.nearest(float(result), include_binary=include_binary)
+
     def __truediv__(self, other: 'Scale'):
         """
         Divide one Scale by another.
