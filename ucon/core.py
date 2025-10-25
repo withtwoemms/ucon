@@ -313,11 +313,18 @@ class Number:
             scale=self.scale * other.scale,
         )
 
-    def __truediv__(self, another_number: 'Number') -> 'Number':
-        unit = self.unit / another_number.unit
-        scale = self.scale / another_number.scale
-        quantity = self.quantity / another_number.quantity
-        return Number(unit, scale, quantity)
+    def __truediv__(self, other: Union['Number', 'Ratio']) -> 'Number':
+        if not isinstance(other, (Number, Ratio)):
+            return NotImplemented
+
+        if isinstance(other, Ratio):
+            other = other.evaluate()
+
+        return Number(
+            quantity=self.quantity / other.quantity,
+            unit=self.unit / other.unit,
+            scale=self.scale / other.scale,
+        )
 
     def __eq__(self, other: Union['Number', 'Ratio']) -> bool:
         if not isinstance(other, (Number, Ratio)):
