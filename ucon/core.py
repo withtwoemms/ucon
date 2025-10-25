@@ -236,7 +236,6 @@ class Scale(Enum):
 
         if self == other:
             return Scale.one
-
         if other is Scale.one:
             return self
 
@@ -301,11 +300,17 @@ class Number:
     def as_ratio(self):
         return Ratio(self)
 
-    def __mul__(self, another_number: 'Number') -> 'Number':
+    def __mul__(self, other: Union['Number', 'Ratio']) -> 'Number':
+        if not isinstance(other, (Number, Ratio)):
+            return NotImplemented
+
+        if isinstance(other, Ratio):
+            other = other.evaluate()
+
         return Number(
-            unit=self.unit * another_number.unit,
-            scale=self.scale,
-            quantity=self.quantity * another_number.quantity,
+            quantity=self.quantity * other.quantity,
+            unit=self.unit * other.unit,
+            scale=self.scale * other.scale,
         )
 
     def __truediv__(self, another_number: 'Number') -> 'Number':
