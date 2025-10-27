@@ -15,7 +15,7 @@ Classes
 Together, these classes allow full arithmetic, conversion, and introspection
 of physical quantities with explicit dimensional semantics.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from math import log2
@@ -287,7 +287,7 @@ class Number:
     """
     quantity: Union[float, int] = 1.0
     unit: Unit = units.none
-    scale: Scale = Scale.one
+    scale: Scale = field(default_factory=lambda: Scale.one)
 
     @property
     def value(self) -> float:
