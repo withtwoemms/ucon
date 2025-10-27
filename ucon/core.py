@@ -268,6 +268,8 @@ class Scale(Enum):
         return self.value == other.value
 
 
+Quantifiable = Union['Number', 'Ratio']
+
 @dataclass
 class Number:
     """
@@ -302,7 +304,7 @@ class Number:
     def as_ratio(self):
         return Ratio(self)
 
-    def __mul__(self, other: Union['Number', 'Ratio']) -> 'Number':
+    def __mul__(self, other: Quantifiable) -> 'Number':
         if not isinstance(other, (Number, Ratio)):
             return NotImplemented
 
@@ -315,7 +317,7 @@ class Number:
             scale=self.scale * other.scale,
         )
 
-    def __truediv__(self, other: Union['Number', 'Ratio']) -> 'Number':
+    def __truediv__(self, other: Quantifiable) -> 'Number':
         if not isinstance(other, (Number, Ratio)):
             return NotImplemented
 
@@ -328,7 +330,7 @@ class Number:
             scale=self.scale / other.scale,
         )
 
-    def __eq__(self, other: Union['Number', 'Ratio']) -> bool:
+    def __eq__(self, other: Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
             raise TypeError(f'Cannot compare Number to non-Number/Ratio type: {type(other)}')
 
