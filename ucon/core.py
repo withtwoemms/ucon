@@ -15,6 +15,7 @@ Classes
 Together, these classes allow full arithmetic, conversion, and introspection
 of physical quantities with explicit dimensional semantics.
 """
+from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from math import log2
@@ -33,6 +34,8 @@ class Exponent:
 
     Provides comparison and division semantics used internally to represent
     magnitude prefixes (e.g., kilo, mega, micro).
+
+    TODO (wittwemms): embrace fractional exponents for closure on multiplication/division.
     """
     bases = {2: log2, 10: log10}
 
@@ -198,6 +201,31 @@ class Scale(Enum):
 
         return min(candidates, key=distance)
 
+    def __mul__(self, other: 'Scale'):
+        """
+        Multiply two Scales together.
+
+        Always returns a `Scale`, representing the resulting order of magnitude.
+        If no exact prefix match exists, returns the nearest known Scale.
+        """
+        if not isinstance(other, Scale):
+            return NotImplemented
+
+        if self is Scale.one:
+            return other
+        if other is Scale.one:
+            return self
+
+        result = self.value * other.value  # delegates to Exponent.__mul__
+        include_binary = 2 in {self.value.base, other.value.base}
+
+        if isinstance(result, Exponent):
+            match = Scale.all().get(result.parts())
+            if match:
+                return Scale[match]
+
+        return Scale.nearest(float(result), include_binary=include_binary)
+
     def __truediv__(self, other: 'Scale'):
         """
         Divide one Scale by another.
@@ -210,7 +238,6 @@ class Scale(Enum):
 
         if self == other:
             return Scale.one
-
         if other is Scale.one:
             return self
 
@@ -241,7 +268,9 @@ class Scale(Enum):
         return self.value == other.value
 
 
-# TODO -- consider using a dataclass
+Quantifiable = Union['Number', 'Ratio']
+
+@dataclass
 class Number:
     """
     Represents a **numeric quantity** with an associated :class:`Unit` and :class:`Scale`.
@@ -256,11 +285,14 @@ class Number:
         >>> speed
         <2.5 (m/s)>
     """
-    def __init__(self, unit: Unit = units.none, scale: Scale = Scale.one, quantity = 1):
-        self.unit = unit
-        self.scale = scale
-        self.quantity = quantity
-        self.value = round(self.quantity * self.scale.value.evaluated, 15)
+    quantity: Union[float, int] = 1.0
+    unit: Unit = units.none
+    scale: Scale = field(default_factory=lambda: Scale.one)
+
+    @property
+    def value(self) -> float:
+        """Return numeric magnitude as quantity × scale factor."""
+        return round(self.quantity * self.scale.value.evaluated, 15)
 
     def simplify(self):
         return Number(unit=self.unit, quantity=self.value)
@@ -272,28 +304,44 @@ class Number:
     def as_ratio(self):
         return Ratio(self)
 
-    def __mul__(self, another_number: 'Number') -> 'Number':
+    def __mul__(self, other: Quantifiable) -> 'Number':
+        if not isinstance(other, (Number, Ratio)):
+            return NotImplemented
+
+        if isinstance(other, Ratio):
+            other = other.evaluate()
+
         return Number(
-            unit=self.unit * another_number.unit,
-            scale=self.scale,
-            quantity=self.quantity * another_number.quantity,
+            quantity=self.quantity * other.quantity,
+            unit=self.unit * other.unit,
+            scale=self.scale * other.scale,
         )
 
-    def __truediv__(self, another_number: 'Number') -> 'Number':
-        unit = self.unit / another_number.unit
-        scale = self.scale / another_number.scale
-        quantity = self.quantity / another_number.quantity
-        return Number(unit, scale, quantity)
+    def __truediv__(self, other: Quantifiable) -> 'Number':
+        if not isinstance(other, (Number, Ratio)):
+            return NotImplemented
 
-    def __eq__(self, another_number):
-        if isinstance(another_number, Number):
-            return (self.unit == another_number.unit) and \
-                   (self.quantity == another_number.quantity) and \
-                   (self.value == another_number.value)
-        elif isinstance(another_number, Ratio):
-            return self == another_number.evaluate()
-        else:
-            raise ValueError(f'"{another_number}" is not a Number or Ratio. Comparison not possible.')
+        if isinstance(other, Ratio):
+            other = other.evaluate()
+
+        return Number(
+            quantity=self.quantity / other.quantity,
+            unit=self.unit / other.unit,
+            scale=self.scale / other.scale,
+        )
+
+    def __eq__(self, other: Quantifiable) -> bool:
+        if not isinstance(other, (Number, Ratio)):
+            raise TypeError(f'Cannot compare Number to non-Number/Ratio type: {type(other)}')
+
+        elif isinstance(other, Ratio):
+            other = other.evaluate()
+
+        # Compare on evaluated numeric magnitude and exact unit
+        return (
+            self.unit == other.unit and
+            abs(self.value - other.value) < 1e-12
+        )
 
     def __repr__(self):
         return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.name}>'

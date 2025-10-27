@@ -25,9 +25,9 @@ Stable baseline for:
 - [x] Refactor `ucon.units` to use dimensional definitions  
 - [ ] Publish documentation for dimensional operations  
 - [x] Verify uniqueness and hashing correctness across all Dimensions  
-- [ ] Redesign `Exponent` to support algebraic operations (`__mul__`, `__truediv__`, `to_base`, etc.)  
-- [ ] Remove redundant evaluated caching in favor of property-based computation  
-- [ ] Integrate `Scale` with Exponent for consistent prefix arithmetic  
+- [x] Redesign `Exponent` to support algebraic operations (`__mul__`, `__truediv__`, `to_base`, etc.)  
+- [x] Remove redundant evaluated caching in favor of property-based computation  
+- [x] Integrate `Scale` with Exponent for consistent prefix arithmetic  
 - [ ] Update `Number` and `Ratio` to use Exponent-driven scaling  
 - [ ] Add regression tests for prefix math (`kilo / milli → mega`, `2¹⁰ / 10³ → 1.024×`)  
 - [ ] Document Exponent/Scale relationship in developer guide 

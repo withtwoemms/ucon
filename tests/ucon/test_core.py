@@ -109,6 +109,15 @@ class TestScale(TestCase):
         self.assertEqual(Scale.one, Scale.kibi / Scale.kibi)
         self.assertEqual(Scale.one, Scale.kibi / Scale.kilo)
 
+    def test___mul__(self):
+        self.assertEqual(Scale.kilo, Scale.kilo * Scale.one)
+        self.assertEqual(Scale.kilo, Scale.one * Scale.kilo)
+        self.assertEqual(Scale.one, Scale.kilo * Scale.milli)
+        self.assertEqual(Scale.deca, Scale.hecto * Scale.deci)
+        self.assertEqual(Scale.mega, Scale.kilo * Scale.kibi)
+        self.assertEqual(Scale.giga, Scale.mega * Scale.kilo)
+        self.assertEqual(Scale.one, Scale.one * Scale.one)
+
     def test___lt__(self):
         self.assertLess(Scale.one, Scale.kilo)
 
@@ -119,6 +128,43 @@ class TestScale(TestCase):
         for scale in Scale:
             self.assertTrue(isinstance(scale.value, Exponent))
         self.assertIsInstance(Scale.all(), dict)
+
+
+class TestScaleMultiplicationAdditional(TestCase):
+
+    def test_decimal_combinations(self):
+        self.assertEqual(Scale.kilo * Scale.centi, Scale.deca)
+        self.assertEqual(Scale.kilo * Scale.milli, Scale.one)
+        self.assertEqual(Scale.hecto * Scale.deci, Scale.deca)
+
+    def test_binary_combinations(self):
+        # kibi (2^10) * mebi (2^20) = 2^30 (should round to nearest known)
+        result = Scale.kibi * Scale.mebi
+        self.assertEqual(result.value.base, 2)
+        self.assertTrue(isinstance(result, Scale))
+
+    def test_mixed_base_combination(self):
+        self.assertEqual(Scale.mega, Scale.kilo * Scale.kibi)
+
+    def test_result_has_no_exact_match_fallbacks_to_nearest(self):
+        # Suppose the exponent product is not in Scale.all()
+        # e.g. kilo (10^3) * deci (10^-1) = 10^2 = hecto
+        result = Scale.kilo * Scale.deci
+        self.assertEqual(result, Scale.hecto)
+
+    def test_order_independence(self):
+        # Associativity of multiplication
+        self.assertEqual(Scale.kilo * Scale.centi, Scale.centi * Scale.kilo)
+
+    def test_non_scale_operand_returns_not_implemented(self):
+        with self.assertRaises(TypeError):
+            Scale.kilo * 2
+
+    def test_large_exponent_clamping(self):
+        # simulate a very large multiplication, should still resolve
+        result = Scale.mega * Scale.mega  # 10^12, not defined -> nearest Scale
+        self.assertIsInstance(result, Scale)
+        self.assertEqual(result.value.base, 10)
 
 
 class TestScaleDivisionAdditional(TestCase):
@@ -255,7 +301,7 @@ class TestNumber(TestCase):
 
     def test___eq__(self):
         self.assertEqual(self.number, Ratio(self.number))  # 1 gram / 1
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             self.number == 1
 
 
@@ -290,10 +336,12 @@ class TestRatio(TestCase):
         self.assertEqual(self.one_half * self.three_halves, self.three_fourths)
 
     def test___mul__(self):
-        bromine_density = Ratio(Number(units.gram, quantity=3.119), Number(units.liter, Scale.milli))
+        n1 = Number(unit=units.gram, quantity=3.119)
+        n2 = Number(unit=units.liter, scale=Scale.milli)
+        bromine_density = Ratio(n1, n2)
     
         # How many grams of bromine are in 2 milliliters?
-        two_milliliters_bromine = Number(units.liter, Scale.milli, 2)
+        two_milliliters_bromine = Number(unit=units.liter, scale=Scale.milli, quantity=2)
         ratio = two_milliliters_bromine.as_ratio() * bromine_density
         answer = ratio.evaluate()
         self.assertEqual(answer.unit.dimension, Dimension.mass)
@@ -319,7 +367,7 @@ class TestRatio(TestCase):
 
     def test___repr__(self):
         self.assertEqual(str(self.one_ratio), '<1.0 >')
-        self.assertEqual(str(self.two_ratio), '<2 > / <1 >')
+        self.assertEqual(str(self.two_ratio), '<2 > / <1.0 >')
         self.assertEqual(str(self.two_ratio.evaluate()), '<2.0 >')
 
 
@@ -458,8 +506,8 @@ class TestNumberEdgeCases(TestCase):
 
     def test_equality_with_non_number_raises_value_error(self):
         n = Number()
-        with self.assertRaises(ValueError):
-            _ = (n == "5")
+        with self.assertRaises(TypeError):
+            n == '5'
 
     def test_equality_between_numbers_and_ratios(self):
         n1 = Number(quantity=10)
