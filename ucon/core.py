@@ -34,6 +34,8 @@ class Exponent:
 
     Provides comparison and division semantics used internally to represent
     magnitude prefixes (e.g., kilo, mega, micro).
+
+    TODO (wittwemms): embrace fractional exponents for closure on multiplication/division.
     """
     bases = {2: log2, 10: log10}
 
