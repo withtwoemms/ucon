@@ -1,3 +1,20 @@
+"""
+ucon.algebra
+============
+
+Provides the low-level algebraic primitives that power the rest of the *ucon*
+stack. These building blocks model exponent vectors for physical dimensions and
+numeric base-exponent pairs for scale prefixes, enabling higher-level modules to
+compose dimensions, units, and quantities without reimplementing arithmetic.
+
+Other modules depend on these structures to ensure dimensional calculations,
+prefix handling, and unit simplification all share the same semantics.
+
+Classes
+-------
+- :class:`Vector` — Exponent tuple representing a physical dimension basis.
+- :class:`Exponent` — Base/power pair supporting prefix arithmetic.
+"""
 import math
 from dataclasses import dataclass
 from functools import partial, reduce, total_ordering
