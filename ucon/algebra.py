@@ -91,6 +91,8 @@ class Vector:
             >>> Dimension.length ** 2   # area
             >>> Dimension.time ** -1    # frequency
         """
+        values = tuple(component * scalar for component in tuple(self))
+        return Vector(*values)
 
     def __eq__(self, vector: 'Vector') -> bool:
         assert isinstance(vector, Vector), "Can only compare Vector to another Vector"
