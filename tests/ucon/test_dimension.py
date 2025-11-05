@@ -83,6 +83,20 @@ class TestDimension(unittest.TestCase):
         self.assertEqual(Dimension.mass, Dimension.mass)
         self.assertNotEqual(Dimension.mass, Dimension.time)
 
+    def test_pow_identity_and_zero(self):
+        self.assertIs(Dimension.length ** 1, Dimension.length)
+        self.assertIs(Dimension.mass ** 0, Dimension.none)
+
+    def test_pow_known_results(self):
+        self.assertEqual(Dimension.length ** 2, Dimension.area)
+        self.assertEqual(Dimension.time ** -1, Dimension.frequency)
+
+    @unittest.skip("TODO (ucon#68): should pass when dynamic dimensions are supported")
+    def test_pow_returns_derived_dimension_for_unknown(self):
+        jerk = Dimension.length * (Dimension.time ** -3)  # length / time^3
+        self.assertTrue(jerk.name.startswith("derived("))
+        self.assertNotIn(jerk.name, Dimension.__members__)
+
     def test_resolve_known_vector_returns_enum_member(self):
         dim = Dimension._resolve(Vector(0, 1, 0, 0, 0, 0, 0))
         self.assertIs(dim, Dimension.length)

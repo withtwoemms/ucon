@@ -24,6 +24,22 @@ class TestVector(TestCase):
         v2 = Vector(1, 1, 0, 0, 0, 0, 0)
         self.assertEqual(v1 - v2, Vector(1, 0, 0, 0, 0, 0, 0))
 
+    def test_vector_scalar_multiplication_by_integer(self):
+        v = Vector(1, -2, 0, 0, 0, 0, 3)
+        scaled = v * 2
+        self.assertEqual(scaled, Vector(2, -4, 0, 0, 0, 0, 6))
+        self.assertEqual(v, Vector(1, -2, 0, 0, 0, 0, 3))  # original unchanged
+
+    def test_vector_scalar_multiplication_by_float(self):
+        v = Vector(0, 1, 0, 0, 0, 0, 0)
+        scaled = v * 0.5
+        self.assertEqual(scaled, Vector(0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0))
+
+    def test_vector_scalar_multiplication_by_zero(self):
+        v = Vector(1, 2, 3, 4, 5, 6, 7)
+        zeroed = v * 0
+        self.assertEqual(zeroed, Vector(0, 0, 0, 0, 0, 0, 0))
+
     def test_vector_equality_and_hash(self):
         v1 = Vector(1, 0, 0, 0, 0, 0, 0)
         v2 = Vector(1, 0, 0, 0, 0, 0, 0)

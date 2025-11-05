@@ -20,6 +20,7 @@ Classes
   value and operator overloads for dimensional algebra.
 """
 from enum import Enum
+from typing import Union
 
 from ucon.algebra import Vector
 
@@ -106,6 +107,22 @@ class Dimension(Enum):
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot multiply Dimension by non-Dimension type: {type(dimension)}")
         return Dimension(self.value + dimension.value)
+
+    def __pow__(self, power: Union[int, float]) -> 'Dimension':
+        """
+        Raise a Dimension to a power.
+
+        Example:
+            >>> Dimension.length ** 2   # area
+            >>> Dimension.time ** -1    # frequency
+        """
+        if power == 1:
+            return self
+        if power == 0:
+            return Dimension.none
+
+        new_vector = self.value * power   # element-wise scalar multiply
+        return self._resolve(new_vector)
 
     def __eq__(self, dimension) -> bool:
         if not isinstance(dimension, Dimension):
