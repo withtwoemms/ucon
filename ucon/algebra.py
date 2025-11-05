@@ -82,6 +82,16 @@ class Vector:
         values = tuple(diff(pair) for pair in zip(tuple(self), tuple(vector)))
         return Vector(*values)
 
+    def __mul__(self, scalar: int | float) -> 'Vector':
+        """
+        Scalar multiplication of the exponent vector.
+
+        e.g., raising a dimension to a power:
+
+            >>> Dimension.length ** 2   # area
+            >>> Dimension.time ** -1    # frequency
+        """
+
     def __eq__(self, vector: 'Vector') -> bool:
         assert isinstance(vector, Vector), "Can only compare Vector to another Vector"
         return tuple(self) == tuple(vector)
