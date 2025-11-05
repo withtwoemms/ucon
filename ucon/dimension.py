@@ -115,6 +115,13 @@ class Dimension(Enum):
             >>> Dimension.length ** 2   # area
             >>> Dimension.time ** -1    # frequency
         """
+        if power == 1:
+            return self
+        if power == 0:
+            return Dimension.none
+
+        new_vector = self.value * power   # element-wise scalar multiply
+        return self._resolve(new_vector)
 
     def __eq__(self, dimension) -> bool:
         if not isinstance(dimension, Dimension):
