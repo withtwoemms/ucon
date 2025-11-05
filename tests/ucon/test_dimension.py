@@ -1,4 +1,6 @@
 import unittest
+
+from ucon.algebra import Vector
 from ucon.dimension import Dimension
 
 
@@ -80,6 +82,33 @@ class TestDimension(unittest.TestCase):
         self.assertNotEqual(Dimension.mass.value, Dimension.time.value)
         self.assertEqual(Dimension.mass, Dimension.mass)
         self.assertNotEqual(Dimension.mass, Dimension.time)
+
+    def test_resolve_known_vector_returns_enum_member(self):
+        dim = Dimension._resolve(Vector(0, 1, 0, 0, 0, 0, 0))
+        self.assertIs(dim, Dimension.length)
+
+    def test_resolve_unknown_vector_returns_dynamic_dimension(self):
+        vec = Vector(T=1, L=-1, M=0, I=0, Θ=0, J=0, N=0)  # “speed per time”, not an enum member
+        dyn = Dimension._resolve(vec)
+        self.assertNotIn(dyn, Dimension)
+        self.assertEqual(dyn.value, vec)
+        self.assertEqual(dyn.name, f"derived({vec})")
+
+    def test_resolve_returns_same_dynamic_for_same_vector(self):
+        vec = Vector(T=2, L=-2, M=0, I=0, Θ=0, J=0, N=0)
+        first = Dimension._resolve(vec)
+        second = Dimension._resolve(vec)
+        self.assertEqual(first.value, second.value)
+        self.assertEqual(first.name, second.name)
+
+    def test_dynamic_dimensions_compare_by_vector(self):
+        v1 = Vector(T=2, L=-2, M=0, I=0, Θ=0, J=0, N=0)
+        v2 = Vector(T=2, L=-2, M=0, I=0, Θ=0, J=0, N=0)
+        d1 = Dimension._resolve(v1)
+        d2 = Dimension._resolve(v2)
+        self.assertEqual(d1.value, d2.value)
+        self.assertEqual(d1 == d2, True)
+        self.assertEqual(hash(d1), hash(d2))
 
 
 class TestDimensionEdgeCases(unittest.TestCase):

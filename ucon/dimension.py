@@ -81,6 +81,13 @@ class Dimension(Enum):
     voltage = Vector(-3, 2, 1, -1, 0, 0, 0)
     volume = Vector(0, 3, 0, 0, 0, 0, 0)
 
+    @classmethod
+    def _resolve(cls, vector: 'Vector') -> 'Dimension':
+        """
+        Try to map a Vector to a known Dimension; if not found,
+        return a dynamic Dimension-like object.
+        """
+
     def __truediv__(self, dimension: 'Dimension') -> 'Dimension':
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot divide Dimension by non-Dimension type: {type(dimension)}")
