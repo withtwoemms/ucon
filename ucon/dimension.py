@@ -107,6 +107,15 @@ class Dimension(Enum):
             raise TypeError(f"Cannot multiply Dimension by non-Dimension type: {type(dimension)}")
         return Dimension(self.value + dimension.value)
 
+    def __pow__(self, power: int | float) -> 'Dimension':
+        """
+        Raise a Dimension to a power.
+
+        Example:
+            >>> Dimension.length ** 2   # area
+            >>> Dimension.time ** -1    # frequency
+        """
+
     def __eq__(self, dimension) -> bool:
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot compare Dimension with non-Dimension type: {type(dimension)}")
