@@ -90,7 +90,7 @@ class TestDimension(unittest.TestCase):
     def test_resolve_unknown_vector_returns_dynamic_dimension(self):
         vec = Vector(T=1, L=-1, M=0, I=0, Θ=0, J=0, N=0)  # “speed per time”, not an enum member
         dyn = Dimension._resolve(vec)
-        self.assertNotIn(dyn, Dimension)
+        self.assertNotIn(dyn.name, Dimension.__members__)
         self.assertEqual(dyn.value, vec)
         self.assertEqual(dyn.name, f"derived({vec})")
 
