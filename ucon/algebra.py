@@ -82,7 +82,7 @@ class Vector:
         values = tuple(diff(pair) for pair in zip(tuple(self), tuple(vector)))
         return Vector(*values)
 
-    def __mul__(self, scalar: int | float) -> 'Vector':
+    def __mul__(self, scalar: Union[int, float]) -> 'Vector':
         """
         Scalar multiplication of the exponent vector.
 
