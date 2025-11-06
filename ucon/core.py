@@ -7,7 +7,6 @@ manages numeric quantities, scaling prefixes, and dimensional relationships.
 
 Classes
 -------
-- :class:`Exponent` — Represents an exponential base/power pair (e.g., 10³).
 - :class:`Scale` — Enumerates SI and binary magnitude prefixes (kilo, milli, etc.).
 - :class:`Number` — Couples a numeric value with a unit and scale.
 - :class:`Ratio` — Represents a ratio between two :class:`Number` objects.
@@ -15,18 +14,14 @@ Classes
 Together, these classes allow full arithmetic, conversion, and introspection
 of physical quantities with explicit dimensional semantics.
 """
+import math
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import lru_cache, reduce, total_ordering
-from math import log2
-from math import log10
+from functools import lru_cache
 from typing import Dict, Tuple, Union
 
 from ucon import units
 from ucon.algebra import Exponent
-from ucon.unit import Unit
-
-
 
 
 class Scale(Enum):
@@ -98,7 +93,7 @@ class Scale(Enum):
 
         def distance(scale: "Scale") -> float:
             ratio = abs_val / scale.value.evaluated
-            diff = log10(ratio)
+            diff = math.log10(ratio)
             # Bias overshoots slightly more than undershoots
             if ratio < 1:
                 diff /= undershoot_bias
@@ -171,6 +166,78 @@ class Scale(Enum):
 
     def __eq__(self, other: 'Scale'):
         return self.value == other.value
+
+
+class Unit:
+    """
+    Represents a **unit of measure** associated with a :class:`Dimension`.
+
+    Parameters
+    ----------
+    *aliases : str
+        Optional shorthand symbols (e.g., "m", "sec").
+    name : str
+        Canonical name of the unit (e.g., "meter").
+    dimension : Dimension
+        The physical dimension this unit represents.
+
+    Notes
+    -----
+    Units participate in algebraic operations that produce new compound units:
+
+        >>> density = units.gram / units.liter
+        >>> density.dimension
+        <Dimension.density: Vector(T=0, L=-3, M=1, I=0, Θ=0, J=0, N=0)>
+
+    The combination rules follow the same algebra as :class:`Dimension`.
+    """
+    def __init__(self, *aliases: str, name: str = '', dimension: Dimension = Dimension.none):
+        self.dimension = dimension
+        self.name = name
+        self.aliases = aliases
+        self.shorthand = aliases[0] if aliases else self.name
+
+    def __repr__(self):
+        addendum = f' | {self.name}' if self.name else ''
+        return f'<{self.dimension.name}{addendum}>'
+
+    # TODO -- limit `operator` param choices
+    def generate_name(self, unit: 'Unit', operator: str):
+        if (self.dimension is Dimension.none) and not (unit.dimension is Dimension.none):
+            return unit.name
+        if not (self.dimension is Dimension.none) and (unit.dimension is Dimension.none):
+            return self.name
+
+        if not self.shorthand and not unit.shorthand:
+            name = ''
+        elif self.shorthand and not unit.shorthand:
+            name = f'({self.shorthand}{operator}?)'
+        elif not self.shorthand and unit.shorthand:
+            name = f'(?{operator}{unit.shorthand})'
+        else:
+            name = f'({self.shorthand}{operator}{unit.shorthand})'
+        return name
+
+    def __truediv__(self, unit: 'Unit') -> 'Unit':
+        # TODO -- define __eq__ for simplification, here
+        if (self.name == unit.name) and (self.dimension == unit.dimension):
+            return Unit()
+
+        if (unit.dimension is Dimension.none):
+            return self
+
+        return Unit(name=self.generate_name(unit, '/'), dimension=self.dimension / unit.dimension)
+
+    def __mul__(self, unit: 'Unit') -> 'Unit':
+        return Unit(name=self.generate_name(unit, '*'), dimension=self.dimension * unit.dimension)
+
+    def __eq__(self, unit: 'Unit') -> bool:
+        if not isinstance(unit, Unit):
+            raise TypeError(f'Cannot compare Unit to non-Unit type: {type(unit)}')
+        return (self.name == unit.name) and (self.dimension == unit.dimension)
+
+    def __hash__(self) -> int:
+        return hash(tuple([self.name, self.dimension,]))
 
 
 Quantifiable = Union['Number', 'Ratio']
