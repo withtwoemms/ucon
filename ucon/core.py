@@ -2,31 +2,133 @@
 ucon.core
 ==========
 
-Implements the **quantitative core** of the *ucon* system — the machinery that
-manages numeric quantities, scaling prefixes, and dimensional relationships.
+Implements the **ontological core** of the *ucon* system — the machinery that
+defines the algebra of physical dimensions, magnitude prefixes, and units.
 
 Classes
 -------
-- :class:`Exponent` — Represents an exponential base/power pair (e.g., 10³).
-- :class:`Scale` — Enumerates SI and binary magnitude prefixes (kilo, milli, etc.).
-- :class:`Number` — Couples a numeric value with a unit and scale.
-- :class:`Ratio` — Represents a ratio between two :class:`Number` objects.
+- :class:`Dimension` — Enumerates physical dimensions with algebraic closure over *, /, and **
+- :class:`Scale` — Enumerates SI and binary magnitude prefixes with algebraic closure over *, /
+  and with nearest-prefix lookup.
+- :class:`Unit` — Measurable quantity descriptor with algebraic closure over *, /.
 
-Together, these classes allow full arithmetic, conversion, and introspection
-of physical quantities with explicit dimensional semantics.
+Together these classes enable dimensional arithmetic, prefix composition, and unit
+construction with explicit, canonical semantics.
 """
-from dataclasses import dataclass, field
+import math
 from enum import Enum
-from functools import lru_cache, reduce, total_ordering
-from math import log2
-from math import log10
+from functools import lru_cache
 from typing import Dict, Tuple, Union
 
-from ucon import units
-from ucon.algebra import Exponent
-from ucon.unit import Unit
+from ucon.algebra import Exponent, Vector
 
 
+class Dimension(Enum):
+    """
+    Represents a **physical dimension** defined by a :class:`Vector`.
+
+    Each dimension corresponds to a distinct combination of base exponents.
+    Dimensions are algebraically composable via multiplication and division:
+
+        >>> Dimension.length / Dimension.time
+        <Dimension.velocity: Vector(T=-1, L=1, M=0, I=0, Θ=0, J=0, N=0)>
+
+    This algebra forms the foundation for unit compatibility and conversion.
+    """
+    none = Vector()
+
+    # -- BASIS ---------------------------------------
+    time                = Vector(1, 0, 0, 0, 0, 0, 0)
+    length              = Vector(0, 1, 0, 0, 0, 0, 0)
+    mass                = Vector(0, 0, 1, 0, 0, 0, 0)
+    current             = Vector(0, 0, 0, 1, 0, 0, 0)
+    temperature         = Vector(0, 0, 0, 0, 1, 0, 0)
+    luminous_intensity  = Vector(0, 0, 0, 0, 0, 1, 0)
+    amount_of_substance = Vector(0, 0, 0, 0, 0, 0, 1)
+    # ------------------------------------------------
+
+    acceleration = Vector(-2, 1, 0, 0, 0, 0, 0)
+    angular_momentum = Vector(-1, 2, 1, 0, 0, 0, 0)
+    area = Vector(0, 2, 0, 0, 0, 0, 0)
+    capacitance = Vector(4, -2, -1, 2, 0, 0, 0)
+    charge = Vector(1, 0, 0, 1, 0, 0, 0)
+    conductance = Vector(3, -2, -1, 2, 0, 0, 0)
+    conductivity = Vector(3, -3, -1, 2, 0, 0, 0)
+    density = Vector(0, -3, 1, 0, 0, 0, 0)
+    electric_field_strength = Vector(-3, 1, 1, -1, 0, 0, 0)
+    energy = Vector(-2, 2, 1, 0, 0, 0, 0)
+    entropy = Vector(-2, 2, 1, 0, -1, 0, 0)
+    force = Vector(-2, 1, 1, 0, 0, 0, 0)
+    frequency = Vector(-1, 0, 0, 0, 0, 0, 0)
+    gravitation = Vector(-2, 3, -1, 0, 0, 0, 0)
+    illuminance = Vector(0, -2, 0, 0, 0, 1, 0)
+    inductance = Vector(-2, 2, 1, -2, 0, 0, 0)
+    magnetic_flux = Vector(-2, 2, 1, -1, 0, 0, 0)
+    magnetic_flux_density = Vector(-2, 0, 1, -1, 0, 0, 0)
+    magnetic_permeability = Vector(-2, 1, 1, -2, 0, 0, 0)
+    molar_mass = Vector(0, 0, 1, 0, 0, 0, -1)
+    molar_volume = Vector(0, 3, 0, 0, 0, 0, -1)
+    momentum = Vector(-1, 1, 1, 0, 0, 0, 0)
+    permittivity = Vector(4, -3, -1, 2, 0, 0, 0)
+    power = Vector(-3, 2, 1, 0, 0, 0, 0)
+    pressure = Vector(-2, -1, 1, 0, 0, 0, 0)
+    resistance = Vector(-3, 2, 1, -2, 0, 0, 0)
+    resistivity = Vector(-3, 3, 1, -2, 0, 0, 0)
+    specific_heat_capacity = Vector(-2, 2, 0, 0, -1, 0, 0)
+    thermal_conductivity = Vector(-3, 1, 1, 0, -1, 0, 0)
+    velocity = Vector(-1, 1, 0, 0, 0, 0, 0)
+    voltage = Vector(-3, 2, 1, -1, 0, 0, 0)
+    volume = Vector(0, 3, 0, 0, 0, 0, 0)
+
+    @classmethod
+    def _resolve(cls, vector: 'Vector') -> 'Dimension':
+        """
+        Try to map a Vector to a known Dimension; if not found,
+        return a dynamic Dimension-like object.
+        """
+        for dim in cls:
+            if dim.value == vector:
+                return dim
+
+        # -- fallback: dynamic Dimension-like instance --
+        dyn = object.__new__(cls)
+        dyn._name_ = f"derived({vector})"
+        dyn._value_ = vector
+        return dyn
+
+    def __truediv__(self, dimension: 'Dimension') -> 'Dimension':
+        if not isinstance(dimension, Dimension):
+            raise TypeError(f"Cannot divide Dimension by non-Dimension type: {type(dimension)}")
+        return Dimension(self.value - dimension.value)
+
+    def __mul__(self, dimension: 'Dimension') -> 'Dimension':
+        if not isinstance(dimension, Dimension):
+            raise TypeError(f"Cannot multiply Dimension by non-Dimension type: {type(dimension)}")
+        return Dimension(self.value + dimension.value)
+
+    def __pow__(self, power: Union[int, float]) -> 'Dimension':
+        """
+        Raise a Dimension to a power.
+
+        Example:
+            >>> Dimension.length ** 2   # area
+            >>> Dimension.time ** -1    # frequency
+        """
+        if power == 1:
+            return self
+        if power == 0:
+            return Dimension.none
+
+        new_vector = self.value * power   # element-wise scalar multiply
+        return self._resolve(new_vector)
+
+    def __eq__(self, dimension) -> bool:
+        if not isinstance(dimension, Dimension):
+            raise TypeError(f"Cannot compare Dimension with non-Dimension type: {type(dimension)}")
+        return self.value == dimension.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
 
 
 class Scale(Enum):
@@ -98,7 +200,7 @@ class Scale(Enum):
 
         def distance(scale: "Scale") -> float:
             ratio = abs_val / scale.value.evaluated
-            diff = log10(ratio)
+            diff = math.log10(ratio)
             # Bias overshoots slightly more than undershoots
             if ratio < 1:
                 diff /= undershoot_bias
@@ -173,134 +275,73 @@ class Scale(Enum):
         return self.value == other.value
 
 
-Quantifiable = Union['Number', 'Ratio']
-
-@dataclass
-class Number:
+class Unit:
     """
-    Represents a **numeric quantity** with an associated :class:`Unit` and :class:`Scale`.
+    Represents a **unit of measure** associated with a :class:`Dimension`.
 
-    Combines magnitude, unit, and scale into a single, composable object that
-    supports dimensional arithmetic and conversion:
+    Parameters
+    ----------
+    *aliases : str
+        Optional shorthand symbols (e.g., "m", "sec").
+    name : str
+        Canonical name of the unit (e.g., "meter").
+    dimension : Dimension
+        The physical dimension this unit represents.
 
-        >>> from ucon import core, units
-        >>> length = core.Number(unit=units.meter, quantity=5)
-        >>> time = core.Number(unit=units.second, quantity=2)
-        >>> speed = length / time
-        >>> speed
-        <2.5 (m/s)>
+    Notes
+    -----
+    Units participate in algebraic operations that produce new compound units:
+
+        >>> density = units.gram / units.liter
+        >>> density.dimension
+        <Dimension.density: Vector(T=0, L=-3, M=1, I=0, Θ=0, J=0, N=0)>
+
+    The combination rules follow the same algebra as :class:`Dimension`.
     """
-    quantity: Union[float, int] = 1.0
-    unit: Unit = units.none
-    scale: Scale = field(default_factory=lambda: Scale.one)
-
-    @property
-    def value(self) -> float:
-        """Return numeric magnitude as quantity × scale factor."""
-        return round(self.quantity * self.scale.value.evaluated, 15)
-
-    def simplify(self):
-        return Number(unit=self.unit, quantity=self.value)
-
-    def to(self, new_scale: Scale):
-        new_quantity = self.quantity / new_scale.value.evaluated
-        return Number(unit=self.unit, scale=new_scale, quantity=new_quantity)
-
-    def as_ratio(self):
-        return Ratio(self)
-
-    def __mul__(self, other: Quantifiable) -> 'Number':
-        if not isinstance(other, (Number, Ratio)):
-            return NotImplemented
-
-        if isinstance(other, Ratio):
-            other = other.evaluate()
-
-        return Number(
-            quantity=self.quantity * other.quantity,
-            unit=self.unit * other.unit,
-            scale=self.scale * other.scale,
-        )
-
-    def __truediv__(self, other: Quantifiable) -> 'Number':
-        if not isinstance(other, (Number, Ratio)):
-            return NotImplemented
-
-        if isinstance(other, Ratio):
-            other = other.evaluate()
-
-        return Number(
-            quantity=self.quantity / other.quantity,
-            unit=self.unit / other.unit,
-            scale=self.scale / other.scale,
-        )
-
-    def __eq__(self, other: Quantifiable) -> bool:
-        if not isinstance(other, (Number, Ratio)):
-            raise TypeError(f'Cannot compare Number to non-Number/Ratio type: {type(other)}')
-
-        elif isinstance(other, Ratio):
-            other = other.evaluate()
-
-        # Compare on evaluated numeric magnitude and exact unit
-        return (
-            self.unit == other.unit and
-            abs(self.value - other.value) < 1e-12
-        )
+    def __init__(self, *aliases: str, name: str = '', dimension: Dimension = Dimension.none):
+        self.dimension = dimension
+        self.name = name
+        self.aliases = aliases
+        self.shorthand = aliases[0] if aliases else self.name
 
     def __repr__(self):
-        return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.name}>'
+        addendum = f' | {self.name}' if self.name else ''
+        return f'<{self.dimension.name}{addendum}>'
 
+    # TODO -- limit `operator` param choices
+    def generate_name(self, unit: 'Unit', operator: str):
+        if (self.dimension is Dimension.none) and not (unit.dimension is Dimension.none):
+            return unit.name
+        if not (self.dimension is Dimension.none) and (unit.dimension is Dimension.none):
+            return self.name
 
-# TODO -- consider using a dataclass
-class Ratio:
-    """
-    Represents a **ratio of two Numbers**, preserving their unit semantics.
-
-    Useful for expressing physical relationships like efficiency, density,
-    or dimensionless comparisons:
-
-        >>> ratio = Ratio(length, time)
-        >>> ratio.evaluate()
-        <2.5 (m/s)>
-    """
-    def __init__(self, numerator: Number = Number(), denominator: Number = Number()):
-        self.numerator = numerator
-        self.denominator = denominator
-
-    def reciprocal(self) -> 'Ratio':
-        return Ratio(numerator=self.denominator, denominator=self.numerator)
-
-    def evaluate(self) -> Number:
-        return self.numerator / self.denominator
-
-    def __mul__(self, another_ratio: 'Ratio') -> 'Ratio':
-        if self.numerator.unit == another_ratio.denominator.unit:
-            factor = self.numerator / another_ratio.denominator
-            numerator, denominator = factor * another_ratio.numerator, self.denominator
-        elif self.denominator.unit == another_ratio.numerator.unit:
-            factor = another_ratio.numerator / self.denominator
-            numerator, denominator = factor * self.numerator, another_ratio.denominator
+        if not self.shorthand and not unit.shorthand:
+            name = ''
+        elif self.shorthand and not unit.shorthand:
+            name = f'({self.shorthand}{operator}?)'
+        elif not self.shorthand and unit.shorthand:
+            name = f'(?{operator}{unit.shorthand})'
         else:
-            factor = Number()
-            another_number = another_ratio.evaluate()
-            numerator, denominator = self.numerator * another_number, self.denominator
-        return Ratio(numerator=numerator, denominator=denominator)
+            name = f'({self.shorthand}{operator}{unit.shorthand})'
+        return name
 
-    def __truediv__(self, another_ratio: 'Ratio') -> 'Ratio':
-        return Ratio(
-            numerator=self.numerator * another_ratio.denominator,
-            denominator=self.denominator * another_ratio.numerator,
-        )
+    def __truediv__(self, unit: 'Unit') -> 'Unit':
+        # TODO -- define __eq__ for simplification, here
+        if (self.name == unit.name) and (self.dimension == unit.dimension):
+            return Unit()
 
-    def __eq__(self, another_ratio: 'Ratio') -> bool:
-        if isinstance(another_ratio, Ratio):
-            return self.evaluate() == another_ratio.evaluate()
-        elif isinstance(another_ratio, Number):
-            return self.evaluate() == another_ratio
-        else:
-            raise ValueError(f'"{another_ratio}" is not a Ratio or Number. Comparison not possible.')
+        if (unit.dimension is Dimension.none):
+            return self
 
-    def __repr__(self):
-        # TODO -- resolve int/float inconsistency
-        return f'{self.evaluate()}' if self.numerator == self.denominator else f'{self.numerator} / {self.denominator}'
+        return Unit(name=self.generate_name(unit, '/'), dimension=self.dimension / unit.dimension)
+
+    def __mul__(self, unit: 'Unit') -> 'Unit':
+        return Unit(name=self.generate_name(unit, '*'), dimension=self.dimension * unit.dimension)
+
+    def __eq__(self, unit: 'Unit') -> bool:
+        if not isinstance(unit, Unit):
+            raise TypeError(f'Cannot compare Unit to non-Unit type: {type(unit)}')
+        return (self.name == unit.name) and (self.dimension == unit.dimension)
+
+    def __hash__(self) -> int:
+        return hash(tuple([self.name, self.dimension,]))

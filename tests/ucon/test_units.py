@@ -3,8 +3,8 @@
 from unittest import TestCase
 
 from ucon import units
-from ucon.dimension import Dimension
-from ucon.unit import Unit
+from ucon.core import Dimension
+from ucon.core import Unit
 
 
 class TestUnits(TestCase):

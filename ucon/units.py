@@ -24,8 +24,7 @@ Notes
 The design allows for future extensibility: users can register their own units,
 systems, or aliases dynamically, without modifying the core definitions.
 """
-from ucon.dimension import Dimension
-from ucon.unit import Unit
+from ucon.core import Dimension, Unit
 
 
 none = Unit()
