@@ -298,11 +298,12 @@ class Unit:
 
     The combination rules follow the same algebra as :class:`Dimension`.
     """
-    def __init__(self, *aliases: str, name: str = '', dimension: Dimension = Dimension.none):
-        self.dimension = dimension
-        self.name = name
+    def __init__(self, *aliases: str, name: str = '', dimension: Dimension = Dimension.none, scale: Scale = Scale.one):
         self.aliases = aliases
+        self.name = name
         self.shorthand = aliases[0] if aliases else self.name
+        self.dimension = dimension
+        self.scale = scale
 
     def __repr__(self):
         addendum = f' | {self.name}' if self.name else ''

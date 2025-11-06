@@ -3,7 +3,7 @@
 import unittest
 
 from ucon import units
-from ucon.core import Dimension, Scale
+from ucon.core import Dimension, Scale, Unit
 from ucon.quantity import Number, Ratio
 
 
@@ -18,18 +18,25 @@ class TestNumber(unittest.TestCase):
         self.assertEqual(ratio.denominator, Number())
 
     def test_simplify(self):
-        ten_decagrams = Number(unit=units.gram, scale=Scale.deca, quantity=10)
-        point_one_decagrams = Number(unit=units.gram, scale=Scale.deca, quantity=0.1)
-        two_kibigrams = Number(unit=units.gram, scale=Scale.kibi, quantity=2)
+        decagram = Unit(dimension=Dimension.mass, name='gram', scale=Scale.deca)
+        kibigram = Unit(dimension=Dimension.mass, name='gram', scale=Scale.kibi)
+
+        ten_decagrams = Number(unit=decagram, quantity=10)
+        point_one_decagrams = Number(unit=decagram, quantity=0.1)
+        two_kibigrams = Number(unit=kibigram, quantity=2)
 
         self.assertEqual(Number(unit=units.gram, quantity=100), ten_decagrams.simplify())
         self.assertEqual(Number(unit=units.gram, quantity=1), point_one_decagrams.simplify())
         self.assertEqual(Number(unit=units.gram, quantity=2048), two_kibigrams.simplify())
 
     def test_to(self):
-        thousandth_of_a_kilogram = Number(unit=units.gram, scale=Scale.kilo, quantity=0.001)
-        thousand_milligrams = Number(unit=units.gram, scale=Scale.milli, quantity=1000)
-        kibigram_fraction = Number(unit=units.gram, scale=Scale.kibi, quantity=0.0009765625)
+        kg = Unit(dimension=Dimension.mass, name='gram', scale=Scale.kilo)
+        mg = Unit(dimension=Dimension.mass, name='gram', scale=Scale.milli)
+        kibigram = Unit(dimension=Dimension.mass, name='gram', scale=Scale.kibi)
+
+        thousandth_of_a_kilogram = Number(unit=kg, quantity=0.001)
+        thousand_milligrams = Number(unit=mg, quantity=1000)
+        kibigram_fraction = Number(unit=kibigram, quantity=0.0009765625)
 
         self.assertEqual(thousandth_of_a_kilogram, self.number.to(Scale.kilo))
         self.assertEqual(thousand_milligrams, self.number.to(Scale.milli))
@@ -37,13 +44,17 @@ class TestNumber(unittest.TestCase):
 
     def test___repr__(self):
         self.assertIn(str(self.number.quantity), str(self.number))
-        self.assertIn(str(self.number.scale.value.evaluated), str(self.number))
+        self.assertIn(str(self.number.unit.scale.value.evaluated), str(self.number))
         self.assertIn(self.number.unit.name, str(self.number))
 
     def test___truediv__(self):
-        some_number = Number(unit=units.gram, scale=Scale.deca, quantity=10)
-        another_number = Number(unit=units.gram, scale=Scale.milli, quantity=10)
-        that_number = Number(unit=units.gram, scale=Scale.kibi, quantity=10)
+        dal = Unit(dimension=Dimension.mass, name='gram', scale=Scale.deca)
+        mg = Unit(dimension=Dimension.mass, name='gram', scale=Scale.milli)
+        kibigram = Unit(dimension=Dimension.mass, name='gram', scale=Scale.kibi)
+
+        some_number = Number(unit=dal, quantity=10)
+        another_number = Number(unit=mg, quantity=10)
+        that_number = Number(unit=kibigram, quantity=10)
 
         some_quotient = self.number / some_number
         another_quotient = self.number / another_number
@@ -64,19 +75,21 @@ class TestNumberEdgeCases(unittest.TestCase):
     def test_default_number_is_dimensionless_one(self):
         n = Number()
         self.assertEqual(n.unit, units.none)
-        self.assertEqual(n.scale, Scale.one)
+        self.assertEqual(n.unit.scale, Scale.one)
         self.assertEqual(n.quantity, 1)
         self.assertAlmostEqual(n.value, 1.0)
         self.assertIn("1", repr(n))
 
     def test_to_new_scale_changes_value(self):
-        n = Number(quantity=1000, scale=Scale.kilo)
+        thousand = Unit(dimension=Dimension.none, name='', scale=Scale.kilo)
+        n = Number(quantity=1000, unit=thousand)
         converted = n.to(Scale.one)
         self.assertNotEqual(n.value, converted.value)
         self.assertAlmostEqual(converted.value, 1000)
 
     def test_simplify_uses_value_as_quantity(self):
-        n = Number(quantity=2, scale=Scale.kilo)
+        thousand = Unit(dimension=Dimension.none, name='', scale=Scale.kilo)
+        n = Number(quantity=2, unit=thousand)
         simplified = n.simplify()
         self.assertEqual(simplified.quantity, n.value)
         self.assertEqual(simplified.unit, n.unit)
@@ -89,10 +102,11 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertEqual(result.unit.dimension, Dimension.energy * Dimension.time)
 
     def test_division_combines_units_scales_and_quantities(self):
-        n1 = Number(unit=units.meter, scale=Scale.kilo, quantity=1000)
-        n2 = Number(unit=units.second, scale=Scale.one, quantity=2)
+        km = Unit('m', name='meter', dimension=Dimension.length, scale=Scale.kilo)
+        n1 = Number(unit=km, quantity=1000)
+        n2 = Number(unit=units.second, quantity=2)
         result = n1 / n2
-        self.assertEqual(result.scale, Scale.kilo / Scale.one)
+        self.assertEqual(result.unit.scale, Scale.kilo / Scale.one)
         self.assertEqual(result.unit.dimension, Dimension.velocity)
         self.assertAlmostEqual(result.quantity, 500)
 
@@ -108,7 +122,8 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertTrue(r == Number())
 
     def test_repr_includes_scale_and_unit(self):
-        n = Number(unit=units.volt, scale=Scale.kilo, quantity=5)
+        kV = Unit('V', name='volt', dimension=Dimension.voltage, scale=Scale.kilo)
+        n = Number(unit=kV, quantity=5)
         rep = repr(n)
         self.assertIn("kilo", rep)
         self.assertIn("volt", rep)
@@ -145,12 +160,13 @@ class TestRatio(unittest.TestCase):
         self.assertEqual(self.one_half * self.three_halves, self.three_fourths)
 
     def test___mul__(self):
+        mL = Unit('L', name='liter', dimension=Dimension.volume, scale=Scale.milli)
         n1 = Number(unit=units.gram, quantity=3.119)
-        n2 = Number(unit=units.liter, scale=Scale.milli)
+        n2 = Number(unit=mL)
         bromine_density = Ratio(n1, n2)
     
         # How many grams of bromine are in 2 milliliters?
-        two_milliliters_bromine = Number(unit=units.liter, scale=Scale.milli, quantity=2)
+        two_milliliters_bromine = Number(unit=mL, quantity=2)
         ratio = two_milliliters_bromine.as_ratio() * bromine_density
         answer = ratio.evaluate()
         self.assertEqual(answer.unit.dimension, Dimension.mass)
@@ -163,7 +179,10 @@ class TestRatio(unittest.TestCase):
         )
 
         # How many Wh from 20 kJ?
-        twenty_kilojoules = Number(unit=units.joule, scale=Scale.kilo, quantity=20)
+        twenty_kilojoules = Number(
+            unit=Unit('J', name='joule', dimension=Dimension.energy, scale=Scale.kilo),
+            quantity=20
+        )
         ratio = twenty_kilojoules.as_ratio() / seconds_per_hour
         answer = ratio.evaluate()
         self.assertEqual(answer.unit.dimension, Dimension.energy)
