@@ -33,9 +33,9 @@ Design Philosophy
   data-driven framework that is generalizable to arbitrary unit systems.
 """
 from ucon import units
-from ucon.core import Unit
-from ucon.core import Exponent, Number, Scale, Ratio
-from ucon.dimension import Dimension
+from ucon.algebra import Exponent
+from ucon.core import Dimension, Scale, Unit
+from ucon.quantity import Number, Ratio
 
 
 __all__ = [
