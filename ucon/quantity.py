@@ -40,19 +40,24 @@ class Number:
     """
     quantity: Union[float, int] = 1.0
     unit: Unit = units.none
-    scale: Scale = field(default_factory=lambda: Scale.one)
 
     @property
     def value(self) -> float:
         """Return numeric magnitude as quantity × scale factor."""
-        return round(self.quantity * self.scale.value.evaluated, 15)
+        return round(self.quantity * self.unit.scale.value.evaluated, 15)
 
     def simplify(self):
-        return Number(unit=self.unit, quantity=self.value)
+        """Return a new Number expressed in base scale (Scale.one)."""
+        return Number(unit=self.unit, quantity=self.value).to(Scale.one)
 
     def to(self, new_scale: Scale):
         new_quantity = self.quantity / new_scale.value.evaluated
-        return Number(unit=self.unit, scale=new_scale, quantity=new_quantity)
+        new_unit = Unit(
+            name=self.unit.name,
+            dimension=self.unit.dimension,
+            scale=new_scale,
+        )
+        return Number(unit=new_unit, quantity=new_quantity)
 
     def as_ratio(self):
         return Ratio(self)
@@ -65,9 +70,8 @@ class Number:
             other = other.evaluate()
 
         return Number(
-            quantity=self.quantity * other.quantity,
+            quantity=self.value * other.value,
             unit=self.unit * other.unit,
-            scale=self.scale * other.scale,
         )
 
     def __truediv__(self, other: Quantifiable) -> 'Number':
@@ -78,10 +82,9 @@ class Number:
             other = other.evaluate()
 
         return Number(
-            quantity=self.quantity / other.quantity,
+            quantity=self.value / other.value,
             unit=self.unit / other.unit,
-            scale=self.scale / other.scale,
-        )
+        ).to(self.unit.scale)
 
     def __eq__(self, other: Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
@@ -97,7 +100,7 @@ class Number:
         )
 
     def __repr__(self):
-        return f'<{self.quantity} {"" if self.scale.name == "one" else self.scale.name}{self.unit.name}>'
+        return f'<{self.quantity} {"" if self.unit.scale.name == "one" else self.unit.scale.name}{self.unit.name}>'
 
 
 # TODO -- consider using a dataclass
