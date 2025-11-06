@@ -1,10 +1,18 @@
 """
 ucon.quantity
 ==========
+
+Implements the **quantitative core** of the *ucon* system — the machinery that
+defines how numeric values are coupled with units and scales to represent
+physical quantities.
+
 Classes
 -------
 - :class:`Number` — Couples a numeric value with a unit and scale.
 - :class:`Ratio` — Represents a ratio between two :class:`Number` objects.
+
+Together, these classes allow full arithmetic, conversion, and introspection
+of physical quantities with explicit dimensional semantics.
 """
 from dataclasses import dataclass, field
 from typing import Union

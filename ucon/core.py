@@ -2,26 +2,24 @@
 ucon.core
 ==========
 
-Implements the **quantitative core** of the *ucon* system — the machinery that
-manages numeric quantities, scaling prefixes, and dimensional relationships.
+Implements the **ontological core** of the *ucon* system — the machinery that
+defines the algebra of physical dimensions, magnitude prefixes, and units.
 
 Classes
 -------
-- :class:`Dimension` — Enum of known physical quantities, each with a `Vector`
-- :class:`Scale` — Enumerates SI and binary magnitude prefixes (kilo, milli, etc.).
-  value and operator overloads for dimensional algebra.
-- :class:`Unit` — pairs a human-readable name and aliases with its underlying dimension.
+- :class:`Dimension` — Enumerates physical dimensions with algebraic closure over *, /, and **
+- :class:`Scale` — Enumerates SI and binary magnitude prefixes with algebraic closure over *, /
+  and with nearest-prefix lookup.
+- :class:`Unit` — Measurable quantity descriptor with algebraic closure over *, /.
 
-Together, these classes allow full arithmetic, conversion, and introspection
-of physical quantities with explicit dimensional semantics.
+Together these classes enable dimensional arithmetic, prefix composition, and unit
+construction with explicit, canonical semantics.
 """
 import math
-from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
 from typing import Dict, Tuple, Union
 
-from ucon import units
 from ucon.algebra import Exponent, Vector
 
 
