@@ -246,6 +246,18 @@ class TestScaleMultiplicationAdditional(unittest.TestCase):
         self.assertIsInstance(result, Scale)
         self.assertEqual(result.value.base, 10)
 
+    def test_scale_multiplication_with_unit(self):
+        meter = Unit('m', name='meter', dimension=Dimension.length)
+        kilometer = Scale.kilo * meter
+        self.assertIsInstance(kilometer, Unit)
+        self.assertEqual(kilometer.scale, Scale.kilo)
+        self.assertEqual(kilometer.dimension, Dimension.length)
+        self.assertIn('meter', kilometer.name)
+
+    def test_scale_multiplication_with_unit_returns_not_implemented_for_invalid_type(self):
+        with self.assertRaises(TypeError):
+            Scale.kilo * 1
+
 
 class TestScaleDivisionAdditional(unittest.TestCase):
 

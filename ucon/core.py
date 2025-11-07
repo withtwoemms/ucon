@@ -208,14 +208,19 @@ class Scale(Enum):
 
         return min(candidates, key=distance)
 
-    def __mul__(self, other: 'Scale'):
+    def __mul__(self, other: Union['Scale', 'Unit']):
         """
         Multiply two Scales together.
 
         Always returns a `Scale`, representing the resulting order of magnitude.
         If no exact prefix match exists, returns the nearest known Scale.
         """
-        if not isinstance(other, Scale):
+        if isinstance(other, Unit):
+            # Apply scale to a Unit
+            return Unit(*other.aliases, name=other.name,
+                        dimension=other.dimension, scale=self)
+
+        if not isinstance(other, (Scale, Unit,)):
             return NotImplemented
 
         if self is Scale.one:
@@ -338,6 +343,11 @@ class Unit:
 
     def __mul__(self, unit: 'Unit') -> 'Unit':
         return Unit(name=self.generate_name(unit, '*'), dimension=self.dimension * unit.dimension)
+
+    def __rmul__(self, other):
+        if isinstance(other, Scale):
+            return other * self
+        return NotImplemented
 
     def __eq__(self, unit: 'Unit') -> bool:
         if not isinstance(unit, Unit):
