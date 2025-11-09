@@ -141,58 +141,143 @@ class Scale(Enum):
 
     Each entry stores its numeric scaling factor (e.g., `kilo = 10³`).
     """
-    mebi  = (Exponent(2, 20), "Mi", "mebi")
-    kibi  = (Exponent(2, 10), "Ki", "kibi")
+    gibi  = Exponent(2, 30)
+    mebi  = Exponent(2, 20)
+    kibi  = Exponent(2, 10)
+    giga  = Exponent(10, 9)
+    mega  = Exponent(10, 6)
+    kilo  = Exponent(10, 3)
+    hecto = Exponent(10, 2)
+    deca  = Exponent(10, 1)
+    one   = Exponent(10, 0)
+    deci  = Exponent(10,-1)
+    centi = Exponent(10,-2)
+    milli = Exponent(10,-3)
+    micro = Exponent(10,-6)
+    nano = Exponent(10,-9)
+    _kibi = Exponent(2,-10)   # "kibi" inverse
+    _mebi = Exponent(2,-20)   # "mebi" inverse
+    _gibi = Exponent(2,-30)   # "gibi" inverse
 
-    peta  = (Exponent(10, 15), "P", "peta")
-    tera  = (Exponent(10, 12), "T", "tera")
-    giga  = (Exponent(10, 9), "G", "giga")
-    mega  = (Exponent(10, 6), "M", "mega")
-    kilo  = (Exponent(10, 3), "k", "kilo")
-    hecto = (Exponent(10, 2), "h", "hecto")
-    deca  = (Exponent(10, 1), "da", "deca")
-    one   = (Exponent(10, 0), "", "")
-    deci  = (Exponent(10,-1), "d", "deci")
-    centi = (Exponent(10,-2), "c", "centi")
-    milli = (Exponent(10,-3), "m", "milli")
-    micro = (Exponent(10,-6), "μ", "micro")
-    nano  = (Exponent(10,-9), "n", "nano")
-    pico  = (Exponent(10,-12), "p", "pico")
-    femto = (Exponent(10,-15), "f", "femto")
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def all() -> Dict[Tuple[int, int], str]:
+        """Return a map from (base, power) → Scale name."""
+        return {(s.value.base, s.value.power): s.name for s in Scale}
 
-    def __init__(self, exponent: Exponent, shorthand: str, alias: str):
-        self._value_ = exponent
-        self.shorthand = shorthand
-        self.alias = alias
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def by_value() -> Dict[float, str]:
+        """
+        Return a map from evaluated numeric value → Scale name.
+        Cached after first access.
+        """
+        return {round(s.value.evaluated, 15): s.name for s in Scale}
 
-    def __mul__(self, other):
-        if isinstance(other, Scale):
-            result = self.value * other.value
-            for scale in Scale:
-                if scale.value == result:
-                    return scale
+    @classmethod
+    @lru_cache(maxsize=1)
+    def _decimal_scales(cls):
+        """Return decimal (base-10) scales only."""
+        return list(s for s in cls if s.value.base == 10)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def _binary_scales(cls):
+        """Return binary (base-2) scales only."""
+        return list(s for s in cls if s.value.base == 2)
+
+    @classmethod
+    def nearest(cls, value: float, include_binary: bool = False, undershoot_bias: float = 0.75) -> "Scale":
+        """
+        Return the Scale that best normalizes `value` toward 1 in log-space.
+        Optionally restricts to base-10 prefixes unless `include_binary=True`.
+        """
+        if value == 0:
             return Scale.one
+
+        abs_val = abs(value)
+        candidates = cls._decimal_scales() if not include_binary else list(cls)
+
+        def distance(scale: "Scale") -> float:
+            ratio = abs_val / scale.value.evaluated
+            diff = math.log10(ratio)
+            # Bias overshoots slightly more than undershoots
+            if ratio < 1:
+                diff /= undershoot_bias
+            return abs(diff)
+
+        return min(candidates, key=distance)
+
+    def __mul__(self, other: Union['Scale', 'Unit']):
+        """
+        Multiply two Scales together.
+
+        Always returns a `Scale`, representing the resulting order of magnitude.
+        If no exact prefix match exists, returns the nearest known Scale.
+        """
         if isinstance(other, Unit):
             # Apply scale to a Unit
-            name = f"{self.shorthand}{other.name}"
-            return Unit(*other.aliases, name=name,
+            return Unit(*other.aliases, name=other.name,
                         dimension=other.dimension, scale=self)
-        return NotImplemented
 
-    def __truediv__(self, other):
+        if not isinstance(other, (Scale, Unit,)):
+            return NotImplemented
+
+        if self is Scale.one:
+            return other
+        if other is Scale.one:
+            return self
+
+        result = self.value * other.value  # delegates to Exponent.__mul__
+        include_binary = 2 in {self.value.base, other.value.base}
+
+        if isinstance(result, Exponent):
+            match = Scale.all().get(result.parts())
+            if match:
+                return Scale[match]
+
+        return Scale.nearest(float(result), include_binary=include_binary)
+
+    def __truediv__(self, other: 'Scale'):
+        """
+        Divide one Scale by another.
+
+        Always returns a `Scale`, representing the resulting order of magnitude.
+        If no exact prefix match exists, returns the nearest known Scale.
+        """
         if not isinstance(other, Scale):
             return NotImplemented
+
         if self == other:
             return Scale.one
-        result = self.value / other.value
-        for scale in Scale:
-            if scale.value == result:
-                return scale
-        return Scale.one
+        if other is Scale.one:
+            return self
 
-    def __hash__(self):
-        exponent = self.value
-        return hash((exponent.base, round(exponent.power, 12)))
+        should_consider_binary = (self.value.base == 2) or (other.value.base == 2)
+
+        if self is Scale.one:
+            result = Exponent(other.value.base, -other.value.power)
+            name = Scale.all().get((result.base, result.power))
+            if name:
+                return Scale[name]
+            return Scale.nearest(float(result), include_binary=should_consider_binary)
+
+        result: Union[Exponent, float] = self.value / other.value
+        if isinstance(result, Exponent):
+            match = Scale.all().get(result.parts())
+            if match:
+                return Scale[match]
+        else:
+            return Scale.nearest(float(result), include_binary=should_consider_binary)
+
+    def __lt__(self, other: 'Scale'):
+        return self.value < other.value
+
+    def __gt__(self, other: 'Scale'):
+        return self.value > other.value
+
+    def __eq__(self, other: 'Scale'):
+        return self.value == other.value
 
 
 class Unit:
