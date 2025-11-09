@@ -205,7 +205,7 @@ class TestScale(unittest.TestCase):
 
     def test_all(self):
         for scale in Scale:
-            self.assertTrue(isinstance(scale.value, Exponent))
+            self.assertTrue(isinstance(scale.value.exponent, Exponent))
         self.assertIsInstance(Scale.all(), dict)
 
 

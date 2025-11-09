@@ -15,6 +15,7 @@ Classes
 Together these classes enable dimensional arithmetic, prefix composition, and unit
 construction with explicit, canonical semantics.
 """
+from dataclasses import dataclass
 import math
 from enum import Enum
 from functools import lru_cache
@@ -131,6 +132,28 @@ class Dimension(Enum):
         return hash(self.value)
 
 
+@dataclass(frozen=True)
+class ScaleDescriptor:
+    exponent: Exponent
+    shorthand: str
+    alias: str
+
+    @property
+    def evaluated(self):
+        return self.exponent.evaluated
+
+    @property
+    def base(self):
+        return self.exponent.base
+
+    @property
+    def power(self):
+        return self.exponent.power
+
+    def __repr__(self):
+        return f"<ScaleDescriptor {self.alias or self.shorthand or '1'}: {self.base}^{self.power}>"
+
+
 class Scale(Enum):
     """
     Enumerates common **magnitude prefixes** for units and quantities.
@@ -141,26 +164,31 @@ class Scale(Enum):
 
     Each entry stores its numeric scaling factor (e.g., `kilo = 10³`).
     """
-    gibi  = Exponent(2, 30)
-    mebi  = Exponent(2, 20)
-    kibi  = Exponent(2, 10)
-    giga  = Exponent(10, 9)
-    mega  = Exponent(10, 6)
-    kilo  = Exponent(10, 3)
-    hecto = Exponent(10, 2)
-    deca  = Exponent(10, 1)
-    one   = Exponent(10, 0)
-    deci  = Exponent(10,-1)
-    centi = Exponent(10,-2)
-    milli = Exponent(10,-3)
-    micro = Exponent(10,-6)
-    nano = Exponent(10,-9)
+    gibi  = ScaleDescriptor(Exponent(2, 30), 'Gi', 'gibi')
+    mebi  = ScaleDescriptor(Exponent(2, 20), 'Mi', 'mebi')
+    kibi  = ScaleDescriptor(Exponent(2, 10), 'Ki', 'kibi')
+
+    peta = ScaleDescriptor(Exponent(10, 15), 'P', 'peta')
+    tera  = ScaleDescriptor(Exponent(10, 12), 'T', 'tera')
+    giga  = ScaleDescriptor(Exponent(10, 9), 'G', 'giga')
+    mega  = ScaleDescriptor(Exponent(10, 6), 'M', 'mega')
+    kilo  = ScaleDescriptor(Exponent(10, 3), 'k', 'kilo')
+    hecto = ScaleDescriptor(Exponent(10, 2), 'h', 'hecto')
+    deca  = ScaleDescriptor(Exponent(10, 1), 'da', 'deca')
+    one   = ScaleDescriptor(Exponent(10, 0), '', '')
+    deci  = ScaleDescriptor(Exponent(10,-1), 'd', 'deci')
+    centi = ScaleDescriptor(Exponent(10,-2), 'c', 'centi')
+    milli = ScaleDescriptor(Exponent(10,-3), 'm', 'milli')
+    micro = ScaleDescriptor(Exponent(10,-6), 'µ', 'micro')
+    nano  = ScaleDescriptor(Exponent(10,-9), 'n', 'nano')
+    pico  = ScaleDescriptor(Exponent(10,-12), 'p', 'pico')
+    femto = ScaleDescriptor(Exponent(10,-15), 'f', 'femto')
 
     @staticmethod
     @lru_cache(maxsize=1)
     def all() -> Dict[Tuple[int, int], str]:
         """Return a map from (base, power) → Scale name."""
-        return {(s.value.base, s.value.power): s.name for s in Scale}
+        return {(s.value.exponent.base, s.value.exponent.power): s.name for s in Scale}
 
     @staticmethod
     @lru_cache(maxsize=1)
@@ -169,19 +197,19 @@ class Scale(Enum):
         Return a map from evaluated numeric value → Scale name.
         Cached after first access.
         """
-        return {round(s.value.evaluated, 15): s.name for s in Scale}
+        return {round(s.value.exponent.evaluated, 15): s.name for s in Scale}
 
     @classmethod
     @lru_cache(maxsize=1)
     def _decimal_scales(cls):
         """Return decimal (base-10) scales only."""
-        return list(s for s in cls if s.value.base == 10)
+        return list(s for s in cls if s.value.exponent.base == 10)
 
     @classmethod
     @lru_cache(maxsize=1)
     def _binary_scales(cls):
         """Return binary (base-2) scales only."""
-        return list(s for s in cls if s.value.base == 2)
+        return list(s for s in cls if s.value.exponent.base == 2)
 
     @classmethod
     def nearest(cls, value: float, include_binary: bool = False, undershoot_bias: float = 0.75) -> "Scale":
@@ -196,7 +224,7 @@ class Scale(Enum):
         candidates = cls._decimal_scales() if not include_binary else list(cls)
 
         def distance(scale: "Scale") -> float:
-            ratio = abs_val / scale.value.evaluated
+            ratio = abs_val / scale.value.exponent.evaluated
             diff = math.log10(ratio)
             # Bias overshoots slightly more than undershoots
             if ratio < 1:
@@ -225,8 +253,8 @@ class Scale(Enum):
         if other is Scale.one:
             return self
 
-        result = self.value * other.value  # delegates to Exponent.__mul__
-        include_binary = 2 in {self.value.base, other.value.base}
+        result = self.value.exponent * other.value.exponent  # delegates to Exponent.__mul__
+        include_binary = 2 in {self.value.exponent.base, other.value.exponent.base}
 
         if isinstance(result, Exponent):
             match = Scale.all().get(result.parts())
@@ -250,16 +278,16 @@ class Scale(Enum):
         if other is Scale.one:
             return self
 
-        should_consider_binary = (self.value.base == 2) or (other.value.base == 2)
+        should_consider_binary = (self.value.exponent.base == 2) or (other.value.exponent.base == 2)
 
         if self is Scale.one:
-            result = Exponent(other.value.base, -other.value.power)
+            result = Exponent(other.value.exponent.base, -other.value.exponent.power)
             name = Scale.all().get((result.base, result.power))
             if name:
                 return Scale[name]
             return Scale.nearest(float(result), include_binary=should_consider_binary)
 
-        result: Union[Exponent, float] = self.value / other.value
+        result: Union[Exponent, float] = self.value.exponent / other.value.exponent
         if isinstance(result, Exponent):
             match = Scale.all().get(result.parts())
             if match:
@@ -268,13 +296,13 @@ class Scale(Enum):
             return Scale.nearest(float(result), include_binary=should_consider_binary)
 
     def __lt__(self, other: 'Scale'):
-        return self.value < other.value
+        return self.value.exponent < other.value.exponent
 
     def __gt__(self, other: 'Scale'):
-        return self.value > other.value
+        return self.value.exponent > other.value.exponent
 
     def __eq__(self, other: 'Scale'):
-        return self.value == other.value
+        return self.value.exponent == other.value.exponent
 
 
 class Unit:
