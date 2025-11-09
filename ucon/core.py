@@ -155,9 +155,6 @@ class Scale(Enum):
     milli = Exponent(10,-3)
     micro = Exponent(10,-6)
     nano = Exponent(10,-9)
-    _kibi = Exponent(2,-10)   # "kibi" inverse
-    _mebi = Exponent(2,-20)   # "mebi" inverse
-    _gibi = Exponent(2,-30)   # "gibi" inverse
 
     @staticmethod
     @lru_cache(maxsize=1)

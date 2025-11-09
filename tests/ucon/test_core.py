@@ -183,7 +183,6 @@ class TestScale(unittest.TestCase):
         self.assertEqual(Scale.kibi, Scale.mebi / Scale.kibi)
         self.assertEqual(Scale.milli, Scale.one / Scale.deca / Scale.deca / Scale.deca)
         self.assertEqual(Scale.deca, Scale.kilo / Scale.hecto)
-        self.assertEqual(Scale._kibi, Scale.one / Scale.kibi)
         self.assertEqual(Scale.kibi, Scale.kibi / Scale.one)
         self.assertEqual(Scale.one, Scale.one / Scale.one)
         self.assertEqual(Scale.one, Scale.kibi / Scale.kibi)
@@ -276,7 +275,6 @@ class TestScaleDivisionAdditional(unittest.TestCase):
 
     def test_division_binary_inverse_scales(self):
         self.assertEqual(Scale.kibi / Scale.kibi, Scale.one)
-        self.assertEqual(Scale.kibi / Scale.mebi, Scale._kibi)
         self.assertEqual(Scale.mebi / Scale.kibi, Scale.kibi)
 
     def test_division_unmatched_returns_nearest(self):
@@ -490,7 +488,6 @@ class TestScaleEdgeCases(unittest.TestCase):
         self.assertEqual(Scale.nearest(1/1024), Scale.milli)
 
     def test_nearest_includes_binary_when_opted_in(self):
-        self.assertEqual(Scale.nearest(1/1024, include_binary=True), Scale._kibi)
         self.assertEqual(Scale.nearest(1024, include_binary=True), Scale.kibi)
         self.assertEqual(Scale.nearest(50_000, include_binary=True), Scale.kibi)
         self.assertEqual(Scale.nearest(2**20, include_binary=True), Scale.mebi)
