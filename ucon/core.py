@@ -18,7 +18,7 @@ construction with explicit, canonical semantics.
 from dataclasses import dataclass
 import math
 from enum import Enum
-from functools import lru_cache
+from functools import lru_cache, reduce
 from typing import Dict, Tuple, Union
 
 from ucon.algebra import Exponent, Vector
@@ -100,12 +100,12 @@ class Dimension(Enum):
     def __truediv__(self, dimension: 'Dimension') -> 'Dimension':
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot divide Dimension by non-Dimension type: {type(dimension)}")
-        return Dimension(self.value - dimension.value)
+        return self._resolve(self.value - dimension.value)
 
     def __mul__(self, dimension: 'Dimension') -> 'Dimension':
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot multiply Dimension by non-Dimension type: {type(dimension)}")
-        return Dimension(self.value + dimension.value)
+        return self._resolve(self.value + dimension.value)
 
     def __pow__(self, power: Union[int, float]) -> 'Dimension':
         """
@@ -240,28 +240,100 @@ class Scale(Enum):
         Always returns a `Scale`, representing the resulting order of magnitude.
         If no exact prefix match exists, returns the nearest known Scale.
         """
+        # 1️⃣ Handle CompositeUnit first (it subclasses Unit)
+        if isinstance(other, CompositeUnit):
+            return other.__rmul__(self)
+
+        # 2️⃣ Apply this scale to a plain Unit
         if isinstance(other, Unit):
-            # Apply scale to a Unit
-            return Unit(*other.aliases, name=other.name,
-                        dimension=other.dimension, scale=self)
+            # Forbid double-prefixing
+            if getattr(other, "scale", Scale.one) is not Scale.one:
+                raise ValueError(
+                    f"Cannot apply {self.name or self.alias} "
+                    f"to already scaled unit {other}"
+                )
+            return Unit(
+                *other.aliases,
+                name=other.name,
+                dimension=other.dimension,
+                scale=self,
+            )
 
-        if not isinstance(other, (Scale, Unit,)):
-            return NotImplemented
+        # 3️⃣ Multiply two Scales — quantize to nearest
+        if isinstance(other, Scale):
+            if self is Scale.one:
+                return other
+            if other is Scale.one:
+                return self
 
-        if self is Scale.one:
-            return other
-        if other is Scale.one:
-            return self
+            result = self.value.exponent * other.value.exponent  # delegates to Exponent.__mul__
+            include_binary = 2 in {self.value.exponent.base, other.value.exponent.base}
 
-        result = self.value.exponent * other.value.exponent  # delegates to Exponent.__mul__
-        include_binary = 2 in {self.value.exponent.base, other.value.exponent.base}
+            if isinstance(result, Exponent):
+                match = Scale.all().get(result.parts())
+                if match:
+                    return Scale[match]
 
-        if isinstance(result, Exponent):
-            match = Scale.all().get(result.parts())
-            if match:
-                return Scale[match]
+            # Quantize to the nearest known scale
+            return Scale.nearest(float(result), include_binary=include_binary)
 
-        return Scale.nearest(float(result), include_binary=include_binary)
+        # 4️⃣ Anything else → not supported
+        return NotImplemented
+    def __mul__(self, other: Union['Scale', 'Unit']):
+        # Handle CompositeUnit FIRST (because it's a subclass of Unit)
+        if isinstance(other, CompositeUnit):
+            return other.__rmul__(self)
+
+        # Then handle plain Unit
+        if isinstance(other, Unit):
+            if getattr(other, "scale", Scale.one) is not Scale.one:
+                raise ValueError(f"Cannot apply {self.name or self.alias} to already scaled unit {other}")
+            return Unit(*other.aliases,
+                        name=other.name,
+                        dimension=other.dimension,
+                        scale=self)
+
+        # Handle Scale × Scale
+        if isinstance(other, Scale):
+            result = self.value.exponent * other.value.exponent
+            include_binary = 2 in {self.value.exponent.base, other.value.exponent.base}
+            if isinstance(result, Exponent):
+                match = Scale.all().get(result.parts())
+                if match:
+                    return Scale[match]
+            return Scale.nearest(float(result), include_binary=include_binary)
+
+        return NotImplemented
+
+    # def __mul__(self, other: Union['Scale', 'Unit']):
+    #     """
+    #     Multiply two Scales together.
+
+    #     Always returns a `Scale`, representing the resulting order of magnitude.
+    #     If no exact prefix match exists, returns the nearest known Scale.
+    #     """
+    #     if isinstance(other, Unit):
+    #         # Apply scale to a Unit
+    #         return Unit(*other.aliases, name=other.name,
+    #                     dimension=other.dimension, scale=self)
+
+    #     if not isinstance(other, (Scale, Unit,)):
+    #         return NotImplemented
+
+    #     if self is Scale.one:
+    #         return other
+    #     if other is Scale.one:
+    #         return self
+
+    #     result = self.value.exponent * other.value.exponent  # delegates to Exponent.__mul__
+    #     include_binary = 2 in {self.value.exponent.base, other.value.exponent.base}
+
+    #     if isinstance(result, Exponent):
+    #         match = Scale.all().get(result.parts())
+    #         if match:
+    #             return Scale[match]
+
+    #     return Scale.nearest(float(result), include_binary=include_binary)
 
     def __truediv__(self, other: 'Scale'):
         """
@@ -304,6 +376,9 @@ class Scale(Enum):
     def __eq__(self, other: 'Scale'):
         return self.value.exponent == other.value.exponent
 
+    def __hash__(self):
+        return hash((self.value.base, round(self.value.power, 12)))
+
 
 class Unit:
     """
@@ -328,56 +403,448 @@ class Unit:
 
     The combination rules follow the same algebra as :class:`Dimension`.
     """
-    def __init__(self, *aliases: str, name: str = '', dimension: Dimension = Dimension.none, scale: Scale = Scale.one):
+    def __init__(self, *aliases: str, name: str = "", dimension: Dimension = Dimension.none, scale: Scale = Scale.one):
         self.aliases = aliases
         self.name = name
-        self.shorthand = aliases[0] if aliases else self.name
         self.dimension = dimension
         self.scale = scale
 
-    def __repr__(self):
-        addendum = f' | {self.name}' if self.name else ''
-        return f'<{self.dimension.name}{addendum}>'
+    @property
+    def shorthand(self) -> str:
+        # Special-case: hide dimensionless in display contexts
+        if self.dimension == Dimension.none:
+            return ""
+        prefix = self.scale.value.shorthand or ""
+        base = (self.aliases[0] if self.aliases else self.name) or ""
+        return f"{prefix}{base}".strip()
 
-    # TODO -- limit `operator` param choices
-    def generate_name(self, unit: 'Unit', operator: str):
-        if (self.dimension is Dimension.none) and not (unit.dimension is Dimension.none):
-            return unit.name
-        if not (self.dimension is Dimension.none) and (unit.dimension is Dimension.none):
-            return self.name
-
-        if not self.shorthand and not unit.shorthand:
-            name = ''
-        elif self.shorthand and not unit.shorthand:
-            name = f'({self.shorthand}{operator}?)'
-        elif not self.shorthand and unit.shorthand:
-            name = f'(?{operator}{unit.shorthand})'
-        else:
-            name = f'({self.shorthand}{operator}{unit.shorthand})'
-        return name
-
-    def __truediv__(self, unit: 'Unit') -> 'Unit':
-        # TODO -- define __eq__ for simplification, here
-        if (self.name == unit.name) and (self.dimension == unit.dimension):
-            return Unit()
-
-        if (unit.dimension is Dimension.none):
-            return self
-
-        return Unit(name=self.generate_name(unit, '/'), dimension=self.dimension / unit.dimension)
-
-    def __mul__(self, unit: 'Unit') -> 'Unit':
-        return Unit(name=self.generate_name(unit, '*'), dimension=self.dimension * unit.dimension)
+    def __mul__(self, other):
+        if isinstance(other, Unit):
+            return CompositeUnit({self: 1, other: 1})
+        return NotImplemented
 
     def __rmul__(self, other):
         if isinstance(other, Scale):
             return other * self
         return NotImplemented
 
-    def __eq__(self, unit: 'Unit') -> bool:
-        if not isinstance(unit, Unit):
-            raise TypeError(f'Cannot compare Unit to non-Unit type: {type(unit)}')
-        return (self.name == unit.name) and (self.dimension == unit.dimension)
+    def __truediv__(self, other):
+        if isinstance(other, Unit):
+            if self == other:
+                return Unit("", name="", dimension=Dimension.none)
+            return CompositeUnit({self: 1, other: -1})
+        return NotImplemented
 
-    def __hash__(self) -> int:
-        return hash(tuple([self.name, self.dimension,]))
+    def __pow__(self, power):
+        return CompositeUnit({self: power})
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, Unit)
+            and self.dimension == other.dimension
+            and self.scale == other.scale
+            and self.name == other.name
+        )
+
+    def __hash__(self):
+        return hash((self.name, self.dimension, self.scale))
+
+    def __repr__(self):
+        return f"<Unit {self.shorthand}>"
+
+
+class CompositeUnit(Unit):
+    """
+    Represents a product or quotient of base Units.
+
+    Example:
+        >>> velocity = CompositeUnit({units.meter: 1, units.second: -1})
+        >>> str(velocity)
+        'm/s'
+
+    Automatically simplifies:
+        (g / mL) * (mL)  →  g
+        (m / s) * (s)    →  m
+    """
+    _SUPERSCRIPTS = str.maketrans("0123456789-.", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻·")
+
+    def __init__(self, components: dict[Unit, int]):
+        super().__init__(name="", dimension=Dimension.none, scale=Scale.one)
+        self.aliases = ()
+        merged: dict[Unit, float] = {}
+
+        def merge_unit(unit: Unit, exponent: float) -> None:
+            existing = next(
+                (
+                    k
+                    for k in merged
+                    if k.dimension == unit.dimension
+                    and getattr(k, "scale", Scale.one) == getattr(unit, "scale", Scale.one)
+                    and getattr(k, "aliases", ()) == getattr(unit, "aliases", ())
+                    and getattr(k, "name", "") == getattr(unit, "name", "")
+                ),
+                None,
+            )
+            if existing is not None:
+                merged[existing] += exponent
+            else:
+                merged[unit] = exponent
+
+        for unit, exponent in components.items():
+            if isinstance(unit, CompositeUnit):
+                for inner_unit, inner_exponent in unit.components.items():
+                    merge_unit(inner_unit, inner_exponent * exponent)
+            else:
+                merge_unit(unit, exponent)
+
+        simplified = {}
+        for unit, exponent in merged.items():
+            if abs(exponent) < 1e-12 or exponent == 0:
+                continue
+            if unit.dimension == Dimension.none:
+                continue  # dimensionless factors do not affect composite structure
+            simplified[unit] = exponent
+
+        self.components = simplified
+        self.scale = Scale.one
+
+        # Compute resulting dimension
+        self.dimension = reduce(
+            lambda acc, kv: acc * (kv[0].dimension ** kv[1]),
+            self.components.items(),
+            Dimension.none,
+        )
+
+        self._quantize()
+
+    @classmethod
+    def _append(cls, unit: Unit, power: int | float, num: list, den: list):
+        if unit.dimension == Dimension.none:
+            return
+        part = unit.shorthand or unit.name or ""
+        if power > 0:
+            num.append(f"{part}{str(power).translate(cls._SUPERSCRIPTS)}" if power != 1 else part)
+        elif power < 0:
+            abs_p = abs(power)
+            den.append(f"{part}{str(abs_p).translate(cls._SUPERSCRIPTS)}" if abs_p != 1 else part)
+
+    # def _quantize(self):
+    #     """
+    #     Normalize internal scales so all components are unscaled,
+    #     and one unified Scale is promoted to `self.scale`.
+    #     """
+    #     # 1. Accumulate numeric scaling factor from all component scales
+    #     total_factor = 1.0
+    #     unscaled_components = {}
+
+    #     for unit, power in self.components.items():
+    #         scale = getattr(unit, "scale", Scale.one)
+    #         total_factor *= scale.value.exponent.evaluated ** power
+
+    #         # Replace component with an unscaled version
+    #         unscaled_unit = Unit(
+    #             *getattr(unit, "aliases", ()),
+    #             name=unit.name,
+    #             dimension=unit.dimension,
+    #             scale=Scale.one,
+    #         )
+    #         unscaled_components[unscaled_unit] = power
+
+    #     # 2. Quantize total_factor into a nearest known Scale
+    #     unified_scale = Scale.nearest(total_factor, include_binary=True)
+
+    #     # 3. Update internal state
+    #     self.components = unscaled_components
+    #     self.scale = unified_scale
+
+    def _quantize(self):
+        """
+        Normalize component scales by:
+        - accumulating all per-component scale factors into a single factor,
+        - choosing a nearest known Scale for that factor,
+        - absorbing that Scale into one chosen component (so it renders visibly),
+        - leaving CompositeUnit.scale = Scale.one.
+        """
+        if not self.components:
+            self.scale = Scale.one
+            return
+
+        # 1) accumulate numeric factor contributed by component scales
+        total = 1.0
+        unscaled = {}
+        for unit, power in self.components.items():
+            unit_scale = getattr(unit, "scale", Scale.one)
+            total *= (unit_scale.value.evaluated ** power)
+            # replace each component with an unscaled copy
+            unscaled_unit = Unit(
+                *getattr(unit, "aliases", ()),
+                name=getattr(unit, "name", ""),
+                dimension=getattr(unit, "dimension", Dimension.none),
+                scale=Scale.one,
+            )
+            unscaled[unscaled_unit] = unscaled.get(unscaled_unit, 0) + power
+
+        # 2) choose nearest known scale for the accumulated factor
+        #    short-circuit when the factor is ~1
+        if abs(total - 1.0) < 1e-12:
+            self.components = unscaled
+            self.scale = Scale.one
+            return
+
+        unified = Scale.nearest(total, include_binary=True)
+
+        # 3) pick a "sink" component to absorb the unified scale
+        self.components = unscaled  # set first so _pick_scale_sink sees unscaled units
+        sink = self._pick_scale_sink()
+        if sink is None:
+            # nothing to do; keep global identity scale
+            self.scale = Scale.one
+            return
+
+        # 4) rebuild components with the sink scaled
+        exp = self.components.pop(sink)
+        scaled_sink = unified * sink  # uses Scale.__mul__(Unit) – safe (sink is unscaled)
+        self.components[scaled_sink] = self.components.get(scaled_sink, 0) + exp
+
+        # 5) composite’s own scale remains identity; all scale is visible in components
+        self.scale = Scale.one
+
+    def _pick_scale_sink(self) -> Unit:
+        """
+        Deterministically choose the component that should absorb a unified scale.
+        Heuristic:
+        1) Prefer components with positive exponent
+        2) Among them, choose the one with largest exponent magnitude
+        3) Tie-break by unit name (stable)
+        4) If no positive exponents, apply same rules to all components
+        """
+        if not self.components:
+            return None
+
+        items = list(self.components.items())
+        pos = [(u, e) for (u, e) in items if e > 0]
+        pool = pos if pos else items
+
+        # sort by (-abs(exponent), name) so biggest magnitude first, stable by name
+        pool_sorted = sorted(pool, key=lambda ue: (-abs(ue[1]), getattr(ue[0], "name", "")))
+        return pool_sorted[0][0]
+
+    def _quantize(self):
+        """
+        Normalize component scales by:
+        - accumulating all per-component scale factors into a single factor,
+        - choosing a nearest known Scale for that factor,
+        - absorbing that Scale into one chosen component (so it renders visibly),
+        - leaving CompositeUnit.scale = Scale.one.
+        """
+        if not self.components:
+            self.scale = Scale.one
+            return
+
+        # 1) accumulate numeric factor contributed by component scales
+        total = 1.0
+        unscaled = {}
+        for unit, power in self.components.items():
+            unit_scale = getattr(unit, "scale", Scale.one)
+            total *= (unit_scale.value.evaluated ** power)
+            # replace each component with an unscaled copy
+            unscaled_unit = Unit(
+                *getattr(unit, "aliases", ()),
+                name=getattr(unit, "name", ""),
+                dimension=getattr(unit, "dimension", Dimension.none),
+                scale=Scale.one,
+            )
+            unscaled[unscaled_unit] = unscaled.get(unscaled_unit, 0) + power
+
+        # 2) choose nearest known scale for the accumulated factor
+        #    short-circuit when the factor is ~1
+        if abs(total - 1.0) < 1e-12:
+            self.components = unscaled
+            self.scale = Scale.one
+            return
+
+        unified = Scale.nearest(total, include_binary=True)
+
+        # 3) pick a "sink" component to absorb the unified scale
+        self.components = unscaled  # set first so _pick_scale_sink sees unscaled units
+        sink = self._pick_scale_sink()
+        if sink is None:
+            # nothing to do; keep global identity scale
+            self.scale = Scale.one
+            return
+
+        # 4) rebuild components with the sink scaled
+        exp = self.components.pop(sink)
+        scaled_sink = unified * sink  # uses Scale.__mul__(Unit) – safe (sink is unscaled)
+        self.components[scaled_sink] = self.components.get(scaled_sink, 0) + exp
+
+        # 5) composite’s own scale remains identity; all scale is visible in components
+        self.scale = Scale.one
+
+    @property
+    def shorthand(self):
+        """Return symbolic shorthand (e.g., 'kg·m/s²') with automatic cleanup."""
+        if not self.components:
+            return ""
+
+        num, den = [], []
+        for unit, power in self.components.items():
+            self._append(unit, power, num, den)
+
+        numerator = "·".join(num) or "1"
+        denominator = "·".join(den)
+        if not denominator:
+            return numerator
+        return f"{numerator}/{denominator}"
+
+    def canonicalize(self) -> 'CompositeUnit':
+        """Return a new CompositeUnit normalized to nearest unified scale."""
+        clone = CompositeUnit(self.components)
+        clone._quantize()
+        return clone
+
+    def __mul__(self, other: Union['Scale', 'Unit']):
+        # ----- CompositeUnit first (since it's a subclass of Unit) -----
+        if isinstance(other, CompositeUnit):
+            # Defer to composite’s rmul so it can distribute the scale appropriately
+            return other.__rmul__(self)
+
+        # ----- Apply scale to a plain Unit -----
+        if isinstance(other, Unit):
+            # Forbid double-prefixing
+            if getattr(other, "scale", Scale.one) is not Scale.one:
+                raise ValueError(f"Cannot apply {self.name or self.alias} to already scaled unit {other}")
+            return Unit(*other.aliases,
+                        name=other.name,
+                        dimension=other.dimension,
+                        scale=self)
+
+        # ----- Scale × Scale semantics (unchanged from your logic) -----
+        if isinstance(other, Scale):
+            result = self.value.exponent * other.value.exponent
+            include_binary = 2 in {self.value.exponent.base, other.value.exponent.base}
+            if isinstance(result, Exponent):
+                match = Scale.all().get(result.parts())
+                if match:
+                    return Scale[match]
+            return Scale.nearest(float(result), include_binary=include_binary)
+
+        return NotImplemented
+
+    # def __mul__(self, other):
+    #     if isinstance(other, Unit):
+    #         combined = self.components.copy()
+    #         combined[other] = combined.get(other, 0) + 1
+    #         return CompositeUnit(combined)
+    #     if isinstance(other, CompositeUnit):
+    #         combined = self.components.copy()
+    #         for u, exp in other.components.items():
+    #             combined[u] = combined.get(u, 0) + exp
+    #         return CompositeUnit(combined)
+    #     return NotImplemented
+
+    def __rmul__(self, other):
+        """Allow Scale * CompositeUnit to push the prefix into one base component.
+
+        Heuristic:
+        1) Prefer a component with positive exponent and scale == one.
+        2) Otherwise, pick any unscaled component.
+        3) If all components are already scaled, raise (prevents 'kkg' etc.).
+        """
+        if not isinstance(other, Scale):
+            return NotImplemented
+
+        # Choose a target unit to absorb the scale
+        target = None
+        for u, p in self.components.items():
+            if p > 0 and getattr(u, "scale", Scale.one) is Scale.one:
+                target = u
+                break
+
+        if target is None:
+            for u, p in self.components.items():
+                if getattr(u, "scale", Scale.one) is Scale.one:
+                    target = u
+                    break
+
+        if target is None:
+            raise ValueError(f"Cannot apply {other} to composite: all components are already scaled")
+
+        # Build new component map with the scale absorbed by the chosen unit
+        new_components = dict(self.components)
+        exp = new_components.pop(target)
+        scaled_target = other * target  # will go through Scale.__mul__(Unit) path
+        new_components[scaled_target] = new_components.get(scaled_target, 0) + exp
+
+        return CompositeUnit(new_components)
+
+    # def __rmul__(self, other):
+    #     """Allow Scale * CompositeUnit to apply prefix to entire composite."""
+    #     if not isinstance(other, Scale):
+    #         return NotImplemented
+
+    #     if getattr(self, "scale", Scale.one) is not Scale.one:
+    #         raise ValueError(f"Cannot apply {other.name} to already scaled unit {self}")
+
+    #     # Construct a shallow clone of this CompositeUnit, preserving components.
+    #     scaled = CompositeUnit(self.components)
+    #     scaled.scale = other
+    #     return scaled
+
+    # def __rmul__(self, other):
+    #     """Allow Scale * CompositeUnit to scale all component units."""
+    #     if isinstance(other, Scale):
+    #         if getattr(self, "scale", Scale.one) is not Scale.one:
+    #             raise ValueError(f"Cannot apply {other} to already scaled unit {self}")
+
+    #         # Apply the scale to the entire composite, not just attach it blindly
+    #         scaled_components = {}
+    #         for unit, exp in self.components.items():
+    #             # apply scale only once to each base unit
+    #             if unit.scale is not Scale.one:
+    #                 raise ValueError(f"Cannot rescale already-scaled component {unit}")
+    #             scaled_components[other * unit] = exp
+
+    #         scaled = CompositeUnit(scaled_components)
+    #         scaled.scale = other       # track the global scale for metadata parity
+    #         return scaled
+
+    #     return NotImplemented
+
+    def __truediv__(self, other):
+        if isinstance(other, Unit):
+            combined = self.components.copy()
+            combined[other] = combined.get(other, 0) - 1
+            return CompositeUnit(combined)
+        if isinstance(other, CompositeUnit):
+            combined = self.components.copy()
+            for u, exp in other.components.items():
+                combined[u] = combined.get(u, 0) - exp
+            return CompositeUnit(combined)
+        return NotImplemented
+
+    # def __repr__(self):
+    #     return f"<CompositeUnit {self.shorthand}>"
+
+    # def __repr__(self):
+    #     prefix = getattr(self.scale, "shorthand", "")
+    #     inner = self.shorthand
+    #     dim_name = getattr(self.dimension, "_name_", "derived")
+    #     if prefix and prefix != "":
+    #         return f"<{dim_name} | {prefix}{inner}>"
+    #     return f"<{dim_name} | {inner}>"
+
+    def __repr__(self):
+        prefix = getattr(self.scale, "shorthand", "")
+        inner = self.shorthand
+        dim_name = getattr(self.dimension, "_name_", "derived")
+        if prefix:
+            return f"<{dim_name} | {prefix}{inner}>"
+        return f"<{dim_name} | {inner}>"
+
+    def __eq__(self, other):
+        return isinstance(other, CompositeUnit) and self.components == other.components
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.components.items(), key=lambda x: x[0].name)))
+
