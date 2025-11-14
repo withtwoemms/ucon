@@ -18,4 +18,6 @@ class TestUnits(TestCase):
         self.assertEqual(units.none, units.gram / units.gram)
         self.assertEqual(units.gram, units.gram / units.none)
 
-        self.assertEqual(Unit(name='(g/L)', dimension=Dimension.density), units.gram / units.liter)
+        composite_unit = units.gram / units.liter
+        self.assertEqual("g/L", composite_unit.shorthand)
+        self.assertEqual(Dimension.density, composite_unit.dimension)

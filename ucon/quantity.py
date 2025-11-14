@@ -86,7 +86,7 @@ class Number:
             unit=self.unit / other.unit,
         ).to(self.unit.scale)
 
-    def __eq__(self, other: Quantifiable) -> bool:
+    def x__eq__(self, other: Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
             raise TypeError(f'Cannot compare Number to non-Number/Ratio type: {type(other)}')
 
@@ -98,6 +98,24 @@ class Number:
             self.unit == other.unit and
             abs(self.value - other.value) < 1e-12
         )
+
+    def __eq__(self, other: Quantifiable) -> bool:
+        if not isinstance(other, (Number, Ratio)):
+            raise TypeError(f"Cannot compare Number to non-Number/Ratio type: {type(other)}")
+
+        if isinstance(other, Ratio):
+            other = other.evaluate()
+
+        # Convert both to canonical form: base unit + normalized value
+        a = self.simplify()
+        b = other.simplify()
+
+        # Compare magnitudes (float-safe)
+        if abs(a.value - b.value) >= 1e-12:
+            return False
+
+        # Compare dimensions only (scale+name irrelevant)
+        return a.unit.dimension == b.unit.dimension
 
     def __repr__(self):
         return f'<{self.quantity} {"" if self.unit.scale.name == "one" else self.unit.scale.name}{self.unit.name}>'

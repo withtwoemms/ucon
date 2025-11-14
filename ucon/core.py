@@ -11,29 +11,27 @@ Classes
 - :class:`Scale` — Enumerates SI and binary magnitude prefixes with algebraic closure over *, /
   and with nearest-prefix lookup.
 - :class:`Unit` — Measurable quantity descriptor with algebraic closure over *, /.
-
-Together these classes enable dimensional arithmetic, prefix composition, and unit
-construction with explicit, canonical semantics.
+- :class:`CompositeUnit` — Product/quotient of Units with simplification and readable rendering.
 """
+from __future__ import annotations
+
 import math
 from enum import Enum
-from functools import lru_cache
+from functools import lru_cache, reduce, total_ordering
+from dataclasses import dataclass
 from typing import Dict, Tuple, Union
 
 from ucon.algebra import Exponent, Vector
 
 
+# --------------------------------------------------------------------------------------
+# Dimension
+# --------------------------------------------------------------------------------------
+
 class Dimension(Enum):
     """
     Represents a **physical dimension** defined by a :class:`Vector`.
-
-    Each dimension corresponds to a distinct combination of base exponents.
-    Dimensions are algebraically composable via multiplication and division:
-
-        >>> Dimension.length / Dimension.time
-        <Dimension.velocity: Vector(T=-1, L=1, M=0, I=0, Θ=0, J=0, N=0)>
-
-    This algebra forms the foundation for unit compatibility and conversion.
+    Algebra over multiplication/division & exponentiation, with dynamic resolution.
     """
     none = Vector()
 
@@ -82,15 +80,9 @@ class Dimension(Enum):
 
     @classmethod
     def _resolve(cls, vector: 'Vector') -> 'Dimension':
-        """
-        Try to map a Vector to a known Dimension; if not found,
-        return a dynamic Dimension-like object.
-        """
         for dim in cls:
             if dim.value == vector:
                 return dim
-
-        # -- fallback: dynamic Dimension-like instance --
         dyn = object.__new__(cls)
         dyn._name_ = f"derived({vector})"
         dyn._value_ = vector
@@ -99,27 +91,19 @@ class Dimension(Enum):
     def __truediv__(self, dimension: 'Dimension') -> 'Dimension':
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot divide Dimension by non-Dimension type: {type(dimension)}")
-        return Dimension(self.value - dimension.value)
+        return self._resolve(self.value - dimension.value)
 
     def __mul__(self, dimension: 'Dimension') -> 'Dimension':
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot multiply Dimension by non-Dimension type: {type(dimension)}")
-        return Dimension(self.value + dimension.value)
+        return self._resolve(self.value + dimension.value)
 
     def __pow__(self, power: Union[int, float]) -> 'Dimension':
-        """
-        Raise a Dimension to a power.
-
-        Example:
-            >>> Dimension.length ** 2   # area
-            >>> Dimension.time ** -1    # frequency
-        """
         if power == 1:
             return self
         if power == 0:
             return Dimension.none
-
-        new_vector = self.value * power   # element-wise scalar multiply
+        new_vector = self.value * power
         return self._resolve(new_vector)
 
     def __eq__(self, dimension) -> bool:
@@ -131,39 +115,86 @@ class Dimension(Enum):
         return hash(self.value)
 
 
+# --------------------------------------------------------------------------------------
+# Scale (with descriptor)
+# --------------------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ScaleDescriptor:
+    exponent: Exponent
+    shorthand: str
+    alias: str
+
+    @property
+    def evaluated(self) -> float:
+        return self.exponent.evaluated
+
+    @property
+    def base(self) -> int:
+        return self.exponent.base
+
+    @property
+    def power(self) -> Union[int, float]:
+        return self.exponent.power
+
+    def parts(self) -> Tuple[int, Union[int, float]]:
+        return (self.base, self.power)
+
+    def __repr__(self):
+        tag = self.alias or self.shorthand or "1"
+        return f"<ScaleDescriptor {tag}: {self.base}^{self.power}>"
+
+
+@total_ordering
 class Scale(Enum):
-    """
-    Enumerates common **magnitude prefixes** for units and quantities.
+    # Binary
+    gibi  = ScaleDescriptor(Exponent(2, 30), "Gi", "gibi")
+    mebi  = ScaleDescriptor(Exponent(2, 20), "Mi", "mebi")
+    kibi  = ScaleDescriptor(Exponent(2, 10), "Ki", "kibi")
 
-    Examples include:
-    - Binary prefixes (kibi, mebi)
-    - Decimal prefixes (milli, kilo, mega)
+    # Decimal
+    peta  = ScaleDescriptor(Exponent(10, 15), "P", "peta")
+    tera  = ScaleDescriptor(Exponent(10, 12), "T", "tera")
+    giga  = ScaleDescriptor(Exponent(10, 9),  "G", "giga")
+    mega  = ScaleDescriptor(Exponent(10, 6),  "M", "mega")
+    kilo  = ScaleDescriptor(Exponent(10, 3),  "k", "kilo")
+    hecto = ScaleDescriptor(Exponent(10, 2),  "h", "hecto")
+    deca  = ScaleDescriptor(Exponent(10, 1),  "da", "deca")
+    one   = ScaleDescriptor(Exponent(10, 0),  "",  "")
+    deci  = ScaleDescriptor(Exponent(10,-1),  "d", "deci")
+    centi = ScaleDescriptor(Exponent(10,-2),  "c", "centi")
+    milli = ScaleDescriptor(Exponent(10,-3),  "m", "milli")
+    micro = ScaleDescriptor(Exponent(10,-6),  "µ", "micro")
+    nano  = ScaleDescriptor(Exponent(10,-9),  "n", "nano")
+    pico  = ScaleDescriptor(Exponent(10,-12), "p", "pico")
+    femto = ScaleDescriptor(Exponent(10,-15), "f", "femto")
 
-    Each entry stores its numeric scaling factor (e.g., `kilo = 10³`).
-    """
-    gibi  = Exponent(2, 30)
-    mebi  = Exponent(2, 20)
-    kibi  = Exponent(2, 10)
-    giga  = Exponent(10, 9)
-    mega  = Exponent(10, 6)
-    kilo  = Exponent(10, 3)
-    hecto = Exponent(10, 2)
-    deca  = Exponent(10, 1)
-    one   = Exponent(10, 0)
-    deci  = Exponent(10,-1)
-    centi = Exponent(10,-2)
-    milli = Exponent(10,-3)
-    micro = Exponent(10,-6)
-    nano = Exponent(10,-9)
-    _kibi = Exponent(2,-10)   # "kibi" inverse
-    _mebi = Exponent(2,-20)   # "mebi" inverse
-    _gibi = Exponent(2,-30)   # "gibi" inverse
+    @property
+    def descriptor(self) -> ScaleDescriptor:
+        return self.value
+
+    @property
+    def shorthand(self) -> str:
+        return self.value.shorthand
+
+    @property
+    def alias(self) -> str:
+        return self.value.alias
 
     @staticmethod
     @lru_cache(maxsize=1)
     def all() -> Dict[Tuple[int, int], str]:
-        """Return a map from (base, power) → Scale name."""
         return {(s.value.base, s.value.power): s.name for s in Scale}
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def _decimal_scales(cls):
+        return [s for s in cls if s.value.base == 10]
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def _binary_scales(cls):
+        return [s for s in cls if s.value.base == 2]
 
     @staticmethod
     @lru_cache(maxsize=1)
@@ -172,187 +203,311 @@ class Scale(Enum):
         Return a map from evaluated numeric value → Scale name.
         Cached after first access.
         """
-        return {round(s.value.evaluated, 15): s.name for s in Scale}
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def _decimal_scales(cls):
-        """Return decimal (base-10) scales only."""
-        return list(s for s in cls if s.value.base == 10)
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def _binary_scales(cls):
-        """Return binary (base-2) scales only."""
-        return list(s for s in cls if s.value.base == 2)
+        return {round(s.value.exponent.evaluated, 15): s.name for s in Scale}
 
     @classmethod
     def nearest(cls, value: float, include_binary: bool = False, undershoot_bias: float = 0.75) -> "Scale":
-        """
-        Return the Scale that best normalizes `value` toward 1 in log-space.
-        Optionally restricts to base-10 prefixes unless `include_binary=True`.
-        """
         if value == 0:
             return Scale.one
-
         abs_val = abs(value)
-        candidates = cls._decimal_scales() if not include_binary else list(cls)
+        candidates = list(cls) if include_binary else cls._decimal_scales()
 
         def distance(scale: "Scale") -> float:
             ratio = abs_val / scale.value.evaluated
             diff = math.log10(ratio)
-            # Bias overshoots slightly more than undershoots
             if ratio < 1:
                 diff /= undershoot_bias
             return abs(diff)
 
         return min(candidates, key=distance)
 
-    def __mul__(self, other: Union['Scale', 'Unit']):
-        """
-        Multiply two Scales together.
-
-        Always returns a `Scale`, representing the resulting order of magnitude.
-        If no exact prefix match exists, returns the nearest known Scale.
-        """
-        if isinstance(other, Unit):
-            # Apply scale to a Unit
-            return Unit(*other.aliases, name=other.name,
-                        dimension=other.dimension, scale=self)
-
-        if not isinstance(other, (Scale, Unit,)):
-            return NotImplemented
-
-        if self is Scale.one:
-            return other
-        if other is Scale.one:
-            return self
-
-        result = self.value * other.value  # delegates to Exponent.__mul__
-        include_binary = 2 in {self.value.base, other.value.base}
-
-        if isinstance(result, Exponent):
-            match = Scale.all().get(result.parts())
-            if match:
-                return Scale[match]
-
-        return Scale.nearest(float(result), include_binary=include_binary)
-
-    def __truediv__(self, other: 'Scale'):
-        """
-        Divide one Scale by another.
-
-        Always returns a `Scale`, representing the resulting order of magnitude.
-        If no exact prefix match exists, returns the nearest known Scale.
-        """
-        if not isinstance(other, Scale):
-            return NotImplemented
-
-        if self == other:
-            return Scale.one
-        if other is Scale.one:
-            return self
-
-        should_consider_binary = (self.value.base == 2) or (other.value.base == 2)
-
-        if self is Scale.one:
-            result = Exponent(other.value.base, -other.value.power)
-            name = Scale.all().get((result.base, result.power))
-            if name:
-                return Scale[name]
-            return Scale.nearest(float(result), include_binary=should_consider_binary)
-
-        result: Union[Exponent, float] = self.value / other.value
-        if isinstance(result, Exponent):
-            match = Scale.all().get(result.parts())
-            if match:
-                return Scale[match]
-        else:
-            return Scale.nearest(float(result), include_binary=should_consider_binary)
-
-    def __lt__(self, other: 'Scale'):
-        return self.value < other.value
+    def __eq__(self, other: 'Scale'):
+        return self.value.exponent == other.value.exponent
 
     def __gt__(self, other: 'Scale'):
-        return self.value > other.value
+        return self.value.exponent > other.value.exponent
 
-    def __eq__(self, other: 'Scale'):
-        return self.value == other.value
+    def __hash__(self):
+        e = self.value.exponent
+        return hash((e.base, round(e.power, 12)))
+
+    def __mul__(self, other):
+        if isinstance(other, CompositeUnit):
+            return other.__rmul__(self)
+
+        if isinstance(other, Unit):
+            if getattr(other, "scale", Scale.one) is not Scale.one:
+                raise ValueError(f"Cannot apply {self.name or self.alias} to already scaled unit {other}")
+            return Unit(*other.aliases, name=other.name, dimension=other.dimension, scale=self)
+
+        if isinstance(other, Scale):
+            if self is Scale.one:
+                return other
+            if other is Scale.one:
+                return self
+            result = self.value.exponent * other.value.exponent
+            include_binary = 2 in {self.value.base, other.value.base}
+            if isinstance(result, Exponent):
+                match = Scale.all().get(result.parts())
+                if match:
+                    return Scale[match]
+            return Scale.nearest(float(result), include_binary=include_binary)
+
+        return NotImplemented
+
+    def __truediv__(self, other):
+        if not isinstance(other, Scale):
+            return NotImplemented
+        if self == other:
+            return Scale.one
+        result = self.value.exponent / other.value.exponent
+        if isinstance(result, Exponent):
+            match = Scale.all().get(result.parts())
+            if match:
+                return Scale[match]
+        include_binary = 2 in {self.value.base, other.value.base}
+        return Scale.nearest(float(result), include_binary=include_binary)
 
 
 class Unit:
-    """
-    Represents a **unit of measure** associated with a :class:`Dimension`.
-
-    Parameters
-    ----------
-    *aliases : str
-        Optional shorthand symbols (e.g., "m", "sec").
-    name : str
-        Canonical name of the unit (e.g., "meter").
-    dimension : Dimension
-        The physical dimension this unit represents.
-
-    Notes
-    -----
-    Units participate in algebraic operations that produce new compound units:
-
-        >>> density = units.gram / units.liter
-        >>> density.dimension
-        <Dimension.density: Vector(T=0, L=-3, M=1, I=0, Θ=0, J=0, N=0)>
-
-    The combination rules follow the same algebra as :class:`Dimension`.
-    """
     def __init__(self, *aliases: str, name: str = '', dimension: Dimension = Dimension.none, scale: Scale = Scale.one):
         self.aliases = aliases
         self.name = name
-        self.shorthand = aliases[0] if aliases else self.name
         self.dimension = dimension
         self.scale = scale
 
-    def __repr__(self):
-        addendum = f' | {self.name}' if self.name else ''
-        return f'<{self.dimension.name}{addendum}>'
+    @property
+    def shorthand(self) -> str:
+        if self.dimension == Dimension.none:
+            return ""
+        prefix = getattr(self.scale, "shorthand", "") or ""
+        base = (self.aliases[0] if self.aliases else self.name) or ""
+        return f"{prefix}{base}".strip()
 
-    # TODO -- limit `operator` param choices
-    def generate_name(self, unit: 'Unit', operator: str):
-        if (self.dimension is Dimension.none) and not (unit.dimension is Dimension.none):
-            return unit.name
-        if not (self.dimension is Dimension.none) and (unit.dimension is Dimension.none):
-            return self.name
-
-        if not self.shorthand and not unit.shorthand:
-            name = ''
-        elif self.shorthand and not unit.shorthand:
-            name = f'({self.shorthand}{operator}?)'
-        elif not self.shorthand and unit.shorthand:
-            name = f'(?{operator}{unit.shorthand})'
-        else:
-            name = f'({self.shorthand}{operator}{unit.shorthand})'
-        return name
-
-    def __truediv__(self, unit: 'Unit') -> 'Unit':
-        # TODO -- define __eq__ for simplification, here
-        if (self.name == unit.name) and (self.dimension == unit.dimension):
-            return Unit()
-
-        if (unit.dimension is Dimension.none):
-            return self
-
-        return Unit(name=self.generate_name(unit, '/'), dimension=self.dimension / unit.dimension)
-
-    def __mul__(self, unit: 'Unit') -> 'Unit':
-        return Unit(name=self.generate_name(unit, '*'), dimension=self.dimension * unit.dimension)
+    def __mul__(self, other):
+        if isinstance(other, Unit):
+            return CompositeUnit({self: 1, other: 1})
+        return NotImplemented
 
     def __rmul__(self, other):
         if isinstance(other, Scale):
             return other * self
         return NotImplemented
 
-    def __eq__(self, unit: 'Unit') -> bool:
-        if not isinstance(unit, Unit):
-            raise TypeError(f'Cannot compare Unit to non-Unit type: {type(unit)}')
-        return (self.name == unit.name) and (self.dimension == unit.dimension)
+    def __truediv__(self, other):
+        if isinstance(other, Unit):
+            if other.dimension == Dimension.none:
+                return self
+            if self == other:
+                return Unit("", name="", dimension=Dimension.none)
+            return CompositeUnit({self: 1, other: -1})
+        return NotImplemented
 
-    def __hash__(self) -> int:
-        return hash(tuple([self.name, self.dimension,]))
+    def __pow__(self, power):
+        return CompositeUnit({self: power})
+
+    def __eq__(self, other):
+        if not isinstance(other, Unit):
+            raise TypeError(f"Cannot compare Unit with non-Unit type: {type(other)}")
+        return (
+            self.dimension == other.dimension
+            and self.scale == other.scale
+            and self.name == other.name
+            and self._norm(self.aliases) == self._norm(other.aliases)
+        )
+
+    def __hash__(self):
+        return hash((self.name, self._norm(self.aliases), self.dimension, self.scale))
+
+    def __repr__(self):
+        if self.shorthand:  # clear unit name → don't show dimension
+            return f"<Unit {self.shorthand}>"
+        if self.dimension == Dimension.none:
+            return "<Unit>"
+        return f"<Unit | {self.dimension.name}>"
+
+    def _norm(self, aliases: tuple[str]):
+        return tuple(a for a in aliases if a.strip())
+
+
+class CompositeUnit(Unit):
+    _SUPERSCRIPTS = str.maketrans("0123456789-.", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻·")
+
+    def __init__(self, components: dict[Unit, int]):
+        super().__init__(name="", dimension=Dimension.none, scale=Scale.one)
+        self.aliases = ()
+
+        # 1) Merge like components (preserving current unit objects)
+        merged: dict[Unit, float] = {}
+
+        def merge_unit(unit: Unit, exponent: float) -> None:
+            existing = next(
+                (
+                    k
+                    for k in merged
+                    if k.dimension == unit.dimension
+                    and getattr(k, "scale", Scale.one) == getattr(unit, "scale", Scale.one)
+                    and getattr(k, "aliases", ()) == getattr(unit, "aliases", ())
+                    and getattr(k, "name", "") == getattr(unit, "name", "")
+                ),
+                None,
+            )
+            if existing is not None:
+                merged[existing] += exponent
+            else:
+                merged[unit] = exponent
+
+        for unit, exponent in components.items():
+            if isinstance(unit, CompositeUnit):
+                for inner_unit, inner_exponent in unit.components.items():
+                    merge_unit(inner_unit, inner_exponent * exponent)
+            else:
+                merge_unit(unit, exponent)
+
+        # 2) Drop tiny exponents and dimensionless factors
+        merged = {
+            u: e for u, e in merged.items()
+            if abs(e) >= 1e-12 and u.dimension != Dimension.none
+        }
+
+        # 3) Unify all component scales into a single total Scale,
+        #    while stripping scales from individual units.
+        total_scale = Scale.one
+        normalized: dict[Unit, float] = {}
+
+        for u, e in merged.items():
+            # add unit w/ Scale.one to normalized bag
+            base_u = Unit(*u.aliases, name=u.name, dimension=u.dimension, scale=Scale.one)
+            normalized[base_u] = normalized.get(base_u, 0) + e
+
+            if u.scale is not Scale.one:
+                total_scale = total_scale * u.scale
+
+        # 4) Assign normalized components
+        self.components = normalized or {}
+        self.scale = Scale.one
+
+        # 5) Apply the unified scale to a single sink component (if any)
+        if self.components and total_scale is not Scale.one:
+            sink = self._pick_scale_sink()
+            new_components: dict[Unit, float] = {}
+            for u, e in self.components.items():
+                if u is sink:
+                    scaled_sink = total_scale * u  # safe: u has Scale.one
+                    new_components[scaled_sink] = new_components.get(scaled_sink, 0) + e
+                else:
+                    new_components[u] = new_components.get(u, 0) + e
+            self.components = new_components
+
+        # 6) Compute resulting dimension
+        self.dimension = reduce(
+            lambda acc, kv: acc * (kv[0].dimension ** kv[1]),
+            self.components.items(),
+            Dimension.none,
+        )
+
+        # 7) Anneal: if single unit to the power of 1, collapse to that Unit
+        if len(self.components) == 1:
+            (only_u, only_p), = self.components.items()
+            if abs(only_p - 1) < 1e-12:
+                self.__class__ = only_u.__class__
+                self.__dict__.clear()
+                self.__dict__.update(only_u.__dict__)
+                return
+
+    @classmethod
+    def _append(cls, unit: Unit, power: int | float, num: list, den: list):
+        if unit.dimension == Dimension.none:
+            return
+        part = unit.shorthand or unit.name or ""
+        if power > 0:
+            num.append(f"{part}{str(power).translate(cls._SUPERSCRIPTS)}" if power != 1 else part)
+        elif power < 0:
+            abs_p = abs(power)
+            den.append(f"{part}{str(abs_p).translate(cls._SUPERSCRIPTS)}" if abs_p != 1 else part)
+
+    @property
+    def shorthand(self):
+        if not self.components:
+            return ""
+        num, den = [], []
+        for unit, power in self.components.items():
+            self._append(unit, power, num, den)
+        numerator = "·".join(num) or "1"
+        denominator = "·".join(den)
+        if not denominator:
+            return numerator
+        return f"{numerator}/{denominator}"
+
+    def _pick_scale_sink(self) -> Unit | None:
+        if not self.components:
+            return None
+        items = list(self.components.items())
+        pos = [(u, e) for (u, e) in items if e > 0]
+        pool = pos if pos else items
+        pool.sort(key=lambda ue: (-abs(ue[1]), getattr(ue[0], "name", "")))
+        return pool[0][0]
+
+    def __mul__(self, other):
+        if isinstance(other, Unit):
+            combined = self.components.copy()
+            combined[other] = combined.get(other, 0) + 1
+            return CompositeUnit(combined)
+        if isinstance(other, CompositeUnit):
+            combined = self.components.copy()
+            for u, exp in other.components.items():
+                combined[u] = combined.get(u, 0) + exp
+            return CompositeUnit(combined)
+        if isinstance(other, Scale):
+            return other * self
+        return NotImplemented
+
+    def __rmul__(self, other):
+        if isinstance(other, Unit):
+            combined = {other: 1}
+            for u, e in self.components.items():
+                combined[u] = combined.get(u, 0) + e
+            return CompositeUnit(combined)
+        if isinstance(other, Scale):
+            sink = self._pick_scale_sink()
+            if sink is None:
+                return self
+            combined = {}
+            for u, e in self.components.items():
+                if u is sink:
+                    base_unscaled = Unit(*u.aliases, name=u.name, dimension=u.dimension, scale=Scale.one)
+                    scaled_sink = other * base_unscaled
+                    combined[scaled_sink] = combined.get(scaled_sink, 0) + e
+                else:
+                    combined[u] = combined.get(u, 0) + e
+            return CompositeUnit(combined)
+        if isinstance(other, CompositeUnit):
+            return other * self
+        return NotImplemented
+
+    def __truediv__(self, other):
+        if isinstance(other, Unit):
+            if other.dimension == Dimension.none:
+                return self
+            combined = self.components.copy()
+            combined[other] = combined.get(other, 0) - 1
+            return CompositeUnit(combined)
+        if isinstance(other, CompositeUnit):
+            if all(u.dimension == Dimension.none for u in other.components):
+                return self
+            combined = self.components.copy()
+            for u, exp in other.components.items():
+                combined[u] = combined.get(u, 0) - exp
+            return CompositeUnit(combined)
+        return NotImplemented
+
+    def __repr__(self):
+        return f"<CompositeUnit {self.shorthand}>"
+
+    def __eq__(self, other):
+        if isinstance(other, Unit):
+            return len(self.components) == 1 and next(iter(self.components.items())) == (other, 1)
+        return isinstance(other, CompositeUnit) and self.components == other.components
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.components.items(), key=lambda x: x[0].name)))
