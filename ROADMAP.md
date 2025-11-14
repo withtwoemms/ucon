@@ -29,7 +29,7 @@ Stable baseline for:
 - [x] Remove redundant evaluated caching in favor of property-based computation  
 - [x] Integrate `Scale` with Exponent for consistent prefix arithmetic  
 - [ ] Update `Number` and `Ratio` to use Exponent-driven scaling  
-- [ ] Add regression tests for prefix math (`kilo / milli → mega`, `2¹⁰ / 10³ → 1.024×`)  
+- [x] Add regression tests for prefix math (`kilo / milli → mega`, `2¹⁰ / 10³ → 1.024×`)
 - [ ] Document Exponent/Scale relationship in developer guide 
 
 ### 🧩 Outcomes
@@ -37,7 +37,7 @@ Stable baseline for:
 - Enables composable and type-safe dimensional operations  
 - Establishes the mathematical foundation for future conversions  
 - Unified algebraic foundation for all scaling and magnitude operations  
-- Precise, reversible cross-base math (`2ⁿ ↔ 10ᵐ`)  
+- ~Precise, reversible cross-base math (`2ⁿ ↔ 10ᵐ`)~
 - Simplified, consistent `Scale` and `Number` behavior  
 - Ready for integration into the conversion engine (`ucon.conversions`)
 
