@@ -380,20 +380,8 @@ class CompositeUnit(Unit):
             base_u = Unit(*u.aliases, name=u.name, dimension=u.dimension, scale=Scale.one)
             normalized[base_u] = normalized.get(base_u, 0) + e
 
-            # accumulate this unit's scale e times into total_scale
             if u.scale is not Scale.one:
-                # exponents are expected integers in unit algebra
-                n = int(e) if float(e).is_integer() else None
-                if n is not None:
-                    if n > 0:
-                        for _ in range(n):
-                            total_scale = total_scale * u.scale
-                    elif n < 0:
-                        for _ in range(-n):
-                            total_scale = total_scale / u.scale
-                else:
-                    # non-integer exponents: best effort — apply once (common in roots)
-                    total_scale = total_scale * u.scale
+                total_scale = total_scale * u.scale
 
         # 4) Assign normalized components
         self.components = normalized or {}
