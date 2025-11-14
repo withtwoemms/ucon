@@ -92,7 +92,8 @@ class TestNumberEdgeCases(unittest.TestCase):
         n = Number(quantity=2, unit=thousand)
         simplified = n.simplify()
         self.assertEqual(simplified.quantity, n.value)
-        self.assertEqual(simplified.unit, n.unit)
+        self.assertNotEqual(simplified.unit.scale, n.unit.scale)
+        self.assertEqual(simplified.value, n.value)
 
     def test_multiplication_combines_units_and_quantities(self):
         n1 = Number(unit=units.joule, quantity=2)

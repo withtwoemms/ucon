@@ -1,4 +1,3 @@
-
 """
 ucon.core
 ==========
@@ -193,6 +192,20 @@ class Scale(Enum):
         return [s for s in cls if s.value.base == 10]
 
     @classmethod
+    @lru_cache(maxsize=1)
+    def _binary_scales(cls):
+        return [s for s in cls if s.value.base == 2]
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def by_value() -> Dict[float, str]:
+        """
+        Return a map from evaluated numeric value → Scale name.
+        Cached after first access.
+        """
+        return {round(s.value.exponent.evaluated, 15): s.name for s in Scale}
+
+    @classmethod
     def nearest(cls, value: float, include_binary: bool = False, undershoot_bias: float = 0.75) -> "Scale":
         if value == 0:
             return Scale.one
@@ -286,7 +299,7 @@ class Unit:
             if other.dimension == Dimension.none:
                 return self
             if self == other:
-                return Unit("", name="dimensionless", dimension=Dimension.none)
+                return Unit("", name="", dimension=Dimension.none)
             return CompositeUnit({self: 1, other: -1})
         return NotImplemented
 
@@ -294,19 +307,27 @@ class Unit:
         return CompositeUnit({self: power})
 
     def __eq__(self, other):
+        if not isinstance(other, Unit):
+            raise TypeError(f"Cannot compare Unit with non-Unit type: {type(other)}")
         return (
-            isinstance(other, Unit)
-            and self.dimension == other.dimension
+            self.dimension == other.dimension
             and self.scale == other.scale
             and self.name == other.name
-            and self.aliases == other.aliases
+            and self._norm(self.aliases) == self._norm(other.aliases)
         )
 
     def __hash__(self):
-        return hash((self.name, self.aliases, self.dimension, self.scale))
+        return hash((self.name, self._norm(self.aliases), self.dimension, self.scale))
 
     def __repr__(self):
-        return f"<Unit {self.shorthand}>"
+        if self.shorthand:  # clear unit name → don't show dimension
+            return f"<Unit {self.shorthand}>"
+        if self.dimension == Dimension.none:
+            return "<Unit>"
+        return f"<Unit | {self.dimension.name}>"
+
+    def _norm(self, aliases: tuple[str]):
+        return tuple(a for a in aliases if a.strip())
 
 
 class CompositeUnit(Unit):
@@ -316,6 +337,7 @@ class CompositeUnit(Unit):
         super().__init__(name="", dimension=Dimension.none, scale=Scale.one)
         self.aliases = ()
 
+        # 1) Merge like components (preserving current unit objects)
         merged: dict[Unit, float] = {}
 
         def merge_unit(unit: Unit, exponent: float) -> None:
@@ -342,23 +364,61 @@ class CompositeUnit(Unit):
             else:
                 merge_unit(unit, exponent)
 
-        simplified = {}
-        for unit, exponent in merged.items():
-            if abs(exponent) < 1e-12 or exponent == 0:
-                continue
-            if unit.dimension == Dimension.none:
-                continue
-            simplified[unit] = exponent
+        # 2) Drop tiny exponents and dimensionless factors
+        merged = {
+            u: e for u, e in merged.items()
+            if abs(e) >= 1e-12 and u.dimension != Dimension.none
+        }
 
-        self.components = simplified
+        # 3) Unify all component scales into a single total Scale,
+        #    while stripping scales from individual units.
+        total_scale = Scale.one
+        normalized: dict[Unit, float] = {}
+
+        for u, e in merged.items():
+            # add unit w/ Scale.one to normalized bag
+            base_u = Unit(*u.aliases, name=u.name, dimension=u.dimension, scale=Scale.one)
+            normalized[base_u] = normalized.get(base_u, 0) + e
+
+            # accumulate this unit's scale e times into total_scale
+            if u.scale is not Scale.one:
+                # exponents are expected integers in unit algebra
+                n = int(e) if float(e).is_integer() else None
+                if n is not None:
+                    if n > 0:
+                        for _ in range(n):
+                            total_scale = total_scale * u.scale
+                    elif n < 0:
+                        for _ in range(-n):
+                            total_scale = total_scale / u.scale
+                else:
+                    # non-integer exponents: best effort — apply once (common in roots)
+                    total_scale = total_scale * u.scale
+
+        # 4) Assign normalized components
+        self.components = normalized or {}
         self.scale = Scale.one
 
+        # 5) Apply the unified scale to a single sink component (if any)
+        if self.components and total_scale is not Scale.one:
+            sink = self._pick_scale_sink()
+            new_components: dict[Unit, float] = {}
+            for u, e in self.components.items():
+                if u is sink:
+                    scaled_sink = total_scale * u  # safe: u has Scale.one
+                    new_components[scaled_sink] = new_components.get(scaled_sink, 0) + e
+                else:
+                    new_components[u] = new_components.get(u, 0) + e
+            self.components = new_components
+
+        # 6) Compute resulting dimension
         self.dimension = reduce(
             lambda acc, kv: acc * (kv[0].dimension ** kv[1]),
             self.components.items(),
             Dimension.none,
         )
 
+        # 7) Anneal: if single unit to the power of 1, collapse to that Unit
         if len(self.components) == 1:
             (only_u, only_p), = self.components.items()
             if abs(only_p - 1) < 1e-12:
@@ -463,4 +523,3 @@ class CompositeUnit(Unit):
 
     def __hash__(self):
         return hash(tuple(sorted(self.components.items(), key=lambda x: x[0].name)))
-
