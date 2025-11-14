@@ -99,7 +99,6 @@ class TestDimension(unittest.TestCase):
         self.assertEqual(Dimension.length ** 2, Dimension.area)
         self.assertEqual(Dimension.time ** -1, Dimension.frequency)
 
-    @unittest.skip("TODO (ucon#68): should pass when dynamic dimensions are supported")
     def test_pow_returns_derived_dimension_for_unknown(self):
         jerk = Dimension.length * (Dimension.time ** -3)  # length / time^3
         self.assertTrue(jerk.name.startswith("derived("))
@@ -131,6 +130,24 @@ class TestDimension(unittest.TestCase):
         self.assertEqual(d1.value, d2.value)
         self.assertEqual(d1 == d2, True)
         self.assertEqual(hash(d1), hash(d2))
+
+    def test_pow_zero_returns_none(self):
+        # Dimension ** 0 should always return Dimension.none
+        self.assertIs(Dimension.length ** 0, Dimension.none)
+
+    def test_pow_fractional(self):
+        # Fractional powers = derived dimensions not equal to any registered one
+        d = Dimension.length ** 0.5
+        self.assertIsInstance(d, Dimension)
+        self.assertNotIn(d, list(Dimension))
+
+    def test_invalid_operand_multiply(self):
+        with self.assertRaises(TypeError):
+            Dimension.length * 10
+
+    def test_invalid_operand_divide(self):
+        with self.assertRaises(TypeError):
+            Dimension.time / "bad"
 
 
 class TestDimensionResolve(unittest.TestCase):
@@ -323,6 +340,14 @@ class TestScaleMultiplicationAdditional(unittest.TestCase):
         with self.assertRaises(TypeError):
             Scale.kilo * 1
 
+    def test_scale_mul_with_unknown_exponent_hits_nearest(self):
+        # Construct two strange scales (base10^7 * base10^5 = base10^12 = tera)
+        s = Scale.nearest(10**7) * Scale.nearest(10**5)
+        self.assertIs(s, Scale.tera)
+
+    def test_scale_mul_non_unit_non_scale(self):
+        self.assertEqual(Scale.kilo.__mul__("nope"), NotImplemented)
+
 
 class TestScaleDivisionAdditional(unittest.TestCase):
 
@@ -353,6 +378,13 @@ class TestScaleDivisionAdditional(unittest.TestCase):
         # Ensure non-Scale raises NotImplemented
         with self.assertRaises(TypeError):
             Scale.kilo / 42
+
+    def test_scale_div_hits_nearest(self):
+        # giga / kilo = 10^(9-3) = 10^6 = mega
+        self.assertIs(Scale.giga / Scale.kilo, Scale.mega)
+
+    def test_scale_div_non_scale(self):
+        self.assertEqual(Scale.kilo.__truediv__("bad"), NotImplemented)
 
 
 class TestScaleNearestAdditional(unittest.TestCase):
@@ -418,6 +450,104 @@ class TestUnit(unittest.TestCase):
 
     def test___repr__(self):
         self.assertEqual(f'<Unit {self.unit_aliases[0]}>', str(self.unit))
+
+    def test_unit_repr_has_dimension_when_no_shorthand(self):
+        u = Unit(name="", dimension=Dimension.force)
+        r = repr(u)
+        self.assertIn("force", r)
+        self.assertTrue(r.startswith("<Unit"))
+
+    def test_unit_equality_alias_normalization(self):
+        # ('',) should normalize to () under _norm
+        u1 = Unit("", name="x", dimension=Dimension.length)
+        u2 = Unit(name="x", dimension=Dimension.length)
+        self.assertEqual(u1, u2)
+
+    def test_unit_invalid_eq_type(self):
+        with self.assertRaises(TypeError):
+            Unit("m", dimension=Dimension.length) == 5
+
+
+class TestCompositeUnit(unittest.TestCase):
+    def test_composite_unit_collapses_to_unit(self):
+        u = Unit("m", name="meter", dimension=Dimension.length)
+        cu = CompositeUnit({u: 1})
+        # should anneal to Unit
+        self.assertIsInstance(cu, Unit)
+        self.assertEqual(cu.name, u.name)
+
+    def test_merge_of_identical_units(self):
+        m = Unit("m", name="meter", dimension=Dimension.length)
+        # Inner composite that already has m^1
+        inner = CompositeUnit({m: 1, units.second: -1})
+        # Outer composite sees both `m:1` and `inner:1`
+        cu = CompositeUnit({m: 1, inner: 1})
+        # merge_unit should accumulate the exponents → m^(1 + 1) = m^2
+        self.assertIn(m, cu.components)
+        self.assertEqual(cu.components[m], 2)
+
+    def test_merge_of_nested_composite_units(self):
+        m = Unit("m", dimension=Dimension.length)
+        s = Unit("s", dimension=Dimension.time)
+        velocity = CompositeUnit({m: 1, s: -1})
+        accel = CompositeUnit({velocity: 1, s: -1})
+        # expect m*s^-2
+        self.assertEqual(accel.components[m], 1)
+        self.assertEqual(accel.components[s], -2)
+
+    def test_drop_dimensionless_component(self):
+        m = Unit("m", dimension=Dimension.length)
+        none = Unit("", dimension=Dimension.none)
+        cu = CompositeUnit({m: 2, none: 1})
+        self.assertIn(m, cu.components)
+        self.assertNotIn(none, cu.components)
+
+    def test_pick_scale_sink_prefers_positive_exponent(self):
+        #  m^1 * s^-3 → sink should be m
+        m = Unit("m", dimension=Dimension.length)
+        s = Unit("s", dimension=Dimension.time)
+        cu = CompositeUnit({m: 1, s: -3})
+        self.assertIs(cu._pick_scale_sink(), list(cu.components.keys())[0])
+
+    def test_apply_scale_to_sink(self):
+        m = Unit("m", dimension=Dimension.length)
+        cm = Scale.centi * m
+        cu = CompositeUnit({m: 2})
+        scaled = Scale.kilo * cu
+        # scaled sink should become km^2
+        ks = next(iter(k for k in scaled.components if k.scale == Scale.kilo))
+        self.assertEqual(scaled.components[ks], 2)
+
+    def test_anneal_single_unit(self):
+        m = Unit("m", dimension=Dimension.length)
+        cu = CompositeUnit({m: 1})
+        self.assertIsInstance(cu, Unit)
+        self.assertEqual(cu.name, m.name)
+
+    def test_composite_mul_with_scale(self):
+        m = Unit("m", dimension=Dimension.length)
+        s = Unit("s", dimension=Dimension.time)
+        cu = CompositeUnit({m: 1, s: -1})
+        result = cu * Scale.kilo
+        # equivalent to scale multiplication on RMUL path
+        sink = result._pick_scale_sink()
+        self.assertIsNotNone(sink)
+
+    def test_composite_div_dimensionless(self):
+        m = Unit("m", dimension=Dimension.length)
+        none = Unit("", dimension=Dimension.none)
+        cu = CompositeUnit({m: 2})
+        out = cu / none
+        self.assertEqual(out.components[m], 2)
+
+    def test_truediv_composite_by_composite(self):
+        m = Unit("m", dimension=Dimension.length)
+        s = Unit("s", dimension=Dimension.time)
+        velocity = CompositeUnit({m: 1, s: -1})
+        accel = CompositeUnit({m: 1, s: -2})
+        jerk = accel / velocity
+        # jerk = m^1 s^-2  /  m^1 s^-1 = s^-1
+        self.assertEqual(list(jerk.components.values()), [-1])
 
 
 class TestUnitEdgeCases(unittest.TestCase):
