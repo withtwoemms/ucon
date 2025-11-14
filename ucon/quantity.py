@@ -101,21 +101,21 @@ class Number:
 
     def __eq__(self, other: Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
-            raise TypeError(f'Cannot compare Number to non-Number/Ratio type: {type(other)}')
+            raise TypeError(f"Cannot compare Number to non-Number/Ratio type: {type(other)}")
 
         if isinstance(other, Ratio):
             other = other.evaluate()
 
-        # Compare numeric magnitudes (scale-adjusted)
-        if abs(self.value - other.value) >= 1e-12:
+        # Convert both to canonical form: base unit + normalized value
+        a = self.simplify()
+        b = other.simplify()
+
+        # Compare magnitudes (float-safe)
+        if abs(a.value - b.value) >= 1e-12:
             return False
 
-        # Compare canonical unit identity, not physical Unit object or alias bag
-        return (
-            self.unit.dimension == other.unit.dimension and
-            self.unit.scale == other.unit.scale and
-            self.unit.name == other.unit.name
-        )
+        # Compare dimensions only (scale+name irrelevant)
+        return a.unit.dimension == b.unit.dimension
 
     def __repr__(self):
         return f'<{self.quantity} {"" if self.unit.scale.name == "one" else self.unit.scale.name}{self.unit.name}>'
