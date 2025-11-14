@@ -46,7 +46,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 
 `ucon` models unit math through a hierarchy where each layer builds on the last:
 
-<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/f3518d37445301950026fc9ffd1bd062768005fe/ucon.data-model.png align="center" alt="ucon Data Model" width=600/>
+<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/0c704737a52b9e4a87cda5c839e9aa40f7e5bb48/ucon.data-model_v035.png align="center" alt="ucon Data Model" width=600/>
 
 ## Why `ucon`?
 
