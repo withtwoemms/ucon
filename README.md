@@ -102,12 +102,13 @@ becomes straightforward when you define a measurement:
 from ucon import Number, Scale, Units, Ratio
 
 # Two milliliters of bromine
-two_mL_bromine = Number(unit=Units.liter, scale=Scale.milli, quantity=2)
+mL = Scale.milli * units.liter
+two_mL_bromine = Number(quantity=2, unit=mL)
 
 # Density of bromine: 3.119 g/mL
 bromine_density = Ratio(
-    numerator=Number(unit=Units.gram, quantity=3.119),
-    denominator=Number(unit=Units.liter, scale=Scale.milli),
+    numerator=Number(unit=units.gram, quantity=3.119),
+    denominator=Number(unit=mL),
 )
 
 # Multiply to find mass
