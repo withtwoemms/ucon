@@ -169,6 +169,16 @@ class Exponent:
             return Exponent(self.base, self.power + other.power)
         return float(self.evaluated * other.evaluated)
 
+    def __pow__(self, exponent: Union[int, float]) -> "Exponent":
+        """
+        Raise this Exponent to a numeric power.
+
+        Example:
+            Exponent(10, 3) ** 2
+            # → Exponent(base=10, power=6)
+        """
+        return Exponent(self.base, self.power * exponent)
+
     # ---------- Conversion Utilities ----------
 
     def to_base(self, new_base: int) -> "Exponent":
