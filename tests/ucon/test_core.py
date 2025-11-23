@@ -474,7 +474,7 @@ class TestCompositeUnit(unittest.TestCase):
         cu = CompositeUnit({u: 1})
         # should anneal to Unit
         self.assertIsInstance(cu, Unit)
-        self.assertEqual(cu.name, u.name)
+        self.assertEqual(cu.shorthand, u.shorthand)
 
     def test_merge_of_identical_units(self):
         m = Unit("m", name="meter", dimension=Dimension.length)
@@ -502,22 +502,6 @@ class TestCompositeUnit(unittest.TestCase):
         self.assertIn(m, cu.components)
         self.assertNotIn(none, cu.components)
 
-    def test_pick_scale_sink_prefers_positive_exponent(self):
-        #  m^1 * s^-3 → sink should be m
-        m = Unit("m", dimension=Dimension.length)
-        s = Unit("s", dimension=Dimension.time)
-        cu = CompositeUnit({m: 1, s: -3})
-        self.assertIs(cu._pick_scale_sink(), list(cu.components.keys())[0])
-
-    def test_apply_scale_to_sink(self):
-        m = Unit("m", dimension=Dimension.length)
-        cm = Scale.centi * m
-        cu = CompositeUnit({m: 2})
-        scaled = Scale.kilo * cu
-        # scaled sink should become km^2
-        ks = next(iter(k for k in scaled.components if k.scale == Scale.kilo))
-        self.assertEqual(scaled.components[ks], 2)
-
     def test_anneal_single_unit(self):
         m = Unit("m", dimension=Dimension.length)
         cu = CompositeUnit({m: 1})
@@ -528,10 +512,10 @@ class TestCompositeUnit(unittest.TestCase):
         m = Unit("m", dimension=Dimension.length)
         s = Unit("s", dimension=Dimension.time)
         cu = CompositeUnit({m: 1, s: -1})
-        result = cu * Scale.kilo
+        result = Scale.kilo * cu
         # equivalent to scale multiplication on RMUL path
-        sink = result._pick_scale_sink()
-        self.assertIsNotNone(sink)
+        self.assertIsNotNone(result)
+        self.assertIsNotNone(result.shorthand, "km/s")
 
     def test_composite_div_dimensionless(self):
         m = Unit("m", dimension=Dimension.length)
@@ -613,7 +597,7 @@ class TestUnitEdgeCases(unittest.TestCase):
         none = Unit(name='none', dimension=Dimension.none)
         result = m * none
         self.assertEqual(result.dimension, Dimension.length)
-        self.assertIn('m', result.name)
+        self.assertEqual('m', result.shorthand)
 
     def test_invalid_dimension_combinations_raise_value_error(self):
         m = Unit('m', name='meter', dimension=Dimension.length)

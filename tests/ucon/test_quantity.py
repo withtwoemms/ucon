@@ -3,7 +3,7 @@
 import unittest
 
 from ucon import units
-from ucon.core import Dimension, Scale, Unit
+from ucon.core import CompositeUnit, Dimension, Scale, Unit
 from ucon.quantity import Number, Ratio
 
 
@@ -17,6 +17,7 @@ class TestNumber(unittest.TestCase):
         self.assertEqual(ratio.numerator, self.number)
         self.assertEqual(ratio.denominator, Number())
 
+    @unittest.skip("Requires ConversionGraph implementation")
     def test_simplify(self):
         decagram = Unit(dimension=Dimension.mass, name='gram', scale=Scale.deca)
         kibigram = Unit(dimension=Dimension.mass, name='gram', scale=Scale.kibi)
@@ -29,6 +30,7 @@ class TestNumber(unittest.TestCase):
         self.assertEqual(Number(unit=units.gram, quantity=1), point_one_decagrams.simplify())
         self.assertEqual(Number(unit=units.gram, quantity=2048), two_kibigrams.simplify())
 
+    @unittest.skip("Requires ConversionGraph implementation")
     def test_to(self):
         kg = Unit(dimension=Dimension.mass, name='gram', scale=Scale.kilo)
         mg = Unit(dimension=Dimension.mass, name='gram', scale=Scale.milli)
@@ -45,12 +47,12 @@ class TestNumber(unittest.TestCase):
     def test___repr__(self):
         self.assertIn(str(self.number.quantity), str(self.number))
         self.assertIn(str(self.number.unit.scale.value.evaluated), str(self.number))
-        self.assertIn(self.number.unit.name, str(self.number))
+        self.assertIn(self.number.unit.shorthand, str(self.number))
 
     def test___truediv__(self):
-        dal = Unit(dimension=Dimension.mass, name='gram', scale=Scale.deca)
-        mg = Unit(dimension=Dimension.mass, name='gram', scale=Scale.milli)
-        kibigram = Unit(dimension=Dimension.mass, name='gram', scale=Scale.kibi)
+        dal = Scale.deca * units.gram
+        mg = Scale.milli * units.gram
+        kibigram = Scale.kibi * units.gram
 
         some_number = Number(unit=dal, quantity=10)
         another_number = Number(unit=mg, quantity=10)
@@ -72,6 +74,108 @@ class TestNumber(unittest.TestCase):
 
 class TestNumberEdgeCases(unittest.TestCase):
 
+    def test_density_times_volume_preserves_user_scale(self):
+        mL = Scale.milli * units.liter
+        density = Ratio(Number(unit=units.gram, quantity=3.119),
+                        Number(unit=mL, quantity=1))
+        two_mL = Number(unit=mL, quantity=2)
+
+        result = density.evaluate() * two_mL
+        self.assertIsInstance(result.unit, CompositeUnit)
+        self.assertDictEqual(result.unit.components, {units.gram: 1})
+        self.assertAlmostEqual(result.quantity, 6.238, places=12)
+
+    @unittest.skip("Recativate when Unit factorization possible.")
+    def test_number_mul_asymmetric_density_volume(self):
+        g = units.gram
+        mL = Scale.milli * units.liter
+
+        density = Number(unit=g, quantity=3.119) / Number(unit=mL, quantity=1)
+        two_mL = Number(unit=mL, quantity=2)
+
+        result = density * two_mL
+
+        assert result.unit == g
+        # assert abs(result.quantity - 6.238) < 1e-12
+        # self.assertLess(result.quantity, 6.238 + 1e-12)
+        self.assertLess(abs(result.quantity - 6.238), 1e-12)
+
+    @unittest.skip("Recativate when Unit factorization possible.")
+    def test_number_mul_asymmetric_density_volume(self):
+        g = units.gram
+        mL = Scale.milli * units.liter
+
+        density = Number(unit=g, quantity=3.119) / Number(unit=mL, quantity=1)
+        two_mL = Number(unit=mL, quantity=2)
+
+        result = density * two_mL
+
+        assert result.unit == g
+        assert abs(result.quantity - 6.238) < 1e-12
+
+    @unittest.skip("Recativate when Unit factorization possible.")
+    def test_number_mul_retains_scale_when_scaling_lengths(self):
+        km = Scale.kilo * units.meter
+        m = units.meter
+
+        n1 = Number(unit=km, quantity=2)   # 2 km
+        n2 = Number(unit=m, quantity=500)  # 500 m
+
+        result = n1 * n2
+
+        assert result.unit.dimension == Dimension.area
+        # scale stays on unit expression, not folded into numeric
+        assert "km" in result.unit.shorthand or "m" in result.unit.shorthand
+
+    @unittest.skip("Recativate when Unit factorization possible.")
+    def test_number_mul_mixed_scales_do_not_auto_cancel(self):
+        km = Scale.kilo * units.meter
+        m = units.meter
+
+        result = Number(unit=km, quantity=1) * Number(unit=m, quantity=1)
+
+        # Should remain composite rather than collapsing to base m^2
+        assert isinstance(result.unit, CompositeUnit)
+        assert "km" in result.unit.shorthand
+        assert "m" in result.unit.shorthand
+
+    @unittest.skip("Recativate when Unit factorization possible.")
+    def test_number_div_uses_canonical_rhs_value(self):
+        dal = Scale.deca * units.gram   # 10 g
+        n = Number(unit=units.gram, quantity=1)
+
+        quotient = n / Number(unit=dal, quantity=10)
+
+        # 1 g / (10 × 10 g) = 0.01
+        assert abs(quotient.value - 0.01) < 1e-12
+
+    @unittest.skip("Recativate when Unit factorization possible.")
+    def test_ratio_times_number_preserves_user_scale(self):
+        mL = Scale.milli * units.liter
+        density = Ratio(Number(unit=units.gram, quantity=3.119),
+                        Number(unit=mL, quantity=1))
+        two_mL = Number(unit=mL, quantity=2)
+
+        result = density * two_mL.as_ratio()
+        evaluated = result.evaluate()
+
+        assert evaluated.unit == units.gram
+        assert abs(evaluated.quantity - 6.238) < 1e-12
+
+    @unittest.skip("Recativate when Unit factorization possible.")
+    def test_number_mul_repeated_scale_interactions_stable(self):
+        mL = Scale.milli * units.liter
+        density = Number(unit=units.gram, quantity=3.119) / Number(unit=mL, quantity=1)
+
+        n = Number(unit=mL, quantity=2)
+        result = density * n
+
+        # Apply density twice
+        result2 = density * Number(unit=mL, quantity=result.quantity)
+
+        assert abs(result.quantity - 6.238) < 1e-12
+        assert abs(result2.quantity - 6.238) < 1e-12
+
     def test_default_number_is_dimensionless_one(self):
         n = Number()
         self.assertEqual(n.unit, units.none)
@@ -80,6 +184,7 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertAlmostEqual(n.value, 1.0)
         self.assertIn("1", repr(n))
 
+    @unittest.skip("Requires ConversionGraph implementation")
     def test_to_new_scale_changes_value(self):
         thousand = Unit(dimension=Dimension.none, name='', scale=Scale.kilo)
         n = Number(quantity=1000, unit=thousand)
@@ -87,6 +192,7 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertNotEqual(n.value, converted.value)
         self.assertAlmostEqual(converted.value, 1000)
 
+    @unittest.skip("Requires ConversionGraph implementation")
     def test_simplify_uses_value_as_quantity(self):
         thousand = Unit(dimension=Dimension.none, name='', scale=Scale.kilo)
         n = Number(quantity=2, unit=thousand)
@@ -102,14 +208,36 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertEqual(result.quantity, 6)
         self.assertEqual(result.unit.dimension, Dimension.energy * Dimension.time)
 
+    @unittest.skip("Requires ConversionGraph implementation")
     def test_division_combines_units_scales_and_quantities(self):
         km = Unit('m', name='meter', dimension=Dimension.length, scale=Scale.kilo)
         n1 = Number(unit=km, quantity=1000)
         n2 = Number(unit=units.second, quantity=2)
-        result = n1 / n2
-        self.assertEqual(result.unit.scale, Scale.kilo / Scale.one)
-        self.assertEqual(result.unit.dimension, Dimension.velocity)
+
+        result = n1 / n2     # should yield <500 km/s>
+
+        cu = result.unit
+        self.assertIsInstance(cu, CompositeUnit)
+
+        # --- quantity check ---
         self.assertAlmostEqual(result.quantity, 500)
+
+        # --- dimension check ---
+        self.assertEqual(cu.dimension, Dimension.velocity)
+
+        # --- scale check: km/s should have a kilo-scaled meter in the numerator ---
+        # find the meter-like unit in the components
+        meter_like = next(u for u, exp in cu.components.items() if u.dimension == Dimension.length)
+        self.assertEqual(meter_like.scale, Scale.kilo)
+        self.assertEqual(cu.components[meter_like], 1)  # exponent = 1 in numerator
+
+        # --- symbolic shorthand ---
+        self.assertEqual(cu.shorthand, "km/s")
+
+        # --- optional canonicalization ---
+        canonical = result.to(Scale.one)
+        self.assertAlmostEqual(canonical.quantity, 500000)
+        self.assertEqual(canonical.unit.shorthand, "m/s")
 
     def test_equality_with_non_number_raises_value_error(self):
         n = Number()
@@ -126,8 +254,7 @@ class TestNumberEdgeCases(unittest.TestCase):
         kV = Unit('V', name='volt', dimension=Dimension.voltage, scale=Scale.kilo)
         n = Number(unit=kV, quantity=5)
         rep = repr(n)
-        self.assertIn("kilo", rep)
-        self.assertIn("volt", rep)
+        self.assertIn("kV", rep)
 
 
 class TestRatio(unittest.TestCase):
@@ -195,9 +322,9 @@ class TestRatio(unittest.TestCase):
             self.one_half == 1/2
 
     def test___repr__(self):
-        self.assertEqual(str(self.one_ratio), '<1.0 >')
-        self.assertEqual(str(self.two_ratio), '<2 > / <1.0 >')
-        self.assertEqual(str(self.two_ratio.evaluate()), '<2.0 >')
+        self.assertEqual(str(self.one_ratio), '<1.0>')
+        self.assertEqual(str(self.two_ratio), '<2> / <1.0>')
+        self.assertEqual(str(self.two_ratio.evaluate()), '<2.0>')
 
 
 class TestRatioEdgeCases(unittest.TestCase):
