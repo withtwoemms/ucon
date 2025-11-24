@@ -446,105 +446,208 @@ class Unit:
         return f"<Unit | {self.dimension.name}>"
 
 
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class FactoredUnit:
+    """
+    A structural pair (unit, scale) used as the *key* inside CompositeUnit.
+
+    - `unit` is a plain Unit (no extra meaning beyond dimension + aliases + name).
+    - `scale` is the *expression-level* Scale attached by the user (e.g. milli in mL).
+
+    Two FactoredUnits are equal iff both `unit` and `scale` are equal, so components
+    with the same base unit and same scale truly merge.
+
+    NOTE: We also implement equality / hashing in a way that allows lookups
+    by the underlying Unit to keep working:
+
+        m in composite.components
+        composite.components[m]
+
+    still work even though the actual keys are FactoredUnit instances.
+    """
+
+    unit: "Unit"
+    scale: "Scale"
+
+    # ------------- Projections (Unit-like surface) -------------------------
+
+    @property
+    def dimension(self):
+        return self.unit.dimension
+
+    @property
+    def aliases(self):
+        return getattr(self.unit, "aliases", ())
+
+    @property
+    def name(self):
+        return getattr(self.unit, "name", "")
+
+    @property
+    def shorthand(self) -> str:
+        """
+        Render something like 'mg' for FactoredUnit(gram, milli),
+        or 'L' for FactoredUnit(liter, one).
+        """
+        base = ""
+        if self.aliases:
+            base = self.aliases[0]
+        elif self.name:
+            base = self.name
+
+        prefix = "" if self.scale is Scale.one else self.scale.shorthand
+        return f"{prefix}{base}".strip()
+
+    # ------------- Identity & hashing -------------------------------------
+
+    def __repr__(self) -> str:
+        return f"FactoredUnit(unit={self.unit!r}, scale={self.scale!r})"
+
+    def __hash__(self) -> int:
+        # Important: share hash space with the underlying Unit so that
+        # lookups by Unit (e.g., components[unit]) work against FactoredUnit keys.
+        return hash(self.unit)
+
+    def __eq__(self, other):
+        # FactoredUnit vs FactoredUnit → structural equality
+        if isinstance(other, FactoredUnit):
+            return (self.unit == other.unit) and (self.scale == other.scale)
+
+        # FactoredUnit vs Unit → equal iff underlying unit matches and the
+        # Unit's own scale matches our scale. This lets `unit in components`
+        # work when `components` is keyed by FactoredUnit.
+        if isinstance(other, Unit):
+            return (
+                self.unit == other
+                and getattr(other, "scale", Scale.one) == self.scale
+            )
+
+        return NotImplemented
+
+
 class CompositeUnit(Unit):
     """
     Represents a product or quotient of Units.
 
     Key properties:
-    - components is a dict[Unit, float] mapping units (with full scale) to exponents.
+    - components is a dict[FactoredUnit, float] mapping (unit, scale) pairs to exponents.
     - Nested CompositeUnit instances are flattened.
-    - Identical units (same dimension, name, aliases, *and scale*) merge exponents.
+    - Identical factored units (same underlying unit and same scale) merge exponents.
     - Units with net exponent ~0 are dropped.
     - Dimensionless units (Dimension.none) are dropped.
-    - Scaled variants of the same base unit (e.g. L and mL) are
-      grouped by (name, dimension, aliases) and their exponents combined;
-      if the net exponent is ~0, the whole group is cancelled.
+    - Scaled variants of the same base unit (e.g. L and mL) are grouped by
+      (name, dimension, aliases) and their exponents combined; if the net exponent
+      is ~0, the whole group is cancelled.
     """
 
     _SUPERSCRIPTS = str.maketrans("0123456789-.", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻·")
 
     def __init__(self, components: dict[Unit, float]):
-        # Base Unit construction; CompositeUnit itself always starts
-        # as dimensionless with scale=one, then we derive from components.
+        """
+        Build a CompositeUnit with FactoredUnit keys, preserving user-provided scales.
+
+        Key principles:
+        - Never canonicalize scale (no implicit preference for Scale.one).
+        - Only collapse scaled variants of the same base unit when total exponent == 0.
+        - If only one scale variant exists in a group, preserve it exactly.
+        - If multiple variants exist and the group exponent != 0, preserve the FIRST
+        encountered FactoredUnit (keeps user-intent scale).
+        """
+
+        # CompositeUnit always starts dimensionless & unscaled
         super().__init__(name="", dimension=Dimension.none, scale=Scale.one)
         self.aliases = ()
 
-        merged: dict[Unit, float] = {}
+        merged: dict[FactoredUnit, float] = {}
 
-        def merge_unit(unit: Unit, exponent: float) -> None:
-            # Only merge truly identical units, including scale
-            existing = next(
-                (
-                    k
-                    for k in merged
-                    if (
-                        k.dimension == unit.dimension
-                        and getattr(k, "scale", Scale.one) == getattr(unit, "scale", Scale.one)
-                        and getattr(k, "aliases", ()) == getattr(unit, "aliases", ())
-                        and getattr(k, "name", "") == getattr(unit, "name", "")
-                    )
-                ),
-                None,
-            )
-            if existing is not None:
-                merged[existing] += exponent
+        # -----------------------------------------------------
+        # Helper: normalize Units or FactoredUnits to FactoredUnit
+        # -----------------------------------------------------
+        def to_factored(unit_or_fu):
+            if isinstance(unit_or_fu, FactoredUnit):
+                return unit_or_fu
+            scale = getattr(unit_or_fu, "scale", Scale.one)
+            return FactoredUnit(unit_or_fu, scale)
+
+        # -----------------------------------------------------
+        # Helper: merge FactoredUnits by full (unit, scale) identity
+        # -----------------------------------------------------
+        def merge_fu(fu: FactoredUnit, exponent: float):
+            for existing in merged:
+                if existing == fu:     # FactoredUnit.__eq__ handles scale & unit compare
+                    merged[existing] += exponent
+                    return
+            merged[fu] = merged.get(fu, 0.0) + exponent
+
+        # -----------------------------------------------------
+        # Step 1 — Flatten sources into FactoredUnits
+        # -----------------------------------------------------
+        for key, exp in components.items():
+            if isinstance(key, CompositeUnit):
+                # Flatten nested composites
+                for inner_fu, inner_exp in key.components.items():
+                    merge_fu(inner_fu, inner_exp * exp)
             else:
-                merged[unit] = exponent
+                merge_fu(to_factored(key), exp)
 
-        # 1. Flatten nested CompositeUnits and sum exponents
-        for unit, exponent in components.items():
-            if isinstance(unit, CompositeUnit):
-                for inner_unit, inner_exponent in unit.components.items():
-                    merge_unit(inner_unit, inner_exponent * exponent)
-            else:
-                merge_unit(unit, exponent)
-
-        # 2. Drop near-zero exponents and dimensionless units
-        simplified: dict[Unit, float] = {}
-        for unit, exponent in merged.items():
-            if abs(exponent) < 1e-12:
+        # -----------------------------------------------------
+        # Step 2 — Remove exponent-zero & dimensionless FactoredUnits
+        # -----------------------------------------------------
+        simplified: dict[FactoredUnit, float] = {}
+        for fu, exp in merged.items():
+            if abs(exp) < 1e-12:
                 continue
-            if unit.dimension == Dimension.none:
-                # dimensionless factors do not affect composite structure
+            if fu.dimension == Dimension.none:
                 continue
-            simplified[unit] = exponent
+            simplified[fu] = exp
 
-        # 3. Group scaled variants of the same base unit and cancel when net exponent ~0
-        #    Key is (name, dimension, aliases-without-empty), ignoring scale.
-        groups: dict[tuple, dict[Unit, float]] = {}
-        for unit, exponent in simplified.items():
-            alias_key = tuple(sorted(a for a in unit.aliases if a))
-            key = (unit.name, unit.dimension, alias_key)
-            bucket = groups.setdefault(key, {})
-            bucket[unit] = bucket.get(unit, 0.0) + exponent
+        # -----------------------------------------------------
+        # Step 3 — Group by base-unit identity (ignoring scale)
+        # -----------------------------------------------------
+        groups: dict[tuple, dict[FactoredUnit, float]] = {}
 
-        final: dict[Unit, float] = {}
-        for key, bucket in groups.items():
+        for fu, exp in simplified.items():
+            alias_key = tuple(sorted(a for a in fu.aliases if a))
+            group_key = (fu.name, fu.dimension, alias_key)
+            groups.setdefault(group_key, {})
+            groups[group_key][fu] = groups[group_key].get(fu, 0.0) + exp
+
+        # -----------------------------------------------------
+        # Step 4 — Resolve groups while preserving user scale
+        # -----------------------------------------------------
+        final: dict[FactoredUnit, float] = {}
+
+        for group_key, bucket in groups.items():
             total_exp = sum(bucket.values())
+
+            # 4A — Full cancellation
             if abs(total_exp) < 1e-12:
-                # Net exponent cancels for all scaled variants of this base unit.
-                # Example: L^-1 and mL^1 → 0 → drop the entire group.
                 continue
 
-            # Pick a representative unit for this group:
-            #  - Prefer unscaled (Scale.one) if present
-            #  - Otherwise take a stable choice (by name)
-            rep: Unit | None = None
-            for u in bucket:
-                if getattr(u, "scale", Scale.one) is Scale.one:
-                    rep = u
-                    break
-            if rep is None:
-                rep = sorted(bucket.keys(), key=lambda u: u.name)[0]
+            # 4B — Only one scale variant → preserve exactly
+            if len(bucket) == 1:
+                fu, exp = next(iter(bucket.items()))
+                final[fu] = exp
+                continue
 
-            final[rep] = total_exp
+            # 4C — Multiple scale variants, exponent != 0:
+            #      preserve FIRST encountered FactoredUnit.
+            #      This ensures user scale is preserved.
+            first_fu = next(iter(bucket.keys()))
+            final[first_fu] = total_exp
 
         self.components = final
-        self.scale = Scale.one  # CompositeUnit itself has no global scale
 
-        # 4. Compute resulting dimension via exponent algebra
+        # CompositeUnit itself has no global scale
+        self.scale = Scale.one
+
+        # -----------------------------------------------------
+        # Step 5 — Derive dimension via exponent algebra
+        # -----------------------------------------------------
         self.dimension = reduce(
-            lambda acc, kv: acc * (kv[0].dimension ** kv[1]),
+            lambda acc, item: acc * (item[0].dimension ** item[1]),
             self.components.items(),
             Dimension.none,
         )
@@ -553,32 +656,40 @@ class CompositeUnit(Unit):
 
     @classmethod
     def _append(cls, unit: Unit, power: float, num: list[str], den: list[str]) -> None:
+        """
+        Append a unit^power into numerator or denominator list. Works with
+        both Unit and FactoredUnit, since FactoredUnit exposes dimension,
+        shorthand, name, and aliases.
+        """
         if unit.dimension == Dimension.none:
             return
-        part = unit.shorthand or unit.name or ""
+        part = getattr(unit, "shorthand", "") or getattr(unit, "name", "") or ""
         if not part:
             return
         if power > 0:
             if power == 1:
                 num.append(part)
             else:
-                num.append(f"{part}{str(power).translate(cls._SUPERSCRIPTS)}")
+                num.append(part + str(power).translate(cls._SUPERSCRIPTS))
         elif power < 0:
-            abs_p = abs(power)
-            if abs_p == 1:
+            if power == -1:
                 den.append(part)
             else:
-                den.append(f"{part}{str(abs_p).translate(cls._SUPERSCRIPTS)}")
+                den.append(part + str(-power).translate(cls._SUPERSCRIPTS))
 
     @property
     def shorthand(self) -> str:
-        """Return symbolic shorthand like 'kg·m/s²'."""
+        """
+        Human-readable composite unit string, e.g. 'kg·m/s²'.
+        """
         if not self.components:
             return ""
+
         num: list[str] = []
         den: list[str] = []
-        for unit, power in self.components.items():
-            self._append(unit, power, num, den)
+
+        for u, power in self.components.items():
+            self._append(u, power, num, den)
 
         numerator = "·".join(num) or "1"
         denominator = "·".join(den)
@@ -615,35 +726,48 @@ class CompositeUnit(Unit):
             # heuristic: choose unit with positive exponent first, else first unit
             items = list(self.components.items())
             positives = [(u, e) for (u, e) in items if e > 0]
-            sink_unit, _ = (positives or items)[0]
+            sink, _ = (positives or items)[0]
 
-            # Apply scale directly to that unit (no exponent-based scaling)
-            if getattr(sink_unit, "scale", Scale.one) is not Scale.one:
-                scaled_sink = Unit(
-                    *sink_unit.aliases,
-                    name=sink_unit.name,
-                    dimension=sink_unit.dimension,
-                    scale=other * sink_unit.scale,
-                )
+            # Normalize sink into a FactoredUnit
+            if isinstance(sink, FactoredUnit):
+                sink_fu = sink
             else:
-                scaled_sink = Unit(
-                    *sink_unit.aliases,
-                    name=sink_unit.name,
-                    dimension=sink_unit.dimension,
-                    scale=other,
+                sink_fu = FactoredUnit(
+                    unit=sink,
+                    scale=getattr(sink, "scale", Scale.one),
                 )
 
-            combined: dict[Unit, float] = {}
+            # Combine scales (expression-level)
+            if sink_fu.scale is not Scale.one:
+                new_scale = other * sink_fu.scale
+            else:
+                new_scale = other
+
+            scaled_sink = FactoredUnit(
+                unit=sink_fu.unit,
+                scale=new_scale,
+            )
+
+            combined: dict[FactoredUnit, float] = {}
             for u, exp in self.components.items():
-                if u is sink_unit:
+                # Normalize each key into FactoredUnit as we go
+                if isinstance(u, FactoredUnit):
+                    fu = u
+                else:
+                    fu = FactoredUnit(
+                        unit=u,
+                        scale=getattr(u, "scale", Scale.one),
+                    )
+
+                if fu is sink_fu:
                     combined[scaled_sink] = combined.get(scaled_sink, 0.0) + exp
                 else:
-                    combined[u] = combined.get(u, 0.0) + exp
+                    combined[fu] = combined.get(fu, 0.0) + exp
 
             return CompositeUnit(combined)
 
         if isinstance(other, Unit):
-            combined = {other: 1.0}
+            combined: dict[Unit, float] = {other: 1.0}
             for u, e in self.components.items():
                 combined[u] = combined.get(u, 0.0) + e
             return CompositeUnit(combined)
@@ -672,8 +796,11 @@ class CompositeUnit(Unit):
     def __eq__(self, other):
         if isinstance(other, Unit) and not isinstance(other, CompositeUnit):
             # Only equal to a plain Unit if we have exactly that unit^1
+            # Here, the tuple comparison will invoke FactoredUnit.__eq__(Unit)
+            # on the key when components are keyed by FactoredUnit.
             return len(self.components) == 1 and list(self.components.items()) == [(other, 1.0)]
         return isinstance(other, CompositeUnit) and self.components == other.components
 
     def __hash__(self):
+        # Sort by name; FactoredUnit exposes .name, so this is stable.
         return hash(tuple(sorted(self.components.items(), key=lambda x: x[0].name)))
