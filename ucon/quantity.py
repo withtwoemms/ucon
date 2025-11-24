@@ -96,7 +96,7 @@ class Number:
             return NotImplemented
 
         return Number(
-            quantity=self.quantity * other.value,
+            quantity=self.quantity * other.quantity,
             unit=self.unit * other.unit,
         )
 
@@ -170,16 +170,15 @@ class Ratio:
     def reciprocal(self) -> 'Ratio':
         return Ratio(numerator=self.denominator, denominator=self.numerator)
 
-    def evaluate(self) -> Number:
-        # Normalize numerator and denominator first
-        n = self.normalize(self.numerator)   # fold scale into quantity
-        d = self.normalize(self.denominator)
+    def evaluate(self) -> "Number":
+        # Pure arithmetic, no scale normalization.
+        numeric = self.numerator.quantity / self.denominator.quantity
 
-        # Then divide scaled values
-        numeric = n.quantity / d.quantity
-        unit = n.unit / d.unit
+        # Pure unit division, with FactoredUnit preservation.
+        unit = self.numerator.unit / self.denominator.unit
 
-        return Number(unit=unit, quantity=numeric)
+        # DO NOT normalize, DO NOT fold scale.
+        return Number(quantity=numeric, unit=unit)
 
     def _fold_scales(self, unit: Union[Unit, CompositeUnit]):
         """
