@@ -85,7 +85,6 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertDictEqual(result.unit.components, {units.gram: 1})
         self.assertAlmostEqual(result.quantity, 6.238, places=12)
 
-    @unittest.skip("Recativate when Unit factorization possible.")
     def test_number_mul_asymmetric_density_volume(self):
         g = units.gram
         mL = Scale.milli * units.liter
@@ -98,7 +97,6 @@ class TestNumberEdgeCases(unittest.TestCase):
         assert result.unit == g
         assert abs(result.quantity - 6.238) < 1e-12
 
-    @unittest.skip("Recativate when Unit factorization possible.")
     def test_number_mul_retains_scale_when_scaling_lengths(self):
         km = Scale.kilo * units.meter
         m = units.meter
@@ -112,7 +110,6 @@ class TestNumberEdgeCases(unittest.TestCase):
         # scale stays on unit expression, not folded into numeric
         assert "km" in result.unit.shorthand or "m" in result.unit.shorthand
 
-    @unittest.skip("Recativate when Unit factorization possible.")
     def test_number_mul_mixed_scales_do_not_auto_cancel(self):
         km = Scale.kilo * units.meter
         m = units.meter
@@ -124,7 +121,6 @@ class TestNumberEdgeCases(unittest.TestCase):
         assert "km" in result.unit.shorthand
         assert "m" in result.unit.shorthand
 
-    @unittest.skip("Recativate when Unit factorization possible.")
     def test_number_div_uses_canonical_rhs_value(self):
         dal = Scale.deca * units.gram   # 10 g
         n = Number(unit=units.gram, quantity=1)
@@ -134,7 +130,6 @@ class TestNumberEdgeCases(unittest.TestCase):
         # 1 g / (10 × 10 g) = 0.01
         assert abs(quotient.value - 0.01) < 1e-12
 
-    @unittest.skip("Recativate when Unit factorization possible.")
     def test_ratio_times_number_preserves_user_scale(self):
         mL = Scale.milli * units.liter
         density = Ratio(Number(unit=units.gram, quantity=3.119),
@@ -146,20 +141,6 @@ class TestNumberEdgeCases(unittest.TestCase):
 
         assert evaluated.unit == units.gram
         assert abs(evaluated.quantity - 6.238) < 1e-12
-
-    @unittest.skip("Recativate when Unit factorization possible.")
-    def test_number_mul_repeated_scale_interactions_stable(self):
-        mL = Scale.milli * units.liter
-        density = Number(unit=units.gram, quantity=3.119) / Number(unit=mL, quantity=1)
-
-        n = Number(unit=mL, quantity=2)
-        result = density * n
-
-        # Apply density twice
-        result2 = density * Number(unit=mL, quantity=result.quantity)
-
-        assert abs(result.quantity - 6.238) < 1e-12
-        assert abs(result2.quantity - 6.238) < 1e-12
 
     def test_default_number_is_dimensionless_one(self):
         n = Number()
