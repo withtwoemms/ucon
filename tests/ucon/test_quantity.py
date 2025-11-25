@@ -96,21 +96,6 @@ class TestNumberEdgeCases(unittest.TestCase):
         result = density * two_mL
 
         assert result.unit == g
-        # assert abs(result.quantity - 6.238) < 1e-12
-        # self.assertLess(result.quantity, 6.238 + 1e-12)
-        self.assertLess(abs(result.quantity - 6.238), 1e-12)
-
-    @unittest.skip("Recativate when Unit factorization possible.")
-    def test_number_mul_asymmetric_density_volume(self):
-        g = units.gram
-        mL = Scale.milli * units.liter
-
-        density = Number(unit=g, quantity=3.119) / Number(unit=mL, quantity=1)
-        two_mL = Number(unit=mL, quantity=2)
-
-        result = density * two_mL
-
-        assert result.unit == g
         assert abs(result.quantity - 6.238) < 1e-12
 
     @unittest.skip("Recativate when Unit factorization possible.")
@@ -314,7 +299,8 @@ class TestRatio(unittest.TestCase):
         ratio = twenty_kilojoules.as_ratio() / seconds_per_hour
         answer = ratio.evaluate()
         self.assertEqual(answer.unit.dimension, Dimension.energy)
-        self.assertEqual(round(answer.value, 5), 5.55556)  # Watt * hours
+        # When the ConversionGraph is implemented, conversion to watt-hours will be possible.
+        self.assertEqual(round(answer.value, 5), 0.00556)  # kilowatt * hours
 
     def test___eq__(self):
         self.assertEqual(self.one_half, self.point_five)

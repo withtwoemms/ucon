@@ -464,8 +464,7 @@ class TestUnit(unittest.TestCase):
         self.assertEqual(u1, u2)
 
     def test_unit_invalid_eq_type(self):
-        with self.assertRaises(TypeError):
-            Unit("m", dimension=Dimension.length) == 5
+        self.assertFalse(Unit("m", dimension=Dimension.length) == "meter")
 
 
 class TestCompositeUnit(unittest.TestCase):
@@ -609,8 +608,7 @@ class TestUnitEdgeCases(unittest.TestCase):
     # --- equality, hashing, immutability ----------------------------------
 
     def test_equality_with_non_unit(self):
-        with self.assertRaises(TypeError):
-            Unit('m', name='meter', dimension=Dimension.length) == 'meter'
+        self.assertFalse(Unit('m', name='meter', dimension=Dimension.length) == 'meter')
 
     def test_hash_stability_in_collections(self):
         m1 = Unit('m', name='meter', dimension=Dimension.length)
