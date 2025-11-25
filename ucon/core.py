@@ -415,7 +415,7 @@ class Unit:
 
     def __eq__(self, other):
         if not isinstance(other, Unit):
-            raise TypeError(f"Cannot compare Unit with non-Unit type: {type(other)}")
+            return NotImplemented
         return (
             self.dimension == other.dimension
             and self.scale == other.scale
