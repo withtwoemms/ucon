@@ -85,6 +85,14 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertDictEqual(result.unit.components, {units.gram: 1})
         self.assertAlmostEqual(result.quantity, 6.238, places=12)
 
+        mg = Scale.milli * units.gram
+        mg_density = Ratio(Number(unit=mg, quantity=3119), Number(unit=mL, quantity=1))
+
+        mg_result = mg_density.evaluate() * two_mL
+        self.assertIsInstance(mg_result.unit, CompositeUnit)
+        self.assertDictEqual(mg_result.unit.components, {mg: 1})
+        self.assertAlmostEqual(mg_result.quantity, 6238, places=12)
+
     def test_number_mul_asymmetric_density_volume(self):
         g = units.gram
         mL = Scale.milli * units.liter
