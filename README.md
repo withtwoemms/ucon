@@ -46,7 +46,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 
 `ucon` models unit math through a hierarchy where each layer builds on the last:
 
-<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/f3518d37445301950026fc9ffd1bd062768005fe/ucon.data-model.png align="center" alt="ucon Data Model" width=600/>
+<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/0c704737a52b9e4a87cda5c839e9aa40f7e5bb48/ucon.data-model_v035.png align="center" alt="ucon Data Model" width=600/>
 
 ## Why `ucon`?
 
@@ -102,12 +102,13 @@ becomes straightforward when you define a measurement:
 from ucon import Number, Scale, Units, Ratio
 
 # Two milliliters of bromine
-two_mL_bromine = Number(unit=Units.liter, scale=Scale.milli, quantity=2)
+mL = Scale.milli * units.liter
+two_mL_bromine = Number(quantity=2, unit=mL)
 
 # Density of bromine: 3.119 g/mL
 bromine_density = Ratio(
-    numerator=Number(unit=Units.gram, quantity=3.119),
-    denominator=Number(unit=Units.liter, scale=Scale.milli),
+    numerator=Number(unit=units.gram, quantity=3.119),
+    denominator=Number(unit=mL),
 )
 
 # Multiply to find mass
