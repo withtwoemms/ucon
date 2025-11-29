@@ -23,7 +23,7 @@ Stable baseline for:
 - [x] Implement `Vector` and `Dimension` classes  
 - [x] Integrate dimensions into `Unit`  
 - [x] Refactor `ucon.units` to use dimensional definitions  
-- [ ] Publish documentation for dimensional operations  
+- [x] Publish documentation for dimensional operations
 - [x] Verify uniqueness and hashing correctness across all Dimensions  
 - [x] Redesign `Exponent` to support algebraic operations (`__mul__`, `__truediv__`, `to_base`, etc.)  
 - [x] Remove redundant evaluated caching in favor of property-based computation  
