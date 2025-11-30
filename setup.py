@@ -1,3 +1,7 @@
+# © 2025 The Radiativity Company
+# Licensed under the Apache License, Version 2.0
+# See the LICENSE file for details.
+
 from os import environ as envvars
 from pathlib import Path
 from setuptools import find_packages, setup
