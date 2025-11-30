@@ -453,7 +453,7 @@ class Unit:
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
-class FactoredUnit:
+class UnitFactor:
     """
     A structural pair (unit, scale) used as the *key* inside CompositeUnit.
 
@@ -516,7 +516,7 @@ class FactoredUnit:
 
     def __eq__(self, other):
         # FactoredUnit vs FactoredUnit → structural equality
-        if isinstance(other, FactoredUnit):
+        if isinstance(other, UnitFactor):
             return (self.unit == other.unit) and (self.scale == other.scale)
 
         # FactoredUnit vs Unit → equal iff underlying unit matches and the
@@ -564,21 +564,21 @@ class CompositeUnit(Unit):
         super().__init__(name="", dimension=Dimension.none, scale=Scale.one)
         self.aliases = ()
 
-        merged: dict[FactoredUnit, float] = {}
+        merged: dict[UnitFactor, float] = {}
 
         # -----------------------------------------------------
         # Helper: normalize Units or FactoredUnits to FactoredUnit
         # -----------------------------------------------------
         def to_factored(unit_or_fu):
-            if isinstance(unit_or_fu, FactoredUnit):
+            if isinstance(unit_or_fu, UnitFactor):
                 return unit_or_fu
             scale = getattr(unit_or_fu, "scale", Scale.one)
-            return FactoredUnit(unit_or_fu, scale)
+            return UnitFactor(unit_or_fu, scale)
 
         # -----------------------------------------------------
         # Helper: merge FactoredUnits by full (unit, scale) identity
         # -----------------------------------------------------
-        def merge_fu(fu: FactoredUnit, exponent: float):
+        def merge_fu(fu: UnitFactor, exponent: float):
             for existing in merged:
                 if existing == fu:     # FactoredUnit.__eq__ handles scale & unit compare
                     merged[existing] += exponent
@@ -599,7 +599,7 @@ class CompositeUnit(Unit):
         # -----------------------------------------------------
         # Step 2 — Remove exponent-zero & dimensionless FactoredUnits
         # -----------------------------------------------------
-        simplified: dict[FactoredUnit, float] = {}
+        simplified: dict[UnitFactor, float] = {}
         for fu, exp in merged.items():
             if abs(exp) < 1e-12:
                 continue
@@ -610,7 +610,7 @@ class CompositeUnit(Unit):
         # -----------------------------------------------------
         # Step 3 — Group by base-unit identity (ignoring scale)
         # -----------------------------------------------------
-        groups: dict[tuple, dict[FactoredUnit, float]] = {}
+        groups: dict[tuple, dict[UnitFactor, float]] = {}
 
         for fu, exp in simplified.items():
             alias_key = tuple(sorted(a for a in fu.aliases if a))
@@ -621,7 +621,7 @@ class CompositeUnit(Unit):
         # -----------------------------------------------------
         # Step 4 — Resolve groups while preserving user scale
         # -----------------------------------------------------
-        final: dict[FactoredUnit, float] = {}
+        final: dict[UnitFactor, float] = {}
 
         for group_key, bucket in groups.items():
             total_exp = sum(bucket.values())
@@ -733,10 +733,10 @@ class CompositeUnit(Unit):
             sink, _ = (positives or items)[0]
 
             # Normalize sink into a FactoredUnit
-            if isinstance(sink, FactoredUnit):
+            if isinstance(sink, UnitFactor):
                 sink_fu = sink
             else:
-                sink_fu = FactoredUnit(
+                sink_fu = UnitFactor(
                     unit=sink,
                     scale=getattr(sink, "scale", Scale.one),
                 )
@@ -747,18 +747,18 @@ class CompositeUnit(Unit):
             else:
                 new_scale = other
 
-            scaled_sink = FactoredUnit(
+            scaled_sink = UnitFactor(
                 unit=sink_fu.unit,
                 scale=new_scale,
             )
 
-            combined: dict[FactoredUnit, float] = {}
+            combined: dict[UnitFactor, float] = {}
             for u, exp in self.components.items():
                 # Normalize each key into FactoredUnit as we go
-                if isinstance(u, FactoredUnit):
+                if isinstance(u, UnitFactor):
                     fu = u
                 else:
-                    fu = FactoredUnit(
+                    fu = UnitFactor(
                         unit=u,
                         scale=getattr(u, "scale", Scale.one),
                     )
