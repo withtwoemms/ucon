@@ -5,7 +5,7 @@
 import unittest
 
 from ucon import units
-from ucon.core import CompositeUnit, Dimension, Scale, Unit
+from ucon.core import UnitProduct, Dimension, Scale, Unit
 from ucon.quantity import Number, Ratio
 
 
@@ -83,16 +83,16 @@ class TestNumberEdgeCases(unittest.TestCase):
         two_mL = Number(unit=mL, quantity=2)
 
         result = density.evaluate() * two_mL
-        self.assertIsInstance(result.unit, CompositeUnit)
-        self.assertDictEqual(result.unit.components, {units.gram: 1})
+        self.assertIsInstance(result.unit, UnitProduct)
+        self.assertDictEqual(result.unit.factors, {units.gram: 1})
         self.assertAlmostEqual(result.quantity, 6.238, places=12)
 
         mg = Scale.milli * units.gram
         mg_density = Ratio(Number(unit=mg, quantity=3119), Number(unit=mL, quantity=1))
 
         mg_result = mg_density.evaluate() * two_mL
-        self.assertIsInstance(mg_result.unit, CompositeUnit)
-        self.assertDictEqual(mg_result.unit.components, {mg: 1})
+        self.assertIsInstance(mg_result.unit, UnitProduct)
+        self.assertDictEqual(mg_result.unit.factors, {mg: 1})
         self.assertAlmostEqual(mg_result.quantity, 6238, places=12)
 
     def test_number_mul_asymmetric_density_volume(self):
@@ -127,7 +127,7 @@ class TestNumberEdgeCases(unittest.TestCase):
         result = Number(unit=km, quantity=1) * Number(unit=m, quantity=1)
 
         # Should remain composite rather than collapsing to base m^2
-        assert isinstance(result.unit, CompositeUnit)
+        assert isinstance(result.unit, UnitProduct)
         assert "km" in result.unit.shorthand
         assert "m" in result.unit.shorthand
 
@@ -193,7 +193,7 @@ class TestNumberEdgeCases(unittest.TestCase):
         result = n1 / n2     # should yield <500 km/s>
 
         cu = result.unit
-        self.assertIsInstance(cu, CompositeUnit)
+        self.assertIsInstance(cu, UnitProduct)
 
         # --- quantity check ---
         self.assertAlmostEqual(result.quantity, 500)

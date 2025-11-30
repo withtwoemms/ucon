@@ -13,7 +13,7 @@ from ucon import Dimension
 from ucon import Unit
 from ucon import units
 from ucon.algebra import Vector
-from ucon.core import CompositeUnit, ScaleDescriptor
+from ucon.core import UnitProduct, ScaleDescriptor
 
 
 class TestDimension(unittest.TestCase):
@@ -474,7 +474,7 @@ class TestUnit(unittest.TestCase):
 class TestCompositeUnit(unittest.TestCase):
     def test_composite_unit_collapses_to_unit(self):
         u = Unit("m", name="meter", dimension=Dimension.length)
-        cu = CompositeUnit({u: 1})
+        cu = UnitProduct({u: 1})
         # should anneal to Unit
         self.assertIsInstance(cu, Unit)
         self.assertEqual(cu.shorthand, u.shorthand)
@@ -482,39 +482,39 @@ class TestCompositeUnit(unittest.TestCase):
     def test_merge_of_identical_units(self):
         m = Unit("m", name="meter", dimension=Dimension.length)
         # Inner composite that already has m^1
-        inner = CompositeUnit({m: 1, units.second: -1})
+        inner = UnitProduct({m: 1, units.second: -1})
         # Outer composite sees both `m:1` and `inner:1`
-        cu = CompositeUnit({m: 1, inner: 1})
+        cu = UnitProduct({m: 1, inner: 1})
         # merge_unit should accumulate the exponents → m^(1 + 1) = m^2
-        self.assertIn(m, cu.components)
-        self.assertEqual(cu.components[m], 2)
+        self.assertIn(m, cu.factors)
+        self.assertEqual(cu.factors[m], 2)
 
     def test_merge_of_nested_composite_units(self):
         m = Unit("m", dimension=Dimension.length)
         s = Unit("s", dimension=Dimension.time)
-        velocity = CompositeUnit({m: 1, s: -1})
-        accel = CompositeUnit({velocity: 1, s: -1})
+        velocity = UnitProduct({m: 1, s: -1})
+        accel = UnitProduct({velocity: 1, s: -1})
         # expect m*s^-2
-        self.assertEqual(accel.components[m], 1)
-        self.assertEqual(accel.components[s], -2)
+        self.assertEqual(accel.factors[m], 1)
+        self.assertEqual(accel.factors[s], -2)
 
     def test_drop_dimensionless_component(self):
         m = Unit("m", dimension=Dimension.length)
         none = Unit("", dimension=Dimension.none)
-        cu = CompositeUnit({m: 2, none: 1})
-        self.assertIn(m, cu.components)
-        self.assertNotIn(none, cu.components)
+        cu = UnitProduct({m: 2, none: 1})
+        self.assertIn(m, cu.factors)
+        self.assertNotIn(none, cu.factors)
 
     def test_anneal_single_unit(self):
         m = Unit("m", dimension=Dimension.length)
-        cu = CompositeUnit({m: 1})
+        cu = UnitProduct({m: 1})
         self.assertIsInstance(cu, Unit)
         self.assertEqual(cu.name, m.name)
 
     def test_composite_mul_with_scale(self):
         m = Unit("m", dimension=Dimension.length)
         s = Unit("s", dimension=Dimension.time)
-        cu = CompositeUnit({m: 1, s: -1})
+        cu = UnitProduct({m: 1, s: -1})
         result = Scale.kilo * cu
         # equivalent to scale multiplication on RMUL path
         self.assertIsNotNone(result)
@@ -523,18 +523,18 @@ class TestCompositeUnit(unittest.TestCase):
     def test_composite_div_dimensionless(self):
         m = Unit("m", dimension=Dimension.length)
         none = Unit("", dimension=Dimension.none)
-        cu = CompositeUnit({m: 2})
+        cu = UnitProduct({m: 2})
         out = cu / none
-        self.assertEqual(out.components[m], 2)
+        self.assertEqual(out.factors[m], 2)
 
     def test_truediv_composite_by_composite(self):
         m = Unit("m", dimension=Dimension.length)
         s = Unit("s", dimension=Dimension.time)
-        velocity = CompositeUnit({m: 1, s: -1})
-        accel = CompositeUnit({m: 1, s: -2})
+        velocity = UnitProduct({m: 1, s: -1})
+        accel = UnitProduct({m: 1, s: -2})
         jerk = accel / velocity
         # jerk = m^1 s^-2  /  m^1 s^-1 = s^-1
-        self.assertEqual(list(jerk.components.values()), [-1])
+        self.assertEqual(list(jerk.factors.values()), [-1])
 
 
 class TestUnitEdgeCases(unittest.TestCase):
@@ -606,8 +606,8 @@ class TestUnitEdgeCases(unittest.TestCase):
         m = Unit('m', name='meter', dimension=Dimension.length)
         c = Unit('C', name='coulomb', dimension=Dimension.charge)
         # The result of combination gives CompositeUnit
-        self.assertIsInstance(m / c, CompositeUnit)
-        self.assertIsInstance(m * c, CompositeUnit)
+        self.assertIsInstance(m / c, UnitProduct)
+        self.assertIsInstance(m * c, UnitProduct)
 
     # --- equality, hashing, immutability ----------------------------------
 

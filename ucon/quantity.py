@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Union
 
 from ucon import units
-from ucon.core import CompositeUnit, Scale, Unit
+from ucon.core import UnitProduct, Scale, Unit
 
 
 Quantifiable = Union['Number', 'Ratio']
@@ -65,7 +65,7 @@ class Number:
         If new_unit has no name/aliases but is dimension-compatible
         with either lhs or rhs, inherit symbolic identity.
         """
-        if isinstance(new_unit, CompositeUnit):
+        if isinstance(new_unit, UnitProduct):
             return new_unit  # composite units have their own structure
 
         if new_unit.aliases or new_unit.name:
@@ -184,26 +184,26 @@ class Ratio:
         # DO NOT normalize, DO NOT fold scale.
         return Number(quantity=numeric, unit=unit)
 
-    def _fold_scales(self, unit: Union[Unit, CompositeUnit]):
+    def _fold_scales(self, unit: Union[Unit, UnitProduct]):
         """
         Extracts numeric scaling from unit prefixes while preserving exponent structure.
         Returns: (numeric_factor: float, stripped_unit: Unit|CompositeUnit)
         """
         # --- UNIT CASE ----------------------------------------------------
-        if isinstance(unit, Unit) and not isinstance(unit, CompositeUnit):
+        if isinstance(unit, Unit) and not isinstance(unit, UnitProduct):
             return self._fold_scales_from_unit(unit)
 
         # --- COMPOSITE CASE -----------------------------------------------
         total = 1.0
         normalized: dict[Unit, float] = {}
 
-        for u, exp in unit.components.items():
+        for u, exp in unit.factors.items():
             factor, base_unit = self._fold_scales_from_unit(u, exp)
             total *= factor
             if abs(exp) >= 1e-12:   # drop zero powers
                 normalized[base_unit] = normalized.get(base_unit, 0) + exp
 
-        return total, CompositeUnit(normalized) if normalized else units.none
+        return total, UnitProduct(normalized) if normalized else units.none
 
     def _fold_scales_from_unit(self, u: Unit, power: float = 1):
         """Extract numeric scale^power and return (factor, scale-free Unit)."""

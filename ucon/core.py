@@ -240,7 +240,7 @@ class Scale(Enum):
 
     def __mul__(self, other):
         # --- Case 1: applying Scale to simple Unit --------------------
-        if isinstance(other, Unit) and not isinstance(other, CompositeUnit):
+        if isinstance(other, Unit) and not isinstance(other, UnitProduct):
             if getattr(other, "scale", Scale.one) is not Scale.one:
                 raise ValueError(f"Cannot apply {self} to already scaled unit {other}")
             return Unit(
@@ -252,7 +252,7 @@ class Scale(Enum):
 
         # --- Case 2: other cases are NOT handled here -----------------
         # CompositeUnit scaling is handled solely by CompositeUnit.__rmul__
-        if isinstance(other, CompositeUnit):
+        if isinstance(other, UnitProduct):
             return NotImplemented
 
         # --- Case 3: Scale * Scale algebra ----------------------------
@@ -349,14 +349,14 @@ class Unit:
         Unit * Unit -> CompositeUnit
         Unit * CompositeUnit -> CompositeUnit
         """
-        from ucon.core import CompositeUnit  # local import to avoid circulars
+        from ucon.core import UnitProduct  # local import to avoid circulars
 
-        if isinstance(other, CompositeUnit):
+        if isinstance(other, UnitProduct):
             # let CompositeUnit handle merging
             return other.__rmul__(self)
 
         if isinstance(other, Unit):
-            return CompositeUnit({self: 1, other: 1})
+            return UnitProduct({self: 1, other: 1})
 
         return NotImplemented
 
@@ -386,7 +386,7 @@ class Unit:
           - If denominator is dimensionless => self
           - Else => CompositeUnit
         """
-        from ucon.core import CompositeUnit  # local import
+        from ucon.core import UnitProduct  # local import
 
         if not isinstance(other, Unit):
             return NotImplemented
@@ -405,15 +405,15 @@ class Unit:
             return self
 
         # general case: form composite (self^1 * other^-1)
-        return CompositeUnit({self: 1, other: -1})
+        return UnitProduct({self: 1, other: -1})
 
     def __pow__(self, power):
         """
         Unit ** n => CompositeUnit with that exponent.
         """
-        from ucon.core import CompositeUnit  # local import
+        from ucon.core import UnitProduct  # local import
 
-        return CompositeUnit({self: power})
+        return UnitProduct({self: power})
 
     # ----------------- equality & hashing -----------------
 
@@ -531,7 +531,7 @@ class UnitFactor:
         return NotImplemented
 
 
-class CompositeUnit(Unit):
+class UnitProduct(Unit):
     """
     Represents a product or quotient of Units.
 
@@ -548,7 +548,7 @@ class CompositeUnit(Unit):
 
     _SUPERSCRIPTS = str.maketrans("0123456789-.", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻·")
 
-    def __init__(self, components: dict[Unit, float]):
+    def __init__(self, factors: dict[Unit, float]):
         """
         Build a CompositeUnit with FactoredUnit keys, preserving user-provided scales.
 
@@ -588,10 +588,10 @@ class CompositeUnit(Unit):
         # -----------------------------------------------------
         # Step 1 — Flatten sources into FactoredUnits
         # -----------------------------------------------------
-        for key, exp in components.items():
-            if isinstance(key, CompositeUnit):
+        for key, exp in factors.items():
+            if isinstance(key, UnitProduct):
                 # Flatten nested composites
-                for inner_fu, inner_exp in key.components.items():
+                for inner_fu, inner_exp in key.factors.items():
                     merge_fu(inner_fu, inner_exp * exp)
             else:
                 merge_fu(to_factored(key), exp)
@@ -642,7 +642,7 @@ class CompositeUnit(Unit):
             first_fu = next(iter(bucket.keys()))
             final[first_fu] = total_exp
 
-        self.components = final
+        self.factors = final
 
         # CompositeUnit itself has no global scale
         self.scale = Scale.one
@@ -652,7 +652,7 @@ class CompositeUnit(Unit):
         # -----------------------------------------------------
         self.dimension = reduce(
             lambda acc, item: acc * (item[0].dimension ** item[1]),
-            self.components.items(),
+            self.factors.items(),
             Dimension.none,
         )
 
@@ -686,13 +686,13 @@ class CompositeUnit(Unit):
         """
         Human-readable composite unit string, e.g. 'kg·m/s²'.
         """
-        if not self.components:
+        if not self.factors:
             return ""
 
         num: list[str] = []
         den: list[str] = []
 
-        for u, power in self.components.items():
+        for u, power in self.factors.items():
             self._append(u, power, num, den)
 
         numerator = "·".join(num) or "1"
@@ -705,15 +705,15 @@ class CompositeUnit(Unit):
 
     def __mul__(self, other):
         if isinstance(other, Unit):
-            combined = self.components.copy()
+            combined = self.factors.copy()
             combined[other] = combined.get(other, 0.0) + 1.0
-            return CompositeUnit(combined)
+            return UnitProduct(combined)
 
-        if isinstance(other, CompositeUnit):
-            combined = self.components.copy()
-            for u, exp in other.components.items():
+        if isinstance(other, UnitProduct):
+            combined = self.factors.copy()
+            for u, exp in other.factors.items():
                 combined[u] = combined.get(u, 0.0) + exp
-            return CompositeUnit(combined)
+            return UnitProduct(combined)
 
         if isinstance(other, Scale):
             # respect the convention: Scale * Unit, not Unit * Scale
@@ -724,11 +724,11 @@ class CompositeUnit(Unit):
     def __rmul__(self, other):
         # Scale * CompositeUnit → apply scale to a canonical sink unit
         if isinstance(other, Scale):
-            if not self.components:
+            if not self.factors:
                 return self
 
             # heuristic: choose unit with positive exponent first, else first unit
-            items = list(self.components.items())
+            items = list(self.factors.items())
             positives = [(u, e) for (u, e) in items if e > 0]
             sink, _ = (positives or items)[0]
 
@@ -753,7 +753,7 @@ class CompositeUnit(Unit):
             )
 
             combined: dict[UnitFactor, float] = {}
-            for u, exp in self.components.items():
+            for u, exp in self.factors.items():
                 # Normalize each key into FactoredUnit as we go
                 if isinstance(u, UnitFactor):
                     fu = u
@@ -768,27 +768,27 @@ class CompositeUnit(Unit):
                 else:
                     combined[fu] = combined.get(fu, 0.0) + exp
 
-            return CompositeUnit(combined)
+            return UnitProduct(combined)
 
         if isinstance(other, Unit):
             combined: dict[Unit, float] = {other: 1.0}
-            for u, e in self.components.items():
+            for u, e in self.factors.items():
                 combined[u] = combined.get(u, 0.0) + e
-            return CompositeUnit(combined)
+            return UnitProduct(combined)
 
         return NotImplemented
 
     def __truediv__(self, other):
         if isinstance(other, Unit):
-            combined = self.components.copy()
+            combined = self.factors.copy()
             combined[other] = combined.get(other, 0.0) - 1.0
-            return CompositeUnit(combined)
+            return UnitProduct(combined)
 
-        if isinstance(other, CompositeUnit):
-            combined = self.components.copy()
-            for u, exp in other.components.items():
+        if isinstance(other, UnitProduct):
+            combined = self.factors.copy()
+            for u, exp in other.factors.items():
                 combined[u] = combined.get(u, 0.0) - exp
-            return CompositeUnit(combined)
+            return UnitProduct(combined)
 
         return NotImplemented
 
@@ -798,13 +798,13 @@ class CompositeUnit(Unit):
         return f"<CompositeUnit {self.shorthand}>"
 
     def __eq__(self, other):
-        if isinstance(other, Unit) and not isinstance(other, CompositeUnit):
+        if isinstance(other, Unit) and not isinstance(other, UnitProduct):
             # Only equal to a plain Unit if we have exactly that unit^1
             # Here, the tuple comparison will invoke FactoredUnit.__eq__(Unit)
             # on the key when components are keyed by FactoredUnit.
-            return len(self.components) == 1 and list(self.components.items()) == [(other, 1.0)]
-        return isinstance(other, CompositeUnit) and self.components == other.components
+            return len(self.factors) == 1 and list(self.factors.items()) == [(other, 1.0)]
+        return isinstance(other, UnitProduct) and self.factors == other.factors
 
     def __hash__(self):
         # Sort by name; FactoredUnit exposes .name, so this is stable.
-        return hash(tuple(sorted(self.components.items(), key=lambda x: x[0].name)))
+        return hash(tuple(sorted(self.factors.items(), key=lambda x: x[0].name)))
