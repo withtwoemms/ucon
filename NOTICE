@@ -1,0 +1,28 @@
+ucon — A dimensional analysis and unit algebra library
+© 2025 The Radiativity Company
+
+Licensed under the Apache License, Version 2.0.
+You may not use this project except in compliance with the License.
+A copy of the License is included in the LICENSE file or at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This NOTICE file is part of the ucon distribution.
+
+ucon implements:
+  • A compositional unit algebra (UnitFactor, UnitProduct, UnitForm)
+  • A dimension algebra based on vector-space operations
+  • Expression-level scale separation for unit provenance
+  • A foundation for ConversionGraph-based unit transformations
+
+Portions of this software may incorporate or depend upon
+third-party libraries. Attribution notices for those components,
+if required, are included here or in the accompanying documentation.
+
+The Radiativity Company retains all trademark rights to the names:
+  • "ucon"
+  • "The Radiativity Company"
+  • "Project Calico"
+
+This file is for attribution purposes only and does not modify
+the terms of the Apache License, Version 2.0.
