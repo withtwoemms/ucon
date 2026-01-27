@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Union
 
 from ucon import units
-from ucon.core import Unit, UnitProduct, Scale, UnitFactor
+from ucon.core import Unit, UnitProduct, Scale
 
 
 Quantifiable = Union['Number', 'Ratio']
@@ -71,38 +71,6 @@ class Number:
 
     def as_ratio(self):
         return Ratio(self)
-
-    def _inherit_symbolic_identity(self, new_unit: UnitFactor, lhs: UnitFactor, rhs: UnitFactor) -> UnitFactor:
-        """
-        If new_unit has no name/aliases but is dimension-compatible
-        with either lhs or rhs, inherit symbolic identity.
-        """
-        if isinstance(new_unit, UnitProduct):
-            return new_unit  # composite units have their own structure
-
-        if new_unit.aliases or new_unit.name:
-            return new_unit  # already has a symbol
-
-        if new_unit.scale is not Scale.one:
-            return new_unit  # keep scaled units intact
-
-        # inheritance priority: lhs → rhs
-        if lhs.dimension == new_unit.dimension:
-            return UnitFactor(
-                *lhs.aliases,
-                name=lhs.name,
-                dimension=new_unit.dimension,
-                scale=Scale.one,
-            )
-        if rhs.dimension == new_unit.dimension:
-            return UnitFactor(
-                *rhs.aliases,
-                name=rhs.name,
-                dimension=new_unit.dimension,
-                scale=Scale.one,
-            )
-
-        return new_unit
 
     def __mul__(self, other: Quantifiable) -> 'Number':
         if isinstance(other, Ratio):
@@ -195,43 +163,6 @@ class Ratio:
 
         # DO NOT normalize, DO NOT fold scale.
         return Number(quantity=numeric, unit=unit)
-
-    def _fold_scales(self, unit: Union[UnitFactor, UnitProduct]):
-        """
-        Extracts numeric scaling from unit prefixes while preserving exponent structure.
-        Returns: (numeric_factor: float, stripped_unit: Unit|UnitProduct)
-        """
-        # --- UNIT CASE ----------------------------------------------------
-        if isinstance(unit, UnitFactor) and not isinstance(unit, UnitProduct):
-            return self._fold_scales_from_unit(unit)
-
-        # --- COMPOSITE CASE -----------------------------------------------
-        total = 1.0
-        normalized: dict[UnitFactor, float] = {}
-
-        for u, exp in unit.factors.items():
-            factor, base_unit = self._fold_scales_from_unit(u, exp)
-            total *= factor
-            if abs(exp) >= 1e-12:   # drop zero powers
-                normalized[base_unit] = normalized.get(base_unit, 0) + exp
-
-        return total, UnitProduct(normalized) if normalized else units.none
-
-    def _fold_scales_from_unit(self, u: UnitFactor, power: float = 1):
-        """Extract numeric scale^power and return (factor, scale-free Unit)."""
-        if u.scale is Scale.one:
-            return 1.0, UnitFactor(*u.aliases, name=u.name, dimension=u.dimension, scale=Scale.one)
-
-        factor = u.scale.value.evaluated ** power
-        return factor, UnitFactor(*u.aliases, name=u.name, dimension=u.dimension, scale=Scale.one)
-
-    def normalize(self, number: Number) -> Number:
-        scale_factor, base_unit = self._fold_scales(number.unit)
-
-        return Number(
-            quantity = number.quantity * scale_factor,
-            unit = base_unit
-        )    
 
     def __mul__(self, another_ratio: 'Ratio') -> 'Ratio':
         if self.numerator.unit == another_ratio.denominator.unit:
