@@ -43,7 +43,7 @@ class Number:
         <2.5 (m/s)>
     """
     quantity: Union[float, int] = 1.0
-    unit: Unit = units.none
+    unit: Union[Unit, UnitProduct] = units.none
 
     @property
     def value(self) -> float:

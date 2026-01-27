@@ -240,8 +240,7 @@ class Scale(Enum):
 
     def __mul__(self, other):
         # --- Case 1: applying Scale to simple Unit --------------------
-        if isinstance(other, Unit) and not isinstance(other, UnitProduct):
-            # Unit no longer has scale attribute - always safe to apply
+        if isinstance(other, Unit):
             return UnitProduct({UnitFactor(unit=other, scale=self): 1})
 
         # --- Case 2: other cases are NOT handled here -----------------
@@ -343,8 +342,6 @@ class Unit:
         Unit * Unit -> UnitProduct
         Unit * UnitProduct -> UnitProduct
         """
-        from ucon.core import UnitProduct  # local import to avoid circulars
-
         if isinstance(other, UnitProduct):
             # let UnitProduct handle merging
             return other.__rmul__(self)
@@ -356,12 +353,13 @@ class Unit:
 
     def __truediv__(self, other):
         """
-        Unit / Unit:
-          - If same unit => dimensionless Unit()
-          - If denominator is dimensionless => self
-          - Else => UnitProduct
+        Unit / Unit or Unit / UnitProduct => UnitProduct
         """
-        from ucon.core import UnitProduct  # local import
+        if isinstance(other, UnitProduct):
+            combined = {self: 1.0}
+            for u, exp in other.factors.items():
+                combined[u] = combined.get(u, 0.0) - exp
+            return UnitProduct(combined)
 
         if not isinstance(other, Unit):
             return NotImplemented
@@ -385,13 +383,13 @@ class Unit:
         """
         Unit ** n => UnitProduct with that exponent.
         """
-        from ucon.core import UnitProduct  # local import
-
         return UnitProduct({self: power})
 
     # ----------------- equality & hashing -----------------
 
     def __eq__(self, other):
+        if isinstance(other, UnitProduct):
+            return other.__eq__(self)
         if not isinstance(other, Unit):
             return NotImplemented
         return (
@@ -498,7 +496,7 @@ class UnitFactor:
         return NotImplemented
 
 
-class UnitProduct(Unit):
+class UnitProduct:
     """
     Represents a product or quotient of Units.
 
@@ -527,8 +525,7 @@ class UnitProduct(Unit):
         encountered UnitFactor (keeps user-intent scale).
         """
 
-        # UnitProduct always starts dimensionless
-        super().__init__(name="", dimension=Dimension.none)
+        self.name = ""
         self.aliases = ()
 
         merged: dict[UnitFactor, float] = {}
@@ -706,6 +703,16 @@ class UnitProduct(Unit):
             result *= factor.scale.value.evaluated ** power
         return result
 
+    # ------------- Helpers ---------------------------------------------------
+
+    def _norm(self, aliases: tuple[str, ...]) -> tuple[str, ...]:
+        """Normalize alias bag: drop empty/whitespace-only aliases."""
+        return tuple(a for a in aliases if a.strip())
+
+    def __pow__(self, power):
+        """UnitProduct ** n => new UnitProduct with scaled exponents."""
+        return UnitProduct({u: exp * power for u, exp in self.factors.items()})
+
     # ------------- Algebra ---------------------------------------------------
 
     def __mul__(self, other):
@@ -799,7 +806,7 @@ class UnitProduct(Unit):
         return f"<{self.__class__.__name__} {self.shorthand}>"
 
     def __eq__(self, other):
-        if isinstance(other, Unit) and not isinstance(other, UnitProduct):
+        if isinstance(other, Unit):
             # Only equal to a plain Unit if we have exactly that unit^1
             # Here, the tuple comparison will invoke UnitFactor.__eq__(Unit)
             # on the key when factors are keyed by UnitFactor.
