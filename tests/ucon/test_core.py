@@ -670,3 +670,159 @@ class TestScaleEdgeCases(unittest.TestCase):
         all_map = Scale.all()
         by_val = Scale.by_value()
         self.assertTrue(all((val in by_val.values()) for _, val in all_map.items()))
+
+    def test_descriptor_property(self):
+        self.assertIsInstance(Scale.kilo.descriptor, ScaleDescriptor)
+        self.assertEqual(Scale.kilo.descriptor, Scale.kilo.value)
+
+    def test_alias_property(self):
+        self.assertEqual(Scale.kilo.alias, "kilo")
+        self.assertEqual(Scale.one.alias, "")
+
+    def test_scale_descriptor_parts(self):
+        self.assertEqual(Scale.kilo.value.parts(), (10, 3))
+        self.assertEqual(Scale.kibi.value.parts(), (2, 10))
+
+    def test_scale_hash_used_in_sets(self):
+        s = {Scale.kilo, Scale.milli}
+        self.assertIn(Scale.kilo, s)
+        self.assertNotIn(Scale.one, s)
+
+    def test_scale_mul_nonmatching_falls_to_nearest(self):
+        # kilo * kibi → no exact match, falls through to Scale.nearest
+        result = Scale.kilo * Scale.kibi
+        self.assertIsInstance(result, Scale)
+
+    def test_scale_pow(self):
+        result = Scale.kilo ** 2
+        self.assertEqual(result, Scale.mega)
+
+    def test_scale_pow_binary(self):
+        result = Scale.kibi ** 2
+        self.assertEqual(result, Scale.mebi)
+
+    def test_scale_pow_nonmatching_falls_to_nearest(self):
+        result = Scale.kilo ** 0.5
+        self.assertIsInstance(result, Scale)
+
+
+class TestUnitAlgebra(unittest.TestCase):
+
+    def test_unit_mul_unitproduct(self):
+        m = units.meter
+        velocity = UnitProduct({m: 1, units.second: -1})
+        result = m * velocity
+        self.assertIsInstance(result, UnitProduct)
+        # m * (m/s) = m²/s
+        self.assertEqual(result.dimension, Dimension.area / Dimension.time)
+
+    def test_unit_mul_non_unit_returns_not_implemented(self):
+        result = units.meter.__mul__("not a unit")
+        self.assertIs(result, NotImplemented)
+
+    def test_unit_truediv_non_unit_returns_not_implemented(self):
+        result = units.meter.__truediv__("not a unit")
+        self.assertIs(result, NotImplemented)
+
+    def test_unit_pow(self):
+        m = units.meter
+        result = m ** 2
+        self.assertIsInstance(result, UnitProduct)
+        self.assertEqual(result.dimension, Dimension.area)
+
+    def test_unit_pow_3(self):
+        m = units.meter
+        result = m ** 3
+        self.assertEqual(result.dimension, Dimension.volume)
+
+
+class TestUnitFactorCoverage(unittest.TestCase):
+
+    def test_shorthand_name_fallback(self):
+        # UnitFactor where unit has no aliases but has a name
+        u = Unit(name='gram', dimension=Dimension.mass)
+        fu = UnitFactor(unit=u, scale=Scale.milli)
+        self.assertEqual(fu.shorthand, 'mgram')
+
+    def test_repr(self):
+        fu = UnitFactor(unit=units.meter, scale=Scale.kilo)
+        self.assertIn('UnitFactor', repr(fu))
+        self.assertIn('kilo', repr(fu))
+
+    def test_eq_non_unit_returns_not_implemented(self):
+        fu = UnitFactor(unit=units.meter, scale=Scale.one)
+        self.assertIs(fu.__eq__("string"), NotImplemented)
+
+
+class TestUnitProductAlgebra(unittest.TestCase):
+
+    def test_mul_unitproduct_by_unitproduct(self):
+        velocity = UnitProduct({units.meter: 1, units.second: -1})
+        time_sq = UnitProduct({units.second: 2})
+        result = velocity * time_sq
+        self.assertIsInstance(result, UnitProduct)
+        # (m/s) * s² = m·s
+        self.assertEqual(result.dimension, Dimension.length * Dimension.time)
+
+    def test_mul_unitproduct_by_scale_returns_not_implemented(self):
+        velocity = UnitProduct({units.meter: 1, units.second: -1})
+        result = velocity.__mul__(Scale.kilo)
+        self.assertIs(result, NotImplemented)
+
+    def test_mul_unitproduct_by_non_unit_returns_not_implemented(self):
+        velocity = UnitProduct({units.meter: 1, units.second: -1})
+        result = velocity.__mul__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_truediv_unitproduct_by_unitproduct(self):
+        acceleration = UnitProduct({units.meter: 1, units.second: -2})
+        velocity = UnitProduct({units.meter: 1, units.second: -1})
+        result = acceleration / velocity
+        self.assertIsInstance(result, UnitProduct)
+        # (m/s²) / (m/s) = 1/s
+        self.assertEqual(result.dimension, Dimension.frequency)
+
+    def test_rmul_unit_times_unitproduct(self):
+        velocity = UnitProduct({units.meter: 1, units.second: -1})
+        result = units.meter * velocity
+        self.assertIsInstance(result, UnitProduct)
+
+    def test_rmul_scale_on_empty_unitproduct(self):
+        empty = UnitProduct({})
+        result = Scale.kilo * empty
+        self.assertIs(result, empty)
+
+    def test_rmul_scale_applies_to_sink_unit(self):
+        velocity = UnitProduct({units.meter: 1, units.second: -1})
+        result = Scale.kilo * velocity
+        self.assertIsInstance(result, UnitProduct)
+        self.assertIn('km', result.shorthand)
+
+    def test_rmul_scale_combines_with_existing_scale(self):
+        km_per_s = Scale.kilo * UnitProduct({units.meter: 1, units.second: -1})
+        # Apply another scale on top → should combine scales
+        result = Scale.milli * km_per_s
+        self.assertIsInstance(result, UnitProduct)
+
+    def test_rmul_non_unit_returns_not_implemented(self):
+        velocity = UnitProduct({units.meter: 1, units.second: -1})
+        result = velocity.__rmul__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_append_dimensionless_skipped(self):
+        # UnitProduct with only dimensionless factor → empty shorthand
+        up = UnitProduct({})
+        self.assertEqual(up.shorthand, "")
+
+    def test_shorthand_with_negative_non_unit_exponent(self):
+        # e.g. m/s² should show superscript on denominator
+        accel = UnitProduct({units.meter: 1, units.second: -2})
+        sh = accel.shorthand
+        self.assertIn('m', sh)
+        self.assertIn('s', sh)
+
+    def test_shorthand_numerator_exponent(self):
+        area = UnitProduct({units.meter: 2})
+        self.assertIn('m', area.shorthand)
+        # Should contain superscript 2
+        self.assertIn('²', area.shorthand)
