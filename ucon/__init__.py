@@ -38,7 +38,7 @@ Design Philosophy
 """
 from ucon import units
 from ucon.algebra import Exponent
-from ucon.core import Dimension, Scale, Unit
+from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct
 from ucon.quantity import Number, Ratio
 
 
@@ -49,5 +49,7 @@ __all__ = [
     'Ratio',
     'Scale',
     'Unit',
+    'UnitFactor',
+    'UnitProduct',
     'units',
 ]
