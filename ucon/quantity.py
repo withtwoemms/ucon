@@ -47,8 +47,20 @@ class Number:
 
     @property
     def value(self) -> float:
-        """Return numeric magnitude as quantity × scale factor."""
-        return round(self.quantity * self.unit.scale.value.evaluated, 15)
+        """Return the numeric magnitude as-expressed (no scale folding).
+
+        Scale lives in the unit expression (e.g. kJ, mL) and is NOT
+        folded into the returned value.  Use ``unit.fold_scale()`` on a
+        UnitProduct when you need the base-unit-equivalent magnitude.
+        """
+        return round(self.quantity, 15)
+
+    @property
+    def _canonical_magnitude(self) -> float:
+        """Quantity folded to base-unit scale (internal use for eq/div)."""
+        if isinstance(self.unit, UnitProduct):
+            return self.quantity * self.unit.fold_scale()
+        return self.quantity
 
     def simplify(self):
         """Return a new Number expressed in base scale (Scale.one)."""
@@ -119,8 +131,8 @@ class Number:
         # If the net dimension is none, we want a pure scalar:
         # fold *all* scale factors into the numeric magnitude.
         if not unit_quot.dimension:
-            num = self.value       # quantity × scale
-            den = other.value
+            num = self._canonical_magnitude    # quantity × scale
+            den = other._canonical_magnitude
             return Number(quantity=num / den, unit=units.none)
 
         # --- Case 2: Dimensionful result -----------------------------------
@@ -144,7 +156,7 @@ class Number:
             return False
 
         # Compare magnitudes, scale-adjusted
-        if abs(self.value - other.value) >= 1e-12:
+        if abs(self._canonical_magnitude - other._canonical_magnitude) >= 1e-12:
             return False
 
         return True

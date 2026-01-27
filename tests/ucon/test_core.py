@@ -474,9 +474,9 @@ class TestUnit(unittest.TestCase):
 
 class TestUnitProduct(unittest.TestCase):
 
-    mf = units.meter.as_factor()
-    sf = units.second.as_factor()
-    nf = units.none.as_factor()
+    mf = UnitFactor(unit=units.meter, scale=Scale.one)
+    sf = UnitFactor(unit=units.second, scale=Scale.one)
+    nf = UnitFactor(unit=units.none, scale=Scale.one)
     velocity = UnitProduct({mf: 1, sf: -1})
     acceleration = UnitProduct({mf: 1, sf: -2})
 
