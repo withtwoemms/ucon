@@ -241,14 +241,8 @@ class Scale(Enum):
     def __mul__(self, other):
         # --- Case 1: applying Scale to simple Unit --------------------
         if isinstance(other, Unit) and not isinstance(other, UnitProduct):
-            if getattr(other, "scale", Scale.one) is not Scale.one:
-                raise ValueError(f"Cannot apply {self} to already scaled unit {other}")
-            return Unit(
-                *other.aliases,
-                name=other.name,
-                dimension=other.dimension,
-                scale=self,
-            )
+            # Unit no longer has scale attribute - always safe to apply
+            return UnitProduct({UnitFactor(unit=other, scale=self): 1})
 
         # --- Case 2: other cases are NOT handled here -----------------
         # UnitProduct scaling is handled solely by UnitProduct.__rmul__
@@ -301,6 +295,9 @@ class Unit:
     """
     Represents a **unit of measure** associated with a :class:`Dimension`.
 
+    A Unit is an atomic symbol with no scale information. Scale is handled
+    separately by UnitFactor, which pairs a Unit with a Scale.
+
     Parameters
     ----------
     *aliases : str
@@ -309,23 +306,16 @@ class Unit:
         Canonical name of the unit (e.g., "meter").
     dimension : Dimension
         The physical dimension this unit represents.
-    scale : Scale
-        Magnitude prefix (kilo, milli, etc.).
     """
     def __init__(
         self,
         *aliases: str,
         name: str = "",
         dimension: Dimension = Dimension.none,
-        scale: Scale = Scale.one,
     ):
         self.aliases = aliases
         self.name = name
         self.dimension = dimension
-        self.scale = scale
-
-    def as_factor(self, scale: Scale = Scale.one) -> UnitFactor:
-        return UnitFactor(unit=self, scale=scale)
 
     # ----------------- symbolic helpers -----------------
 
@@ -336,14 +326,15 @@ class Unit:
     @property
     def shorthand(self) -> str:
         """
-        Symbol used in expressions (e.g., 'kg', 'm', 's').
+        Symbol used in expressions (e.g., 'm', 's').
         For dimensionless units, returns ''.
+
+        Note: Scale prefixes are handled by UnitFactor.shorthand, not here.
         """
         if self.dimension == Dimension.none:
             return ""
-        prefix = getattr(self.scale, "shorthand", "") or ""
         base = (self.aliases[0] if self.aliases else self.name) or ""
-        return f"{prefix}{base}".strip()
+        return base.strip()
 
     # ----------------- algebra -----------------
 
@@ -363,20 +354,6 @@ class Unit:
 
         return NotImplemented
 
-    def __rmul__(self, other):
-        """
-        Scale * Unit -> UnitFactor
-
-        NOTE:
-        - Only allow applying a Scale to an unscaled Unit.
-        - UnitProduct scale handling is done in UnitProduct.__rmul__.
-        """
-        if isinstance(other, Scale):
-            if self.scale is not Scale.one:
-                raise ValueError(f"Cannot apply {other} to already scaled unit {self}")
-            return UnitFactor(unit=self, scale=other)
-        return NotImplemented
-
     def __truediv__(self, other):
         """
         Unit / Unit:
@@ -384,30 +361,33 @@ class Unit:
           - If denominator is dimensionless => self
           - Else => UnitProduct
         """
+        from ucon.core import UnitProduct  # local import
+
         if not isinstance(other, Unit):
             return NotImplemented
 
         # same physical unit → cancel to dimensionless
         if (
             self.dimension == other.dimension
-            and self.scale == other.scale
             and self.name == other.name
             and self._norm(self.aliases) == self._norm(other.aliases)
         ):
-            return UnitFactor(unit=Unit())  # dimensionless (matches units.none)
+            return Unit()  # dimensionless (matches units.none)
 
         # dividing by dimensionless → no change
         if other.dimension == Dimension.none:
-            return self.as_factor()
+            return self
 
-        # general case: form product (self^1 * other^-1)
-        # TODO: relieve dependence on .scale existing on Unit
-        return UnitProduct(
-            factors={
-                self.as_factor(scale=self.scale): 1,
-                other.as_factor(scale=other.scale): -1
-            }
-        )
+        # general case: form composite (self^1 * other^-1)
+        return UnitProduct({self: 1, other: -1})
+
+    def __pow__(self, power):
+        """
+        Unit ** n => UnitProduct with that exponent.
+        """
+        from ucon.core import UnitProduct  # local import
+
+        return UnitProduct({self: power})
 
     # ----------------- equality & hashing -----------------
 
@@ -416,7 +396,6 @@ class Unit:
             return NotImplemented
         return (
             self.dimension == other.dimension
-            and self.scale == other.scale
             and self.name == other.name
             and self._norm(self.aliases) == self._norm(other.aliases)
         )
@@ -427,7 +406,6 @@ class Unit:
                 self.name,
                 self._norm(self.aliases),
                 self.dimension,
-                self.scale,
             )
         )
 
@@ -443,8 +421,6 @@ class Unit:
             return "<Unit>"
         return f"<Unit | {self.dimension.name}>"
 
-
-from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class UnitFactor:
@@ -467,7 +443,7 @@ class UnitFactor:
     """
 
     unit: "Unit"
-    scale: "Scale" = Scale.one
+    scale: "Scale"
 
     # ------------- Projections (Unit-like surface) -------------------------
 
@@ -498,12 +474,6 @@ class UnitFactor:
         prefix = "" if self.scale is Scale.one else self.scale.shorthand
         return f"{prefix}{base}".strip()
 
-    def __pow__(self, power):
-        """
-        Unit ** n => UnitProduct with that exponent.
-        """
-        return UnitProduct({self: power})
-
     # ------------- Identity & hashing -------------------------------------
 
     def __repr__(self) -> str:
@@ -519,14 +489,11 @@ class UnitFactor:
         if isinstance(other, UnitFactor):
             return (self.unit == other.unit) and (self.scale == other.scale)
 
-        # UnitFactor vs Unit → equal iff underlying unit matches and the
-        # Unit's own scale matches our scale. This lets `unit in .factors`
-        # work when `.factors` is keyed by UnitFactor.
+        # UnitFactor vs Unit → equal iff underlying unit matches AND
+        # this UnitFactor has Scale.one (since Unit has no scale).
+        # This lets `unit in factors` work when `factors` is keyed by UnitFactor.
         if isinstance(other, Unit):
-            return (
-                self.unit == other
-                and getattr(other, "scale", Scale.one) == self.scale
-            )
+            return self.unit == other and self.scale is Scale.one
 
         return NotImplemented
 
@@ -536,9 +503,9 @@ class UnitProduct(Unit):
     Represents a product or quotient of Units.
 
     Key properties:
-    - components is a dict[UnitFactor, float] mapping (unit, scale) pairs to exponents.
+    - factors is a dict[UnitFactor, float] mapping (unit, scale) pairs to exponents.
     - Nested UnitProduct instances are flattened.
-    - Identical factored units (same underlying unit and same scale) merge exponents.
+    - Identical UnitFactors (same underlying unit and same scale) merge exponents.
     - Units with net exponent ~0 are dropped.
     - Dimensionless units (Dimension.none) are dropped.
     - Scaled variants of the same base unit (e.g. L and mL) are grouped by
@@ -548,7 +515,7 @@ class UnitProduct(Unit):
 
     _SUPERSCRIPTS = str.maketrans("0123456789-.", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻·")
 
-    def __init__(self, factors: dict[UnitFactor, float]):
+    def __init__(self, factors: dict[Unit, float]):
         """
         Build a UnitProduct with UnitFactor keys, preserving user-provided scales.
 
@@ -560,8 +527,8 @@ class UnitProduct(Unit):
         encountered UnitFactor (keeps user-intent scale).
         """
 
-        # UnitProduct always starts dimensionless & unscaled
-        super().__init__(name="", dimension=Dimension.none, scale=Scale.one)
+        # UnitProduct always starts dimensionless
+        super().__init__(name="", dimension=Dimension.none)
         self.aliases = ()
 
         merged: dict[UnitFactor, float] = {}
@@ -572,8 +539,8 @@ class UnitProduct(Unit):
         def to_factored(unit_or_fu):
             if isinstance(unit_or_fu, UnitFactor):
                 return unit_or_fu
-            scale = getattr(unit_or_fu, "scale", Scale.one)
-            return UnitFactor(unit_or_fu, scale)
+            # Plain Unit has no scale - wrap with Scale.one
+            return UnitFactor(unit_or_fu, Scale.one)
 
         # -----------------------------------------------------
         # Helper: merge UnitFactors by full (unit, scale) identity
@@ -590,7 +557,7 @@ class UnitProduct(Unit):
         # -----------------------------------------------------
         for key, exp in factors.items():
             if isinstance(key, UnitProduct):
-                # Flatten nested products
+                # Flatten nested UnitProducts
                 for inner_fu, inner_exp in key.factors.items():
                     merge_fu(inner_fu, inner_exp * exp)
             else:
@@ -622,12 +589,24 @@ class UnitProduct(Unit):
         # Step 4 — Resolve groups while preserving user scale
         # -----------------------------------------------------
         final: dict[UnitFactor, float] = {}
+        
+        # Track residual scale NUMERICALLY from cancelled units.
+        # This accumulates scale factors when units cancel dimensionally
+        # but have different scales (e.g., gram / decagram = factor of 0.1).
+        # We use a numeric value rather than Scale to preserve precision
+        # for arbitrary combinations (especially binary scales like kibi).
+        residual_scale_factor: float = 1.0
 
         for group_key, bucket in groups.items():
             total_exp = sum(bucket.values())
 
-            # 4A — Full cancellation
+            # 4A — Full cancellation (dimensionally)
+            # BUT: we must preserve the NET SCALE from the cancelled units!
             if abs(total_exp) < 1e-12:
+                # Compute the scale contribution from this cancelled group
+                # Each factor contributes: factor.scale.value.evaluated ** exponent
+                for fu, exp in bucket.items():
+                    residual_scale_factor *= fu.scale.value.evaluated ** exp
                 continue
 
             # 4B — Only one scale variant → preserve exactly
@@ -639,13 +618,23 @@ class UnitProduct(Unit):
             # 4C — Multiple scale variants, exponent != 0:
             #      preserve FIRST encountered UnitFactor.
             #      This ensures user scale is preserved.
+            #      BUT: also accumulate scale from the OTHER variants
             first_fu = next(iter(bucket.keys()))
             final[first_fu] = total_exp
 
+            # The first_fu will be kept with total_exp, so its scale^total_exp
+            # will be folded normally. We need to account for the OTHER factors'
+            # scale contributions that are being "absorbed" into this representative.
+            for fu, exp in bucket.items():
+                if fu is not first_fu:
+                    # This factor is being absorbed; its scale contribution
+                    # relative to first_fu needs to be captured
+                    residual_scale_factor *= fu.scale.value.evaluated ** exp
+
         self.factors = final
 
-        # UnitProduct itself has no global scale
-        self.scale = Scale.one
+        # Store the residual scale factor from cancellations (numeric)
+        self._residual_scale_factor = residual_scale_factor
 
         # -----------------------------------------------------
         # Step 5 — Derive dimension via exponent algebra
@@ -701,15 +690,20 @@ class UnitProduct(Unit):
             return numerator
         return f"{numerator}/{denominator}"
 
-    def factors_by_name(self) -> Dict[str, UnitFactor]:
+    def fold_scale(self) -> float:
         """
-        Return factors keyed by unit name (for easier lookup).
-        Note: this may lose scale information if multiple scales
-        exist for the same base unit name.
+        Compute the overall numeric scale factor of this UnitProduct by folding
+        together the scales of each UnitFactor raised to its exponent,
+        plus any residual scale factor from cancelled units.
+
+        Returns
+        -------
+        float
+            The combined numeric scale factor.
         """
-        result: Dict[str, UnitFactor] = {}
-        for fu in self.factors.keys():
-            result[fu.name] = fu
+        result = getattr(self, '_residual_scale_factor', 1.0)
+        for factor, power in self.factors.items():
+            result *= factor.scale.value.evaluated ** power
         return result
 
     # ------------- Algebra ---------------------------------------------------
@@ -747,10 +741,8 @@ class UnitProduct(Unit):
             if isinstance(sink, UnitFactor):
                 sink_fu = sink
             else:
-                sink_fu = UnitFactor(
-                    unit=sink,
-                    scale=getattr(sink, "scale", Scale.one),
-                )
+                # Plain Unit has no scale
+                sink_fu = UnitFactor(unit=sink, scale=Scale.one)
 
             # Combine scales (expression-level)
             if sink_fu.scale is not Scale.one:
@@ -769,10 +761,8 @@ class UnitProduct(Unit):
                 if isinstance(u, UnitFactor):
                     fu = u
                 else:
-                    fu = UnitFactor(
-                        unit=u,
-                        scale=getattr(u, "scale", Scale.one),
-                    )
+                    # Plain Unit has no scale
+                    fu = UnitFactor(unit=u, scale=Scale.one)
 
                 if fu is sink_fu:
                     combined[scaled_sink] = combined.get(scaled_sink, 0.0) + exp
@@ -806,13 +796,13 @@ class UnitProduct(Unit):
     # ------------- Identity & hashing ---------------------------------------
 
     def __repr__(self):
-        return f"<UnitProduct {self.shorthand}>"
+        return f"<{self.__class__.__name__} {self.shorthand}>"
 
     def __eq__(self, other):
         if isinstance(other, Unit) and not isinstance(other, UnitProduct):
             # Only equal to a plain Unit if we have exactly that unit^1
             # Here, the tuple comparison will invoke UnitFactor.__eq__(Unit)
-            # on the key when components are keyed by UnitFactor.
+            # on the key when factors are keyed by UnitFactor.
             return len(self.factors) == 1 and list(self.factors.items()) == [(other, 1.0)]
         return isinstance(other, UnitProduct) and self.factors == other.factors
 
