@@ -18,8 +18,8 @@
 It combines **units**, **scales**, and **dimensions** into a composable algebra that supports:
 
 - Dimensional analysis through `Number` and `Ratio`
-- Scale-aware arithmetic and conversions
-- Metric and binary prefixes (`kilo`, `kibi`, `micro`, `mebi`, ect.)
+- Scale-aware arithmetic via `UnitFactor` and `UnitProduct`
+- Metric and binary prefixes (`kilo`, `kibi`, `micro`, `mebi`, etc.)
 - A clean foundation for physics, chemistry, data modeling, and beyond
 
 Think of it as **`decimal.Decimal` for the physical world** — precise, predictable, and type-safe.
@@ -33,20 +33,22 @@ The crux of this tiny library is to provide abstractions that simplify the answe
 To best answer this question, we turn to an age-old technique ([dimensional analysis](https://en.wikipedia.org/wiki/Dimensional_analysis)) which essentially allows for the solution to be written as a product of ratios. `ucon` comes equipped with some useful primitives:
 | Type                          | Defined In                              | Purpose                                                                                             | Typical Use Cases                                                                                                      |
 | ----------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **`Vector`**                  | `ucon.dimension`                        | Represents the exponent tuple of a physical quantity’s base dimensions (e.g., T, L, M, I, Θ, J, N). | Internal representation of dimensional algebra; building derived quantities (e.g., area, velocity, force).             |
-| **`Dimension`**               | `ucon.dimension`                        | Encapsulates physical dimensions (e.g., length, time, mass) as algebraic combinations of vectors.   | Enforcing dimensional consistency; defining relationships between quantities (e.g., length / time = velocity).         |
-| **`Unit`**                    | `ucon.unit`                             | Represents a named, dimensioned measurement unit (e.g., meter, second, joule).                      | Attaching human-readable units to quantities; defining or composing new units (`newton = kilogram * meter / second²`). |
+| **`Vector`**                  | `ucon.algebra`                          | Represents the exponent tuple of a physical quantity's base dimensions (e.g., T, L, M, I, Θ, J, N). | Internal representation of dimensional algebra; building derived quantities (e.g., area, velocity, force).             |
+| **`Exponent`**                | `ucon.algebra`                          | Represents base-power pairs (e.g., 10³, 2¹⁰) used by `Scale`.                                       | Performing arithmetic on powers and bases; normalizing scales across conversions.                                      |
+| **`Dimension`**               | `ucon.core`                             | Encapsulates physical dimensions (e.g., length, time, mass) as algebraic combinations of vectors.   | Enforcing dimensional consistency; defining relationships between quantities (e.g., length / time = velocity).         |
 | **`Scale`**                   | `ucon.core`                             | Encodes powers of base magnitudes (binary or decimal prefixes like kilo-, milli-, mebi-).           | Adjusting numeric scale without changing dimension (e.g., kilometer ↔ meter, byte ↔ kibibyte).                         |
-| **`Exponent`**                | `ucon.core`                             | Represents base-power pairs (e.g., 10³, 2¹⁰) used by `Scale`.                                       | Performing arithmetic on powers and bases; normalizing scales across conversions.                                      |
-| **`Number`**                  | `ucon.core`                             | Combines a numeric quantity with a unit and scale; the primary measurable type.                     | Performing arithmetic with units; converting between compatible units; representing physical quantities like 5 m/s.    |
-| **`Ratio`**                   | `ucon.core`                             | Represents the division of two `Number` objects; captures relationships between quantities.         | Expressing rates, densities, efficiencies (e.g., energy / time = power, length / time = velocity).                     |
-| **`units` module**            | `ucon.units`                            | Defines canonical unit instances (SI and common derived units).                                     | Quick access to standard physical units (`units.meter`, `units.second`, `units.newton`, etc.).                               |                                                   |
+| **`Unit`**                    | `ucon.core`                             | An atomic, scale-free measurement symbol (e.g., meter, second, joule) with a `Dimension`.           | Defining base units; serving as graph nodes for future conversions.                                                    |
+| **`UnitFactor`**              | `ucon.core`                             | Pairs a `Unit` with a `Scale` (e.g., kilo + gram = kg). Used as keys inside `UnitProduct`.          | Preserving user-provided scale prefixes through algebraic operations.                                                  |
+| **`UnitProduct`**             | `ucon.core`                             | A product/quotient of `UnitFactor`s with exponent tracking and simplification.                      | Representing composite units like m/s, kg·m/s², kJ·h.                                                                 |
+| **`Number`**                  | `ucon.quantity`                         | Combines a numeric quantity with a unit; the primary measurable type.                               | Performing arithmetic with units; representing physical quantities like 5 m/s.                                         |
+| **`Ratio`**                   | `ucon.quantity`                         | Represents the division of two `Number` objects; captures relationships between quantities.         | Expressing rates, densities, efficiencies (e.g., energy / time = power, length / time = velocity).                     |
+| **`units` module**            | `ucon.units`                            | Defines canonical unit instances (SI and common derived units).                                     | Quick access to standard physical units (`units.meter`, `units.second`, `units.newton`, etc.).                          |
 
 ### Under the Hood
 
 `ucon` models unit math through a hierarchy where each layer builds on the last:
 
-<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/0c704737a52b9e4a87cda5c839e9aa40f7e5bb48/ucon.data-model_v035.png align="center" alt="ucon Data Model" width=600/>
+<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/f24134c362829dc72e7dff18bfcaa24b9be01b54/ucon.data-model_v035.png align="center" alt="ucon Data Model" width=600/>
 
 ## Why `ucon`?
 
@@ -54,24 +56,22 @@ Python already has mature libraries for handling units and physical quantities �
 
 | Library   | Focus                                                   | Limitation                                                                                                             |
 | --------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Pint**  | Runtime unit conversion and compatibility checking      | Treats quantities as decorated numbers — conversions work, but the algebra behind them isn’t inspectable or type-safe. |
+| **Pint**  | Runtime unit conversion and compatibility checking      | Treats quantities as decorated numbers — conversions work, but the algebra behind them isn't inspectable or type-safe. |
 | **SymPy** | Symbolic algebra and simplification of unit expressions | Excellent for symbolic reasoning, but not designed for runtime validation, conversion, or serialization.               |
 | **Unum**  | Unit-aware arithmetic and unit propagation              | Tracks units through arithmetic but lacks explicit dimensional algebra, conversion taxonomy, or runtime introspection. |
 
 Together, these tools can _use_ units, but none can explicitly represent and verify the relationships between units and dimensions.
 
-That’s the gap `ucon` fills.
+That's the gap `ucon` fills.
 
 It treats units, dimensions, and scales as first-class objects and builds a composable algebra around them.
 This allows you to:
 - Represent dimensional meaning explicitly (`Dimension`, `Vector`);
 - Compose and compute with type-safe, introspectable quantities (`Unit`, `Number`);
-- Perform reversible, declarative conversions (standard, linear, affine, nonlinear);
-- Serialize and validate measurements with Pydantic integration;
 - Extend the system with custom unit registries and conversion families.
 
 Where Pint, Unum, and SymPy focus on _how_ to compute with units,
-`ucon` focuses on why those computations make sense. Every operation checks the dimensional structure, _not just the unit labels_. This means ucon doesn’t just track names: it enforces physics:
+`ucon` focuses on why those computations make sense. Every operation checks the dimensional structure, _not just the unit labels_. This means ucon doesn't just track names: it enforces physics:
 ```python
 from ucon import Number, units
 
@@ -99,7 +99,8 @@ This sort of dimensional analysis:
 ```
 becomes straightforward when you define a measurement:
 ```python
-from ucon import Number, Scale, Units, Ratio
+from ucon import Number, Scale, units
+from ucon.quantity import Ratio
 
 # Two milliliters of bromine
 mL = Scale.milli * units.liter
@@ -112,27 +113,36 @@ bromine_density = Ratio(
 )
 
 # Multiply to find mass
-grams_bromine = two_mL_bromine * bromine_density
-print(grams_bromine)  # <6.238 gram>
+grams_bromine = bromine_density.evaluate() * two_mL_bromine
+print(grams_bromine)  # <6.238 g>
 ```
 
-Scale conversion is automatic and precise:
-
+Scale prefixes compose naturally:
 ```python
-grams_bromine.to(Scale.milli)  # <6238.0 milligram>
-grams_bromine.to(Scale.kibi)   # <0.006091796875 kibigram>
+km = Scale.kilo * units.meter       # UnitProduct with kilo-scaled meter
+mg = Scale.milli * units.gram       # UnitProduct with milli-scaled gram
+
+print(km.shorthand)  # 'km'
+print(mg.shorthand)  # 'mg'
+
+# Scale arithmetic
+print(km.fold_scale())  # 1000.0
+print(mg.fold_scale())  # 0.001
 ```
+
+> **Note:** Unit _conversions_ (e.g., `number.to(units.inch)`) are planned for v0.4.x
+> via the `ConversionGraph` abstraction. See [ROADMAP.md](./ROADMAP.md).
 
 ---
 
 ## Roadmap Highlights
 
-| Version | Theme | Focus |
-|----------|-------|--------|
-| [**0.3.x**](https://github.com/withtwoemms/ucon/milestone/1) | Primitive Type Refinement | Unified algebraic foundation |
-| [**0.4.x**](https://github.com/withtwoemms/ucon/milestone/2) | Conversion System | Linear & affine conversions |
-| [**0.6.x**](https://github.com/withtwoemms/ucon/milestone/4) | Nonlinear / Specialized Units | Decibel, Percent, pH |
-| [**0.8.x**](https://github.com/withtwoemms/ucon/milestone/6) | Pydantic Integration | Type-safe quantity validation |
+| Version | Theme | Focus | Status |
+|----------|-------|--------|--------|
+| **0.3.5** | Dimensional Algebra | Unit/Scale separation, `UnitFactor`, `UnitProduct` | ✅ Complete |
+| [**0.4.x**](https://github.com/withtwoemms/ucon/milestone/2) | Conversion System | `ConversionGraph`, `Number.to()` | 🚧 Up Next |
+| [**0.6.x**](https://github.com/withtwoemms/ucon/milestone/4) | Nonlinear / Specialized Units | Decibel, Percent, pH | ⏳ Planned |
+| [**0.8.x**](https://github.com/withtwoemms/ucon/milestone/6) | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)
 
@@ -145,13 +155,13 @@ Ensure `nox` is installed.
 ```
 pip install -r requirements.txt
 ```
-Then run the full test suite (agains all supported python versions) before committing:
+Then run the full test suite (against all supported python versions) before committing:
 
 ```bash
 nox -s test
 ```
 ---
 
-> “If it can be measured, it can be represented.
+> "If it can be measured, it can be represented.
 If it can be represented, it can be validated.
-If it can be validated, it can be trusted.”
+If it can be validated, it can be trusted."
