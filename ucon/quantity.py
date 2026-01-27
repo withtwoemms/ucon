@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Union
 
 from ucon import units
-from ucon.core import CompositeUnit, Scale, Unit
+from ucon.core import Unit, UnitProduct, Scale
 
 
 Quantifiable = Union['Number', 'Ratio']
@@ -47,8 +47,20 @@ class Number:
 
     @property
     def value(self) -> float:
-        """Return numeric magnitude as quantity × scale factor."""
-        return round(self.quantity * self.unit.scale.value.evaluated, 15)
+        """Return the numeric magnitude as-expressed (no scale folding).
+
+        Scale lives in the unit expression (e.g. kJ, mL) and is NOT
+        folded into the returned value.  Use ``unit.fold_scale()`` on a
+        UnitProduct when you need the base-unit-equivalent magnitude.
+        """
+        return round(self.quantity, 15)
+
+    @property
+    def _canonical_magnitude(self) -> float:
+        """Quantity folded to base-unit scale (internal use for eq/div)."""
+        if isinstance(self.unit, UnitProduct):
+            return self.quantity * self.unit.fold_scale()
+        return self.quantity
 
     def simplify(self):
         """Return a new Number expressed in base scale (Scale.one)."""
@@ -59,38 +71,6 @@ class Number:
 
     def as_ratio(self):
         return Ratio(self)
-
-    def _inherit_symbolic_identity(self, new_unit: Unit, lhs: Unit, rhs: Unit) -> Unit:
-        """
-        If new_unit has no name/aliases but is dimension-compatible
-        with either lhs or rhs, inherit symbolic identity.
-        """
-        if isinstance(new_unit, CompositeUnit):
-            return new_unit  # composite units have their own structure
-
-        if new_unit.aliases or new_unit.name:
-            return new_unit  # already has a symbol
-
-        if new_unit.scale is not Scale.one:
-            return new_unit  # keep scaled units intact
-
-        # inheritance priority: lhs → rhs
-        if lhs.dimension == new_unit.dimension:
-            return Unit(
-                *lhs.aliases,
-                name=lhs.name,
-                dimension=new_unit.dimension,
-                scale=Scale.one,
-            )
-        if rhs.dimension == new_unit.dimension:
-            return Unit(
-                *rhs.aliases,
-                name=rhs.name,
-                dimension=new_unit.dimension,
-                scale=Scale.one,
-            )
-
-        return new_unit
 
     def __mul__(self, other: Quantifiable) -> 'Number':
         if isinstance(other, Ratio):
@@ -119,8 +99,8 @@ class Number:
         # If the net dimension is none, we want a pure scalar:
         # fold *all* scale factors into the numeric magnitude.
         if not unit_quot.dimension:
-            num = self.value       # quantity × scale
-            den = other.value
+            num = self._canonical_magnitude    # quantity × scale
+            den = other._canonical_magnitude
             return Number(quantity=num / den, unit=units.none)
 
         # --- Case 2: Dimensionful result -----------------------------------
@@ -144,7 +124,7 @@ class Number:
             return False
 
         # Compare magnitudes, scale-adjusted
-        if abs(self.value - other.value) >= 1e-12:
+        if abs(self._canonical_magnitude - other._canonical_magnitude) >= 1e-12:
             return False
 
         return True
@@ -178,48 +158,11 @@ class Ratio:
         # Pure arithmetic, no scale normalization.
         numeric = self.numerator.quantity / self.denominator.quantity
 
-        # Pure unit division, with FactoredUnit preservation.
+        # Pure unit division, with UnitFactor preservation.
         unit = self.numerator.unit / self.denominator.unit
 
         # DO NOT normalize, DO NOT fold scale.
         return Number(quantity=numeric, unit=unit)
-
-    def _fold_scales(self, unit: Union[Unit, CompositeUnit]):
-        """
-        Extracts numeric scaling from unit prefixes while preserving exponent structure.
-        Returns: (numeric_factor: float, stripped_unit: Unit|CompositeUnit)
-        """
-        # --- UNIT CASE ----------------------------------------------------
-        if isinstance(unit, Unit) and not isinstance(unit, CompositeUnit):
-            return self._fold_scales_from_unit(unit)
-
-        # --- COMPOSITE CASE -----------------------------------------------
-        total = 1.0
-        normalized: dict[Unit, float] = {}
-
-        for u, exp in unit.components.items():
-            factor, base_unit = self._fold_scales_from_unit(u, exp)
-            total *= factor
-            if abs(exp) >= 1e-12:   # drop zero powers
-                normalized[base_unit] = normalized.get(base_unit, 0) + exp
-
-        return total, CompositeUnit(normalized) if normalized else units.none
-
-    def _fold_scales_from_unit(self, u: Unit, power: float = 1):
-        """Extract numeric scale^power and return (factor, scale-free Unit)."""
-        if u.scale is Scale.one:
-            return 1.0, Unit(*u.aliases, name=u.name, dimension=u.dimension, scale=Scale.one)
-
-        factor = u.scale.value.evaluated ** power
-        return factor, Unit(*u.aliases, name=u.name, dimension=u.dimension, scale=Scale.one)
-
-    def normalize(self, number: Number) -> Number:
-        scale_factor, base_unit = self._fold_scales(number.unit)
-
-        return Number(
-            quantity = number.quantity * scale_factor,
-            unit = base_unit
-        )    
 
     def __mul__(self, another_ratio: 'Ratio') -> 'Ratio':
         if self.numerator.unit == another_ratio.denominator.unit:

@@ -110,7 +110,7 @@ def install(session):
 @nox.session(name="test", python=supported_python_versions)
 def test(session):
     """Run the test suite (with coverage if enabled)."""
-    session.install(".")
+    #session.install(".")
     session.install("coverage")
 
     args = [
