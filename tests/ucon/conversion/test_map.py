@@ -19,7 +19,7 @@ class TestLinearMap(unittest.TestCase):
         m = LinearMap(39.37)
         inv = m.inverse()
         self.assertIsInstance(inv, LinearMap)
-        self.assertAlmostEqual(inv.factor, 1.0 / 39.37)
+        self.assertAlmostEqual(inv.a, 1.0 / 39.37)
 
     def test_inverse_zero_raises(self):
         m = LinearMap(0)
@@ -36,7 +36,7 @@ class TestLinearMap(unittest.TestCase):
         g = LinearMap(1.0 / 12.0)
         composed = f @ g
         self.assertIsInstance(composed, LinearMap)
-        self.assertAlmostEqual(composed.factor, 39.37 / 12.0)
+        self.assertAlmostEqual(composed.a, 39.37 / 12.0)
 
     def test_compose_apply(self):
         f = LinearMap(2.0)
@@ -100,8 +100,8 @@ class TestAffineMap(unittest.TestCase):
         composed = f @ g
         self.assertIsInstance(composed, AffineMap)
         # f(g(x)) = 2*(4x+5)+3 = 8x+13
-        self.assertAlmostEqual(composed.scale, 8.0)
-        self.assertAlmostEqual(composed.offset, 13.0)
+        self.assertAlmostEqual(composed.a, 8.0)
+        self.assertAlmostEqual(composed.b, 13.0)
 
     def test_compose_apply(self):
         f = AffineMap(2.0, 3.0)
@@ -126,18 +126,17 @@ class TestAffineMap(unittest.TestCase):
 class TestComposedMap(unittest.TestCase):
 
     def test_heterogeneous_composition(self):
+        # LinearMap @ AffineMap now returns AffineMap (closed composition)
+        # Use ComposedMap directly to test the fallback behavior
         lin = LinearMap(2.0)
         aff = AffineMap(3.0, 1.0)
-        composed = lin @ aff
-        self.assertIsInstance(composed, ComposedMap)
+        composed = ComposedMap(lin, aff)
         # lin(aff(x)) = 2 * (3x + 1) = 6x + 2
         self.assertAlmostEqual(composed(0.0), 2.0)
         self.assertAlmostEqual(composed(1.0), 8.0)
 
     def test_inverse(self):
-        lin = LinearMap(2.0)
-        aff = AffineMap(3.0, 1.0)
-        composed = lin @ aff
+        composed = ComposedMap(LinearMap(2.0), AffineMap(3.0, 1.0))
         for x in [0.0, 1.0, -3.0, 10.0]:
             self.assertAlmostEqual(composed.inverse()(composed(x)), x, places=10)
 
