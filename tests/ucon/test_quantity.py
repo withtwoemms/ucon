@@ -364,6 +364,66 @@ class TestRatioEdgeCases(unittest.TestCase):
         self.assertIn("/", rep)
 
 
+class TestRatioExponentScaling(unittest.TestCase):
+    """Tests for Ratio.evaluate() using Exponent-based scaling.
+
+    Ensures Ratio.evaluate() behaves consistently with Number.__truediv__
+    when units cancel to dimensionless results.
+    """
+
+    def test_evaluate_dimensionless_with_different_scales(self):
+        """Ratio of same unit with different scales should fold scales."""
+        kg = Scale.kilo * units.gram
+        # 500 g / 1 kg = 0.5 (dimensionless)
+        ratio = Ratio(units.gram(500), kg(1))
+        result = ratio.evaluate()
+        self.assertAlmostEqual(result.quantity, 0.5, places=10)
+        self.assertEqual(result.unit.dimension, Dimension.none)
+
+    def test_evaluate_matches_number_truediv(self):
+        """Ratio.evaluate() should match Number.__truediv__ for dimensionless."""
+        kg = Scale.kilo * units.gram
+        num = units.gram(500)
+        den = kg(1)
+
+        ratio_result = Ratio(num, den).evaluate()
+        truediv_result = num / den
+
+        self.assertAlmostEqual(ratio_result.quantity, truediv_result.quantity, places=10)
+        self.assertEqual(ratio_result.unit.dimension, truediv_result.unit.dimension)
+
+    def test_evaluate_cross_base_scaling(self):
+        """Binary and decimal prefixes should combine correctly."""
+        kibigram = Scale.kibi * units.gram  # 1024 g
+        kg = Scale.kilo * units.gram         # 1000 g
+        # 1 kibigram / 1 kg = 1024/1000 = 1.024
+        ratio = Ratio(kibigram(1), kg(1))
+        result = ratio.evaluate()
+        self.assertAlmostEqual(result.quantity, 1.024, places=10)
+        self.assertEqual(result.unit.dimension, Dimension.none)
+
+    def test_evaluate_dimensionful_preserves_scales(self):
+        """Non-cancelling units should preserve symbolic scales."""
+        km = Scale.kilo * units.meter
+        # 100 km / 2 h = 50 km/h (scales preserved, not folded)
+        ratio = Ratio(km(100), units.hour(2))
+        result = ratio.evaluate()
+        self.assertAlmostEqual(result.quantity, 50.0, places=10)
+        self.assertEqual(result.unit.dimension, Dimension.velocity)
+        self.assertIn("km", result.unit.shorthand)
+
+    def test_evaluate_complex_composition(self):
+        """Composed ratios should maintain scale semantics."""
+        mL = Scale.milli * units.liter
+        # Density: 3.119 g/mL
+        density = Ratio(units.gram(3.119), mL(1))
+        # Volume: 2 mL
+        volume = Ratio(mL(2), Number())
+        # Mass = density * volume
+        result = (density * volume).evaluate()
+        self.assertAlmostEqual(result.quantity, 6.238, places=3)
+
+
 class TestCallableUnits(unittest.TestCase):
     """Tests for the callable unit syntax: unit(quantity) -> Number."""
 
