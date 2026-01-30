@@ -19,18 +19,15 @@ class TestNumber(unittest.TestCase):
         self.assertEqual(ratio.numerator, self.number)
         self.assertEqual(ratio.denominator, Number())
 
-    @unittest.skip("Requires ConversionGraph implementation")
-    def test_simplify(self):
-        decagram = UnitFactor(dimension=Dimension.mass, name='gram', scale=Scale.deca)
-        kibigram = UnitFactor(dimension=Dimension.mass, name='gram', scale=Scale.kibi)
-
+    def test_simplify_scaled_unit(self):
+        """Test simplify() removes scale prefix and adjusts quantity."""
+        decagram = Scale.deca * units.gram
         ten_decagrams = Number(unit=decagram, quantity=10)
-        point_one_decagrams = Number(unit=decagram, quantity=0.1)
-        two_kibigrams = Number(unit=kibigram, quantity=2)
-
-        self.assertEqual(Number(unit=units.gram, quantity=100), ten_decagrams.simplify())
-        self.assertEqual(Number(unit=units.gram, quantity=1), point_one_decagrams.simplify())
-        self.assertEqual(Number(unit=units.gram, quantity=2048), two_kibigrams.simplify())
+        result = ten_decagrams.simplify()
+        # 10 decagrams = 100 grams
+        self.assertAlmostEqual(result.quantity, 100.0, places=10)
+        # Unit should be base gram (Scale.one)
+        self.assertEqual(result.unit.shorthand, "g")
 
     @unittest.skip("Requires ConversionGraph implementation")
     def test_to(self):
@@ -449,3 +446,58 @@ class TestScaledUnitConversion(unittest.TestCase):
         result = mph(60).to(m_per_s)
         # 60 mph = 60 * 1609.34 / 3600 m/s ≈ 26.8224
         self.assertAlmostEqual(result.quantity, 26.8224, places=2)
+
+
+class TestNumberSimplify(unittest.TestCase):
+    """Tests for Number.simplify() method."""
+
+    def test_simplify_kilo_prefix(self):
+        """5 km simplifies to 5000 m."""
+        km = Scale.kilo * units.meter
+        result = km(5).simplify()
+        self.assertAlmostEqual(result.quantity, 5000.0, places=10)
+        self.assertEqual(result.unit.shorthand, "m")
+
+    def test_simplify_milli_prefix(self):
+        """500 mg simplifies to 0.5 g."""
+        mg = Scale.milli * units.gram
+        result = mg(500).simplify()
+        self.assertAlmostEqual(result.quantity, 0.5, places=10)
+        self.assertEqual(result.unit.shorthand, "g")
+
+    @unittest.skip("Requires Dimension.information and units.byte (see user story)")
+    def test_simplify_binary_prefix(self):
+        """2 kibibytes simplifies to 2048 bytes."""
+        kibibyte = Scale.kibi * units.byte
+        result = kibibyte(2).simplify()
+        self.assertAlmostEqual(result.quantity, 2048.0, places=10)
+        self.assertEqual(result.unit.shorthand, "B")
+
+    def test_simplify_composite_unit(self):
+        """1 km/h simplifies to base scales."""
+        km_per_h = (Scale.kilo * units.meter) / units.hour
+        result = km_per_h(1).simplify()
+        # 1 km/h = 1000 m / 1 h (hour stays hour since it's base unit)
+        self.assertAlmostEqual(result.quantity, 1000.0, places=10)
+        self.assertEqual(result.unit.shorthand, "m/h")
+
+    def test_simplify_plain_unit_unchanged(self):
+        """Plain unit without scale returns equivalent Number."""
+        result = units.meter(5).simplify()
+        self.assertAlmostEqual(result.quantity, 5.0, places=10)
+        self.assertEqual(result.unit.shorthand, "m")
+
+    def test_simplify_preserves_dimension(self):
+        """Simplified Number has same dimension."""
+        km = Scale.kilo * units.meter
+        original = km(5)
+        simplified = original.simplify()
+        self.assertEqual(original.unit.dimension, simplified.unit.dimension)
+
+    def test_simplify_idempotent(self):
+        """Simplifying twice gives same result."""
+        km = Scale.kilo * units.meter
+        result1 = km(5).simplify()
+        result2 = result1.simplify()
+        self.assertAlmostEqual(result1.quantity, result2.quantity, places=10)
+        self.assertEqual(result1.unit.shorthand, result2.unit.shorthand)
