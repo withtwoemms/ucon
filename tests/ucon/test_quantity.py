@@ -188,14 +188,13 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertEqual(result.quantity, 6)
         self.assertEqual(result.unit.dimension, Dimension.energy * Dimension.time)
 
-    @unittest.skip("TODO: revamp: Unit.scale is deprecated.")
-    @unittest.skip("Requires ConversionGraph implementation")
     def test_division_combines_units_scales_and_quantities(self):
-        km = UnitFactor('m', name='meter', dimension=Dimension.length, scale=Scale.kilo)
-        n1 = Number(unit=km, quantity=1000)
+        """Division creates composite unit with preserved scales."""
+        km = Scale.kilo * units.meter
+        n1 = Number(unit=km, quantity=1000)  # 1000 km
         n2 = Number(unit=units.second, quantity=2)
 
-        result = n1 / n2     # should yield <500 km/s>
+        result = n1 / n2  # should yield <500 km/s>
 
         cu = result.unit
         self.assertIsInstance(cu, UnitProduct)
@@ -206,18 +205,13 @@ class TestNumberEdgeCases(unittest.TestCase):
         # --- dimension check ---
         self.assertEqual(cu.dimension, Dimension.velocity)
 
-        # --- scale check: km/s should have a kilo-scaled meter in the numerator ---
-        # find the meter-like unit in the components
-        meter_like = next(u for u, exp in cu.components.items() if u.dimension == Dimension.length)
-        self.assertEqual(meter_like.scale, Scale.kilo)
-        self.assertEqual(cu.components[meter_like], 1)  # exponent = 1 in numerator
-
         # --- symbolic shorthand ---
         self.assertEqual(cu.shorthand, "km/s")
 
-        # --- optional canonicalization ---
-        canonical = result.to(Scale.one)
-        self.assertAlmostEqual(canonical.quantity, 500000)
+        # --- convert to base units (m/s) ---
+        m_per_s = units.meter / units.second
+        canonical = result.to(m_per_s)
+        self.assertAlmostEqual(canonical.quantity, 500000, places=5)
         self.assertEqual(canonical.unit.shorthand, "m/s")
 
     def test_equality_with_non_number_raises_value_error(self):
