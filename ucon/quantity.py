@@ -12,6 +12,7 @@ physical quantities.
 
 Classes
 -------
+- :class:`Quantity` — A Unit that constructs Numbers when called.
 - :class:`Number` — Couples a numeric value with a unit and scale.
 - :class:`Ratio` — Represents a ratio between two :class:`Number` objects.
 
@@ -21,8 +22,11 @@ of physical quantities with explicit dimensional semantics.
 from dataclasses import dataclass
 from typing import Union
 
-from ucon import units
-from ucon.core import Unit, UnitProduct, Scale
+from ucon.core import Unit, UnitProduct, UnitFactor, Scale
+
+
+# Dimensionless unit (no import from units to avoid circular dependency)
+_none = Unit()
 
 
 Quantifiable = Union['Number', 'Ratio']
@@ -43,7 +47,7 @@ class Number:
         <2.5 (m/s)>
     """
     quantity: Union[float, int] = 1.0
-    unit: Union[Unit, UnitProduct] = units.none
+    unit: Union[Unit, UnitProduct] = _none
 
     @property
     def value(self) -> float:
@@ -74,7 +78,7 @@ class Number:
         target : Unit or UnitProduct
             The target unit to convert to.
         graph : ConversionGraph, optional
-            The conversion graph to use. Required for cross-unit conversions.
+            The conversion graph to use. If not provided, uses the default graph.
 
         Returns
         -------
@@ -83,15 +87,12 @@ class Number:
 
         Examples
         --------
-        >>> from ucon import Number, units
-        >>> from ucon.conversion import ConversionGraph, LinearMap
-        >>> graph = ConversionGraph()
-        >>> graph.add_edge(src=units.meter, dst=foot, map=LinearMap(3.28084))
-        >>> length = Number(unit=units.meter, quantity=100)
-        >>> length.to(foot, graph=graph)
+        >>> from ucon.units import meter, foot
+        >>> length = meter(100)
+        >>> length.to(foot)
         <328.084 ft>
         """
-        from ucon.conversion.graph import ConversionGraph
+        from ucon.graph import get_default_graph
 
         # Wrap plain Units as UnitProducts for uniform handling
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
@@ -102,9 +103,9 @@ class Number:
             factor = src.fold_scale() / dst.fold_scale()
             return Number(quantity=self.quantity * factor, unit=target)
 
-        # Graph-based conversion
+        # Graph-based conversion (use default graph if none provided)
         if graph is None:
-            raise ValueError("ConversionGraph required for cross-unit conversion")
+            graph = get_default_graph()
 
         conversion_map = graph.convert(src=src, dst=dst)
         converted_quantity = conversion_map(self._canonical_magnitude)
@@ -166,7 +167,7 @@ class Number:
         if not unit_quot.dimension:
             num = self._canonical_magnitude    # quantity × scale
             den = other._canonical_magnitude
-            return Number(quantity=num / den, unit=units.none)
+            return Number(quantity=num / den, unit=_none)
 
         # --- Case 2: Dimensionful result -----------------------------------
         # For "real" physical results like g/mL, m/s², etc., preserve the
@@ -259,3 +260,48 @@ class Ratio:
     def __repr__(self):
         # TODO -- resolve int/float inconsistency
         return f'{self.evaluate()}' if self.numerator == self.denominator else f'{self.numerator} / {self.denominator}'
+
+
+@dataclass(frozen=True)
+class Quantity(Unit):
+    """A Unit that constructs Numbers when called.
+
+    Follows the physical definition: a quantity is a number with units.
+    This class enables the ergonomic syntax::
+
+        >>> from ucon.units import meter
+        >>> length = meter(5)
+        >>> length
+        <5 m>
+
+    Quantity inherits from Unit but overrides arithmetic operators to
+    return UnitProduct (for composite units like ``mile / hour``).
+    """
+
+    def __call__(self, value: float) -> Number:
+        """Construct a Number with this unit."""
+        return Number(quantity=value, unit=UnitProduct.from_unit(self))
+
+    def __mul__(self, other: "Quantity") -> UnitProduct:
+        """Quantity * Quantity -> UnitProduct."""
+        if isinstance(other, Quantity):
+            return UnitProduct.from_unit(self) * UnitProduct.from_unit(other)
+        if isinstance(other, Unit):
+            return UnitProduct.from_unit(self) * UnitProduct.from_unit(other)
+        if isinstance(other, UnitProduct):
+            return UnitProduct.from_unit(self) * other
+        return NotImplemented
+
+    def __truediv__(self, other: "Quantity") -> UnitProduct:
+        """Quantity / Quantity -> UnitProduct."""
+        if isinstance(other, Quantity):
+            return UnitProduct.from_unit(self) / UnitProduct.from_unit(other)
+        if isinstance(other, Unit):
+            return UnitProduct.from_unit(self) / UnitProduct.from_unit(other)
+        if isinstance(other, UnitProduct):
+            return UnitProduct.from_unit(self) / other
+        return NotImplemented
+
+    def __pow__(self, exp: float) -> UnitProduct:
+        """Quantity ** exp -> UnitProduct."""
+        return UnitProduct({UnitFactor(self, Scale.one): exp})
