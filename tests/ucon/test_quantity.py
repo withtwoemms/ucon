@@ -29,25 +29,28 @@ class TestNumber(unittest.TestCase):
         # Unit should be base gram (Scale.one)
         self.assertEqual(result.unit.shorthand, "g")
 
-    @unittest.skip("Requires ConversionGraph implementation")
-    def test_to(self):
-        kg = UnitFactor(dimension=Dimension.mass, name='gram', scale=Scale.kilo)
-        mg = UnitFactor(dimension=Dimension.mass, name='gram', scale=Scale.milli)
-        kibigram = UnitFactor(dimension=Dimension.mass, name='gram', scale=Scale.kibi)
+    def test_to_converts_between_units(self):
+        """Test Number.to() converts between compatible units."""
+        # 1 gram to kilogram
+        kg = Scale.kilo * units.gram
+        result = self.number.to(kg)
+        self.assertAlmostEqual(result.quantity, 0.001, places=10)
 
-        thousandth_of_a_kilogram = Number(unit=kg, quantity=0.001)
-        thousand_milligrams = Number(unit=mg, quantity=1000)
-        kibigram_fraction = Number(unit=kibigram, quantity=0.0009765625)
+        # 1 gram to milligram
+        mg = Scale.milli * units.gram
+        result = self.number.to(mg)
+        self.assertAlmostEqual(result.quantity, 1000.0, places=10)
 
-        self.assertEqual(thousandth_of_a_kilogram, self.number.to(Scale.kilo))
-        self.assertEqual(thousand_milligrams, self.number.to(Scale.milli))
-        self.assertEqual(kibigram_fraction, self.number.to(Scale.kibi))
+        # 1 kilogram to gram
+        one_kg = Number(unit=kg, quantity=1)
+        result = one_kg.to(units.gram)
+        self.assertAlmostEqual(result.quantity, 1000.0, places=10)
 
-    @unittest.skip("TODO: revamp: Unit.scale is deprecated.")
     def test___repr__(self):
-        self.assertIn(str(self.number.quantity), str(self.number))
-        self.assertIn(str(self.number.unit.scale.value.evaluated), str(self.number))
-        self.assertIn(self.number.unit.shorthand, str(self.number))
+        """Test Number repr contains quantity and unit shorthand."""
+        repr_str = repr(self.number)
+        self.assertIn(str(self.number.quantity), repr_str)
+        self.assertIn(self.number.unit.shorthand, repr_str)
 
     def test___truediv__(self):
         dal = Scale.deca * units.gram
@@ -151,32 +154,32 @@ class TestNumberEdgeCases(unittest.TestCase):
         assert evaluated.unit == units.gram
         assert abs(evaluated.quantity - 6.238) < 1e-12
 
-    @unittest.skip("TODO: revamp: Unit.scale is deprecated.")
     def test_default_number_is_dimensionless_one(self):
+        """Default Number() is dimensionless with quantity=1."""
         n = Number()
         self.assertEqual(n.unit, units.none)
-        self.assertEqual(n.unit.scale, Scale.one)
         self.assertEqual(n.quantity, 1)
         self.assertAlmostEqual(n.value, 1.0)
         self.assertIn("1", repr(n))
 
-    @unittest.skip("Requires ConversionGraph implementation")
-    def test_to_new_scale_changes_value(self):
-        thousand = UnitFactor(dimension=Dimension.none, name='', scale=Scale.kilo)
-        n = Number(quantity=1000, unit=thousand)
-        converted = n.to(Scale.one)
-        self.assertNotEqual(n.value, converted.value)
-        self.assertAlmostEqual(converted.value, 1000)
+    def test_to_different_scale_changes_quantity(self):
+        """Converting to a different scale changes the quantity."""
+        km = Scale.kilo * units.meter
+        n = Number(quantity=5, unit=km)  # 5 km
+        converted = n.to(units.meter)    # convert to meters
+        # quantity changes: 5 km = 5000 m
+        self.assertNotEqual(n.quantity, converted.quantity)
+        self.assertAlmostEqual(converted.quantity, 5000.0, places=10)
 
-    @unittest.skip("TODO: revamp: Unit.scale is deprecated.")
-    @unittest.skip("Requires ConversionGraph implementation")
     def test_simplify_uses_value_as_quantity(self):
-        thousand = UnitFactor(dimension=Dimension.none, name='', scale=Scale.kilo)
-        n = Number(quantity=2, unit=thousand)
+        """Simplify converts scaled quantity to base scale quantity."""
+        km = Scale.kilo * units.meter
+        n = Number(quantity=2, unit=km)  # 2 km
         simplified = n.simplify()
-        self.assertEqual(simplified.quantity, n.value)
-        self.assertNotEqual(simplified.unit.scale, n.unit.scale)
-        self.assertEqual(simplified.value, n.value)
+        # simplified.quantity should be the canonical magnitude (2 * 1000 = 2000)
+        self.assertAlmostEqual(simplified.quantity, 2000.0, places=10)
+        # canonical magnitude (physical quantity) is preserved
+        self.assertAlmostEqual(simplified._canonical_magnitude, n._canonical_magnitude, places=10)
 
     def test_multiplication_combines_units_and_quantities(self):
         n1 = Number(unit=units.joule, quantity=2)
