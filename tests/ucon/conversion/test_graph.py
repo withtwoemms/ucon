@@ -6,14 +6,13 @@ import unittest
 
 from ucon import units
 from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct
-from ucon.conversion import (
+from ucon.graph import (
     ConversionGraph,
-    LinearMap,
-    AffineMap,
     DimensionMismatch,
     ConversionNotFound,
     CyclicInconsistency,
 )
+from ucon.maps import LinearMap, AffineMap
 
 
 class TestConversionGraphEdgeManagement(unittest.TestCase):

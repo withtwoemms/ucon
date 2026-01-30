@@ -4,7 +4,7 @@
 
 import unittest
 
-from ucon.conversion.map import AffineMap, ComposedMap, LinearMap, Map
+from ucon.maps import AffineMap, ComposedMap, LinearMap, Map
 
 
 class TestLinearMap(unittest.TestCase):
