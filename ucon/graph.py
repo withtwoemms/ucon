@@ -399,6 +399,14 @@ def _build_standard_graph() -> ConversionGraph:
     # F → C: C = (F - 32) * 5/9
     graph.add_edge(src=units.fahrenheit, dst=units.celsius, map=AffineMap(5/9, -32 * 5/9))
 
+    # --- Pressure ---
+    # 1 Pa = 0.00001 bar, so 1 bar = 100000 Pa
+    graph.add_edge(src=units.pascal, dst=units.bar, map=LinearMap(1/100000))
+    # 1 Pa = 0.000145038 psi
+    graph.add_edge(src=units.pascal, dst=units.psi, map=LinearMap(0.000145038))
+    # 1 atm = 101325 Pa
+    graph.add_edge(src=units.atmosphere, dst=units.pascal, map=LinearMap(101325))
+
     # --- Volume ---
     graph.add_edge(src=units.liter, dst=units.gallon, map=LinearMap(0.264172))
 

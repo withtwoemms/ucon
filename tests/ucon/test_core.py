@@ -332,14 +332,13 @@ class TestScaleMultiplicationAdditional(unittest.TestCase):
         self.assertIsInstance(result, Scale)
         self.assertEqual(result.value.base, 10)
 
-    @unittest.skip("TODO: revamp: Unit.scale is deprecated.")
     def test_scale_multiplication_with_unit(self):
-        meter = UnitFactor('m', name='meter', dimension=Dimension.length)
-        kilometer = Scale.kilo * meter
-        self.assertIsInstance(kilometer, UnitFactor)
-        self.assertEqual(kilometer.scale, Scale.kilo)
+        """Scale * Unit returns a UnitProduct with the scaled unit."""
+        kilometer = Scale.kilo * units.meter
+        self.assertIsInstance(kilometer, UnitProduct)
         self.assertEqual(kilometer.dimension, Dimension.length)
-        self.assertIn('meter', kilometer.name)
+        self.assertEqual(kilometer.shorthand, "km")
+        self.assertAlmostEqual(kilometer.fold_scale(), 1000.0, places=10)
 
     def test_scale_multiplication_with_unit_returns_not_implemented_for_invalid_type(self):
         with self.assertRaises(TypeError):
