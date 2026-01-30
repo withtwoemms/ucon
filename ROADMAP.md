@@ -63,7 +63,7 @@ Building on v0.3.5 baseline:
 - [x] Callable unit syntax: `meter(5)`, `(mile / hour)(60)`
 - [x] Default graph with common SI and imperial conversions
 - [x] Imperial units: `foot`, `mile`, `yard`, `inch`, `pound`, `ounce`, `fahrenheit`, `gallon`
-- [ ] `Number.simplify()` — Express in base scale (subsequent PR)
+- [x] `Number.simplify()` — Express in base scale
 - [ ] Extend tests to include temperature, pressure, and base SI conversions
 - [ ] Document Exponent/Scale relationship in developer guide
 
