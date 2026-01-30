@@ -4,13 +4,14 @@
 
 ---
 
-## 🪜 Current Version: **v0.3.5**
+## 🪜 Current Version: **v0.4.0** (in progress)
 
-Stable baseline for:
-- `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`)
-- `ucon.quantity` (`Number`, `Ratio`)
-- `ucon.units` (canonical SI definitions)
-- Initial CI, testing, and packaging
+Building on v0.3.5 baseline:
+- `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`)
+- `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`)
+- `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`)
+- `ucon.units` (SI + imperial units, callable syntax)
+- Callable unit API: `meter(5)`, `(mile / hour)(60)`
 
 ---
 
@@ -46,18 +47,23 @@ Stable baseline for:
 
 ---
 
-## ⚙️ v0.4.x — Conversion System Foundations (Up Next)
+## ⚙️ v0.4.x — Conversion System Foundations (In Progress)
 
 ### 🔹 Summary
 > Implements unified conversion engine for standard, linear, and affine conversions.
+> Introduces callable unit API for ergonomic quantity construction.
 
 ### ✅ Goals
 - [x] Introduce `ConversionGraph` registry keyed by `Dimension`
-- [x] Add support for `standard`, `linear`, and ~~`affine`~~ conversion types
-- [x] Implement `Number.to(target_unit)` and `Number.simplify()`
-- [ ] Scale-only conversions short-circuit without graph lookup
-- [ ] Composite-to-composite conversion via per-component decomposition
-- [ ] Round-trip validation for reversible conversions
+- [x] Add support for `standard`, `linear`, and `affine` conversion types
+- [x] Implement `Number.to(target_unit)` conversion API
+- [x] Scale-only conversions short-circuit without graph lookup
+- [x] Composite-to-composite conversion via per-component decomposition
+- [x] Round-trip validation for reversible conversions (inverse maps)
+- [x] Callable unit syntax: `meter(5)`, `(mile / hour)(60)`
+- [x] Default graph with common SI and imperial conversions
+- [x] Imperial units: `foot`, `mile`, `yard`, `inch`, `pound`, `ounce`, `fahrenheit`, `gallon`
+- [ ] `Number.simplify()` — Express in base scale (subsequent PR)
 - [ ] Extend tests to include temperature, pressure, and base SI conversions
 - [ ] Document Exponent/Scale relationship in developer guide
 
@@ -65,6 +71,7 @@ Stable baseline for:
 - Unified conversion taxonomy
 - Reversible, dimension-checked conversions
 - Scale-aware graph that leverages the `Unit`/`UnitFactor` separation from v0.3.x
+- Ergonomic API: units are callable, returning `Number` instances
 - Forms the basis for nonlinear and domain-specific conversion families
 
 ---
@@ -202,7 +209,7 @@ Stable baseline for:
 | Version | Theme | Key Focus | Status |
 |----------|--------|------------|---------|
 | **0.3.5** | Dimensional Algebra | Unit/Scale separation, `UnitFactor`, `UnitProduct` | ✅ Complete |
-| **0.4.0** | Conversion Engine | `ConversionGraph`, `Number.to()`, scale-aware lookup | 🚧 Up Next |
+| **0.4.0** | Conversion Engine | `ConversionGraph`, `Number.to()`, callable units | 🚧 In Progress |
 | **0.5.0** | Unit Systems & Registries | Extensible registry system | ⏳ Planned |
 | **0.6.0** | Nonlinear Conversions | Logarithmic / exponential families | ⏳ Planned |
 | **0.7.0** | Testing & API Polish | Coverage, ergonomics, stability | ⏳ Planned |
