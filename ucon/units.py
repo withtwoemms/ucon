@@ -99,6 +99,11 @@ btu = Unit(name='btu', dimension=Dimension.energy, aliases=('BTU',))
 
 # Power
 horsepower = Unit(name='horsepower', dimension=Dimension.power, aliases=('hp',))
+
+# Pressure
+bar = Unit(name='bar', dimension=Dimension.pressure, aliases=('bar',))
+psi = Unit(name='psi', dimension=Dimension.pressure, aliases=('lbf/in²',))
+atmosphere = Unit(name='atmosphere', dimension=Dimension.pressure, aliases=('atm',))
 # ----------------------------------------------------------------------
 
 
