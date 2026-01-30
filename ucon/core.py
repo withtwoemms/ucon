@@ -1091,13 +1091,27 @@ class Ratio:
         return Ratio(numerator=self.denominator, denominator=self.numerator)
 
     def evaluate(self) -> "Number":
-        # Pure arithmetic, no scale normalization.
-        numeric = self.numerator.quantity / self.denominator.quantity
+        """Evaluate the ratio to a Number.
 
-        # Pure unit division, with UnitFactor preservation.
+        Uses Exponent-derived arithmetic for scale handling:
+        - If the result is dimensionless (units cancel), scales are folded
+          into the magnitude using _canonical_magnitude.
+        - If the result is dimensionful, raw quantities are divided and
+          unit scales are preserved symbolically.
+
+        This matches the behavior of Number.__truediv__ for consistency.
+        """
+        # Symbolic quotient in the unit algebra
         unit = self.numerator.unit / self.denominator.unit
 
-        # DO NOT normalize, DO NOT fold scale.
+        # Dimensionless result: fold all scale factors into magnitude
+        if not unit.dimension:
+            num = self.numerator._canonical_magnitude
+            den = self.denominator._canonical_magnitude
+            return Number(quantity=num / den, unit=_none)
+
+        # Dimensionful result: preserve user's chosen scales symbolically
+        numeric = self.numerator.quantity / self.denominator.quantity
         return Number(quantity=numeric, unit=unit)
 
     def __mul__(self, another_ratio: 'Ratio') -> 'Ratio':
