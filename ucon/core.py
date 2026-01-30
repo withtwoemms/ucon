@@ -906,9 +906,40 @@ class Number:
             return self.quantity * self.unit.fold_scale()
         return self.quantity
 
-    def simplify(self):
-        """Return a new Number expressed in base scale (Scale.one)."""
-        raise NotImplementedError("Unit simplification requires ConversionGraph; coming soon.")
+    def simplify(self) -> 'Number':
+        """Return a new Number expressed in base scale (Scale.one).
+
+        This normalizes the unit expression by removing all scale prefixes
+        and adjusting the quantity accordingly. No conversion graph is needed
+        since this is purely a scale transformation.
+
+        Examples
+        --------
+        >>> from ucon import Scale, units
+        >>> km = Scale.kilo * units.meter
+        >>> km(5).simplify()
+        <5000 m>
+        >>> mg = Scale.milli * units.gram
+        >>> mg(500).simplify()
+        <0.5 g>
+        """
+        if not isinstance(self.unit, UnitProduct):
+            # Plain Unit already has no scale
+            return Number(quantity=self.quantity, unit=self.unit)
+
+        # Compute the combined scale factor
+        scale_factor = self.unit.fold_scale()
+
+        # Create new unit with all factors at Scale.one
+        base_factors: dict[UnitFactor, float] = {}
+        for factor, exp in self.unit.factors.items():
+            base_factor = UnitFactor(unit=factor.unit, scale=Scale.one)
+            base_factors[base_factor] = exp
+
+        base_unit = UnitProduct(base_factors)
+
+        # Adjust quantity by the scale factor
+        return Number(quantity=self.quantity * scale_factor, unit=base_unit)
 
     def to(self, target, graph=None):
         """Convert this Number to a different unit expression.
