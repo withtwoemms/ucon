@@ -38,8 +38,8 @@ Design Philosophy
 """
 from ucon import units
 from ucon.algebra import Exponent
-from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct
-from ucon.quantity import Number, Ratio
+from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct, Number, Ratio
+from ucon.graph import get_default_graph, using_graph
 
 
 __all__ = [
@@ -51,5 +51,7 @@ __all__ = [
     'Unit',
     'UnitFactor',
     'UnitProduct',
+    'get_default_graph',
+    'using_graph',
     'units',
 ]
