@@ -368,3 +368,84 @@ class TestRatioEdgeCases(unittest.TestCase):
         r = Ratio(n1, n2)
         rep = repr(r)
         self.assertIn("/", rep)
+
+
+class TestCallableUnits(unittest.TestCase):
+    """Tests for the callable unit syntax: unit(quantity) -> Number."""
+
+    def test_unit_callable_returns_number(self):
+        result = units.meter(5)
+        self.assertIsInstance(result, Number)
+        self.assertEqual(result.quantity, 5)
+
+    def test_unit_callable_shorthand(self):
+        result = units.meter(5)
+        self.assertIn("m", result.unit.shorthand)
+
+    def test_unit_product_callable_returns_number(self):
+        velocity = units.meter / units.second
+        result = velocity(10)
+        self.assertIsInstance(result, Number)
+        self.assertEqual(result.quantity, 10)
+        self.assertEqual(result.unit.dimension, Dimension.velocity)
+
+    def test_scaled_unit_callable_returns_number(self):
+        km = Scale.kilo * units.meter
+        result = km(5)
+        self.assertIsInstance(result, Number)
+        self.assertEqual(result.quantity, 5)
+        self.assertIn("km", result.unit.shorthand)
+
+    def test_composite_scaled_unit_callable(self):
+        mph = units.mile / units.hour
+        result = mph(60)
+        self.assertIsInstance(result, Number)
+        self.assertEqual(result.quantity, 60)
+
+
+class TestScaledUnitConversion(unittest.TestCase):
+    """Tests for conversions involving scaled units.
+
+    Regression tests for bug where scale was applied twice during conversion.
+    """
+
+    def test_km_to_mile_conversion(self):
+        """5 km should be approximately 3.10686 miles."""
+        km = Scale.kilo * units.meter
+        result = km(5).to(units.mile)
+        # 5 km = 5000 m = 5000 / 1609.34 miles ≈ 3.10686
+        self.assertAlmostEqual(result.quantity, 3.10686, places=4)
+
+    def test_km_to_meter_conversion(self):
+        """1 km should be 1000 meters."""
+        km = Scale.kilo * units.meter
+        result = km(1).to(units.meter)
+        self.assertAlmostEqual(result.quantity, 1000.0, places=6)
+
+    def test_meter_to_mm_conversion(self):
+        """1 meter should be 1000 millimeters."""
+        mm = Scale.milli * units.meter
+        result = units.meter(1).to(mm)
+        self.assertAlmostEqual(result.quantity, 1000.0, places=6)
+
+    def test_mm_to_inch_conversion(self):
+        """25.4 mm should be approximately 1 inch."""
+        mm = Scale.milli * units.meter
+        result = mm(25.4).to(units.inch)
+        self.assertAlmostEqual(result.quantity, 1.0, places=4)
+
+    def test_scaled_velocity_conversion(self):
+        """1 km/h should be approximately 0.27778 m/s."""
+        km_per_h = (Scale.kilo * units.meter) / units.hour
+        m_per_s = units.meter / units.second
+        result = km_per_h(1).to(m_per_s)
+        # 1 km/h = 1000m / 3600s = 0.27778 m/s
+        self.assertAlmostEqual(result.quantity, 0.27778, places=4)
+
+    def test_mph_to_m_per_s_conversion(self):
+        """60 mph should be approximately 26.8224 m/s."""
+        mph = units.mile / units.hour
+        m_per_s = units.meter / units.second
+        result = mph(60).to(m_per_s)
+        # 60 mph = 60 * 1609.34 / 3600 m/s ≈ 26.8224
+        self.assertAlmostEqual(result.quantity, 26.8224, places=2)

@@ -947,7 +947,8 @@ class Number:
             graph = get_default_graph()
 
         conversion_map = graph.convert(src=src, dst=dst)
-        converted_quantity = conversion_map(self._canonical_magnitude)
+        # Use raw quantity - the conversion map handles scale via factorwise decomposition
+        converted_quantity = conversion_map(self.quantity)
         return Number(quantity=converted_quantity, unit=target)
 
     def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
