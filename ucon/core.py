@@ -22,7 +22,7 @@ from __future__ import annotations
 import math
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Tuple, Union
 
 from ucon.algebra import Exponent, Vector
@@ -290,6 +290,7 @@ class Scale(Enum):
         return Scale.nearest(float(result), include_binary=include_binary)
 
 
+@dataclass(frozen=True)
 class Unit:
     """
     Represents a **unit of measure** associated with a :class:`Dimension`.
@@ -299,26 +300,21 @@ class Unit:
 
     Parameters
     ----------
-    *aliases : str
-        Optional shorthand symbols (e.g., "m", "sec").
     name : str
         Canonical name of the unit (e.g., "meter").
     dimension : Dimension
         The physical dimension this unit represents.
+    aliases : tuple[str, ...]
+        Optional shorthand symbols (e.g., ("m", "M")).
     """
-    def __init__(
-        self,
-        *aliases: str,
-        name: str = "",
-        dimension: Dimension = Dimension.none,
-    ):
-        self.aliases = aliases
-        self.name = name
-        self.dimension = dimension
+    name: str = ""
+    dimension: Dimension = field(default=Dimension.none)
+    aliases: tuple[str, ...] = ()
 
     # ----------------- symbolic helpers -----------------
 
-    def _norm(self, aliases: tuple[str, ...]) -> tuple[str, ...]:
+    @staticmethod
+    def _norm(aliases: tuple[str, ...]) -> tuple[str, ...]:
         """Normalize alias bag: drop empty/whitespace-only aliases."""
         return tuple(a for a in aliases if a.strip())
 
