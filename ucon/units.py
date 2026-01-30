@@ -102,6 +102,12 @@ horsepower = Unit(name='horsepower', dimension=Dimension.power, aliases=('hp',))
 # ----------------------------------------------------------------------
 
 
+# -- Information Units -------------------------------------------------
+bit = Unit(name='bit', dimension=Dimension.information, aliases=('b',))
+byte = Unit(name='byte', dimension=Dimension.information, aliases=('B',))
+# ----------------------------------------------------------------------
+
+
 # Backward compatibility alias
 webers = weber
 

@@ -409,4 +409,7 @@ def _build_standard_graph() -> ConversionGraph:
     # --- Power ---
     graph.add_edge(src=units.watt, dst=units.horsepower, map=LinearMap(1/745.7))
 
+    # --- Information ---
+    graph.add_edge(src=units.byte, dst=units.bit, map=LinearMap(8))
+
     return graph
