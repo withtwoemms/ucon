@@ -465,7 +465,6 @@ class TestNumberSimplify(unittest.TestCase):
         self.assertAlmostEqual(result.quantity, 0.5, places=10)
         self.assertEqual(result.unit.shorthand, "g")
 
-    @unittest.skip("Requires Dimension.information and units.byte (see user story)")
     def test_simplify_binary_prefix(self):
         """2 kibibytes simplifies to 2048 bytes."""
         kibibyte = Scale.kibi * units.byte
@@ -531,7 +530,6 @@ class TestInformationDimension(unittest.TestCase):
         result = units.bit(8).to(units.byte)
         self.assertAlmostEqual(result.quantity, 1.0, places=10)
 
-    @unittest.skip("Requires Number.simplify() from ucon#93-numbers-can-be-simplified")
     def test_kibibyte_simplify(self):
         """1 kibibyte simplifies to 1024 bytes."""
         kibibyte = Scale.kibi * units.byte
@@ -539,7 +537,6 @@ class TestInformationDimension(unittest.TestCase):
         self.assertAlmostEqual(result.quantity, 1024.0, places=10)
         self.assertEqual(result.unit.shorthand, "B")
 
-    @unittest.skip("Requires Number.simplify() from ucon#93-numbers-can-be-simplified")
     def test_kilobyte_simplify(self):
         """1 kilobyte simplifies to 1000 bytes."""
         kilobyte = Scale.kilo * units.byte
