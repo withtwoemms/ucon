@@ -3,8 +3,8 @@
 # See the LICENSE file for details.
 
 """
-ucon.conversion.graph
-======================
+ucon.graph
+==========
 
 Implements the **ConversionGraph** — the registry of unit conversion
 morphisms that enables `Number.to()` conversions.
@@ -12,15 +12,24 @@ morphisms that enables `Number.to()` conversions.
 Classes
 -------
 - :class:`ConversionGraph` — Stores and composes conversion Maps between units.
+
+Functions
+---------
+- :func:`get_default_graph` — Get the current default graph.
+- :func:`set_default_graph` — Replace the default graph.
+- :func:`reset_default_graph` — Reset to standard graph on next access.
+- :func:`using_graph` — Context manager for scoped graph override.
 """
 from __future__ import annotations
 
 from collections import deque
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Union
 
 from ucon.core import Dimension, Unit, UnitFactor, UnitProduct, Scale
-from ucon.conversion.map import Map, LinearMap
+from ucon.maps import Map, LinearMap, AffineMap
 
 
 class DimensionMismatch(Exception):
@@ -305,3 +314,99 @@ class ConversionGraph:
             result = result @ factor_map
 
         return result
+
+
+# -----------------------------------------------------------------------------
+# Default Graph Management
+# -----------------------------------------------------------------------------
+
+_default_graph: ConversionGraph | None = None
+_graph_context: ContextVar[ConversionGraph | None] = ContextVar("graph", default=None)
+
+
+def get_default_graph() -> ConversionGraph:
+    """Get the current conversion graph.
+
+    Priority:
+    1. Context-local graph (from `using_graph`)
+    2. Module-level default graph (lazily built)
+    """
+    # Check context first
+    graph = _graph_context.get()
+    if graph is not None:
+        return graph
+
+    # Fall back to module default
+    global _default_graph
+    if _default_graph is None:
+        _default_graph = _build_standard_graph()
+    return _default_graph
+
+
+def set_default_graph(graph: ConversionGraph) -> None:
+    """Replace the module-level default graph."""
+    global _default_graph
+    _default_graph = graph
+
+
+def reset_default_graph() -> None:
+    """Reset to standard graph on next access."""
+    global _default_graph
+    _default_graph = None
+
+
+@contextmanager
+def using_graph(graph: ConversionGraph):
+    """Context manager for scoped graph override.
+
+    Usage::
+
+        with using_graph(custom_graph):
+            result = value.to(target)  # uses custom_graph
+    """
+    token = _graph_context.set(graph)
+    try:
+        yield graph
+    finally:
+        _graph_context.reset(token)
+
+
+def _build_standard_graph() -> ConversionGraph:
+    """Build the default graph with common conversions."""
+    from ucon import units
+
+    graph = ConversionGraph()
+
+    # --- Length ---
+    graph.add_edge(src=units.meter, dst=units.foot, map=LinearMap(3.28084))
+    graph.add_edge(src=units.foot, dst=units.inch, map=LinearMap(12))
+    graph.add_edge(src=units.foot, dst=units.yard, map=LinearMap(1/3))
+    graph.add_edge(src=units.mile, dst=units.foot, map=LinearMap(5280))
+
+    # --- Mass ---
+    graph.add_edge(src=units.kilogram, dst=units.gram, map=LinearMap(1000))
+    graph.add_edge(src=units.kilogram, dst=units.pound, map=LinearMap(2.20462))
+    graph.add_edge(src=units.pound, dst=units.ounce, map=LinearMap(16))
+
+    # --- Time ---
+    graph.add_edge(src=units.second, dst=units.minute, map=LinearMap(1/60))
+    graph.add_edge(src=units.minute, dst=units.hour, map=LinearMap(1/60))
+    graph.add_edge(src=units.hour, dst=units.day, map=LinearMap(1/24))
+
+    # --- Temperature ---
+    # C → K: K = C + 273.15
+    graph.add_edge(src=units.celsius, dst=units.kelvin, map=AffineMap(1, 273.15))
+    # F → C: C = (F - 32) * 5/9
+    graph.add_edge(src=units.fahrenheit, dst=units.celsius, map=AffineMap(5/9, -32 * 5/9))
+
+    # --- Volume ---
+    graph.add_edge(src=units.liter, dst=units.gallon, map=LinearMap(0.264172))
+
+    # --- Energy ---
+    graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
+    graph.add_edge(src=units.joule, dst=units.btu, map=LinearMap(1/1055.06))
+
+    # --- Power ---
+    graph.add_edge(src=units.watt, dst=units.horsepower, map=LinearMap(1/745.7))
+
+    return graph

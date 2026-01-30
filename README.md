@@ -40,15 +40,17 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 | **`Unit`**                    | `ucon.core`                             | An atomic, scale-free measurement symbol (e.g., meter, second, joule) with a `Dimension`.           | Defining base units; serving as graph nodes for future conversions.                                                    |
 | **`UnitFactor`**              | `ucon.core`                             | Pairs a `Unit` with a `Scale` (e.g., kilo + gram = kg). Used as keys inside `UnitProduct`.          | Preserving user-provided scale prefixes through algebraic operations.                                                  |
 | **`UnitProduct`**             | `ucon.core`                             | A product/quotient of `UnitFactor`s with exponent tracking and simplification.                      | Representing composite units like m/s, kg·m/s², kJ·h.                                                                 |
-| **`Number`**                  | `ucon.quantity`                         | Combines a numeric quantity with a unit; the primary measurable type.                               | Performing arithmetic with units; representing physical quantities like 5 m/s.                                         |
-| **`Ratio`**                   | `ucon.quantity`                         | Represents the division of two `Number` objects; captures relationships between quantities.         | Expressing rates, densities, efficiencies (e.g., energy / time = power, length / time = velocity).                     |
-| **`units` module**            | `ucon.units`                            | Defines canonical unit instances (SI and common derived units).                                     | Quick access to standard physical units (`units.meter`, `units.second`, `units.newton`, etc.).                          |
+| **`Number`**                  | `ucon.core`                             | Combines a numeric quantity with a unit; the primary measurable type.                               | Performing arithmetic with units; representing physical quantities like 5 m/s.                                         |
+| **`Ratio`**                   | `ucon.core`                             | Represents the division of two `Number` objects; captures relationships between quantities.         | Expressing rates, densities, efficiencies (e.g., energy / time = power, length / time = velocity).                     |
+| **`Map`** hierarchy           | `ucon.maps`                             | Composable conversion morphisms: `LinearMap`, `AffineMap`, `ComposedMap`.                           | Defining conversion functions between units (e.g., meter→foot, celsius→kelvin).                                        |
+| **`ConversionGraph`**         | `ucon.graph`                            | Registry of unit conversion edges with BFS path composition.                                        | Converting between units via `Number.to(target)`; managing default and custom graphs.                                  |
+| **`units` module**            | `ucon.units`                            | Defines canonical unit instances (SI, imperial, and derived units).                                 | Quick access to standard physical units (`units.meter`, `units.foot`, `units.newton`, etc.).                           |
 
 ### Under the Hood
 
 `ucon` models unit math through a hierarchy where each layer builds on the last:
 
-<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/f24134c362829dc72e7dff18bfcaa24b9be01b54/ucon.data-model_v035.png align="center" alt="ucon Data Model" width=600/>
+<img src=https://gist.githubusercontent.com/withtwoemms/429d2ca1f979865aa80a2658bf9efa32/raw/5df6a7fb2a6426ee6804096c092c10bed1b30b6f/ucon.data-model_v040.png align="center" alt="ucon Data Model" width=600/>
 
 ## Why `ucon`?
 
@@ -130,8 +132,24 @@ print(km.fold_scale())  # 1000.0
 print(mg.fold_scale())  # 0.001
 ```
 
-> **Note:** Unit _conversions_ (e.g., `number.to(units.inch)`) are planned for v0.4.x
-> via the `ConversionGraph` abstraction. See [ROADMAP.md](./ROADMAP.md).
+Units are callable for ergonomic quantity construction:
+```python
+from ucon import units, Scale
+
+# Callable syntax: unit(quantity) → Number
+height = units.meter(1.8)
+speed = (units.mile / units.hour)(60)
+
+# Convert between units
+height_ft = height.to(units.foot)
+print(height_ft)  # <5.905... ft>
+
+# Scaled units work too
+km = Scale.kilo * units.meter
+distance = km(5)
+distance_mi = distance.to(units.mile)
+print(distance_mi)  # <3.107... mi>
+```
 
 ---
 
@@ -140,7 +158,7 @@ print(mg.fold_scale())  # 0.001
 | Version | Theme | Focus | Status |
 |----------|-------|--------|--------|
 | **0.3.5** | Dimensional Algebra | Unit/Scale separation, `UnitFactor`, `UnitProduct` | ✅ Complete |
-| [**0.4.x**](https://github.com/withtwoemms/ucon/milestone/2) | Conversion System | `ConversionGraph`, `Number.to()` | 🚧 Up Next |
+| [**0.4.x**](https://github.com/withtwoemms/ucon/milestone/2) | Conversion System | `ConversionGraph`, `Number.to()`, callable units | 🚧 In Progress |
 | [**0.6.x**](https://github.com/withtwoemms/ucon/milestone/4) | Nonlinear / Specialized Units | Decibel, Percent, pH | ⏳ Planned |
 | [**0.8.x**](https://github.com/withtwoemms/ucon/milestone/6) | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
 

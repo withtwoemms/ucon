@@ -6,14 +6,13 @@ import unittest
 
 from ucon import units
 from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct
-from ucon.conversion import (
+from ucon.graph import (
     ConversionGraph,
-    LinearMap,
-    AffineMap,
     DimensionMismatch,
     ConversionNotFound,
     CyclicInconsistency,
 )
+from ucon.maps import LinearMap, AffineMap
 
 
 class TestConversionGraphEdgeManagement(unittest.TestCase):
@@ -21,8 +20,8 @@ class TestConversionGraphEdgeManagement(unittest.TestCase):
     def setUp(self):
         self.graph = ConversionGraph()
         self.meter = units.meter
-        self.foot = Unit('ft', name='foot', dimension=Dimension.length)
-        self.inch = Unit('in', name='inch', dimension=Dimension.length)
+        self.foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
+        self.inch = Unit(name='inch', dimension=Dimension.length, aliases=('in',))
         self.gram = units.gram
 
     def test_add_and_retrieve_edge(self):
@@ -51,9 +50,9 @@ class TestConversionGraphUnitConversion(unittest.TestCase):
     def setUp(self):
         self.graph = ConversionGraph()
         self.meter = units.meter
-        self.foot = Unit('ft', name='foot', dimension=Dimension.length)
-        self.inch = Unit('in', name='inch', dimension=Dimension.length)
-        self.yard = Unit('yd', name='yard', dimension=Dimension.length)
+        self.foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
+        self.inch = Unit(name='inch', dimension=Dimension.length, aliases=('in',))
+        self.yard = Unit(name='yard', dimension=Dimension.length, aliases=('yd',))
 
     def test_identity_conversion(self):
         m = self.graph.convert(src=self.meter, dst=self.meter)
@@ -78,7 +77,7 @@ class TestConversionGraphUnitConversion(unittest.TestCase):
         self.assertAlmostEqual(m(1), 1.0936, places=3)
 
     def test_no_path_raises(self):
-        mile = Unit('mi', name='mile', dimension=Dimension.length)
+        mile = Unit(name='mile', dimension=Dimension.length, aliases=('mi',))
         with self.assertRaises(ConversionNotFound):
             self.graph.convert(src=self.meter, dst=mile)
 
@@ -93,8 +92,8 @@ class TestConversionGraphProductConversion(unittest.TestCase):
         self.graph = ConversionGraph()
         self.meter = units.meter
         self.second = units.second
-        self.mile = Unit('mi', name='mile', dimension=Dimension.length)
-        self.hour = Unit('h', name='hour', dimension=Dimension.time)
+        self.mile = Unit(name='mile', dimension=Dimension.length, aliases=('mi',))
+        self.hour = Unit(name='hour', dimension=Dimension.time, aliases=('h',))
 
         # Register unit conversions
         self.graph.add_edge(src=self.meter, dst=self.mile, map=LinearMap(0.000621371))
@@ -155,9 +154,9 @@ class TestConversionGraphTemperature(unittest.TestCase):
 
     def setUp(self):
         self.graph = ConversionGraph()
-        self.celsius = Unit('°C', name='celsius', dimension=Dimension.temperature)
-        self.kelvin = Unit('K', name='kelvin', dimension=Dimension.temperature)
-        self.fahrenheit = Unit('°F', name='fahrenheit', dimension=Dimension.temperature)
+        self.celsius = Unit(name='celsius', dimension=Dimension.temperature, aliases=('°C',))
+        self.kelvin = Unit(name='kelvin', dimension=Dimension.temperature, aliases=('K',))
+        self.fahrenheit = Unit(name='fahrenheit', dimension=Dimension.temperature, aliases=('°F',))
 
     def test_celsius_to_kelvin(self):
         self.graph.add_edge(src=self.celsius, dst=self.kelvin, map=AffineMap(1, 273.15))

@@ -451,7 +451,7 @@ class TestUnit(unittest.TestCase):
     unit_name = 'second'
     unit_type = 'time'
     unit_aliases = ('seconds', 'secs', 's', 'S')
-    unit = Unit(*unit_aliases, name=unit_name, dimension=Dimension.time)
+    unit = Unit(name=unit_name, dimension=Dimension.time, aliases=unit_aliases)
 
     def test___repr__(self):
         self.assertEqual(f'<Unit {self.unit_aliases[0]}>', str(self.unit))
@@ -464,12 +464,12 @@ class TestUnit(unittest.TestCase):
 
     def test_unit_equality_alias_normalization(self):
         # ('',) should normalize to () under _norm
-        u1 = Unit("", name="x", dimension=Dimension.length)
+        u1 = Unit(name="x", dimension=Dimension.length, aliases=("",))
         u2 = Unit(name="x", dimension=Dimension.length)
         self.assertEqual(u1, u2)
 
     def test_unit_invalid_eq_type(self):
-        self.assertFalse(Unit("m", dimension=Dimension.length) == "meter")
+        self.assertFalse(Unit(name="meter", dimension=Dimension.length, aliases=("m",)) == "meter")
 
 
 class TestUnitProduct(unittest.TestCase):
@@ -544,7 +544,7 @@ class TestUnitEdgeCases(unittest.TestCase):
         self.assertEqual(repr(u), '<Unit>')
 
     def test_unit_with_aliases_and_name(self):
-        u = Unit('m', 'M', name='meter', dimension=Dimension.length)
+        u = Unit(name='meter', dimension=Dimension.length, aliases=('m', 'M'))
         self.assertEqual(u.shorthand, 'm')
         self.assertIn('m', u.aliases)
         self.assertIn('M', u.aliases)
@@ -553,9 +553,9 @@ class TestUnitEdgeCases(unittest.TestCase):
         self.assertIn('<Unit m>', repr(u))
 
     def test_hash_and_equality_consistency(self):
-        u1 = Unit('m', name='meter', dimension=Dimension.length)
-        u2 = Unit('m', name='meter', dimension=Dimension.length)
-        u3 = Unit('s', name='second', dimension=Dimension.time)
+        u1 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
+        u2 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
+        u3 = Unit(name='second', dimension=Dimension.time, aliases=('s',))
         self.assertEqual(u1, u2)
         self.assertEqual(hash(u1), hash(u2))
         self.assertNotEqual(u1, u3)
@@ -569,36 +569,36 @@ class TestUnitEdgeCases(unittest.TestCase):
     # --- arithmetic behavior ----------------------------------------------
 
     def test_multiplication_produces_composite_unit(self):
-        m = Unit('m', name='meter', dimension=Dimension.length)
-        s = Unit('s', name='second', dimension=Dimension.time)
+        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
+        s = Unit(name='second', dimension=Dimension.time, aliases=('s',))
         v = m / s
         self.assertIsInstance(v, UnitProduct)
         self.assertEqual(v.dimension, Dimension.velocity)
         self.assertIn('/', repr(v))
 
     def test_division_with_dimensionless_denominator_returns_self(self):
-        m = Unit('m', name='meter', dimension=Dimension.length)
+        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
         none = Unit(name='none', dimension=Dimension.none)
         result = m / none
         self.assertEqual(result, m)
 
     def test_division_of_identical_units_returns_dimensionless(self):
-        m1 = Unit('m', name='meter', dimension=Dimension.length)
-        m2 = Unit('m', name='meter', dimension=Dimension.length)
+        m1 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
+        m2 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
         result = m1 / m2
         self.assertEqual(result.dimension, Dimension.none)
         self.assertEqual(result.name, '')
 
     def test_multiplying_with_dimensionless_returns_self(self):
-        m = Unit('m', name='meter', dimension=Dimension.length)
+        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
         none = Unit(name='none', dimension=Dimension.none)
         result = m * none
         self.assertEqual(result.dimension, Dimension.length)
         self.assertEqual('m', result.shorthand)
 
     def test_invalid_dimension_combinations_raise_value_error(self):
-        m = Unit('m', name='meter', dimension=Dimension.length)
-        c = Unit('C', name='coulomb', dimension=Dimension.charge)
+        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
+        c = Unit(name='coulomb', dimension=Dimension.charge, aliases=('C',))
         # The result of combination gives CompositeUnit
         self.assertIsInstance(m / c, UnitProduct)
         self.assertIsInstance(m * c, UnitProduct)
@@ -606,16 +606,16 @@ class TestUnitEdgeCases(unittest.TestCase):
     # --- equality, hashing, immutability ----------------------------------
 
     def test_equality_with_non_unit(self):
-        self.assertFalse(Unit('m', name='meter', dimension=Dimension.length) == 'meter')
+        self.assertFalse(Unit(name='meter', dimension=Dimension.length, aliases=('m',)) == 'meter')
 
     def test_hash_stability_in_collections(self):
-        m1 = Unit('m', name='meter', dimension=Dimension.length)
+        m1 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
         s = set([m1])
-        self.assertIn(Unit('m', name='meter', dimension=Dimension.length), s)
+        self.assertIn(Unit(name='meter', dimension=Dimension.length, aliases=('m',)), s)
 
     def test_operations_do_not_mutate_operands(self):
-        m = Unit('m', name='meter', dimension=Dimension.length)
-        s = Unit('s', name='second', dimension=Dimension.time)
+        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
+        s = Unit(name='second', dimension=Dimension.time, aliases=('s',))
         _ = m / s
         self.assertEqual(m.dimension, Dimension.length)
         self.assertEqual(s.dimension, Dimension.time)

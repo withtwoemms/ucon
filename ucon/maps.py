@@ -3,8 +3,8 @@
 # See the LICENSE file for details.
 
 """
-ucon.conversion.map
-====================
+ucon.maps
+=========
 
 Implements the **Map** class hierarchy — the composable substrate for
 all unit conversion morphisms in *ucon*.
