@@ -34,18 +34,20 @@ class Vector:
     """
     Represents the **exponent vector** of a physical quantity.
 
-    Each component corresponds to the power of a base dimension in the SI system:
+    Each component corresponds to the power of a base dimension in the SI system
+    plus information (B) as an orthogonal non-SI dimension:
     time (T), length (L), mass (M), current (I), temperature (Θ),
-    luminous intensity (J), and amount of substance (N).
+    luminous intensity (J), amount of substance (N), and information (B).
 
     Arithmetic operations correspond to dimensional composition:
     - Addition (`+`) → multiplication of quantities
     - Subtraction (`-`) → division of quantities
 
     e.g.
-    Vector(T=1, L=0, M=0, I=0, Θ=0, J=0, N=0)   => "time"
-    Vector(T=0, L=2, M=0, I=0, Θ=0, J=0, N=0)   => "area"
-    Vector(T=-2, L=1, M=1, I=0, Θ=0, J=0, N=0)  => "force"
+    Vector(T=1, L=0, M=0, I=0, Θ=0, J=0, N=0, B=0)   => "time"
+    Vector(T=0, L=2, M=0, I=0, Θ=0, J=0, N=0, B=0)   => "area"
+    Vector(T=-2, L=1, M=1, I=0, Θ=0, J=0, N=0, B=0)  => "force"
+    Vector(T=0, L=0, M=0, I=0, Θ=0, J=0, N=0, B=1)   => "information"
     """
     T: int = 0  # time
     L: int = 0  # length
@@ -54,6 +56,7 @@ class Vector:
     Θ: int = 0  # temperature
     J: int = 0  # luminous intensity
     N: int = 0  # amount of substance
+    B: int = 0  # information (bits)
 
     def __iter__(self) -> Iterator[int]:
         yield self.T
@@ -63,6 +66,7 @@ class Vector:
         yield self.Θ
         yield self.J
         yield self.N
+        yield self.B
 
     def __len__(self) -> int:
         return sum(tuple(1 for x in self))
