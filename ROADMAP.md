@@ -69,7 +69,7 @@ Building on v0.3.5 baseline:
 - [x] `Dimension.information` with `units.bit` and `units.byte`
 - [x] `Vector` extended to 8 components (added B for information)
 - [x] Information unit conversions in default graph (byte ↔ bit)
-- [ ] Extend tests to include temperature, pressure, and base SI conversions
+- [x] Extend tests to include temperature, pressure, and base SI conversions
 - [ ] Document Exponent/Scale relationship in developer guide
 
 ### 🧩 Outcomes
