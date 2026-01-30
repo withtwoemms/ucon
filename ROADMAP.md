@@ -10,8 +10,10 @@ Building on v0.3.5 baseline:
 - `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`)
 - `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`)
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`)
-- `ucon.units` (SI + imperial units, callable syntax)
+- `ucon.units` (SI + imperial + information units, callable syntax)
 - Callable unit API: `meter(5)`, `(mile / hour)(60)`
+- `Number.simplify()` for base-scale normalization
+- `Dimension.information` with `units.bit`, `units.byte`
 
 ---
 
@@ -64,6 +66,9 @@ Building on v0.3.5 baseline:
 - [x] Default graph with common SI and imperial conversions
 - [x] Imperial units: `foot`, `mile`, `yard`, `inch`, `pound`, `ounce`, `fahrenheit`, `gallon`
 - [x] `Number.simplify()` — Express in base scale
+- [x] `Dimension.information` with `units.bit` and `units.byte`
+- [x] `Vector` extended to 8 components (added B for information)
+- [x] Information unit conversions in default graph (byte ↔ bit)
 - [ ] Extend tests to include temperature, pressure, and base SI conversions
 - [ ] Document Exponent/Scale relationship in developer guide
 
@@ -72,6 +77,8 @@ Building on v0.3.5 baseline:
 - Reversible, dimension-checked conversions
 - Scale-aware graph that leverages the `Unit`/`UnitFactor` separation from v0.3.x
 - Ergonomic API: units are callable, returning `Number` instances
+- Information dimension support (bit, byte) with binary prefix compatibility
+- `Number.simplify()` for expressing quantities in base scale
 - Forms the basis for nonlinear and domain-specific conversion families
 
 ---
