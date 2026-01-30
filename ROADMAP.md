@@ -52,9 +52,9 @@ Stable baseline for:
 > Implements unified conversion engine for standard, linear, and affine conversions.
 
 ### ✅ Goals
-- [ ] Introduce `ConversionGraph` registry keyed by `Dimension`
-- [ ] Add support for `standard`, `linear`, and `affine` conversion types
-- [ ] Implement `Number.to(target_unit)` and `Number.simplify()`
+- [x] Introduce `ConversionGraph` registry keyed by `Dimension`
+- [x] Add support for `standard`, `linear`, and ~~`affine`~~ conversion types
+- [x] Implement `Number.to(target_unit)` and `Number.simplify()`
 - [ ] Scale-only conversions short-circuit without graph lookup
 - [ ] Composite-to-composite conversion via per-component decomposition
 - [ ] Round-trip validation for reversible conversions
