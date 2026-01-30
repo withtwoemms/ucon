@@ -705,6 +705,25 @@ class UnitProduct:
 
     # ------------- Helpers ---------------------------------------------------
 
+    @classmethod
+    def from_unit(cls, unit: Unit) -> 'UnitProduct':
+        """Wrap a plain Unit as a UnitProduct with Scale.one."""
+        return cls({UnitFactor(unit, Scale.one): 1})
+
+    def factors_by_dimension(self) -> dict[Dimension, tuple[UnitFactor, float]]:
+        """Group factors by dimension.
+
+        Returns a dict mapping each Dimension to (UnitFactor, exponent).
+        Raises ValueError if multiple factors share the same Dimension.
+        """
+        result: dict[Dimension, tuple[UnitFactor, float]] = {}
+        for factor, exp in self.factors.items():
+            dim = factor.unit.dimension
+            if dim in result:
+                raise ValueError(f"Multiple factors for dimension {dim}")
+            result[dim] = (factor, exp)
+        return result
+
     def _norm(self, aliases: tuple[str, ...]) -> tuple[str, ...]:
         """Normalize alias bag: drop empty/whitespace-only aliases."""
         return tuple(a for a in aliases if a.strip())

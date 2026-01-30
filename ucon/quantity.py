@@ -66,8 +66,73 @@ class Number:
         """Return a new Number expressed in base scale (Scale.one)."""
         raise NotImplementedError("Unit simplification requires ConversionGraph; coming soon.")
 
-    def to(self, new_scale: Scale):
-        raise NotImplementedError("Unit conversion requires ConversionGraph; coming soon.")
+    def to(self, target, graph=None):
+        """Convert this Number to a different unit expression.
+
+        Parameters
+        ----------
+        target : Unit or UnitProduct
+            The target unit to convert to.
+        graph : ConversionGraph, optional
+            The conversion graph to use. Required for cross-unit conversions.
+
+        Returns
+        -------
+        Number
+            A new Number with the converted quantity and target unit.
+
+        Examples
+        --------
+        >>> from ucon import Number, units
+        >>> from ucon.conversion import ConversionGraph, LinearMap
+        >>> graph = ConversionGraph()
+        >>> graph.add_edge(src=units.meter, dst=foot, map=LinearMap(3.28084))
+        >>> length = Number(unit=units.meter, quantity=100)
+        >>> length.to(foot, graph=graph)
+        <328.084 ft>
+        """
+        from ucon.conversion.graph import ConversionGraph
+
+        # Wrap plain Units as UnitProducts for uniform handling
+        src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
+        dst = target if isinstance(target, UnitProduct) else UnitProduct.from_unit(target)
+
+        # Scale-only conversion (same base unit, different scale)
+        if self._is_scale_only_conversion(src, dst):
+            factor = src.fold_scale() / dst.fold_scale()
+            return Number(quantity=self.quantity * factor, unit=target)
+
+        # Graph-based conversion
+        if graph is None:
+            raise ValueError("ConversionGraph required for cross-unit conversion")
+
+        conversion_map = graph.convert(src=src, dst=dst)
+        converted_quantity = conversion_map(self._canonical_magnitude)
+        return Number(quantity=converted_quantity, unit=target)
+
+    def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
+        """Check if conversion is just a scale change (same base units)."""
+        # Same factors with same exponents, just different scales
+        if len(src.factors) != len(dst.factors):
+            return False
+
+        src_by_dim = {}
+        dst_by_dim = {}
+        for f, exp in src.factors.items():
+            src_by_dim[f.unit.dimension] = (f.unit, exp)
+        for f, exp in dst.factors.items():
+            dst_by_dim[f.unit.dimension] = (f.unit, exp)
+
+        if src_by_dim.keys() != dst_by_dim.keys():
+            return False
+
+        for dim in src_by_dim:
+            src_unit, src_exp = src_by_dim[dim]
+            dst_unit, dst_exp = dst_by_dim[dim]
+            if src_unit != dst_unit or abs(src_exp - dst_exp) > 1e-12:
+                return False
+
+        return True
 
     def as_ratio(self):
         return Ratio(self)
