@@ -501,3 +501,61 @@ class TestNumberSimplify(unittest.TestCase):
         result2 = result1.simplify()
         self.assertAlmostEqual(result1.quantity, result2.quantity, places=10)
         self.assertEqual(result1.unit.shorthand, result2.unit.shorthand)
+
+
+class TestInformationDimension(unittest.TestCase):
+    """Tests for Dimension.information and information units (bit, byte)."""
+
+    def test_dimension_information_exists(self):
+        """Dimension.information should be a valid dimension."""
+        self.assertEqual(Dimension.information.name, 'information')
+        self.assertNotEqual(Dimension.information, Dimension.none)
+
+    def test_bit_unit_exists(self):
+        """units.bit should have Dimension.information."""
+        self.assertEqual(units.bit.dimension, Dimension.information)
+        self.assertIn('b', units.bit.aliases)
+
+    def test_byte_unit_exists(self):
+        """units.byte should have Dimension.information."""
+        self.assertEqual(units.byte.dimension, Dimension.information)
+        self.assertIn('B', units.byte.aliases)
+
+    def test_byte_to_bit_conversion(self):
+        """1 byte should be 8 bits."""
+        result = units.byte(1).to(units.bit)
+        self.assertAlmostEqual(result.quantity, 8.0, places=10)
+
+    def test_bit_to_byte_conversion(self):
+        """8 bits should be 1 byte."""
+        result = units.bit(8).to(units.byte)
+        self.assertAlmostEqual(result.quantity, 1.0, places=10)
+
+    @unittest.skip("Requires Number.simplify() from ucon#93-numbers-can-be-simplified")
+    def test_kibibyte_simplify(self):
+        """1 kibibyte simplifies to 1024 bytes."""
+        kibibyte = Scale.kibi * units.byte
+        result = kibibyte(1).simplify()
+        self.assertAlmostEqual(result.quantity, 1024.0, places=10)
+        self.assertEqual(result.unit.shorthand, "B")
+
+    @unittest.skip("Requires Number.simplify() from ucon#93-numbers-can-be-simplified")
+    def test_kilobyte_simplify(self):
+        """1 kilobyte simplifies to 1000 bytes."""
+        kilobyte = Scale.kilo * units.byte
+        result = kilobyte(1).simplify()
+        self.assertAlmostEqual(result.quantity, 1000.0, places=10)
+        self.assertEqual(result.unit.shorthand, "B")
+
+    def test_data_rate_dimension(self):
+        """bytes/second should have information/time dimension."""
+        data_rate = units.byte / units.second
+        expected_dim = Dimension.information / Dimension.time
+        self.assertEqual(data_rate.dimension, expected_dim)
+
+    def test_information_orthogonal_to_physical(self):
+        """Information dimension should be orthogonal to physical dimensions."""
+        # byte * meter should have both information and length
+        composite = units.byte * units.meter
+        self.assertNotEqual(composite.dimension, Dimension.information)
+        self.assertNotEqual(composite.dimension, Dimension.length)
