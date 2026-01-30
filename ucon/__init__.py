@@ -39,17 +39,21 @@ Design Philosophy
 from ucon import units
 from ucon.algebra import Exponent
 from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct
-from ucon.quantity import Number, Ratio
+from ucon.quantity import Number, Ratio, Quantity
+from ucon.graph import get_default_graph, using_graph
 
 
 __all__ = [
     'Exponent',
     'Dimension',
     'Number',
+    'Quantity',
     'Ratio',
     'Scale',
     'Unit',
     'UnitFactor',
     'UnitProduct',
+    'get_default_graph',
+    'using_graph',
     'units',
 ]

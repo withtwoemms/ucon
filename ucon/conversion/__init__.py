@@ -8,6 +8,9 @@ ucon.conversion
 
 Unit conversion engine for *ucon*.
 
+This module re-exports from :mod:`ucon.maps` and :mod:`ucon.graph`
+for backward compatibility.
+
 Classes
 -------
 - :class:`Map` — Abstract base for conversion morphisms.
@@ -21,13 +24,24 @@ Exceptions
 - :class:`DimensionMismatch` — Incompatible dimensions.
 - :class:`ConversionNotFound` — No conversion path exists.
 - :class:`CyclicInconsistency` — Inconsistent cycle detected.
+
+Functions
+---------
+- :func:`get_default_graph` — Get the current default graph.
+- :func:`set_default_graph` — Replace the default graph.
+- :func:`reset_default_graph` — Reset to standard graph on next access.
+- :func:`using_graph` — Context manager for scoped graph override.
 """
-from ucon.conversion.map import Map, LinearMap, AffineMap, ComposedMap
-from ucon.conversion.graph import (
+from ucon.maps import Map, LinearMap, AffineMap, ComposedMap
+from ucon.graph import (
     ConversionGraph,
     DimensionMismatch,
     ConversionNotFound,
     CyclicInconsistency,
+    get_default_graph,
+    set_default_graph,
+    reset_default_graph,
+    using_graph,
 )
 
 __all__ = [
@@ -39,4 +53,8 @@ __all__ = [
     'DimensionMismatch',
     'ConversionNotFound',
     'CyclicInconsistency',
+    'get_default_graph',
+    'set_default_graph',
+    'reset_default_graph',
+    'using_graph',
 ]
