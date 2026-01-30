@@ -232,7 +232,7 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertTrue(r == Number())
 
     def test_repr_includes_scale_and_unit(self):
-        kV = Scale.kilo * Unit('V', name='volt', dimension=Dimension.voltage)
+        kV = Scale.kilo * Unit(name='volt', dimension=Dimension.voltage, aliases=('V',))
         n = Number(unit=kV, quantity=5)
         rep = repr(n)
         self.assertIn("kV", rep)
@@ -269,7 +269,7 @@ class TestRatio(unittest.TestCase):
         self.assertEqual(self.one_half * self.three_halves, self.three_fourths)
 
     def test___mul__(self):
-        mL = Scale.milli * Unit('L', name='liter', dimension=Dimension.volume)
+        mL = Scale.milli * Unit(name='liter', dimension=Dimension.volume, aliases=('L',))
         n1 = Number(unit=units.gram, quantity=3.119)
         n2 = Number(unit=mL)
         bromine_density = Ratio(n1, n2)
@@ -289,7 +289,7 @@ class TestRatio(unittest.TestCase):
 
         # How many Wh from 20 kJ?
         twenty_kilojoules = Number(
-            unit=Scale.kilo * Unit('J', name='joule', dimension=Dimension.energy),
+            unit=Scale.kilo * Unit(name='joule', dimension=Dimension.energy, aliases=('J',)),
             quantity=20
         )
         ratio = twenty_kilojoules.as_ratio() / seconds_per_hour
