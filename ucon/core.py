@@ -95,6 +95,10 @@ class Dimension(Enum):
 
     @classmethod
     def _resolve(cls, vector: 'Vector') -> 'Dimension':
+        # Zero vector always resolves to none, never to pseudo-dimensions.
+        # This ensures algebraic operations like length/length yield none.
+        if vector == Vector():
+            return cls.none
         for dim in cls:
             if dim.value == vector:
                 return dim
@@ -124,9 +128,17 @@ class Dimension(Enum):
     def __eq__(self, dimension) -> bool:
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot compare Dimension with non-Dimension type: {type(dimension)}")
+        # For zero-vector dimensions (pseudo-dimensions), use enum identity.
+        # This isolates angle, solid_angle, ratio, and none from each other.
+        if self.value == Vector() and dimension.value == Vector():
+            return self is dimension
+        # For non-zero vectors, compare algebraically.
         return self.value == dimension.value
 
     def __hash__(self) -> int:
+        # Differentiate pseudo-dimensions by including name in hash.
+        if self.value == Vector():
+            return hash((self.value, self.name))
         return hash(self.value)
 
     def __bool__(self):
