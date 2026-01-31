@@ -36,6 +36,10 @@ class Dimension(Enum):
     """
     Represents a **physical dimension** defined by a :class:`Vector`.
     Algebra over multiplication/division & exponentiation, with dynamic resolution.
+
+    Pseudo-dimensions (angle, solid_angle, ratio) share the zero vector but are
+    semantically isolated via enum identity comparison. This prevents nonsensical
+    conversions like radian → percent while preserving algebraic consistency.
     """
     none = Vector()
 
@@ -49,6 +53,12 @@ class Dimension(Enum):
     amount_of_substance = Vector(0, 0, 0, 0, 0, 0, 1, 0)
     information         = Vector(0, 0, 0, 0, 0, 0, 0, 1)
     # ------------------------------------------------
+
+    # -- PSEUDO-DIMENSIONS (zero vector, distinct identity) --
+    angle       = Vector()  # radian, degree, etc.
+    solid_angle = Vector()  # steradian, square_degree
+    ratio       = Vector()  # percent, ppm, etc.
+    # --------------------------------------------------------
 
     acceleration = Vector(-2, 1, 0, 0, 0, 0, 0, 0)
     angular_momentum = Vector(-1, 2, 1, 0, 0, 0, 0, 0)
