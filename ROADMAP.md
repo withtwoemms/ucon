@@ -1,10 +1,40 @@
-# 🧭 ucon Roadmap
+# ucon Roadmap
 
 > *A clear path from algebraic foundation to a stable 1.0 release.*
 
 ---
 
-## 🪜 Current Version: **v0.5.0** (in progress)
+## Vision
+
+ucon is a dimensional analysis library for engineers building systems where unit handling is infrastructure, not just convenience.
+
+**Target users:**
+
+- Library authors embedding unit handling without global state
+- Domain specialists defining dimensions that match their field
+- Modern stack developers wanting first-class Pydantic, Polars, MCP support
+
+---
+
+## Release Timeline
+
+| Version | Theme | Status |
+|---------|-------|--------|
+| v0.3.x | Dimensional Algebra | Complete |
+| v0.4.x | Core Conversion + Information | Complete |
+| v0.5.0 | Dimensionless Units | In Progress |
+| v0.5.x | Uncertainty Propagation | Planned |
+| v0.5.x | BasisMap + UnitSystem | Planned |
+| v0.6.0 | NumPy Array Support | Planned |
+| v0.7.0 | Pydantic + Serialization | Planned |
+| v0.8.0 | String Parsing | Planned |
+| v0.9.0 | Constants + Logarithmic Units | Planned |
+| v0.10.0 | DataFrame Integration | Planned |
+| v1.0.0 | API Stability | Planned |
+
+---
+
+## Current Version: **v0.5.0** (in progress)
 
 Building on v0.4.x baseline:
 - `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`)
@@ -17,28 +47,17 @@ Building on v0.4.x baseline:
 
 ---
 
-## ✅ v0.3.x — Dimensional Algebra (Complete)
+## v0.3.x — Dimensional Algebra (Complete)
 
-### 🔹 Summary
-> Introduces dimensional algebra and establishes the Unit/Scale separation
-> that underpins all downstream work.
+**Theme:** Algebraic foundation.
 
-### ✅ Goals
-- [x] Implement `Vector` and `Dimension` classes
-- [x] Integrate dimensions into `Unit`
-- [x] Refactor `ucon.units` to use dimensional definitions
-- [x] Publish documentation for dimensional operations
-- [x] Verify uniqueness and hashing correctness across all Dimensions
-- [x] Redesign `Exponent` to support algebraic operations (`__mul__`, `__truediv__`, `to_base`, etc.)
-- [x] Remove redundant evaluated caching in favor of property-based computation
-- [x] Integrate `Scale` with Exponent for consistent prefix arithmetic
-- [x] Add regression tests for prefix math (`kilo / milli → mega`, `2¹⁰ / 10³ → 1.024×`)
-- [x] Separate `scale` from `Unit`; delegate to `UnitFactor(unit, scale)`
-- [x] Introduce `UnitProduct` with `fold_scale()` and `_residual_scale_factor`
-- [x] `Number.value` returns as-expressed magnitude; `_canonical_magnitude` folds scale internally
-- [x] Remove dead code and unify naming (`UnitFactor`, `UnitProduct`) across all docstrings and repr
+- [x] `Vector` and `Dimension` classes
+- [x] Unit/Scale separation: `Unit` is atomic, `UnitFactor` pairs unit+scale
+- [x] `UnitProduct` with `fold_scale()` and `_residual_scale_factor`
+- [x] `Exponent` algebraic operations (`__mul__`, `__truediv__`, `to_base`)
+- [x] Scale/Exponent integration for prefix arithmetic
 
-### 🧩 Outcomes
+**Outcomes:**
 - All units acquire explicit dimensional semantics
 - Enables composable and type-safe dimensional operations
 - Establishes the mathematical foundation for future conversions
@@ -49,30 +68,25 @@ Building on v0.4.x baseline:
 
 ---
 
-## ✅ v0.4.x — Conversion System Foundations (Complete)
+## v0.4.x — Conversion System Foundations (Complete)
 
-### 🔹 Summary
-> Implements unified conversion engine for standard, linear, and affine conversions.
-> Introduces callable unit API for ergonomic quantity construction.
+**Theme:** First useful release.
 
-### ✅ Goals
-- [x] Introduce `ConversionGraph` registry keyed by `Dimension`
-- [x] Add support for `standard`, `linear`, and `affine` conversion types
-- [x] Implement `Number.to(target_unit)` conversion API
-- [x] Scale-only conversions short-circuit without graph lookup
-- [x] Composite-to-composite conversion via per-component decomposition
-- [x] Round-trip validation for reversible conversions (inverse maps)
-- [x] Callable unit syntax: `meter(5)`, `(mile / hour)(60)`
-- [x] Default graph with common SI and imperial conversions
-- [x] Imperial units: `foot`, `mile`, `yard`, `inch`, `pound`, `ounce`, `fahrenheit`, `gallon`
-- [x] `Number.simplify()` — Express in base scale
-- [x] `Dimension.information` with `units.bit` and `units.byte`
+- [x] `Map` hierarchy (`LinearMap`, `AffineMap`, `ComposedMap`)
+- [x] `Quantity` class (callable unit constructor)
+- [x] `ConversionGraph` with edge API and BFS path finding
+- [x] `Number.to()` wired to graph
+- [x] Default graph with SI + Imperial + conventional units
+- [x] Unit registry with `get_unit_by_name()`
+- [x] Graph management (`get_default_graph`, `set_default_graph`, `using_graph`)
+- [x] `Dimension.information` with `bit`, `byte`
 - [x] `Vector` extended to 8 components (added B for information)
-- [x] Information unit conversions in default graph (byte ↔ bit)
-- [x] Extend tests to include temperature, pressure, and base SI conversions
-- [x] Document Exponent/Scale relationship in developer guide
+- [x] Binary scale prefixes: `kibi`, `mebi`, `gibi`, `tebi`, `pebi`, `exbi`
+- [x] `Number.simplify()` for base-scale normalization
+- [x] Temperature, pressure, and base SI conversion tests
+- [x] Exponent/Scale developer guide
 
-### 🧩 Outcomes
+**Outcomes:**
 - Unified conversion taxonomy
 - Reversible, dimension-checked conversions
 - Scale-aware graph that leverages the `Unit`/`UnitFactor` separation from v0.3.x
@@ -83,162 +97,173 @@ Building on v0.4.x baseline:
 
 ---
 
-## 🧱 v0.5.x — Unit Systems & Registries
+## v0.5.0 — Dimensionless Units (In Progress)
 
-### 🔹 Summary
-> Introduces an extensible registry system for custom units and aliases.
+**Theme:** Complete the dimension model.
 
-### ✅ Goals
-- [x] Implement `have(name)` membership check
-- [ ] Add `UnitSystem` abstraction
-- [ ] Support `registry.add(unit)` and dynamic system registration
-- [ ] Validate alias uniqueness and collision prevention
-- [ ] Include examples for user-defined unit extensions
+- [ ] Pseudo-dimensions: `angle`, `solid_angle`, `ratio` (same zero vector, distinct enum identity)
+- [ ] Angle units: `radian`, `degree`, `gradian`, `arcminute`, `arcsecond`, `turn`
+- [ ] Solid angle units: `steradian`, `square_degree`
+- [ ] Ratio units: `percent`, `permille`, `ppm`, `ppb`, `basis_point`
+- [ ] Cross-pseudo-dimension conversion fails (enforced isolation)
+- [ ] Conversion edges for all new units
 
-### 🧩 Outcomes
-- Registry-based extensibility for domain-specific systems
-- Dynamic unit registration and discovery
-- Groundwork for plugin-style system extensions
-
----
-
-## 🧪 v0.6.x — Nonlinear & Specialized Conversions
-
-### 🔹 Summary
-> Adds support for logarithmic, fractional, and other specialized dimensionless conversions.
-
-### ✅ Goals
-- [ ] Extend conversion registry schema with `"nonlinear"` family
-- [ ] Add `to_base` / `from_base` lambdas for function-based mappings
-- [ ] Define sample nonlinear conversions (`decibel`, `bel`, `pH`)
-- [ ] Add tolerance-aware tests for nonlinear conversions
-- [ ] Introduce structured dimensionless unit family (`radian`, `percent`, `ppm`, `count`, etc.)
-- [ ] Define canonical dimensionless subtypes for angular, fractional, and count semantics
-- [ ] Ensure automatic collapse of equivalent units (`m/m → none`, `J/J → none`) via Ratio
-
-### 🧩 Outcomes
-- Support for function-based (nonlinear) physical conversions
-- Unified algebraic framework across all conversion types
-- Rich, semantically meaningful representation of dimensionless quantities
-- Enables acoustics (dB), geometry (rad, sr), statistics (probability), and fractional scales (%, ppm)
+**Outcomes:**
+- Semantic isolation prevents nonsensical conversions (radian → percent)
+- Rich dimensionless unit coverage for geometry, optics, finance, chemistry
+- Complete dimension model ready for metrology extensions
 
 ---
 
-## 🧰 v0.7.x — Testing, Developer Experience, & API Polish
+## v0.5.x — Uncertainty Propagation
 
-### 🔹 Summary
-> Strengthens tests, developer ergonomics, and runtime feedback.
+**Theme:** Metrology foundation.
 
-### ✅ Goals
-- [ ] Reach 95%+ test coverage
-- [ ] Add property-based tests for dimensional invariants
-- [ ] Improve error reporting, `__repr__`, and exception messaging
-- [ ] Validate public API imports and maintain consistent naming
-- [ ] Add CI coverage reports and build badges
+- [ ] `Number.uncertainty: float | None`
+- [ ] Propagation through arithmetic (uncorrelated, quadrature)
+- [ ] Propagation through conversion via `Map.derivative()`
+- [ ] Construction: `meter(1.234, uncertainty=0.005)`
+- [ ] Display: `1.234 ± 0.005 meter`
 
-### 🧩 Outcomes
-- Reliable, developer-friendly foundation
-- Consistent runtime behavior and output clarity
-- Prepares API for public documentation and 1.0 freeze
+**Outcomes:**
+- First-class uncertainty support for scientific and engineering workflows
+- Correct propagation through both arithmetic and unit conversion
+- Foundation for full metrology capabilities
 
 ---
 
-## 🧩 v0.8.x — Pydantic Integration
+## v0.5.x — BasisMap + UnitSystem
 
-### 🔹 Summary
-> Introduces seamless integration with **Pydantic v2**, enabling validation, serialization, and typed dimensional models.
+**Theme:** Cross-system architecture.
 
-### ✅ Goals
-- [ ] Define Pydantic-compatible field types (`UnitType`, `NumberType`)
-- [ ] Implement `__get_pydantic_core_schema__` for Units and Numbers
-- [ ] Support automatic conversion/validation for user-defined models
-- [ ] Add YAML / JSON encoding for quantities (`Number(unit="meter", quantity=5)`)
-- [ ] Add Pydantic-based examples (API config, simulation parameters)
+- [ ] `UnitSystem` class (named grouping of base units)
+- [ ] `BasisMap` class (structural equivalence between systems)
+- [ ] Prebuilt systems: `si`, `imperial`, `cgs`
+- [ ] `graph.connect_systems()` for bulk edge creation
+- [ ] Support for custom domain dimensions
 
-### 🧩 Outcomes
+**Outcomes:**
+- `BasisMap` enables system-aware "express in base units" functionality
+- Named unit systems for domain-specific workflows
+- Foundation for plugin-style system extensions
+
+---
+
+## v0.6.0 — NumPy Array Support
+
+**Theme:** Scientific computing integration.
+
+- [ ] `Number` wraps `np.ndarray` values
+- [ ] Vectorized conversion
+- [ ] Vectorized arithmetic with uncertainty propagation
+- [ ] Performance benchmarks
+
+**Outcomes:**
+- Seamless integration with NumPy-based scientific workflows
+- Efficient batch conversions for large datasets
+- Performance characteristics documented and optimized
+
+---
+
+## v0.7.0 — Pydantic + Serialization
+
+**Theme:** API and persistence integration.
+
+- [ ] Native Pydantic v2 support for `Number`
+- [ ] JSON serialization/deserialization
+- [ ] Pickle support
+- [ ] Optional: MCP server for unit conversion tool
+
+**Outcomes:**
 - Native validation and serialization for dimensioned quantities
 - Enables safe configuration in data models and APIs
-- Bridges `ucon`'s algebraic model with modern Python typing ecosystems
+- Bridges ucon's algebraic model with modern Python typing ecosystems
 
 ---
 
-## 📘 v0.9.x — Documentation & RC Phase
+## v0.8.0 — String Parsing
 
-### 🔹 Summary
-> Completes documentation, finalizes examples, and preps release candidates.
+**Theme:** Ergonomic input.
 
-### ✅ Goals
-- [ ] Write comprehensive README and developer guide
-- [ ] Publish API reference docs (Sphinx / MkDocs)
-- [ ] Add SymPy / Pint comparison appendix
-- [ ] Freeze and document all public APIs
-- [ ] Publish one or more release candidates (RC1, RC2)
+- [ ] `parse("60 mph")` → `Number`
+- [ ] `parse("kg * m / s^2")` → `UnitProduct`
+- [ ] Alias resolution (`meters`, `metre`, `m` all work)
+- [ ] Uncertainty parsing: `parse("1.234 ± 0.005 m")`
 
-### 🧩 Outcomes
-- Complete public-facing documentation
-- API frozen and versioned for stability
-- Ready for final testing and validation before 1.0
+**Outcomes:**
+- Human-friendly unit input for interactive and configuration use cases
+- Robust alias handling for international and domain-specific conventions
+- Complete round-trip: parse → compute → serialize
 
 ---
 
-## 🏁 v1.0.0 — Stable, Introspective Core
+## v0.9.0 — Constants + Logarithmic Units
 
-### 🔹 Summary
-> First major release: a unified algebra for composable, type-safe, and semantically clear unit conversion.
+**Theme:** Physical completeness.
 
-### ✅ Goals
-- [ ] Tag and release to PyPI
-- [ ] Validate packaging and dependency metadata
-- [ ] Include examples and tutorials in docs
-- [ ] Announce 1.0 on GitHub and PyPI
+- [ ] Physical constants with uncertainties: `c`, `h`, `G`, `k_B`, `N_A`, etc.
+- [ ] `LogMap` for logarithmic conversions
+- [ ] Logarithmic units: `decibel`, `bel`, `neper`
+- [ ] pH scale support
+- [ ] Currency dimension (with caveats about exchange rates)
 
-### 🧩 Outcomes
+**Outcomes:**
+- Support for function-based (nonlinear) physical conversions
+- Enables acoustics (dB), chemistry (pH), and signal processing domains
+- Physical constants with CODATA uncertainties
+
+---
+
+## v0.10.0 — DataFrame Integration
+
+**Theme:** Data science workflows.
+
+- [ ] Polars integration: `NumberColumn` type
+- [ ] Pandas integration: `NumberSeries` type
+- [ ] Column-wise conversion
+- [ ] Unit-aware arithmetic on columns
+
+**Outcomes:**
+- First-class support for data science workflows
+- Unit-safe transformations on tabular data
+- Interoperability with modern DataFrame ecosystems
+
+---
+
+## v1.0.0 — API Stability
+
+**Theme:** Production ready.
+
+- [ ] API freeze with semantic versioning commitment
+- [ ] Comprehensive documentation
+- [ ] Performance benchmarks documented
+- [ ] Security review complete
+- [ ] 2+ year LTS commitment
+
+**Outcomes:**
 - Stable, well-tested release
 - Fully type-safe and validated core
 - Production-ready for integration into scientific and engineering workflows
 
 ---
 
-## 🧠 Post-1.0 Vision
+## Post-1.0 Vision
 
-| Future Direction | Description |
-|------------------|-------------|
-| **Graph-based conversion paths** | Automatically discover multi-hop conversions between compatible units |
-| **Type-safe generics** | `Number[Dimension.length]` support for type checking and IDE hints |
-| **Symbolic bridge to SymPy** | Export units and expressions for symbolic manipulation |
-| **Visualization** | Dimensional relationship graphs and dependency trees |
-| **Plugin architecture** | Load conversions and systems dynamically (YAML/JSON plugins) |
-
----
-
-## 🗓️ Milestone Summary
-
-| Version | Theme | Key Focus | Status |
-|----------|--------|------------|---------|
-| **0.3.5** | Dimensional Algebra | Unit/Scale separation, `UnitFactor`, `UnitProduct` | ✅ Complete |
-| **0.4.0** | Conversion Engine | `ConversionGraph`, `Number.to()`, callable units | 🚧 In Progress |
-| **0.5.0** | Unit Systems & Registries | Extensible registry system | ⏳ Planned |
-| **0.6.0** | Nonlinear Conversions | Logarithmic / exponential families | ⏳ Planned |
-| **0.7.0** | Testing & API Polish | Coverage, ergonomics, stability | ⏳ Planned |
-| **0.8.0** | Pydantic Integration | Typed validation, serialization | ⏳ Planned |
-| **0.9.x** | Documentation & RC | Freeze API, publish docs, RCs | ⏳ Planned |
-| **1.0.0** | Stable Release | Publish production-ready core | 🔮 Future |
+| Feature | Notes |
+|---------|-------|
+| Uncertainty correlation | Full covariance tracking |
+| Cython optimization | Performance parity with unyt |
+| Additional integrations | SQLAlchemy, msgpack, protobuf |
+| Localization | Unit names in multiple languages |
+| NIST/CODATA updates | Automated constant updates |
+| Type-safe generics | `Number[Dimension.length]` for IDE hints |
+| Symbolic bridge to SymPy | Export units for symbolic manipulation |
+| Visualization | Dimensional relationship graphs |
 
 ---
 
-### ✨ Guiding Principle
+## Guiding Principle
 
 > "If it can be measured, it can be represented.
 > If it can be represented, it can be validated.
 > If it can be validated, it can be trusted."
-
----
-
-### 💡 Why Pydantic Integration Matters
-
-- Enables **runtime validation** of dimensional correctness:
-  ```python
-  class Config(BaseModel):
-      length: NumberType[Dimension.length]
-      time: NumberType[Dimension.time]
-  ```
