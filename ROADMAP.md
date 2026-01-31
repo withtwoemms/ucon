@@ -4,9 +4,9 @@
 
 ---
 
-## 🪜 Current Version: **v0.4.0** (in progress)
+## 🪜 Current Version: **v0.5.0** (in progress)
 
-Building on v0.3.5 baseline:
+Building on v0.4.x baseline:
 - `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`)
 - `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`)
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`)
@@ -49,7 +49,7 @@ Building on v0.3.5 baseline:
 
 ---
 
-## ⚙️ v0.4.x — Conversion System Foundations (In Progress)
+## ✅ v0.4.x — Conversion System Foundations (Complete)
 
 ### 🔹 Summary
 > Implements unified conversion engine for standard, linear, and affine conversions.
