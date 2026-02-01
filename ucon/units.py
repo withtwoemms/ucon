@@ -56,10 +56,10 @@ mole = Unit(name='mole', dimension=Dimension.amount_of_substance, aliases=('mol'
 newton = Unit(name='newton', dimension=Dimension.force, aliases=('N',))
 ohm = Unit(name='ohm', dimension=Dimension.resistance, aliases=('Ω',))
 pascal = Unit(name='pascal', dimension=Dimension.pressure, aliases=('Pa',))
-radian = Unit(name='radian', dimension=Dimension.none, aliases=('rad',))
+radian = Unit(name='radian', dimension=Dimension.angle, aliases=('rad',))
 siemens = Unit(name='siemens', dimension=Dimension.conductance, aliases=('S',))
 sievert = Unit(name='sievert', dimension=Dimension.energy, aliases=('Sv',))
-steradian = Unit(name='steradian', dimension=Dimension.none, aliases=('sr',))
+steradian = Unit(name='steradian', dimension=Dimension.solid_angle, aliases=('sr',))
 tesla = Unit(name='tesla', dimension=Dimension.magnetic_flux_density, aliases=('T',))
 volt = Unit(name='volt', dimension=Dimension.voltage, aliases=('V',))
 watt = Unit(name='watt', dimension=Dimension.power, aliases=('W',))
@@ -110,6 +110,30 @@ atmosphere = Unit(name='atmosphere', dimension=Dimension.pressure, aliases=('atm
 # -- Information Units -------------------------------------------------
 bit = Unit(name='bit', dimension=Dimension.information, aliases=('b',))
 byte = Unit(name='byte', dimension=Dimension.information, aliases=('B',))
+# ----------------------------------------------------------------------
+
+
+# -- Angle Units -------------------------------------------------------
+degree = Unit(name='degree', dimension=Dimension.angle, aliases=('deg', '°'))
+gradian = Unit(name='gradian', dimension=Dimension.angle, aliases=('grad', 'gon'))
+arcminute = Unit(name='arcminute', dimension=Dimension.angle, aliases=('arcmin', "'"))
+arcsecond = Unit(name='arcsecond', dimension=Dimension.angle, aliases=('arcsec', '"'))
+turn = Unit(name='turn', dimension=Dimension.angle, aliases=('rev', 'revolution'))
+# ----------------------------------------------------------------------
+
+
+# -- Solid Angle Units -------------------------------------------------
+square_degree = Unit(name='square_degree', dimension=Dimension.solid_angle, aliases=('deg²', 'sq_deg'))
+# ----------------------------------------------------------------------
+
+
+# -- Ratio Units -------------------------------------------------------
+ratio_one = Unit(name='one', dimension=Dimension.ratio, aliases=('1',))
+percent = Unit(name='percent', dimension=Dimension.ratio, aliases=('%',))
+permille = Unit(name='permille', dimension=Dimension.ratio, aliases=('‰',))
+ppm = Unit(name='ppm', dimension=Dimension.ratio, aliases=())
+ppb = Unit(name='ppb', dimension=Dimension.ratio, aliases=())
+basis_point = Unit(name='basis_point', dimension=Dimension.ratio, aliases=('bp', 'bps'))
 # ----------------------------------------------------------------------
 
 

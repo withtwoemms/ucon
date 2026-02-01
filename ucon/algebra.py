@@ -102,9 +102,10 @@ class Vector:
         values = tuple(component * scalar for component in tuple(self))
         return Vector(*values)
 
-    def __eq__(self, vector: 'Vector') -> bool:
-        assert isinstance(vector, Vector), "Can only compare Vector to another Vector"
-        return tuple(self) == tuple(vector)
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Vector):
+            return NotImplemented
+        return tuple(self) == tuple(other)
 
     def __hash__(self) -> int:
         # Hash based on the string because tuples have been shown to collide

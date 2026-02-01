@@ -22,7 +22,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 |---------|-------|--------|
 | v0.3.x | Dimensional Algebra | Complete |
 | v0.4.x | Core Conversion + Information | Complete |
-| v0.5.0 | Dimensionless Units | In Progress |
+| v0.5.0 | Dimensionless Units | Complete |
 | v0.5.x | Uncertainty Propagation | Planned |
 | v0.5.x | BasisMap + UnitSystem | Planned |
 | v0.6.0 | NumPy Array Support | Planned |
@@ -34,16 +34,17 @@ ucon is a dimensional analysis library for engineers building systems where unit
 
 ---
 
-## Current Version: **v0.5.0** (in progress)
+## Current Version: **v0.5.x** (in progress)
 
-Building on v0.4.x baseline:
+Building on v0.5.0 baseline:
 - `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`)
 - `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`)
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`)
-- `ucon.units` (SI + imperial + information units, callable syntax)
+- `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax)
 - Callable unit API: `meter(5)`, `(mile / hour)(60)`
 - `Number.simplify()` for base-scale normalization
 - `Dimension.information` with `units.bit`, `units.byte`
+- Pseudo-dimensions: `angle`, `solid_angle`, `ratio` with semantic isolation
 
 ---
 
@@ -97,16 +98,16 @@ Building on v0.4.x baseline:
 
 ---
 
-## v0.5.0 — Dimensionless Units (In Progress)
+## v0.5.0 — Dimensionless Units (Complete)
 
 **Theme:** Complete the dimension model.
 
-- [ ] Pseudo-dimensions: `angle`, `solid_angle`, `ratio` (same zero vector, distinct enum identity)
-- [ ] Angle units: `radian`, `degree`, `gradian`, `arcminute`, `arcsecond`, `turn`
-- [ ] Solid angle units: `steradian`, `square_degree`
-- [ ] Ratio units: `percent`, `permille`, `ppm`, `ppb`, `basis_point`
-- [ ] Cross-pseudo-dimension conversion fails (enforced isolation)
-- [ ] Conversion edges for all new units
+- [x] Pseudo-dimensions: `angle`, `solid_angle`, `ratio` (same zero vector, distinct enum identity)
+- [x] Angle units: `radian`, `degree`, `gradian`, `arcminute`, `arcsecond`, `turn`
+- [x] Solid angle units: `steradian`, `square_degree`
+- [x] Ratio units: `percent`, `permille`, `ppm`, `ppb`, `basis_point`
+- [x] Cross-pseudo-dimension conversion fails (enforced isolation)
+- [x] Conversion edges for all new units
 
 **Outcomes:**
 - Semantic isolation prevents nonsensical conversions (radian → percent)

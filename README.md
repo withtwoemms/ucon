@@ -1,4 +1,9 @@
-<img src="https://gist.githubusercontent.com/withtwoemms/0cb9e6bc8df08f326771a89eeb790f8e/raw/dde6c7d3b8a7d79eb1006ace03fb834e044cdebc/ucon-logo.png" align="left" width="200" />
+<table>
+  <tr>
+    <td width="200">
+      <img src="https://gist.githubusercontent.com/withtwoemms/0cb9e6bc8df08f326771a89eeb790f8e/raw/221c60e85ac8361c7d202896b52c1a279081b54c/ucon-logo.png" align="left" width="200" />
+    </td>
+    <td>
 
 # ucon
 
@@ -7,6 +12,10 @@
 [![tests](https://github.com/withtwoemms/ucon/workflows/tests/badge.svg)](https://github.com/withtwoemms/ucon/actions?query=workflow%3Atests)
 [![codecov](https://codecov.io/gh/withtwoemms/ucon/graph/badge.svg?token=BNONQTRJWG)](https://codecov.io/gh/withtwoemms/ucon)
 [![publish](https://github.com/withtwoemms/ucon/workflows/publish/badge.svg)](https://github.com/withtwoemms/ucon/actions?query=workflow%3Apublish)
+
+   </td>
+  </tr>
+</table>
 
 > A lightweight, **unit-aware computation library** for Python — built on first-principles.
 
@@ -20,6 +29,7 @@ It combines **units**, **scales**, and **dimensions** into a composable algebra 
 - Dimensional analysis through `Number` and `Ratio`
 - Scale-aware arithmetic via `UnitFactor` and `UnitProduct`
 - Metric and binary prefixes (`kilo`, `kibi`, `micro`, `mebi`, etc.)
+- Pseudo-dimensions for angles, solid angles, and ratios with semantic isolation
 - A clean foundation for physics, chemistry, data modeling, and beyond
 
 Think of it as **`decimal.Decimal` for the physical world** — precise, predictable, and type-safe.
@@ -151,16 +161,34 @@ distance_mi = distance.to(units.mile)
 print(distance_mi)  # <3.107... mi>
 ```
 
+Dimensionless units have semantic isolation — angles, solid angles, and ratios are distinct:
+```python
+import math
+from ucon import units
+
+# Angle conversions
+angle = units.radian(math.pi)
+print(angle.to(units.degree))  # <180.0 deg>
+
+# Ratio conversions
+ratio = units.percent(50)
+print(ratio.to(units.ppm))  # <500000.0 ppm>
+
+# Cross-family conversions are prevented
+units.radian(1).to(units.percent)  # raises ConversionNotFound
+```
+
 ---
 
 ## Roadmap Highlights
 
 | Version | Theme | Focus | Status |
 |----------|-------|--------|--------|
-| **0.3.5** | Dimensional Algebra | Unit/Scale separation, `UnitFactor`, `UnitProduct` | ✅ Complete |
-| [**0.4.x**](https://github.com/withtwoemms/ucon/milestone/2) | Conversion System | `ConversionGraph`, `Number.to()`, callable units | 🚧 In Progress |
-| [**0.6.x**](https://github.com/withtwoemms/ucon/milestone/4) | Nonlinear / Specialized Units | Decibel, Percent, pH | ⏳ Planned |
-| [**0.8.x**](https://github.com/withtwoemms/ucon/milestone/6) | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
+| **0.3.x** | Dimensional Algebra | Unit/Scale separation, `UnitFactor`, `UnitProduct` | ✅ Complete |
+| **0.4.x** | Conversion System | `ConversionGraph`, `Number.to()`, callable units | ✅ Complete |
+| **0.5.0** | Dimensionless Units | Pseudo-dimensions for angle, solid angle, ratio | ✅ Complete |
+| **0.5.x** | Metrology | Uncertainty propagation, `UnitSystem` | 🚧 In Progress |
+| **0.7.x** | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)
 

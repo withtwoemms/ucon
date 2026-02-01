@@ -36,6 +36,10 @@ class Dimension(Enum):
     """
     Represents a **physical dimension** defined by a :class:`Vector`.
     Algebra over multiplication/division & exponentiation, with dynamic resolution.
+
+    Pseudo-dimensions (angle, solid_angle, ratio) share the zero vector but are
+    semantically isolated via unique enum values. They use tuple values (Vector, tag)
+    to prevent Python's Enum from treating them as aliases of `none`.
     """
     none = Vector()
 
@@ -49,6 +53,12 @@ class Dimension(Enum):
     amount_of_substance = Vector(0, 0, 0, 0, 0, 0, 1, 0)
     information         = Vector(0, 0, 0, 0, 0, 0, 0, 1)
     # ------------------------------------------------
+
+    # -- PSEUDO-DIMENSIONS (zero vector, distinct values via tuple) --
+    angle       = (Vector(), "angle")        # radian, degree, etc.
+    solid_angle = (Vector(), "solid_angle")  # steradian, square_degree
+    ratio       = (Vector(), "ratio")        # percent, ppm, etc.
+    # ----------------------------------------------------------------
 
     acceleration = Vector(-2, 1, 0, 0, 0, 0, 0, 0)
     angular_momentum = Vector(-1, 2, 1, 0, 0, 0, 0, 0)
@@ -83,10 +93,22 @@ class Dimension(Enum):
     voltage = Vector(-3, 2, 1, -1, 0, 0, 0, 0)
     volume = Vector(0, 3, 0, 0, 0, 0, 0, 0)
 
+    @property
+    def vector(self) -> 'Vector':
+        """Return the dimensional Vector, handling both regular and pseudo-dimensions."""
+        if isinstance(self.value, tuple):
+            vector, _ = self.value  # discard the tag
+            return vector
+        return self.value
+
     @classmethod
     def _resolve(cls, vector: 'Vector') -> 'Dimension':
+        # Zero vector always resolves to none, never to pseudo-dimensions.
+        # This ensures algebraic operations like length/length yield none.
+        if vector == Vector():
+            return cls.none
         for dim in cls:
-            if dim.value == vector:
+            if dim.vector == vector:
                 return dim
         dyn = object.__new__(cls)
         dyn._name_ = f"derived({vector})"
@@ -96,27 +118,32 @@ class Dimension(Enum):
     def __truediv__(self, dimension: 'Dimension') -> 'Dimension':
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot divide Dimension by non-Dimension type: {type(dimension)}")
-        return self._resolve(self.value - dimension.value)
+        return self._resolve(self.vector - dimension.vector)
 
     def __mul__(self, dimension: 'Dimension') -> 'Dimension':
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot multiply Dimension by non-Dimension type: {type(dimension)}")
-        return self._resolve(self.value + dimension.value)
+        return self._resolve(self.vector + dimension.vector)
 
     def __pow__(self, power: Union[int, float]) -> 'Dimension':
         if power == 1:
             return self
         if power == 0:
             return Dimension.none
-        new_vector = self.value * power
+        new_vector = self.vector * power
         return self._resolve(new_vector)
 
     def __eq__(self, dimension) -> bool:
         if not isinstance(dimension, Dimension):
             raise TypeError(f"Cannot compare Dimension with non-Dimension type: {type(dimension)}")
-        return self.value == dimension.value
+        # For pseudo-dimensions (tuple values), compare by identity
+        if isinstance(self.value, tuple) or isinstance(dimension.value, tuple):
+            return self is dimension
+        # For regular dimensions, compare by vector
+        return self.vector == dimension.vector
 
     def __hash__(self) -> int:
+        # Use the raw value for hashing (tuples and Vectors hash differently)
         return hash(self.value)
 
     def __bool__(self):

@@ -420,4 +420,22 @@ def _build_standard_graph() -> ConversionGraph:
     # --- Information ---
     graph.add_edge(src=units.byte, dst=units.bit, map=LinearMap(8))
 
+    # --- Angle ---
+    import math
+    graph.add_edge(src=units.radian, dst=units.degree, map=LinearMap(180 / math.pi))
+    graph.add_edge(src=units.degree, dst=units.arcminute, map=LinearMap(60))
+    graph.add_edge(src=units.arcminute, dst=units.arcsecond, map=LinearMap(60))
+    graph.add_edge(src=units.turn, dst=units.radian, map=LinearMap(2 * math.pi))
+    graph.add_edge(src=units.turn, dst=units.gradian, map=LinearMap(400))
+
+    # --- Solid Angle ---
+    graph.add_edge(src=units.steradian, dst=units.square_degree, map=LinearMap((180 / math.pi) ** 2))
+
+    # --- Ratio ---
+    graph.add_edge(src=units.ratio_one, dst=units.percent, map=LinearMap(100))
+    graph.add_edge(src=units.ratio_one, dst=units.permille, map=LinearMap(1000))
+    graph.add_edge(src=units.ratio_one, dst=units.ppm, map=LinearMap(1e6))
+    graph.add_edge(src=units.ratio_one, dst=units.ppb, map=LinearMap(1e9))
+    graph.add_edge(src=units.ratio_one, dst=units.basis_point, map=LinearMap(10000))
+
     return graph
