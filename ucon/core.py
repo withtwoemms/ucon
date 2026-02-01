@@ -1082,11 +1082,32 @@ class Number:
         if isinstance(other, Ratio):
             other = other.evaluate()
 
+        # Scalar division
+        if isinstance(other, (int, float)):
+            new_uncertainty = None
+            if self.uncertainty is not None:
+                new_uncertainty = self.uncertainty / abs(other)
+            return Number(
+                quantity=self.quantity / other,
+                unit=self.unit,
+                uncertainty=new_uncertainty,
+            )
+
         if not isinstance(other, Number):
             raise TypeError(f"Cannot divide Number by non-Number/Ratio type: {type(other)}")
 
         # Symbolic quotient in the unit algebra
         unit_quot = self.unit / other.unit
+
+        # Uncertainty propagation for division
+        # δc = |c| * sqrt((δa/a)² + (δb/b)²)
+        def compute_uncertainty(result_quantity):
+            if self.uncertainty is None and other.uncertainty is None:
+                return None
+            rel_a = (self.uncertainty / abs(self.quantity)) if (self.uncertainty and self.quantity != 0) else 0
+            rel_b = (other.uncertainty / abs(other.quantity)) if (other.uncertainty and other.quantity != 0) else 0
+            rel_c = math.sqrt(rel_a**2 + rel_b**2)
+            return abs(result_quantity) * rel_c if rel_c > 0 else None
 
         # --- Case 1: Dimensionless result ----------------------------------
         # If the net dimension is none, we want a pure scalar:
@@ -1094,13 +1115,14 @@ class Number:
         if not unit_quot.dimension:
             num = self._canonical_magnitude
             den = other._canonical_magnitude
-            return Number(quantity=num / den, unit=_none)
+            result = num / den
+            return Number(quantity=result, unit=_none, uncertainty=compute_uncertainty(result))
 
         # --- Case 2: Dimensionful result -----------------------------------
         # For "real" physical results like g/mL, m/s², etc., preserve the
         # user's chosen unit scales symbolically. Only divide the raw quantities.
         new_quantity = self.quantity / other.quantity
-        return Number(quantity=new_quantity, unit=unit_quot)
+        return Number(quantity=new_quantity, unit=unit_quot, uncertainty=compute_uncertainty(new_quantity))
 
     def __eq__(self, other: Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
