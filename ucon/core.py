@@ -1077,6 +1077,54 @@ class Number:
             uncertainty=new_uncertainty,
         )
 
+    def __add__(self, other: 'Number') -> 'Number':
+        if not isinstance(other, Number):
+            return NotImplemented
+
+        # Dimensions must match for addition
+        if self.unit.dimension != other.unit.dimension:
+            raise TypeError(
+                f"Cannot add Numbers with different dimensions: "
+                f"{self.unit.dimension} vs {other.unit.dimension}"
+            )
+
+        # Uncertainty propagation for addition: δc = sqrt(δa² + δb²)
+        new_uncertainty = None
+        if self.uncertainty is not None or other.uncertainty is not None:
+            ua = self.uncertainty if self.uncertainty is not None else 0
+            ub = other.uncertainty if other.uncertainty is not None else 0
+            new_uncertainty = math.sqrt(ua**2 + ub**2)
+
+        return Number(
+            quantity=self.quantity + other.quantity,
+            unit=self.unit,
+            uncertainty=new_uncertainty,
+        )
+
+    def __sub__(self, other: 'Number') -> 'Number':
+        if not isinstance(other, Number):
+            return NotImplemented
+
+        # Dimensions must match for subtraction
+        if self.unit.dimension != other.unit.dimension:
+            raise TypeError(
+                f"Cannot subtract Numbers with different dimensions: "
+                f"{self.unit.dimension} vs {other.unit.dimension}"
+            )
+
+        # Uncertainty propagation for subtraction: δc = sqrt(δa² + δb²)
+        new_uncertainty = None
+        if self.uncertainty is not None or other.uncertainty is not None:
+            ua = self.uncertainty if self.uncertainty is not None else 0
+            ub = other.uncertainty if other.uncertainty is not None else 0
+            new_uncertainty = math.sqrt(ua**2 + ub**2)
+
+        return Number(
+            quantity=self.quantity - other.quantity,
+            unit=self.unit,
+            uncertainty=new_uncertainty,
+        )
+
     def __truediv__(self, other: Quantifiable) -> "Number":
         # Allow dividing by a Ratio (interpret as its evaluated Number)
         if isinstance(other, Ratio):
