@@ -23,7 +23,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.3.x | Dimensional Algebra | Complete |
 | v0.4.x | Core Conversion + Information | Complete |
 | v0.5.0 | Dimensionless Units | Complete |
-| v0.5.x | Uncertainty Propagation | Planned |
+| v0.5.x | Uncertainty Propagation | Complete |
 | v0.5.x | BasisMap + UnitSystem | Planned |
 | v0.6.0 | NumPy Array Support | Planned |
 | v0.7.0 | Pydantic + Serialization | Planned |
@@ -38,13 +38,14 @@ ucon is a dimensional analysis library for engineers building systems where unit
 
 Building on v0.5.0 baseline:
 - `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`)
-- `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`)
+- `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap` with `derivative()`)
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`)
 - `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax)
 - Callable unit API: `meter(5)`, `(mile / hour)(60)`
 - `Number.simplify()` for base-scale normalization
 - `Dimension.information` with `units.bit`, `units.byte`
 - Pseudo-dimensions: `angle`, `solid_angle`, `ratio` with semantic isolation
+- Uncertainty propagation: `meter(1.234, uncertainty=0.005)` with quadrature arithmetic
 
 ---
 
@@ -116,15 +117,15 @@ Building on v0.5.0 baseline:
 
 ---
 
-## v0.5.x — Uncertainty Propagation
+## v0.5.x — Uncertainty Propagation (Complete)
 
 **Theme:** Metrology foundation.
 
-- [ ] `Number.uncertainty: float | None`
-- [ ] Propagation through arithmetic (uncorrelated, quadrature)
-- [ ] Propagation through conversion via `Map.derivative()`
-- [ ] Construction: `meter(1.234, uncertainty=0.005)`
-- [ ] Display: `1.234 ± 0.005 meter`
+- [x] `Number.uncertainty: float | None`
+- [x] Propagation through arithmetic (uncorrelated, quadrature)
+- [x] Propagation through conversion via `Map.derivative()`
+- [x] Construction: `meter(1.234, uncertainty=0.005)`
+- [x] Display: `1.234 ± 0.005 meter`
 
 **Outcomes:**
 - First-class uncertainty support for scientific and engineering workflows

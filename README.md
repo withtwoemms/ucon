@@ -30,6 +30,7 @@ It combines **units**, **scales**, and **dimensions** into a composable algebra 
 - Scale-aware arithmetic via `UnitFactor` and `UnitProduct`
 - Metric and binary prefixes (`kilo`, `kibi`, `micro`, `mebi`, etc.)
 - Pseudo-dimensions for angles, solid angles, and ratios with semantic isolation
+- Uncertainty propagation through arithmetic and conversions
 - A clean foundation for physics, chemistry, data modeling, and beyond
 
 Think of it as **`decimal.Decimal` for the physical world** — precise, predictable, and type-safe.
@@ -178,6 +179,25 @@ print(ratio.to(units.ppm))  # <500000.0 ppm>
 units.radian(1).to(units.percent)  # raises ConversionNotFound
 ```
 
+Uncertainty propagates through arithmetic and conversions:
+```python
+from ucon import units
+
+# Measurements with uncertainty
+length = units.meter(1.234, uncertainty=0.005)
+width = units.meter(0.567, uncertainty=0.003)
+
+print(length)  # <1.234 ± 0.005 m>
+
+# Uncertainty propagates through arithmetic (quadrature)
+area = length * width
+print(area)  # <0.699678 ± 0.00424... m²>
+
+# Uncertainty propagates through conversion
+length_ft = length.to(units.foot)
+print(length_ft)  # <4.048... ± 0.0164... ft>
+```
+
 ---
 
 ## Roadmap Highlights
@@ -187,7 +207,8 @@ units.radian(1).to(units.percent)  # raises ConversionNotFound
 | **0.3.x** | Dimensional Algebra | Unit/Scale separation, `UnitFactor`, `UnitProduct` | ✅ Complete |
 | **0.4.x** | Conversion System | `ConversionGraph`, `Number.to()`, callable units | ✅ Complete |
 | **0.5.0** | Dimensionless Units | Pseudo-dimensions for angle, solid angle, ratio | ✅ Complete |
-| **0.5.x** | Metrology | Uncertainty propagation, `UnitSystem` | 🚧 In Progress |
+| **0.5.x** | Uncertainty | Propagation through arithmetic and conversions | ✅ Complete |
+| **0.5.x** | Unit Systems | `BasisMap`, `UnitSystem` | 🚧 In Progress |
 | **0.7.x** | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)

@@ -25,7 +25,7 @@ from dataclasses import dataclass
 class Map(ABC):
     """Abstract base for all conversion morphisms.
 
-    Subclasses must implement ``__call__``, ``inverse``, and ``__pow__``.
+    Subclasses must implement ``__call__``, ``inverse``, ``__pow__``, and ``derivative``.
     Composition via ``@`` defaults to :class:`ComposedMap`; subclasses may
     override for closed composition within their own type.
     """
@@ -48,6 +48,14 @@ class Map(ABC):
     @abstractmethod
     def __pow__(self, exp: float) -> Map:
         """Raise map to a power (for exponent handling in factorwise conversion)."""
+        ...
+
+    @abstractmethod
+    def derivative(self, x: float) -> float:
+        """Return the derivative of the map at point x.
+
+        Used for uncertainty propagation: δy = |f'(x)| * δx
+        """
         ...
 
     def is_identity(self, tol: float = 1e-9) -> bool:
@@ -85,6 +93,10 @@ class LinearMap(Map):
 
     def __pow__(self, exp: float) -> LinearMap:
         return LinearMap(self.a ** exp)
+
+    def derivative(self, x: float) -> float:
+        """Derivative of y = a*x is a (constant)."""
+        return self.a
 
     @classmethod
     def identity(cls) -> LinearMap:
@@ -128,6 +140,10 @@ class AffineMap(Map):
             return self.inverse()
         raise ValueError("AffineMap only supports exp=1 or exp=-1")
 
+    def derivative(self, x: float) -> float:
+        """Derivative of y = a*x + b is a (constant)."""
+        return self.a
+
 
 @dataclass(frozen=True)
 class ComposedMap(Map):
@@ -159,3 +175,8 @@ class ComposedMap(Map):
         if exp == -1:
             return self.inverse()
         raise ValueError("ComposedMap only supports exp=1 or exp=-1")
+
+    def derivative(self, x: float) -> float:
+        """Chain rule: d/dx [outer(inner(x))] = outer'(inner(x)) * inner'(x)."""
+        inner_val = self.inner(x)
+        return self.outer.derivative(inner_val) * self.inner.derivative(x)

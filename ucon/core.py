@@ -445,15 +445,24 @@ class Unit:
 
     # ----------------- callable (creates Number) -----------------
 
-    def __call__(self, quantity: Union[int, float]) -> "Number":
+    def __call__(self, quantity: Union[int, float], uncertainty: Union[float, None] = None) -> "Number":
         """Create a Number with this unit.
+
+        Parameters
+        ----------
+        quantity : int or float
+            The numeric value.
+        uncertainty : float, optional
+            The measurement uncertainty.
 
         Example
         -------
         >>> meter(5)
         <5 m>
+        >>> meter(1.234, uncertainty=0.005)
+        <1.234 ± 0.005 m>
         """
-        return Number(quantity=quantity, unit=UnitProduct.from_unit(self))
+        return Number(quantity=quantity, unit=UnitProduct.from_unit(self), uncertainty=uncertainty)
 
 
 @dataclass(frozen=True)
@@ -872,15 +881,24 @@ class UnitProduct:
         # Sort by name; UnitFactor exposes .name, so this is stable.
         return hash(tuple(sorted(self.factors.items(), key=lambda x: x[0].name)))
 
-    def __call__(self, quantity: Union[int, float]) -> "Number":
+    def __call__(self, quantity: Union[int, float], uncertainty: Union[float, None] = None) -> "Number":
         """Create a Number with this unit product.
+
+        Parameters
+        ----------
+        quantity : int or float
+            The numeric value.
+        uncertainty : float, optional
+            The measurement uncertainty.
 
         Example
         -------
         >>> (meter / second)(10)
         <10 m/s>
+        >>> (meter / second)(10, uncertainty=0.5)
+        <10 ± 0.5 m/s>
         """
-        return Number(quantity=quantity, unit=self)
+        return Number(quantity=quantity, unit=self, uncertainty=uncertainty)
 
 
 # --------------------------------------------------------------------------------------
@@ -908,9 +926,16 @@ class Number:
         >>> speed = length / time
         >>> speed
         <2.5 m/s>
+
+    Optionally includes measurement uncertainty for error propagation:
+
+        >>> length = meter(1.234, uncertainty=0.005)
+        >>> length
+        <1.234 ± 0.005 m>
     """
     quantity: Union[float, int] = 1.0
     unit: Union[Unit, UnitProduct] = None
+    uncertainty: Union[float, None] = None
 
     def __post_init__(self):
         if self.unit is None:
@@ -952,7 +977,7 @@ class Number:
         """
         if not isinstance(self.unit, UnitProduct):
             # Plain Unit already has no scale
-            return Number(quantity=self.quantity, unit=self.unit)
+            return Number(quantity=self.quantity, unit=self.unit, uncertainty=self.uncertainty)
 
         # Compute the combined scale factor
         scale_factor = self.unit.fold_scale()
@@ -965,8 +990,16 @@ class Number:
 
         base_unit = UnitProduct(base_factors)
 
-        # Adjust quantity by the scale factor
-        return Number(quantity=self.quantity * scale_factor, unit=base_unit)
+        # Adjust quantity and uncertainty by the scale factor
+        new_uncertainty = None
+        if self.uncertainty is not None:
+            new_uncertainty = self.uncertainty * abs(scale_factor)
+
+        return Number(
+            quantity=self.quantity * scale_factor,
+            unit=base_unit,
+            uncertainty=new_uncertainty,
+        )
 
     def to(self, target, graph=None):
         """Convert this Number to a different unit expression.
@@ -999,7 +1032,10 @@ class Number:
         # Scale-only conversion (same base unit, different scale)
         if self._is_scale_only_conversion(src, dst):
             factor = src.fold_scale() / dst.fold_scale()
-            return Number(quantity=self.quantity * factor, unit=target)
+            new_uncertainty = None
+            if self.uncertainty is not None:
+                new_uncertainty = self.uncertainty * abs(factor)
+            return Number(quantity=self.quantity * factor, unit=target, uncertainty=new_uncertainty)
 
         # Graph-based conversion (use default graph if none provided)
         if graph is None:
@@ -1008,7 +1044,14 @@ class Number:
         conversion_map = graph.convert(src=src, dst=dst)
         # Use raw quantity - the conversion map handles scale via factorwise decomposition
         converted_quantity = conversion_map(self.quantity)
-        return Number(quantity=converted_quantity, unit=target)
+
+        # Propagate uncertainty through conversion using derivative
+        new_uncertainty = None
+        if self.uncertainty is not None:
+            derivative = abs(conversion_map.derivative(self.quantity))
+            new_uncertainty = derivative * self.uncertainty
+
+        return Number(quantity=converted_quantity, unit=target, uncertainty=new_uncertainty)
 
     def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
         """Check if conversion is just a scale change (same base units)."""
@@ -1040,12 +1083,82 @@ class Number:
         if isinstance(other, Ratio):
             other = other.evaluate()
 
+        # Scalar multiplication
+        if isinstance(other, (int, float)):
+            new_uncertainty = None
+            if self.uncertainty is not None:
+                new_uncertainty = abs(other) * self.uncertainty
+            return Number(
+                quantity=self.quantity * other,
+                unit=self.unit,
+                uncertainty=new_uncertainty,
+            )
+
         if not isinstance(other, Number):
             return NotImplemented
 
+        # Uncertainty propagation for multiplication
+        # δc = |c| * sqrt((δa/a)² + (δb/b)²)
+        new_uncertainty = None
+        result_quantity = self.quantity * other.quantity
+        if self.uncertainty is not None or other.uncertainty is not None:
+            rel_a = (self.uncertainty / abs(self.quantity)) if (self.uncertainty and self.quantity != 0) else 0
+            rel_b = (other.uncertainty / abs(other.quantity)) if (other.uncertainty and other.quantity != 0) else 0
+            rel_c = math.sqrt(rel_a**2 + rel_b**2)
+            new_uncertainty = abs(result_quantity) * rel_c if rel_c > 0 else None
+
         return Number(
-            quantity=self.quantity * other.quantity,
+            quantity=result_quantity,
             unit=self.unit * other.unit,
+            uncertainty=new_uncertainty,
+        )
+
+    def __add__(self, other: 'Number') -> 'Number':
+        if not isinstance(other, Number):
+            return NotImplemented
+
+        # Dimensions must match for addition
+        if self.unit.dimension != other.unit.dimension:
+            raise TypeError(
+                f"Cannot add Numbers with different dimensions: "
+                f"{self.unit.dimension} vs {other.unit.dimension}"
+            )
+
+        # Uncertainty propagation for addition: δc = sqrt(δa² + δb²)
+        new_uncertainty = None
+        if self.uncertainty is not None or other.uncertainty is not None:
+            ua = self.uncertainty if self.uncertainty is not None else 0
+            ub = other.uncertainty if other.uncertainty is not None else 0
+            new_uncertainty = math.sqrt(ua**2 + ub**2)
+
+        return Number(
+            quantity=self.quantity + other.quantity,
+            unit=self.unit,
+            uncertainty=new_uncertainty,
+        )
+
+    def __sub__(self, other: 'Number') -> 'Number':
+        if not isinstance(other, Number):
+            return NotImplemented
+
+        # Dimensions must match for subtraction
+        if self.unit.dimension != other.unit.dimension:
+            raise TypeError(
+                f"Cannot subtract Numbers with different dimensions: "
+                f"{self.unit.dimension} vs {other.unit.dimension}"
+            )
+
+        # Uncertainty propagation for subtraction: δc = sqrt(δa² + δb²)
+        new_uncertainty = None
+        if self.uncertainty is not None or other.uncertainty is not None:
+            ua = self.uncertainty if self.uncertainty is not None else 0
+            ub = other.uncertainty if other.uncertainty is not None else 0
+            new_uncertainty = math.sqrt(ua**2 + ub**2)
+
+        return Number(
+            quantity=self.quantity - other.quantity,
+            unit=self.unit,
+            uncertainty=new_uncertainty,
         )
 
     def __truediv__(self, other: Quantifiable) -> "Number":
@@ -1053,11 +1166,32 @@ class Number:
         if isinstance(other, Ratio):
             other = other.evaluate()
 
+        # Scalar division
+        if isinstance(other, (int, float)):
+            new_uncertainty = None
+            if self.uncertainty is not None:
+                new_uncertainty = self.uncertainty / abs(other)
+            return Number(
+                quantity=self.quantity / other,
+                unit=self.unit,
+                uncertainty=new_uncertainty,
+            )
+
         if not isinstance(other, Number):
             raise TypeError(f"Cannot divide Number by non-Number/Ratio type: {type(other)}")
 
         # Symbolic quotient in the unit algebra
         unit_quot = self.unit / other.unit
+
+        # Uncertainty propagation for division
+        # δc = |c| * sqrt((δa/a)² + (δb/b)²)
+        def compute_uncertainty(result_quantity):
+            if self.uncertainty is None and other.uncertainty is None:
+                return None
+            rel_a = (self.uncertainty / abs(self.quantity)) if (self.uncertainty and self.quantity != 0) else 0
+            rel_b = (other.uncertainty / abs(other.quantity)) if (other.uncertainty and other.quantity != 0) else 0
+            rel_c = math.sqrt(rel_a**2 + rel_b**2)
+            return abs(result_quantity) * rel_c if rel_c > 0 else None
 
         # --- Case 1: Dimensionless result ----------------------------------
         # If the net dimension is none, we want a pure scalar:
@@ -1065,13 +1199,14 @@ class Number:
         if not unit_quot.dimension:
             num = self._canonical_magnitude
             den = other._canonical_magnitude
-            return Number(quantity=num / den, unit=_none)
+            result = num / den
+            return Number(quantity=result, unit=_none, uncertainty=compute_uncertainty(result))
 
         # --- Case 2: Dimensionful result -----------------------------------
         # For "real" physical results like g/mL, m/s², etc., preserve the
         # user's chosen unit scales symbolically. Only divide the raw quantities.
         new_quantity = self.quantity / other.quantity
-        return Number(quantity=new_quantity, unit=unit_quot)
+        return Number(quantity=new_quantity, unit=unit_quot, uncertainty=compute_uncertainty(new_quantity))
 
     def __eq__(self, other: Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
@@ -1094,6 +1229,10 @@ class Number:
         return True
 
     def __repr__(self):
+        if self.uncertainty is not None:
+            if not self.unit.dimension:
+                return f"<{self.quantity} ± {self.uncertainty}>"
+            return f"<{self.quantity} ± {self.uncertainty} {self.unit.shorthand}>"
         if not self.unit.dimension:
             return f"<{self.quantity}>"
         return f"<{self.quantity} {self.unit.shorthand}>"
