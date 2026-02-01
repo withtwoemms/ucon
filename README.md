@@ -152,6 +152,23 @@ distance_mi = distance.to(units.mile)
 print(distance_mi)  # <3.107... mi>
 ```
 
+Dimensionless units have semantic isolation — angles, solid angles, and ratios are distinct:
+```python
+import math
+from ucon import units
+
+# Angle conversions
+angle = units.radian(math.pi)
+print(angle.to(units.degree))  # <180.0 deg>
+
+# Ratio conversions
+ratio = units.percent(50)
+print(ratio.to(units.ppm))  # <500000.0 ppm>
+
+# Cross-family conversions are prevented
+units.radian(1).to(units.percent)  # raises ConversionNotFound
+```
+
 ---
 
 ## Roadmap Highlights
