@@ -20,6 +20,7 @@ It combines **units**, **scales**, and **dimensions** into a composable algebra 
 - Dimensional analysis through `Number` and `Ratio`
 - Scale-aware arithmetic via `UnitFactor` and `UnitProduct`
 - Metric and binary prefixes (`kilo`, `kibi`, `micro`, `mebi`, etc.)
+- Pseudo-dimensions for angles, solid angles, and ratios with semantic isolation
 - A clean foundation for physics, chemistry, data modeling, and beyond
 
 Think of it as **`decimal.Decimal` for the physical world** — precise, predictable, and type-safe.
@@ -157,10 +158,11 @@ print(distance_mi)  # <3.107... mi>
 
 | Version | Theme | Focus | Status |
 |----------|-------|--------|--------|
-| **0.3.5** | Dimensional Algebra | Unit/Scale separation, `UnitFactor`, `UnitProduct` | ✅ Complete |
-| [**0.4.x**](https://github.com/withtwoemms/ucon/milestone/2) | Conversion System | `ConversionGraph`, `Number.to()`, callable units | 🚧 In Progress |
-| [**0.6.x**](https://github.com/withtwoemms/ucon/milestone/4) | Nonlinear / Specialized Units | Decibel, Percent, pH | ⏳ Planned |
-| [**0.8.x**](https://github.com/withtwoemms/ucon/milestone/6) | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
+| **0.3.x** | Dimensional Algebra | Unit/Scale separation, `UnitFactor`, `UnitProduct` | ✅ Complete |
+| **0.4.x** | Conversion System | `ConversionGraph`, `Number.to()`, callable units | ✅ Complete |
+| **0.5.0** | Dimensionless Units | Pseudo-dimensions for angle, solid angle, ratio | ✅ Complete |
+| **0.5.x** | Metrology | Uncertainty propagation, `UnitSystem` | 🚧 In Progress |
+| **0.7.x** | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)
 
