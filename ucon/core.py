@@ -445,15 +445,24 @@ class Unit:
 
     # ----------------- callable (creates Number) -----------------
 
-    def __call__(self, quantity: Union[int, float]) -> "Number":
+    def __call__(self, quantity: Union[int, float], uncertainty: Union[float, None] = None) -> "Number":
         """Create a Number with this unit.
+
+        Parameters
+        ----------
+        quantity : int or float
+            The numeric value.
+        uncertainty : float, optional
+            The measurement uncertainty.
 
         Example
         -------
         >>> meter(5)
         <5 m>
+        >>> meter(1.234, uncertainty=0.005)
+        <1.234 ± 0.005 m>
         """
-        return Number(quantity=quantity, unit=UnitProduct.from_unit(self))
+        return Number(quantity=quantity, unit=UnitProduct.from_unit(self), uncertainty=uncertainty)
 
 
 @dataclass(frozen=True)
@@ -872,15 +881,24 @@ class UnitProduct:
         # Sort by name; UnitFactor exposes .name, so this is stable.
         return hash(tuple(sorted(self.factors.items(), key=lambda x: x[0].name)))
 
-    def __call__(self, quantity: Union[int, float]) -> "Number":
+    def __call__(self, quantity: Union[int, float], uncertainty: Union[float, None] = None) -> "Number":
         """Create a Number with this unit product.
+
+        Parameters
+        ----------
+        quantity : int or float
+            The numeric value.
+        uncertainty : float, optional
+            The measurement uncertainty.
 
         Example
         -------
         >>> (meter / second)(10)
         <10 m/s>
+        >>> (meter / second)(10, uncertainty=0.5)
+        <10 ± 0.5 m/s>
         """
-        return Number(quantity=quantity, unit=self)
+        return Number(quantity=quantity, unit=self, uncertainty=uncertainty)
 
 
 # --------------------------------------------------------------------------------------
