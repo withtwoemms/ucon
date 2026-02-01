@@ -908,9 +908,16 @@ class Number:
         >>> speed = length / time
         >>> speed
         <2.5 m/s>
+
+    Optionally includes measurement uncertainty for error propagation:
+
+        >>> length = meter(1.234, uncertainty=0.005)
+        >>> length
+        <1.234 ± 0.005 m>
     """
     quantity: Union[float, int] = 1.0
     unit: Union[Unit, UnitProduct] = None
+    uncertainty: Union[float, None] = None
 
     def __post_init__(self):
         if self.unit is None:
@@ -1094,6 +1101,10 @@ class Number:
         return True
 
     def __repr__(self):
+        if self.uncertainty is not None:
+            if not self.unit.dimension:
+                return f"<{self.quantity} ± {self.uncertainty}>"
+            return f"<{self.quantity} ± {self.uncertainty} {self.unit.shorthand}>"
         if not self.unit.dimension:
             return f"<{self.quantity}>"
         return f"<{self.quantity} {self.unit.shorthand}>"
