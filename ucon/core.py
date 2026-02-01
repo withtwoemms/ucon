@@ -1047,12 +1047,34 @@ class Number:
         if isinstance(other, Ratio):
             other = other.evaluate()
 
+        # Scalar multiplication
+        if isinstance(other, (int, float)):
+            new_uncertainty = None
+            if self.uncertainty is not None:
+                new_uncertainty = abs(other) * self.uncertainty
+            return Number(
+                quantity=self.quantity * other,
+                unit=self.unit,
+                uncertainty=new_uncertainty,
+            )
+
         if not isinstance(other, Number):
             return NotImplemented
 
+        # Uncertainty propagation for multiplication
+        # δc = |c| * sqrt((δa/a)² + (δb/b)²)
+        new_uncertainty = None
+        result_quantity = self.quantity * other.quantity
+        if self.uncertainty is not None or other.uncertainty is not None:
+            rel_a = (self.uncertainty / abs(self.quantity)) if (self.uncertainty and self.quantity != 0) else 0
+            rel_b = (other.uncertainty / abs(other.quantity)) if (other.uncertainty and other.quantity != 0) else 0
+            rel_c = math.sqrt(rel_a**2 + rel_b**2)
+            new_uncertainty = abs(result_quantity) * rel_c if rel_c > 0 else None
+
         return Number(
-            quantity=self.quantity * other.quantity,
+            quantity=result_quantity,
             unit=self.unit * other.unit,
+            uncertainty=new_uncertainty,
         )
 
     def __truediv__(self, other: Quantifiable) -> "Number":
