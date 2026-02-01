@@ -959,7 +959,7 @@ class Number:
         """
         if not isinstance(self.unit, UnitProduct):
             # Plain Unit already has no scale
-            return Number(quantity=self.quantity, unit=self.unit)
+            return Number(quantity=self.quantity, unit=self.unit, uncertainty=self.uncertainty)
 
         # Compute the combined scale factor
         scale_factor = self.unit.fold_scale()
@@ -972,8 +972,16 @@ class Number:
 
         base_unit = UnitProduct(base_factors)
 
-        # Adjust quantity by the scale factor
-        return Number(quantity=self.quantity * scale_factor, unit=base_unit)
+        # Adjust quantity and uncertainty by the scale factor
+        new_uncertainty = None
+        if self.uncertainty is not None:
+            new_uncertainty = self.uncertainty * abs(scale_factor)
+
+        return Number(
+            quantity=self.quantity * scale_factor,
+            unit=base_unit,
+            uncertainty=new_uncertainty,
+        )
 
     def to(self, target, graph=None):
         """Convert this Number to a different unit expression.
@@ -1006,7 +1014,10 @@ class Number:
         # Scale-only conversion (same base unit, different scale)
         if self._is_scale_only_conversion(src, dst):
             factor = src.fold_scale() / dst.fold_scale()
-            return Number(quantity=self.quantity * factor, unit=target)
+            new_uncertainty = None
+            if self.uncertainty is not None:
+                new_uncertainty = self.uncertainty * abs(factor)
+            return Number(quantity=self.quantity * factor, unit=target, uncertainty=new_uncertainty)
 
         # Graph-based conversion (use default graph if none provided)
         if graph is None:
@@ -1015,7 +1026,14 @@ class Number:
         conversion_map = graph.convert(src=src, dst=dst)
         # Use raw quantity - the conversion map handles scale via factorwise decomposition
         converted_quantity = conversion_map(self.quantity)
-        return Number(quantity=converted_quantity, unit=target)
+
+        # Propagate uncertainty through conversion using derivative
+        new_uncertainty = None
+        if self.uncertainty is not None:
+            derivative = abs(conversion_map.derivative(self.quantity))
+            new_uncertainty = derivative * self.uncertainty
+
+        return Number(quantity=converted_quantity, unit=target, uncertainty=new_uncertainty)
 
     def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
         """Check if conversion is just a scale change (same base units)."""
