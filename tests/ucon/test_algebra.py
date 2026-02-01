@@ -71,10 +71,10 @@ class TestVectorEdgeCases(TestCase):
 
     def test_vector_equality_with_non_vector(self):
         v = Vector()
-        with self.assertRaises(AssertionError):
-            v == "not a vector"
-        with self.assertRaises(AssertionError):
-            v == None
+        # Non-Vector comparisons return NotImplemented, which Python
+        # resolves to False (not equal) rather than raising an error
+        self.assertFalse(v == "not a vector")
+        self.assertFalse(v == None)
 
     def test_hash_consistency_for_equal_vectors(self):
         v1 = Vector(1, 0, 0, 0, 0, 0, 0, 0)
