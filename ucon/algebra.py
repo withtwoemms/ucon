@@ -103,7 +103,7 @@ class Vector:
         values = tuple(diff(pair) for pair in zip(tuple(self), tuple(vector)))
         return Vector(*values)
 
-    def __mul__(self, scalar: Union[int, float]) -> 'Vector':
+    def __mul__(self, scalar: Union[int, float, Fraction]) -> 'Vector':
         """
         Scalar multiplication of the exponent vector.
 
@@ -112,8 +112,17 @@ class Vector:
             >>> Dimension.length ** 2   # area
             >>> Dimension.time ** -1    # frequency
         """
-        values = tuple(component * scalar for component in tuple(self))
+        n = Fraction(scalar) if not isinstance(scalar, Fraction) else scalar
+        values = tuple(component * n for component in tuple(self))
         return Vector(*values)
+
+    def __rmul__(self, scalar: Union[int, float, Fraction]) -> 'Vector':
+        """Right multiplication: scalar * vector."""
+        return self.__mul__(scalar)
+
+    def __neg__(self) -> 'Vector':
+        """Negate the vector: -v."""
+        return Vector(*(-component for component in tuple(self)))
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Vector):
