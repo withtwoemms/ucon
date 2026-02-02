@@ -308,13 +308,15 @@ class ConversionGraph:
         if src == dst:
             return LinearMap.identity()
 
-        # Check for cross-basis conversion via rebased unit
+        # Check if src has a rebased version that can reach dst
+        if src in self._rebased:
+            rebased = self._rebased[src]
+            if rebased.dimension == dst.dimension:
+                # Convert via the rebased unit
+                return self._bfs_convert(start=rebased, target=dst, dim=dst.dimension)
+
+        # Check for dimension mismatch
         if src.dimension != dst.dimension:
-            if src in self._rebased:
-                rebased = self._rebased[src]
-                if rebased.dimension == dst.dimension:
-                    # Convert via the rebased unit
-                    return self._bfs_convert(start=rebased, target=dst, dim=dst.dimension)
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
 
         # Direct edge?
