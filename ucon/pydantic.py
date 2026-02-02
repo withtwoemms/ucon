@@ -36,7 +36,9 @@ Requires Pydantic v2. Install with::
 from typing import Annotated, Any
 
 try:
-    from pydantic import BeforeValidator, PlainSerializer, WithJsonSchema
+    from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
+    from pydantic.json_schema import JsonSchemaValue
+    from pydantic_core import CoreSchema, core_schema
 except ImportError as e:
     raise ImportError(
         "Pydantic v2 is required for ucon.pydantic. "
@@ -120,20 +122,55 @@ def _serialize_number(n: _Number) -> dict:
     }
 
 
-Number = Annotated[
-    _Number,
-    BeforeValidator(_validate_number),
-    PlainSerializer(_serialize_number, return_type=dict),
-    WithJsonSchema({
-        "type": "object",
-        "properties": {
-            "quantity": {"type": "number"},
-            "unit": {"type": ["string", "null"]},
-            "uncertainty": {"type": ["number", "null"]},
-        },
-        "required": ["quantity"],
-    }),
-]
+class _NumberPydanticAnnotation:
+    """
+    Pydantic annotation helper for ucon Number type.
+
+    This class provides the schema generation hooks that Pydantic v2 needs
+    to properly validate and serialize Number instances without introspecting
+    the internal Unit/UnitProduct types.
+    """
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """
+        Generate Pydantic core schema for Number validation/serialization.
+
+        Uses no_info_plain_validator_function to bypass Pydantic's default
+        introspection of the Number class fields.
+        """
+        return core_schema.no_info_plain_validator_function(
+            _validate_number,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                _serialize_number,
+                info_arg=False,
+                return_schema=core_schema.dict_schema(),
+            ),
+        )
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls,
+        _core_schema: CoreSchema,
+        handler: GetJsonSchemaHandler,
+    ) -> JsonSchemaValue:
+        """Generate JSON schema for OpenAPI documentation."""
+        return {
+            "type": "object",
+            "properties": {
+                "quantity": {"type": "number"},
+                "unit": {"type": "string", "nullable": True},
+                "uncertainty": {"type": "number", "nullable": True},
+            },
+            "required": ["quantity"],
+        }
+
+
+Number = Annotated[_Number, _NumberPydanticAnnotation]
 """
 Pydantic-compatible Number type.
 
