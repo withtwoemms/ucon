@@ -25,7 +25,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.5.0 | Dimensionless Units | Complete |
 | v0.5.x | Uncertainty Propagation | Complete |
 | v0.5.x | BasisTransform + UnitSystem | Complete |
-| v0.6.0 | Pydantic + Serialization | Planned |
+| v0.6.0 | Pydantic + Serialization | Complete |
 | v0.7.0 | NumPy Array Support | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
@@ -34,13 +34,14 @@ ucon is a dimensional analysis library for engineers building systems where unit
 
 ---
 
-## Current Version: **v0.5.x** (complete)
+## Current Version: **v0.6.0** (complete)
 
-Building on v0.5.0 baseline:
+Building on v0.5.x baseline:
 - `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`, `UnitSystem`, `BasisTransform`, `RebasedUnit`)
 - `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap` with `derivative()`)
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`, cross-basis conversion)
-- `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax, `si` and `imperial` systems)
+- `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax, `si` and `imperial` systems, `get_unit_by_name()`)
+- `ucon.pydantic` (`Number` type for Pydantic v2 models)
 - `ucon.algebra` (`Vector` with `Fraction` exponents, `Exponent`)
 - Callable unit API: `meter(5)`, `(mile / hour)(60)`
 - `Number.simplify()` for base-scale normalization
@@ -49,6 +50,8 @@ Building on v0.5.0 baseline:
 - Uncertainty propagation: `meter(1.234, uncertainty=0.005)` with quadrature arithmetic
 - `BasisTransform` for cross-system dimensional mapping with exact matrix arithmetic
 - `UnitSystem` for named dimension-to-unit groupings
+- Pydantic v2 integration with JSON serialization
+- Unit string parsing: `get_unit_by_name("kg*m/s^2")`
 
 ---
 
@@ -161,19 +164,21 @@ Building on v0.5.0 baseline:
 
 ---
 
-## v0.6.0 — Pydantic + Serialization
+## v0.6.0 — Pydantic + Serialization (Complete)
 
 **Theme:** API and persistence integration.
 
-- [ ] Native Pydantic v2 support for `Number`
-- [ ] JSON serialization/deserialization
-- [ ] Pickle support
-- [ ] Optional: MCP server for unit conversion tool
+- [x] Native Pydantic v2 support for `Number`
+- [x] JSON serialization/deserialization
+- [x] Pickle support
+- [x] Unit string parsing: `get_unit_by_name()` with Unicode and ASCII notation
+- [ ] Optional: MCP server for unit conversion tool (deferred)
 
 **Outcomes:**
 - Native validation and serialization for dimensioned quantities
 - Enables safe configuration in data models and APIs
 - Bridges ucon's algebraic model with modern Python typing ecosystems
+- Unit strings parsed in both Unicode (`m/s²`) and ASCII (`m/s^2`) notation
 
 ---
 
@@ -197,9 +202,9 @@ Building on v0.5.0 baseline:
 
 **Theme:** Ergonomic input.
 
-- [ ] `parse("60 mph")` → `Number`
-- [ ] `parse("kg * m / s^2")` → `UnitProduct`
-- [ ] Alias resolution (`meters`, `metre`, `m` all work)
+- [ ] `parse("60 mph")` → `Number` (quantity + unit parsing)
+- [x] `parse("kg * m / s^2")` → `UnitProduct` (completed in v0.6.0 via `get_unit_by_name()`)
+- [x] Alias resolution (`meters`, `metre`, `m` all work) (completed in v0.6.0)
 - [ ] Uncertainty parsing: `parse("1.234 ± 0.005 m")`
 
 **Outcomes:**
