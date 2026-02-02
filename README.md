@@ -210,45 +210,70 @@ from ucon import BasisTransform, Dimension, Unit, UnitSystem, units
 from ucon.graph import ConversionGraph
 from ucon.maps import LinearMap
 
-# CGS-ESU electrostatics uses different dimensional analysis than SI.
-# In CGS-ESU, charge has dimension M^(1/2) · L^(3/2) · T^(-1)
-# In SI, charge has dimension I · T (current × time)
+# The realm of Valdris has three fundamental dimensions:
+#   - Aether (A): magical energy substrate
+#   - Resonance (R): vibrational frequency of magic
+#   - Substance (S): physical matter
 #
-# These are fundamentally different dimensional structures.
-# A BasisTransform bridges them with exact matrix arithmetic.
+# These combine into SI dimensions via a transformation matrix:
+#
+#   | L |   | 2  0  0 |   | A |
+#   | M | = | 1  0  1 | × | R |
+#   | T |   |-2 -1  0 |   | S |
+#
+# Reading the columns:
+#   - 1 aether contributes: L², M, T⁻²  (energy-like)
+#   - 1 resonance contributes: T⁻¹      (frequency-like)
+#   - 1 substance contributes: M         (mass-like)
 
-# Define the systems
-cgs_esu = UnitSystem(
-    name="CGS-ESU",
-    bases={Dimension.length: units.meter, Dimension.mass: units.gram}
+# Fantasy base units
+mote = Unit(name='mote', dimension=Dimension.energy, aliases=('mt',))
+chime = Unit(name='chime', dimension=Dimension.frequency, aliases=('ch',))
+ite = Unit(name='ite', dimension=Dimension.mass, aliases=('it',))
+
+valdris = UnitSystem(
+    name="Valdris",
+    bases={
+        Dimension.energy: mote,
+        Dimension.frequency: chime,
+        Dimension.mass: ite,
+    }
 )
 
-# 1:1 dimension relabeling: esu_charge → SI charge
-esu_to_si = BasisTransform(
-    src=cgs_esu,
+# The basis transform encodes how Valdris dimensions compose into SI
+valdris_to_si = BasisTransform(
+    src=valdris,
     dst=units.si,
-    src_dimensions=(Dimension.charge,),
-    dst_dimensions=(Dimension.charge,),
-    matrix=((1,),),  # Identity mapping for the dimension
+    src_dimensions=(Dimension.energy, Dimension.frequency, Dimension.mass),
+    dst_dimensions=(Dimension.energy, Dimension.frequency, Dimension.mass),
+    matrix=(
+        (2, 0, 0),    # energy: 2 × aether
+        (1, 0, 1),    # frequency: aether + substance
+        (-2, -1, 0),  # mass: -2×aether - resonance
+    ),
 )
 
-# The conversion factor is physical: 1 statcoulomb ≈ 3.336e-10 coulombs
+# Physical calibration: how many SI units per fantasy unit
 graph = ConversionGraph()
-statcoulomb = Unit(name='statcoulomb', dimension=Dimension.charge, aliases=('statC',))
-
-graph.add_edge(
-    src=statcoulomb,
-    dst=units.coulomb,
-    map=LinearMap(Fraction(3336, int(1e13))),  # Exact fraction
-    basis_transform=esu_to_si,
+graph.connect_systems(
+    basis_transform=valdris_to_si,
+    edges={
+        (mote, units.joule): LinearMap(42),           # 1 mote = 42 J
+        (chime, units.hertz): LinearMap(7),           # 1 chime = 7 Hz
+        (ite, units.kilogram): LinearMap(Fraction(1, 2)),  # 1 ite = 0.5 kg
+    }
 )
 
-# Now convert between systems
-m = graph.convert(src=statcoulomb, dst=units.coulomb)
-m(1e9)  # ~0.3336 coulombs from 1 billion statcoulombs
+# Game engine converts between physics systems
+energy_map = graph.convert(src=mote, dst=units.joule)
+energy_map(10)  # 420 joules from 10 motes
 
-# Introspection shows the basis change
-graph.list_transforms()  # [BasisTransform(src=CGS-ESU, dst=SI, ...)]
+# Inverse: display real-world values in game units
+joule_to_mote = graph.convert(src=units.joule, dst=mote)
+joule_to_mote(420)  # 10 motes
+
+# The transform is invertible with exact Fraction arithmetic
+valdris_to_si.is_invertible  # True
 ```
 
 This enables fantasy game physics, or any field where the dimensional structure differs from SI.
