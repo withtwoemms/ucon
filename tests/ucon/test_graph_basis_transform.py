@@ -211,6 +211,53 @@ class TestGraphListTransforms(unittest.TestCase):
         self.assertIn(units.foot, rebased)
         self.assertIsInstance(rebased[units.foot], RebasedUnit)
 
+    def test_list_transforms(self):
+        transforms = self.graph.list_transforms()
+        self.assertEqual(len(transforms), 1)
+        self.assertEqual(transforms[0], self.bt)
+
+    def test_edges_for_transform(self):
+        edges = self.graph.edges_for_transform(self.bt)
+        self.assertEqual(len(edges), 1)
+        self.assertEqual(edges[0], (units.foot, units.meter))
+
+    def test_list_transforms_multiple(self):
+        # Add another transform
+        custom = UnitSystem(
+            name="Custom",
+            bases={Dimension.mass: units.pound}
+        )
+        bt2 = BasisTransform(
+            src=custom,
+            dst=self.si,
+            src_dimensions=(Dimension.mass,),
+            dst_dimensions=(Dimension.mass,),
+            matrix=((1,),),
+        )
+        # Need to add a mass base to SI for this test
+        si_with_mass = UnitSystem(
+            name="SI",
+            bases={
+                Dimension.length: units.meter,
+                Dimension.mass: units.kilogram,
+            }
+        )
+        bt2 = BasisTransform(
+            src=custom,
+            dst=si_with_mass,
+            src_dimensions=(Dimension.mass,),
+            dst_dimensions=(Dimension.mass,),
+            matrix=((1,),),
+        )
+        self.graph.add_edge(
+            src=units.pound,
+            dst=units.kilogram,
+            map=LinearMap(0.453592),
+            basis_transform=bt2,
+        )
+        transforms = self.graph.list_transforms()
+        self.assertEqual(len(transforms), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
