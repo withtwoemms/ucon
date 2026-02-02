@@ -237,6 +237,47 @@ class ConversionGraph:
         """
         return dict(self._rebased)
 
+    def list_transforms(self) -> list[BasisTransform]:
+        """Return all BasisTransforms active in the graph.
+
+        Returns
+        -------
+        list[BasisTransform]
+            Unique transforms used by rebased units.
+        """
+        seen = set()
+        result = []
+        for rebased in self._rebased.values():
+            bt = rebased.basis_transform
+            if id(bt) not in seen:
+                seen.add(id(bt))
+                result.append(bt)
+        return result
+
+    def edges_for_transform(self, transform: BasisTransform) -> list[tuple[Unit, Unit]]:
+        """Return all edges that use a specific BasisTransform.
+
+        Parameters
+        ----------
+        transform : BasisTransform
+            The transform to filter by.
+
+        Returns
+        -------
+        list[tuple[Unit, Unit]]
+            List of (original_unit, destination_unit) pairs.
+        """
+        result = []
+        for original, rebased in self._rebased.items():
+            if rebased.basis_transform == transform:
+                # Find the destination unit (the one the rebased unit connects to)
+                dim = rebased.dimension
+                if dim in self._unit_edges and rebased in self._unit_edges[dim]:
+                    for dst in self._unit_edges[dim][rebased]:
+                        if not isinstance(dst, RebasedUnit):
+                            result.append((original, dst))
+        return result
+
     def _ensure_dimension(self, dim: Dimension) -> None:
         if dim not in self._unit_edges:
             self._unit_edges[dim] = {}

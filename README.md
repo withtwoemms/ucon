@@ -55,6 +55,9 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 | **`Ratio`**                   | `ucon.core`                             | Represents the division of two `Number` objects; captures relationships between quantities.         | Expressing rates, densities, efficiencies (e.g., energy / time = power, length / time = velocity).                     |
 | **`Map`** hierarchy           | `ucon.maps`                             | Composable conversion morphisms: `LinearMap`, `AffineMap`, `ComposedMap`.                           | Defining conversion functions between units (e.g., meter→foot, celsius→kelvin).                                        |
 | **`ConversionGraph`**         | `ucon.graph`                            | Registry of unit conversion edges with BFS path composition.                                        | Converting between units via `Number.to(target)`; managing default and custom graphs.                                  |
+| **`UnitSystem`**              | `ucon.core`                             | Named mapping from dimensions to base units (e.g., SI, Imperial).                                   | Defining coherent unit systems; grouping base units by dimension.                                                      |
+| **`BasisTransform`**          | `ucon.core`                             | Matrix-based transformation between dimensional exponent spaces.                                    | Converting between incompatible dimensional structures; exact arithmetic with `Fraction`.                              |
+| **`RebasedUnit`**             | `ucon.core`                             | A unit rebased to another system's dimension, preserving provenance.                                | Cross-basis conversions; tracking original unit through basis changes.                                                 |
 | **`units` module**            | `ucon.units`                            | Defines canonical unit instances (SI, imperial, information, and derived units).                    | Quick access to standard physical units (`units.meter`, `units.foot`, `units.byte`, etc.).                             |
 
 ### Under the Hood
@@ -198,6 +201,83 @@ length_ft = length.to(units.foot)
 print(length_ft)  # <4.048... ± 0.0164... ft>
 ```
 
+Unit systems and basis transforms enable conversions between incompatible dimensional structures.
+This goes beyond simple unit conversion (meter → foot) into structural transformation:
+
+```python
+from fractions import Fraction
+from ucon import BasisTransform, Dimension, Unit, UnitSystem, units
+from ucon.graph import ConversionGraph
+from ucon.maps import LinearMap
+
+# The realm of Valdris has three fundamental dimensions:
+#   - Aether (A): magical energy substrate
+#   - Resonance (R): vibrational frequency of magic
+#   - Substance (S): physical matter
+#
+# These combine into SI dimensions via a transformation matrix:
+#
+#   | L |   | 2  0  0 |   | A |
+#   | M | = | 1  0  1 | × | R |
+#   | T |   |-2 -1  0 |   | S |
+#
+# Reading the columns:
+#   - 1 aether contributes: L², M, T⁻²  (energy-like)
+#   - 1 resonance contributes: T⁻¹      (frequency-like)
+#   - 1 substance contributes: M         (mass-like)
+
+# Fantasy base units
+mote = Unit(name='mote', dimension=Dimension.energy, aliases=('mt',))
+chime = Unit(name='chime', dimension=Dimension.frequency, aliases=('ch',))
+ite = Unit(name='ite', dimension=Dimension.mass, aliases=('it',))
+
+valdris = UnitSystem(
+    name="Valdris",
+    bases={
+        Dimension.energy: mote,
+        Dimension.frequency: chime,
+        Dimension.mass: ite,
+    }
+)
+
+# The basis transform encodes how Valdris dimensions compose into SI
+valdris_to_si = BasisTransform(
+    src=valdris,
+    dst=units.si,
+    src_dimensions=(Dimension.energy, Dimension.frequency, Dimension.mass),
+    dst_dimensions=(Dimension.energy, Dimension.frequency, Dimension.mass),
+    matrix=(
+        (2, 0, 0),    # energy: 2 × aether
+        (1, 0, 1),    # frequency: aether + substance
+        (-2, -1, 0),  # mass: -2×aether - resonance
+    ),
+)
+
+# Physical calibration: how many SI units per fantasy unit
+graph = ConversionGraph()
+graph.connect_systems(
+    basis_transform=valdris_to_si,
+    edges={
+        (mote, units.joule): LinearMap(42),           # 1 mote = 42 J
+        (chime, units.hertz): LinearMap(7),           # 1 chime = 7 Hz
+        (ite, units.kilogram): LinearMap(Fraction(1, 2)),  # 1 ite = 0.5 kg
+    }
+)
+
+# Game engine converts between physics systems
+energy_map = graph.convert(src=mote, dst=units.joule)
+energy_map(10)  # 420 joules from 10 motes
+
+# Inverse: display real-world values in game units
+joule_to_mote = graph.convert(src=units.joule, dst=mote)
+joule_to_mote(420)  # 10 motes
+
+# The transform is invertible with exact Fraction arithmetic
+valdris_to_si.is_invertible  # True
+```
+
+This enables fantasy game physics, or any field where the dimensional structure differs from SI.
+
 ---
 
 ## Roadmap Highlights
@@ -208,8 +288,9 @@ print(length_ft)  # <4.048... ± 0.0164... ft>
 | **0.4.x** | Conversion System | `ConversionGraph`, `Number.to()`, callable units | ✅ Complete |
 | **0.5.0** | Dimensionless Units | Pseudo-dimensions for angle, solid angle, ratio | ✅ Complete |
 | **0.5.x** | Uncertainty | Propagation through arithmetic and conversions | ✅ Complete |
-| **0.5.x** | Unit Systems | `BasisMap`, `UnitSystem` | 🚧 In Progress |
-| **0.7.x** | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
+| **0.5.x** | Unit Systems | `BasisTransform`, `UnitSystem`, cross-basis conversion | ✅ Complete |
+| **0.6.x** | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
+| **0.7.x** | NumPy Arrays | Vectorized conversion and arithmetic | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)
 
