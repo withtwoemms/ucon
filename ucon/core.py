@@ -29,6 +29,15 @@ from ucon.algebra import Exponent, Vector
 
 
 # --------------------------------------------------------------------------------------
+# Exceptions
+# --------------------------------------------------------------------------------------
+
+class DimensionNotCovered(Exception):
+    """Raised when a UnitSystem doesn't cover a requested dimension."""
+    pass
+
+
+# --------------------------------------------------------------------------------------
 # Dimension
 # --------------------------------------------------------------------------------------
 
@@ -463,6 +472,89 @@ class Unit:
         <1.234 ± 0.005 m>
         """
         return Number(quantity=quantity, unit=UnitProduct.from_unit(self), uncertainty=uncertainty)
+
+
+# --------------------------------------------------------------------------------------
+# UnitSystem
+# --------------------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class UnitSystem:
+    """
+    A named mapping from dimensions to base units.
+
+    Represents a coherent unit system like SI or Imperial, where each
+    covered dimension has exactly one base unit. Partial systems are
+    allowed (Imperial doesn't need mole).
+
+    Parameters
+    ----------
+    name : str
+        The name of the unit system (e.g., "SI", "Imperial").
+    bases : dict[Dimension, Unit]
+        Mapping from dimensions to their base units.
+
+    Raises
+    ------
+    ValueError
+        If name is empty, bases is empty, or a unit's dimension doesn't
+        match its declared dimension key.
+
+    Examples
+    --------
+    >>> si = UnitSystem(
+    ...     name="SI",
+    ...     bases={
+    ...         Dimension.length: meter,
+    ...         Dimension.mass: kilogram,
+    ...         Dimension.time: second,
+    ...     }
+    ... )
+    >>> si.base_for(Dimension.length)
+    <Unit m>
+    """
+    name: str
+    bases: Dict[Dimension, 'Unit']
+
+    def __post_init__(self):
+        if not self.name:
+            raise ValueError("UnitSystem must have a name")
+        if not self.bases:
+            raise ValueError("UnitSystem must have at least one base unit")
+
+        for dim, unit in self.bases.items():
+            if unit.dimension != dim:
+                raise ValueError(
+                    f"Base unit {unit.name} has dimension {unit.dimension.name}, "
+                    f"but was declared as base for {dim.name}"
+                )
+
+    def base_for(self, dim: Dimension) -> 'Unit':
+        """Return the base unit for a dimension.
+
+        Raises
+        ------
+        DimensionNotCovered
+            If this system has no base unit for the dimension.
+        """
+        if dim not in self.bases:
+            raise DimensionNotCovered(
+                f"{self.name} has no base unit for {dim.name}"
+            )
+        return self.bases[dim]
+
+    def covers(self, dim: Dimension) -> bool:
+        """Return True if this system has a base unit for the dimension."""
+        return dim in self.bases
+
+    @property
+    def dimensions(self) -> set:
+        """Return the set of dimensions covered by this system."""
+        return set(self.bases.keys())
+
+    def __hash__(self):
+        # Frozen dataclass with dict field needs custom hash
+        return hash((self.name, tuple(sorted(self.bases.items(), key=lambda x: x[0].name))))
 
 
 @dataclass(frozen=True)

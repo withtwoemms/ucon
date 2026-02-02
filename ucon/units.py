@@ -28,7 +28,7 @@ Notes
 The design allows for future extensibility: users can register their own units,
 systems, or aliases dynamically, without modifying the core definitions.
 """
-from ucon.core import Dimension, Unit
+from ucon.core import Dimension, Unit, UnitSystem
 
 
 none = Unit()
@@ -49,6 +49,7 @@ joule_per_kelvin = Unit(name='joule_per_kelvin', dimension=Dimension.entropy, al
 kelvin = Unit(name='kelvin', dimension=Dimension.temperature, aliases=('K',))
 kilogram = Unit(name='kilogram', dimension=Dimension.mass, aliases=('kg',))
 liter = Unit(name='liter', dimension=Dimension.volume, aliases=('L', 'l'))
+candela = Unit(name='candela', dimension=Dimension.luminous_intensity, aliases=('cd',))
 lumen = Unit(name='lumen', dimension=Dimension.luminous_intensity, aliases=('lm',))
 lux = Unit(name='lux', dimension=Dimension.illuminance, aliases=('lx',))
 meter = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
@@ -139,6 +140,32 @@ basis_point = Unit(name='basis_point', dimension=Dimension.ratio, aliases=('bp',
 
 # Backward compatibility alias
 webers = weber
+
+
+# -- Predefined Unit Systems -----------------------------------------------
+si = UnitSystem(
+    name="SI",
+    bases={
+        Dimension.length: meter,
+        Dimension.mass: kilogram,
+        Dimension.time: second,
+        Dimension.temperature: kelvin,
+        Dimension.current: ampere,
+        Dimension.amount_of_substance: mole,
+        Dimension.luminous_intensity: candela,
+    }
+)
+
+imperial = UnitSystem(
+    name="Imperial",
+    bases={
+        Dimension.length: foot,
+        Dimension.mass: pound,
+        Dimension.time: second,
+        Dimension.temperature: fahrenheit,
+    }
+)
+# --------------------------------------------------------------------------
 
 
 def have(name: str) -> bool:
