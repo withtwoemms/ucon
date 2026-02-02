@@ -824,6 +824,54 @@ class BasisTransform:
         )
 
 
+# --------------------------------------------------------------------------------------
+# RebasedUnit
+# --------------------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class RebasedUnit:
+    """
+    A unit whose dimension was transformed by a BasisTransform.
+
+    Lives in the destination partition but preserves provenance to the
+    original unit and the transform that created it.
+
+    Parameters
+    ----------
+    original : Unit
+        The original unit before transformation.
+    rebased_dimension : Dimension
+        The dimension in the destination system.
+    basis_transform : BasisTransform
+        The transform that rebased this unit.
+
+    Examples
+    --------
+    >>> rebased = RebasedUnit(
+    ...     original=statcoulomb,
+    ...     rebased_dimension=Dimension.charge,
+    ...     basis_transform=esu_to_si,
+    ... )
+    >>> rebased.dimension
+    <Dimension.charge>
+    >>> rebased.name
+    'statcoulomb'
+    """
+    original: 'Unit'
+    rebased_dimension: Dimension
+    basis_transform: 'BasisTransform'
+
+    @property
+    def dimension(self) -> Dimension:
+        """Return the rebased dimension (in the destination system)."""
+        return self.rebased_dimension
+
+    @property
+    def name(self) -> str:
+        """Return the name of the original unit."""
+        return self.original.name
+
+
 @dataclass(frozen=True)
 class UnitFactor:
     """
