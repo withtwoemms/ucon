@@ -28,7 +28,15 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Union
 
-from ucon.core import Dimension, Unit, UnitFactor, UnitProduct, Scale
+from ucon.core import (
+    BasisTransform,
+    Dimension,
+    RebasedUnit,
+    Unit,
+    UnitFactor,
+    UnitProduct,
+    Scale,
+)
 from ucon.maps import Map, LinearMap, AffineMap
 
 
@@ -66,6 +74,9 @@ class ConversionGraph:
     # Edges between UnitProducts (keyed by frozen factor representation)
     _product_edges: dict[tuple, dict[tuple, Map]] = field(default_factory=dict)
 
+    # Rebased units: original unit → RebasedUnit (for cross-basis edges)
+    _rebased: dict[Unit, RebasedUnit] = field(default_factory=dict)
+
     # ------------- Edge Management -------------------------------------------
 
     def add_edge(
@@ -74,6 +85,7 @@ class ConversionGraph:
         src: Union[Unit, UnitProduct],
         dst: Union[Unit, UnitProduct],
         map: Map,
+        basis_transform: BasisTransform | None = None,
     ) -> None:
         """Register a conversion edge. Also registers the inverse.
 
@@ -85,15 +97,31 @@ class ConversionGraph:
             Destination unit expression.
         map : Map
             The conversion morphism (src → dst).
+        basis_transform : BasisTransform, optional
+            If provided, creates a cross-basis edge. The src unit is rebased
+            to the dst's dimension and the edge connects the rebased unit
+            to dst.
 
         Raises
         ------
         DimensionMismatch
-            If src and dst have different dimensions.
+            If src and dst have different dimensions (and no basis_transform).
         CyclicInconsistency
             If the reverse edge exists and round-trip is not identity.
         """
-        # Handle Unit vs UnitProduct dispatch
+        # Cross-basis edge with BasisTransform
+        if basis_transform is not None:
+            if isinstance(src, Unit) and not isinstance(src, UnitProduct):
+                if isinstance(dst, Unit) and not isinstance(dst, UnitProduct):
+                    self._add_cross_basis_edge(
+                        src=src,
+                        dst=dst,
+                        map=map,
+                        basis_transform=basis_transform,
+                    )
+                    return
+
+        # Handle Unit vs UnitProduct dispatch (normal case)
         if isinstance(src, Unit) and not isinstance(src, UnitProduct):
             if isinstance(dst, Unit) and not isinstance(dst, UnitProduct):
                 self._add_unit_edge(src=src, dst=dst, map=map)
@@ -141,6 +169,73 @@ class ConversionGraph:
         # Store forward and inverse
         self._product_edges.setdefault(src_key, {})[dst_key] = map
         self._product_edges.setdefault(dst_key, {})[src_key] = map.inverse()
+
+    def _add_cross_basis_edge(
+        self,
+        *,
+        src: Unit,
+        dst: Unit,
+        map: Map,
+        basis_transform: BasisTransform,
+    ) -> None:
+        """Add cross-basis edge between Units via BasisTransform.
+
+        Creates a RebasedUnit for src in the destination's dimension partition,
+        then stores the edge from the rebased unit to dst.
+        """
+        # Validate that the transform maps src to dst's dimension
+        if not basis_transform.validate_edge(src, dst):
+            raise DimensionMismatch(
+                f"Transform {basis_transform.src.name} -> {basis_transform.dst.name} "
+                f"does not map {src.name} to {dst.name}'s dimension"
+            )
+
+        # Create RebasedUnit in destination's dimension partition
+        rebased = RebasedUnit(
+            original=src,
+            rebased_dimension=dst.dimension,
+            basis_transform=basis_transform,
+        )
+        self._rebased[src] = rebased
+
+        # Store edge from rebased to dst (same dimension now)
+        dim = dst.dimension
+        self._ensure_dimension(dim)
+        self._unit_edges[dim].setdefault(rebased, {})[dst] = map
+        self._unit_edges[dim].setdefault(dst, {})[rebased] = map.inverse()
+
+    def connect_systems(
+        self,
+        *,
+        basis_transform: BasisTransform,
+        edges: dict[tuple[Unit, Unit], Map],
+    ) -> None:
+        """Bulk-add edges between systems.
+
+        Parameters
+        ----------
+        basis_transform : BasisTransform
+            The transform bridging the two systems.
+        edges : dict
+            Mapping from (src_unit, dst_unit) to Map.
+        """
+        for (src, dst), edge_map in edges.items():
+            self.add_edge(
+                src=src,
+                dst=dst,
+                map=edge_map,
+                basis_transform=basis_transform,
+            )
+
+    def list_rebased_units(self) -> dict[Unit, RebasedUnit]:
+        """Return all rebased units in the graph.
+
+        Returns
+        -------
+        dict[Unit, RebasedUnit]
+            Mapping from original unit to its RebasedUnit.
+        """
+        return dict(self._rebased)
 
     def _ensure_dimension(self, dim: Dimension) -> None:
         if dim not in self._unit_edges:
@@ -206,10 +301,28 @@ class ConversionGraph:
         return self._convert_products(src=src_prod, dst=dst_prod)
 
     def _convert_units(self, *, src: Unit, dst: Unit) -> Map:
-        """Convert between plain Units via BFS."""
+        """Convert between plain Units via BFS.
+
+        Handles cross-basis conversions via rebased units.
+        """
         if src == dst:
             return LinearMap.identity()
 
+        # Check if src has a rebased version that can reach dst
+        if src in self._rebased:
+            rebased = self._rebased[src]
+            if rebased.dimension == dst.dimension:
+                # Convert via the rebased unit
+                return self._bfs_convert(start=rebased, target=dst, dim=dst.dimension)
+
+        # Check if dst has a rebased version (inverse conversion)
+        if dst in self._rebased:
+            rebased_dst = self._rebased[dst]
+            if rebased_dst.dimension == src.dimension:
+                # Convert from src to the rebased dst
+                return self._bfs_convert(start=src, target=rebased_dst, dim=src.dimension)
+
+        # Check for dimension mismatch
         if src.dimension != dst.dimension:
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
 
@@ -217,13 +330,16 @@ class ConversionGraph:
         if self._has_direct_unit_edge(src=src, dst=dst):
             return self._get_direct_unit_edge(src=src, dst=dst)
 
-        # BFS
-        dim = src.dimension
+        # BFS in same dimension
+        return self._bfs_convert(start=src, target=dst, dim=src.dimension)
+
+    def _bfs_convert(self, *, start, target, dim: Dimension) -> Map:
+        """BFS to find conversion path within a dimension."""
         if dim not in self._unit_edges:
             raise ConversionNotFound(f"No edges for dimension {dim}")
 
-        visited: dict[Unit, Map] = {src: LinearMap.identity()}
-        queue = deque([src])
+        visited: dict = {start: LinearMap.identity()}
+        queue = deque([start])
 
         while queue:
             current = queue.popleft()
@@ -239,12 +355,12 @@ class ConversionGraph:
                 composed = edge_map @ current_map
                 visited[neighbor] = composed
 
-                if neighbor == dst:
+                if neighbor == target:
                     return composed
 
                 queue.append(neighbor)
 
-        raise ConversionNotFound(f"No path from {src} to {dst}")
+        raise ConversionNotFound(f"No path from {start} to {target}")
 
     def _convert_products(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
         """Convert between UnitProducts.
