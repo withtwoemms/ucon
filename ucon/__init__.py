@@ -53,6 +53,7 @@ from ucon.core import (
     Ratio,
 )
 from ucon.graph import get_default_graph, using_graph
+from ucon.units import UnknownUnitError, get_unit_by_name
 
 
 __all__ = [
@@ -69,7 +70,9 @@ __all__ = [
     'UnitFactor',
     'UnitProduct',
     'UnitSystem',
+    'UnknownUnitError',
     'get_default_graph',
-    'using_graph',
+    'get_unit_by_name',
     'units',
+    'using_graph',
 ]
