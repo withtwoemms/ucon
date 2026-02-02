@@ -37,6 +37,11 @@ class DimensionNotCovered(Exception):
     pass
 
 
+class NonInvertibleTransform(Exception):
+    """Raised when a BasisTransform is not invertible (non-square or singular)."""
+    pass
+
+
 # --------------------------------------------------------------------------------------
 # Dimension
 # --------------------------------------------------------------------------------------
