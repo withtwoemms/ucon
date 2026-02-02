@@ -20,13 +20,14 @@ Classes
 - :class:`Exponent` — Base/power pair supporting prefix arithmetic.
 """
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
+from fractions import Fraction
 from functools import partial, reduce, total_ordering
 from operator import __sub__ as subtraction
 from typing import Callable, Iterable, Iterator, Tuple, Union
 
 
-diff: Callable[[Iterable], int] = partial(reduce, subtraction)
+diff: Callable[[Iterable], Fraction] = partial(reduce, subtraction)
 
 
 @dataclass
@@ -43,22 +44,34 @@ class Vector:
     - Addition (`+`) → multiplication of quantities
     - Subtraction (`-`) → division of quantities
 
+    Components are stored as `Fraction` for exact arithmetic, enabling
+    fractional exponents (e.g., CGS-ESU charge: M^(1/2) · L^(3/2) · T^(-1)).
+    Integer and float inputs are automatically converted to Fraction.
+
     e.g.
     Vector(T=1, L=0, M=0, I=0, Θ=0, J=0, N=0, B=0)   => "time"
     Vector(T=0, L=2, M=0, I=0, Θ=0, J=0, N=0, B=0)   => "area"
     Vector(T=-2, L=1, M=1, I=0, Θ=0, J=0, N=0, B=0)  => "force"
     Vector(T=0, L=0, M=0, I=0, Θ=0, J=0, N=0, B=1)   => "information"
+    Vector(L=Fraction(3,2), M=Fraction(1,2), T=-1)   => "esu_charge"
     """
-    T: int = 0  # time
-    L: int = 0  # length
-    M: int = 0  # mass
-    I: int = 0  # current
-    Θ: int = 0  # temperature
-    J: int = 0  # luminous intensity
-    N: int = 0  # amount of substance
-    B: int = 0  # information (bits)
+    T: Union[int, float, Fraction] = 0  # time
+    L: Union[int, float, Fraction] = 0  # length
+    M: Union[int, float, Fraction] = 0  # mass
+    I: Union[int, float, Fraction] = 0  # current
+    Θ: Union[int, float, Fraction] = 0  # temperature
+    J: Union[int, float, Fraction] = 0  # luminous intensity
+    N: Union[int, float, Fraction] = 0  # amount of substance
+    B: Union[int, float, Fraction] = 0  # information (bits)
 
-    def __iter__(self) -> Iterator[int]:
+    def __post_init__(self):
+        """Convert all components to Fraction for exact arithmetic."""
+        for field in fields(self):
+            val = getattr(self, field.name)
+            if not isinstance(val, Fraction):
+                object.__setattr__(self, field.name, Fraction(val))
+
+    def __iter__(self) -> Iterator[Fraction]:
         yield self.T
         yield self.L
         yield self.M
@@ -90,7 +103,7 @@ class Vector:
         values = tuple(diff(pair) for pair in zip(tuple(self), tuple(vector)))
         return Vector(*values)
 
-    def __mul__(self, scalar: Union[int, float]) -> 'Vector':
+    def __mul__(self, scalar: Union[int, float, Fraction]) -> 'Vector':
         """
         Scalar multiplication of the exponent vector.
 
@@ -99,8 +112,17 @@ class Vector:
             >>> Dimension.length ** 2   # area
             >>> Dimension.time ** -1    # frequency
         """
-        values = tuple(component * scalar for component in tuple(self))
+        n = Fraction(scalar) if not isinstance(scalar, Fraction) else scalar
+        values = tuple(component * n for component in tuple(self))
         return Vector(*values)
+
+    def __rmul__(self, scalar: Union[int, float, Fraction]) -> 'Vector':
+        """Right multiplication: scalar * vector."""
+        return self.__mul__(scalar)
+
+    def __neg__(self) -> 'Vector':
+        """Negate the vector: -v."""
+        return Vector(*(-component for component in tuple(self)))
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Vector):
