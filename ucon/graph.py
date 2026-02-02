@@ -301,24 +301,36 @@ class ConversionGraph:
         return self._convert_products(src=src_prod, dst=dst_prod)
 
     def _convert_units(self, *, src: Unit, dst: Unit) -> Map:
-        """Convert between plain Units via BFS."""
+        """Convert between plain Units via BFS.
+
+        Handles cross-basis conversions via rebased units.
+        """
         if src == dst:
             return LinearMap.identity()
 
+        # Check for cross-basis conversion via rebased unit
         if src.dimension != dst.dimension:
+            if src in self._rebased:
+                rebased = self._rebased[src]
+                if rebased.dimension == dst.dimension:
+                    # Convert via the rebased unit
+                    return self._bfs_convert(start=rebased, target=dst, dim=dst.dimension)
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
 
         # Direct edge?
         if self._has_direct_unit_edge(src=src, dst=dst):
             return self._get_direct_unit_edge(src=src, dst=dst)
 
-        # BFS
-        dim = src.dimension
+        # BFS in same dimension
+        return self._bfs_convert(start=src, target=dst, dim=src.dimension)
+
+    def _bfs_convert(self, *, start, target, dim: Dimension) -> Map:
+        """BFS to find conversion path within a dimension."""
         if dim not in self._unit_edges:
             raise ConversionNotFound(f"No edges for dimension {dim}")
 
-        visited: dict[Unit, Map] = {src: LinearMap.identity()}
-        queue = deque([src])
+        visited: dict = {start: LinearMap.identity()}
+        queue = deque([start])
 
         while queue:
             current = queue.popleft()
@@ -334,12 +346,12 @@ class ConversionGraph:
                 composed = edge_map @ current_map
                 visited[neighbor] = composed
 
-                if neighbor == dst:
+                if neighbor == target:
                     return composed
 
                 queue.append(neighbor)
 
-        raise ConversionNotFound(f"No path from {src} to {dst}")
+        raise ConversionNotFound(f"No path from {start} to {target}")
 
     def _convert_products(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
         """Convert between UnitProducts.
