@@ -28,7 +28,7 @@ Notes
 The design allows for future extensibility: users can register their own units,
 systems, or aliases dynamically, without modifying the core definitions.
 """
-from ucon.core import Dimension, Unit
+from ucon.core import Dimension, Unit, UnitSystem
 
 
 none = Unit()
@@ -140,6 +140,32 @@ basis_point = Unit(name='basis_point', dimension=Dimension.ratio, aliases=('bp',
 
 # Backward compatibility alias
 webers = weber
+
+
+# -- Predefined Unit Systems -----------------------------------------------
+si = UnitSystem(
+    name="SI",
+    bases={
+        Dimension.length: meter,
+        Dimension.mass: kilogram,
+        Dimension.time: second,
+        Dimension.temperature: kelvin,
+        Dimension.current: ampere,
+        Dimension.amount_of_substance: mole,
+        Dimension.luminous_intensity: candela,
+    }
+)
+
+imperial = UnitSystem(
+    name="Imperial",
+    bases={
+        Dimension.length: foot,
+        Dimension.mass: pound,
+        Dimension.time: second,
+        Dimension.temperature: fahrenheit,
+    }
+)
+# --------------------------------------------------------------------------
 
 
 def have(name: str) -> bool:
