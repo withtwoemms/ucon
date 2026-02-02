@@ -28,7 +28,18 @@ Notes
 The design allows for future extensibility: users can register their own units,
 systems, or aliases dynamically, without modifying the core definitions.
 """
-from ucon.core import Dimension, Unit, UnitSystem
+import re
+from typing import Dict, Tuple, Union
+
+from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct, UnitSystem
+
+
+class UnknownUnitError(Exception):
+    """Raised when a unit string cannot be resolved to a known unit."""
+
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"Unknown unit: {name!r}")
 
 
 none = Unit()
