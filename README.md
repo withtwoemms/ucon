@@ -289,8 +289,8 @@ This enables fantasy game physics, or any field where the dimensional structure 
 | **0.5.0** | Dimensionless Units | Pseudo-dimensions for angle, solid angle, ratio | ✅ Complete |
 | **0.5.x** | Uncertainty | Propagation through arithmetic and conversions | ✅ Complete |
 | **0.5.x** | Unit Systems | `BasisTransform`, `UnitSystem`, cross-basis conversion | ✅ Complete |
-| **0.6.x** | NumPy Arrays | Vectorized conversion and arithmetic | ⏳ Planned |
-| **0.7.x** | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
+| **0.6.x** | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
+| **0.7.x** | NumPy Arrays | Vectorized conversion and arithmetic | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)
 
