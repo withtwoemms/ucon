@@ -49,6 +49,7 @@ joule_per_kelvin = Unit(name='joule_per_kelvin', dimension=Dimension.entropy, al
 kelvin = Unit(name='kelvin', dimension=Dimension.temperature, aliases=('K',))
 kilogram = Unit(name='kilogram', dimension=Dimension.mass, aliases=('kg',))
 liter = Unit(name='liter', dimension=Dimension.volume, aliases=('L', 'l'))
+candela = Unit(name='candela', dimension=Dimension.luminous_intensity, aliases=('cd',))
 lumen = Unit(name='lumen', dimension=Dimension.luminous_intensity, aliases=('lm',))
 lux = Unit(name='lux', dimension=Dimension.illuminance, aliases=('lx',))
 meter = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
