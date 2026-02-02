@@ -28,7 +28,15 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Union
 
-from ucon.core import Dimension, Unit, UnitFactor, UnitProduct, Scale
+from ucon.core import (
+    BasisTransform,
+    Dimension,
+    RebasedUnit,
+    Unit,
+    UnitFactor,
+    UnitProduct,
+    Scale,
+)
 from ucon.maps import Map, LinearMap, AffineMap
 
 
@@ -65,6 +73,9 @@ class ConversionGraph:
 
     # Edges between UnitProducts (keyed by frozen factor representation)
     _product_edges: dict[tuple, dict[tuple, Map]] = field(default_factory=dict)
+
+    # Rebased units: original unit → RebasedUnit (for cross-basis edges)
+    _rebased: dict[Unit, RebasedUnit] = field(default_factory=dict)
 
     # ------------- Edge Management -------------------------------------------
 
