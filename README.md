@@ -55,6 +55,9 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 | **`Ratio`**                   | `ucon.core`                             | Represents the division of two `Number` objects; captures relationships between quantities.         | Expressing rates, densities, efficiencies (e.g., energy / time = power, length / time = velocity).                     |
 | **`Map`** hierarchy           | `ucon.maps`                             | Composable conversion morphisms: `LinearMap`, `AffineMap`, `ComposedMap`.                           | Defining conversion functions between units (e.g., meter→foot, celsius→kelvin).                                        |
 | **`ConversionGraph`**         | `ucon.graph`                            | Registry of unit conversion edges with BFS path composition.                                        | Converting between units via `Number.to(target)`; managing default and custom graphs.                                  |
+| **`UnitSystem`**              | `ucon.core`                             | Named mapping from dimensions to base units (e.g., SI, Imperial).                                   | Defining coherent unit systems; grouping base units by dimension.                                                      |
+| **`BasisTransform`**          | `ucon.core`                             | Matrix-based transformation between dimensional exponent spaces.                                    | Converting between incompatible dimensional structures; exact arithmetic with `Fraction`.                              |
+| **`RebasedUnit`**             | `ucon.core`                             | A unit rebased to another system's dimension, preserving provenance.                                | Cross-basis conversions; tracking original unit through basis changes.                                                 |
 | **`units` module**            | `ucon.units`                            | Defines canonical unit instances (SI, imperial, information, and derived units).                    | Quick access to standard physical units (`units.meter`, `units.foot`, `units.byte`, etc.).                             |
 
 ### Under the Hood
@@ -208,7 +211,8 @@ print(length_ft)  # <4.048... ± 0.0164... ft>
 | **0.4.x** | Conversion System | `ConversionGraph`, `Number.to()`, callable units | ✅ Complete |
 | **0.5.0** | Dimensionless Units | Pseudo-dimensions for angle, solid angle, ratio | ✅ Complete |
 | **0.5.x** | Uncertainty | Propagation through arithmetic and conversions | ✅ Complete |
-| **0.5.x** | Unit Systems | `BasisMap`, `UnitSystem` | 🚧 In Progress |
+| **0.5.x** | Unit Systems | `BasisTransform`, `UnitSystem`, cross-basis conversion | ✅ Complete |
+| **0.6.x** | NumPy Arrays | Vectorized conversion and arithmetic | ⏳ Planned |
 | **0.7.x** | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)
