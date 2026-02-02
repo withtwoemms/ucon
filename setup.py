@@ -18,6 +18,9 @@ setup(
         'setuptools_scm==6.3.2'
     ],
     packages=find_packages(exclude=['tests']),
+    extras_require={
+        'pydantic': ['pydantic>=2.0'],
+    },
     author='Emmanuel I. Obi',
     maintainer='Emmanuel I. Obi',
     maintainer_email='withtwoemms@gmail.com',
