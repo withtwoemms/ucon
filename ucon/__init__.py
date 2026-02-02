@@ -39,8 +39,10 @@ Design Philosophy
 from ucon import units
 from ucon.algebra import Exponent
 from ucon.core import (
+    BasisTransform,
     Dimension,
     DimensionNotCovered,
+    NonInvertibleTransform,
     Scale,
     Unit,
     UnitFactor,
@@ -53,9 +55,11 @@ from ucon.graph import get_default_graph, using_graph
 
 
 __all__ = [
+    'BasisTransform',
     'Dimension',
     'DimensionNotCovered',
     'Exponent',
+    'NonInvertibleTransform',
     'Number',
     'Ratio',
     'Scale',
