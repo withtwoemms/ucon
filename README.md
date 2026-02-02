@@ -31,6 +31,7 @@ It combines **units**, **scales**, and **dimensions** into a composable algebra 
 - Metric and binary prefixes (`kilo`, `kibi`, `micro`, `mebi`, etc.)
 - Pseudo-dimensions for angles, solid angles, and ratios with semantic isolation
 - Uncertainty propagation through arithmetic and conversions
+- Pydantic v2 integration for API validation and JSON serialization
 - A clean foundation for physics, chemistry, data modeling, and beyond
 
 Think of it as **`decimal.Decimal` for the physical world** — precise, predictable, and type-safe.
@@ -59,6 +60,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 | **`BasisTransform`**          | `ucon.core`                             | Matrix-based transformation between dimensional exponent spaces.                                    | Converting between incompatible dimensional structures; exact arithmetic with `Fraction`.                              |
 | **`RebasedUnit`**             | `ucon.core`                             | A unit rebased to another system's dimension, preserving provenance.                                | Cross-basis conversions; tracking original unit through basis changes.                                                 |
 | **`units` module**            | `ucon.units`                            | Defines canonical unit instances (SI, imperial, information, and derived units).                    | Quick access to standard physical units (`units.meter`, `units.foot`, `units.byte`, etc.).                             |
+| **`pydantic` module**         | `ucon.pydantic`                         | Pydantic v2 integration with `Number` type for model validation and JSON serialization.             | Using `Number` in Pydantic models; API request/response validation; JSON round-trip serialization.                     |
 
 ### Under the Hood
 
@@ -105,35 +107,40 @@ Simple:
 pip install ucon
 ```
 
+With Pydantic v2 support:
+```bash
+pip install ucon[pydantic]
+```
+
 ## Usage
 
-This sort of dimensional analysis:
+### Quantities and Arithmetic
+
+Dimensional analysis like this:
 ```
  2 mL bromine | 3.119 g bromine
 --------------x-----------------  #=> 6.238 g bromine
       1       |  1 mL bromine
 ```
-becomes straightforward when you define a measurement:
+becomes straightforward:
 ```python
 from ucon import Number, Scale, units
 from ucon.quantity import Ratio
 
-# Two milliliters of bromine
 mL = Scale.milli * units.liter
 two_mL_bromine = Number(quantity=2, unit=mL)
 
-# Density of bromine: 3.119 g/mL
 bromine_density = Ratio(
     numerator=Number(unit=units.gram, quantity=3.119),
     denominator=Number(unit=mL),
 )
 
-# Multiply to find mass
 grams_bromine = bromine_density.evaluate() * two_mL_bromine
 print(grams_bromine)  # <6.238 g>
 ```
 
-Scale prefixes compose naturally:
+### Scale Prefixes
+
 ```python
 km = Scale.kilo * units.meter       # UnitProduct with kilo-scaled meter
 mg = Scale.milli * units.gram       # UnitProduct with milli-scaled gram
@@ -141,12 +148,12 @@ mg = Scale.milli * units.gram       # UnitProduct with milli-scaled gram
 print(km.shorthand)  # 'km'
 print(mg.shorthand)  # 'mg'
 
-# Scale arithmetic
 print(km.fold_scale())  # 1000.0
 print(mg.fold_scale())  # 0.001
 ```
 
-Units are callable for ergonomic quantity construction:
+### Callable Units and Conversion
+
 ```python
 from ucon import units, Scale
 
@@ -165,16 +172,16 @@ distance_mi = distance.to(units.mile)
 print(distance_mi)  # <3.107... mi>
 ```
 
-Dimensionless units have semantic isolation — angles, solid angles, and ratios are distinct:
+### Dimensionless Units
+
+Angles, solid angles, and ratios are semantically isolated:
 ```python
 import math
 from ucon import units
 
-# Angle conversions
 angle = units.radian(math.pi)
 print(angle.to(units.degree))  # <180.0 deg>
 
-# Ratio conversions
 ratio = units.percent(50)
 print(ratio.to(units.ppm))  # <500000.0 ppm>
 
@@ -182,101 +189,60 @@ print(ratio.to(units.ppm))  # <500000.0 ppm>
 units.radian(1).to(units.percent)  # raises ConversionNotFound
 ```
 
-Uncertainty propagates through arithmetic and conversions:
+### Uncertainty Propagation
+
 ```python
 from ucon import units
 
-# Measurements with uncertainty
 length = units.meter(1.234, uncertainty=0.005)
 width = units.meter(0.567, uncertainty=0.003)
 
 print(length)  # <1.234 ± 0.005 m>
 
-# Uncertainty propagates through arithmetic (quadrature)
+# Propagates through arithmetic (quadrature)
 area = length * width
 print(area)  # <0.699678 ± 0.00424... m²>
 
-# Uncertainty propagates through conversion
+# Propagates through conversion
 length_ft = length.to(units.foot)
 print(length_ft)  # <4.048... ± 0.0164... ft>
 ```
 
-Unit systems and basis transforms enable conversions between incompatible dimensional structures.
-This goes beyond simple unit conversion (meter → foot) into structural transformation:
+### Pydantic Integration
 
 ```python
-from fractions import Fraction
-from ucon import BasisTransform, Dimension, Unit, UnitSystem, units
-from ucon.graph import ConversionGraph
-from ucon.maps import LinearMap
+from pydantic import BaseModel
+from ucon.pydantic import Number
+from ucon import units
 
-# The realm of Valdris has three fundamental dimensions:
-#   - Aether (A): magical energy substrate
-#   - Resonance (R): vibrational frequency of magic
-#   - Substance (S): physical matter
-#
-# These combine into SI dimensions via a transformation matrix:
-#
-#   | L |   | 2  0  0 |   | A |
-#   | M | = | 1  0  1 | × | R |
-#   | T |   |-2 -1  0 |   | S |
-#
-# Reading the columns:
-#   - 1 aether contributes: L², M, T⁻²  (energy-like)
-#   - 1 resonance contributes: T⁻¹      (frequency-like)
-#   - 1 substance contributes: M         (mass-like)
+class Measurement(BaseModel):
+    value: Number
 
-# Fantasy base units
-mote = Unit(name='mote', dimension=Dimension.energy, aliases=('mt',))
-chime = Unit(name='chime', dimension=Dimension.frequency, aliases=('ch',))
-ite = Unit(name='ite', dimension=Dimension.mass, aliases=('it',))
+# From JSON/dict input
+m = Measurement(value={"quantity": 5, "unit": "km"})
+print(m.value)  # <5 km>
 
-valdris = UnitSystem(
-    name="Valdris",
-    bases={
-        Dimension.energy: mote,
-        Dimension.frequency: chime,
-        Dimension.mass: ite,
-    }
-)
+# From Number instance
+m2 = Measurement(value=units.meter(10))
 
-# The basis transform encodes how Valdris dimensions compose into SI
-valdris_to_si = BasisTransform(
-    src=valdris,
-    dst=units.si,
-    src_dimensions=(Dimension.energy, Dimension.frequency, Dimension.mass),
-    dst_dimensions=(Dimension.energy, Dimension.frequency, Dimension.mass),
-    matrix=(
-        (2, 0, 0),    # energy: 2 × aether
-        (1, 0, 1),    # frequency: aether + substance
-        (-2, -1, 0),  # mass: -2×aether - resonance
-    ),
-)
+# Serialize to JSON
+print(m.model_dump_json())
+# {"value": {"quantity": 5.0, "unit": "km", "uncertainty": null}}
 
-# Physical calibration: how many SI units per fantasy unit
-graph = ConversionGraph()
-graph.connect_systems(
-    basis_transform=valdris_to_si,
-    edges={
-        (mote, units.joule): LinearMap(42),           # 1 mote = 42 J
-        (chime, units.hertz): LinearMap(7),           # 1 chime = 7 Hz
-        (ite, units.kilogram): LinearMap(Fraction(1, 2)),  # 1 ite = 0.5 kg
-    }
-)
-
-# Game engine converts between physics systems
-energy_map = graph.convert(src=mote, dst=units.joule)
-energy_map(10)  # 420 joules from 10 motes
-
-# Inverse: display real-world values in game units
-joule_to_mote = graph.convert(src=units.joule, dst=mote)
-joule_to_mote(420)  # 10 motes
-
-# The transform is invertible with exact Fraction arithmetic
-valdris_to_si.is_invertible  # True
+# Supports both Unicode and ASCII unit notation
+m3 = Measurement(value={"quantity": 9.8, "unit": "m/s^2"})  # ASCII
+m4 = Measurement(value={"quantity": 9.8, "unit": "m/s²"})   # Unicode
 ```
 
-This enables fantasy game physics, or any field where the dimensional structure differs from SI.
+**Design notes:**
+- **Serialization format**: Units serialize as human-readable shorthand strings (`"km"`, `"m/s^2"`) rather than structured dicts, aligning with how scientists express units.
+- **Parsing priority**: When parsing `"kg"`, ucon returns `Scale.kilo * gram` rather than looking up a `kilogram` Unit, ensuring consistent round-trip serialization and avoiding redundant unit definitions.
+
+### Custom Unit Systems
+
+`BasisTransform` enables conversions between incompatible dimensional structures (e.g., fantasy game physics, CGS units, domain-specific systems).
+
+See full example: [docs/examples/basis-transform-fantasy-units.md](./docs/examples/basis-transform-fantasy-units.md)
 
 ---
 
@@ -289,7 +255,7 @@ This enables fantasy game physics, or any field where the dimensional structure 
 | **0.5.0** | Dimensionless Units | Pseudo-dimensions for angle, solid angle, ratio | ✅ Complete |
 | **0.5.x** | Uncertainty | Propagation through arithmetic and conversions | ✅ Complete |
 | **0.5.x** | Unit Systems | `BasisTransform`, `UnitSystem`, cross-basis conversion | ✅ Complete |
-| **0.6.x** | Pydantic Integration | Type-safe quantity validation | ⏳ Planned |
+| **0.6.x** | Pydantic Integration | Type-safe quantity validation, JSON serialization | ✅ Complete |
 | **0.7.x** | NumPy Arrays | Vectorized conversion and arithmetic | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)
