@@ -85,6 +85,7 @@ class ConversionGraph:
         src: Union[Unit, UnitProduct],
         dst: Union[Unit, UnitProduct],
         map: Map,
+        basis_transform: BasisTransform | None = None,
     ) -> None:
         """Register a conversion edge. Also registers the inverse.
 
@@ -96,15 +97,31 @@ class ConversionGraph:
             Destination unit expression.
         map : Map
             The conversion morphism (src → dst).
+        basis_transform : BasisTransform, optional
+            If provided, creates a cross-basis edge. The src unit is rebased
+            to the dst's dimension and the edge connects the rebased unit
+            to dst.
 
         Raises
         ------
         DimensionMismatch
-            If src and dst have different dimensions.
+            If src and dst have different dimensions (and no basis_transform).
         CyclicInconsistency
             If the reverse edge exists and round-trip is not identity.
         """
-        # Handle Unit vs UnitProduct dispatch
+        # Cross-basis edge with BasisTransform
+        if basis_transform is not None:
+            if isinstance(src, Unit) and not isinstance(src, UnitProduct):
+                if isinstance(dst, Unit) and not isinstance(dst, UnitProduct):
+                    self._add_cross_basis_edge(
+                        src=src,
+                        dst=dst,
+                        map=map,
+                        basis_transform=basis_transform,
+                    )
+                    return
+
+        # Handle Unit vs UnitProduct dispatch (normal case)
         if isinstance(src, Unit) and not isinstance(src, UnitProduct):
             if isinstance(dst, Unit) and not isinstance(dst, UnitProduct):
                 self._add_unit_edge(src=src, dst=dst, map=map)
