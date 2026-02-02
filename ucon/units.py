@@ -293,10 +293,14 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     """
     Look up a single unit factor, handling scale prefixes.
 
+    Prioritizes prefix+unit interpretation over direct unit lookup.
+    This means "kg" returns (gram, Scale.kilo) rather than (kilogram, Scale.one).
+
     Examples:
     - 'meter' -> (meter, Scale.one)
     - 'm' -> (meter, Scale.one)
     - 'km' -> (meter, Scale.kilo)
+    - 'kg' -> (gram, Scale.kilo)
     - 'mL' -> (liter, Scale.milli)
 
     Returns:
@@ -305,16 +309,7 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     Raises:
         UnknownUnitError: If the unit cannot be resolved.
     """
-    # Try exact case-sensitive match first (for aliases like 'L', 'B')
-    if s in _UNIT_REGISTRY_CASE_SENSITIVE:
-        return _UNIT_REGISTRY_CASE_SENSITIVE[s], Scale.one
-
-    # Try case-insensitive match
-    s_lower = s.lower()
-    if s_lower in _UNIT_REGISTRY:
-        return _UNIT_REGISTRY[s_lower], Scale.one
-
-    # Try scale prefix + unit
+    # Try scale prefix + unit first (prioritize decomposition)
     for prefix in _SCALE_PREFIXES_SORTED:
         if s.startswith(prefix) and len(s) > len(prefix):
             remainder = s[len(prefix):]
@@ -324,6 +319,15 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
             # Try case-insensitive remainder
             if remainder.lower() in _UNIT_REGISTRY:
                 return _UNIT_REGISTRY[remainder.lower()], _SCALE_PREFIXES[prefix]
+
+    # Fall back to exact case-sensitive match (for aliases like 'L', 'B', 'm')
+    if s in _UNIT_REGISTRY_CASE_SENSITIVE:
+        return _UNIT_REGISTRY_CASE_SENSITIVE[s], Scale.one
+
+    # Fall back to case-insensitive match
+    s_lower = s.lower()
+    if s_lower in _UNIT_REGISTRY:
+        return _UNIT_REGISTRY[s_lower], Scale.one
 
     raise UnknownUnitError(s)
 
