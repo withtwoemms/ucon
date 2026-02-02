@@ -170,6 +170,73 @@ class ConversionGraph:
         self._product_edges.setdefault(src_key, {})[dst_key] = map
         self._product_edges.setdefault(dst_key, {})[src_key] = map.inverse()
 
+    def _add_cross_basis_edge(
+        self,
+        *,
+        src: Unit,
+        dst: Unit,
+        map: Map,
+        basis_transform: BasisTransform,
+    ) -> None:
+        """Add cross-basis edge between Units via BasisTransform.
+
+        Creates a RebasedUnit for src in the destination's dimension partition,
+        then stores the edge from the rebased unit to dst.
+        """
+        # Validate that the transform maps src to dst's dimension
+        if not basis_transform.validate_edge(src, dst):
+            raise DimensionMismatch(
+                f"Transform {basis_transform.src.name} -> {basis_transform.dst.name} "
+                f"does not map {src.name} to {dst.name}'s dimension"
+            )
+
+        # Create RebasedUnit in destination's dimension partition
+        rebased = RebasedUnit(
+            original=src,
+            rebased_dimension=dst.dimension,
+            basis_transform=basis_transform,
+        )
+        self._rebased[src] = rebased
+
+        # Store edge from rebased to dst (same dimension now)
+        dim = dst.dimension
+        self._ensure_dimension(dim)
+        self._unit_edges[dim].setdefault(rebased, {})[dst] = map
+        self._unit_edges[dim].setdefault(dst, {})[rebased] = map.inverse()
+
+    def connect_systems(
+        self,
+        *,
+        basis_transform: BasisTransform,
+        edges: dict[tuple[Unit, Unit], Map],
+    ) -> None:
+        """Bulk-add edges between systems.
+
+        Parameters
+        ----------
+        basis_transform : BasisTransform
+            The transform bridging the two systems.
+        edges : dict
+            Mapping from (src_unit, dst_unit) to Map.
+        """
+        for (src, dst), edge_map in edges.items():
+            self.add_edge(
+                src=src,
+                dst=dst,
+                map=edge_map,
+                basis_transform=basis_transform,
+            )
+
+    def list_rebased_units(self) -> dict[Unit, RebasedUnit]:
+        """Return all rebased units in the graph.
+
+        Returns
+        -------
+        dict[Unit, RebasedUnit]
+            Mapping from original unit to its RebasedUnit.
+        """
+        return dict(self._rebased)
+
     def _ensure_dimension(self, dim: Dimension) -> None:
         if dim not in self._unit_edges:
             self._unit_edges[dim] = {}
