@@ -157,7 +157,7 @@ Building on v0.5.0 baseline:
 - Matrix operations with exact `Fraction` arithmetic (no floating-point drift)
 - Invertibility detection with clear error messages for surjective transforms
 - Named unit systems for domain-specific workflows
-- Foundation for custom dimension domains (sensor calibration, fantasy units, etc.)
+- Foundation for custom dimension domains
 
 ---
 
