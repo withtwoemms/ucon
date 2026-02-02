@@ -24,7 +24,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.4.x | Core Conversion + Information | Complete |
 | v0.5.0 | Dimensionless Units | Complete |
 | v0.5.x | Uncertainty Propagation | Complete |
-| v0.5.x | BasisMap + UnitSystem | Planned |
+| v0.5.x | BasisTransform + UnitSystem | Complete |
 | v0.6.0 | NumPy Array Support | Planned |
 | v0.7.0 | Pydantic + Serialization | Planned |
 | v0.8.0 | String Parsing | Planned |
@@ -34,18 +34,21 @@ ucon is a dimensional analysis library for engineers building systems where unit
 
 ---
 
-## Current Version: **v0.5.x** (in progress)
+## Current Version: **v0.5.x** (complete)
 
 Building on v0.5.0 baseline:
-- `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`)
+- `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`, `UnitSystem`, `BasisTransform`, `RebasedUnit`)
 - `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap` with `derivative()`)
-- `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`)
-- `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax)
+- `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`, cross-basis conversion)
+- `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax, `si` and `imperial` systems)
+- `ucon.algebra` (`Vector` with `Fraction` exponents, `Exponent`)
 - Callable unit API: `meter(5)`, `(mile / hour)(60)`
 - `Number.simplify()` for base-scale normalization
 - `Dimension.information` with `units.bit`, `units.byte`
 - Pseudo-dimensions: `angle`, `solid_angle`, `ratio` with semantic isolation
 - Uncertainty propagation: `meter(1.234, uncertainty=0.005)` with quadrature arithmetic
+- `BasisTransform` for cross-system dimensional mapping with exact matrix arithmetic
+- `UnitSystem` for named dimension-to-unit groupings
 
 ---
 
@@ -134,20 +137,27 @@ Building on v0.5.0 baseline:
 
 ---
 
-## v0.5.x — BasisMap + UnitSystem
+## v0.5.x — BasisTransform + UnitSystem (Complete)
 
 **Theme:** Cross-system architecture.
 
-- [ ] `UnitSystem` class (named grouping of base units)
-- [ ] `BasisMap` class (structural equivalence between systems)
-- [ ] Prebuilt systems: `si`, `imperial`, `cgs`
-- [ ] `graph.connect_systems()` for bulk edge creation
-- [ ] Support for custom domain dimensions
+- [x] `Vector` with `Fraction` exponents for exact arithmetic
+- [x] `UnitSystem` class (named dimension-to-unit mapping)
+- [x] `BasisTransform` class (matrix-based dimensional basis transformation)
+- [x] `RebasedUnit` class (provenance-preserving cross-basis unit)
+- [x] `NonInvertibleTransform` exception for surjective transforms
+- [x] Prebuilt systems: `units.si`, `units.imperial`
+- [x] `graph.add_edge()` with `basis_transform` parameter
+- [x] `graph.connect_systems()` for bulk edge creation
+- [x] Cross-basis conversion via rebased paths
+- [x] Introspection: `list_transforms()`, `list_rebased_units()`, `edges_for_transform()`
 
 **Outcomes:**
-- `BasisMap` enables system-aware "express in base units" functionality
+- `BasisTransform` enables conversions between incompatible dimensional structures
+- Matrix operations with exact `Fraction` arithmetic (no floating-point drift)
+- Invertibility detection with clear error messages for surjective transforms
 - Named unit systems for domain-specific workflows
-- Foundation for plugin-style system extensions
+- Foundation for custom dimension domains (sensor calibration, fantasy units, etc.)
 
 ---
 
