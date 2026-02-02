@@ -201,6 +201,58 @@ length_ft = length.to(units.foot)
 print(length_ft)  # <4.048... ± 0.0164... ft>
 ```
 
+Unit systems and basis transforms enable conversions between incompatible dimensional structures.
+This goes beyond simple unit conversion (meter → foot) into structural transformation:
+
+```python
+from fractions import Fraction
+from ucon import BasisTransform, Dimension, Unit, UnitSystem, units
+from ucon.graph import ConversionGraph
+from ucon.maps import LinearMap
+
+# CGS-ESU electrostatics uses different dimensional analysis than SI.
+# In CGS-ESU, charge has dimension M^(1/2) · L^(3/2) · T^(-1)
+# In SI, charge has dimension I · T (current × time)
+#
+# These are fundamentally different dimensional structures.
+# A BasisTransform bridges them with exact matrix arithmetic.
+
+# Define the systems
+cgs_esu = UnitSystem(
+    name="CGS-ESU",
+    bases={Dimension.length: units.meter, Dimension.mass: units.gram}
+)
+
+# 1:1 dimension relabeling: esu_charge → SI charge
+esu_to_si = BasisTransform(
+    src=cgs_esu,
+    dst=units.si,
+    src_dimensions=(Dimension.charge,),
+    dst_dimensions=(Dimension.charge,),
+    matrix=((1,),),  # Identity mapping for the dimension
+)
+
+# The conversion factor is physical: 1 statcoulomb ≈ 3.336e-10 coulombs
+graph = ConversionGraph()
+statcoulomb = Unit(name='statcoulomb', dimension=Dimension.charge, aliases=('statC',))
+
+graph.add_edge(
+    src=statcoulomb,
+    dst=units.coulomb,
+    map=LinearMap(Fraction(3336, int(1e13))),  # Exact fraction
+    basis_transform=esu_to_si,
+)
+
+# Now convert between systems
+m = graph.convert(src=statcoulomb, dst=units.coulomb)
+m(1e9)  # ~0.3336 coulombs from 1 billion statcoulombs
+
+# Introspection shows the basis change
+graph.list_transforms()  # [BasisTransform(src=CGS-ESU, dst=SI, ...)]
+```
+
+This enables fantasy game physics, or any field where the dimensional structure differs from SI.
+
 ---
 
 ## Roadmap Highlights
