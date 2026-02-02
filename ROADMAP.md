@@ -25,8 +25,8 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.5.0 | Dimensionless Units | Complete |
 | v0.5.x | Uncertainty Propagation | Complete |
 | v0.5.x | BasisTransform + UnitSystem | Complete |
-| v0.6.0 | NumPy Array Support | Planned |
-| v0.7.0 | Pydantic + Serialization | Planned |
+| v0.6.0 | Pydantic + Serialization | Planned |
+| v0.7.0 | NumPy Array Support | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
 | v0.10.0 | DataFrame Integration | Planned |
@@ -161,23 +161,7 @@ Building on v0.5.0 baseline:
 
 ---
 
-## v0.6.0 — NumPy Array Support
-
-**Theme:** Scientific computing integration.
-
-- [ ] `Number` wraps `np.ndarray` values
-- [ ] Vectorized conversion
-- [ ] Vectorized arithmetic with uncertainty propagation
-- [ ] Performance benchmarks
-
-**Outcomes:**
-- Seamless integration with NumPy-based scientific workflows
-- Efficient batch conversions for large datasets
-- Performance characteristics documented and optimized
-
----
-
-## v0.7.0 — Pydantic + Serialization
+## v0.6.0 — Pydantic + Serialization
 
 **Theme:** API and persistence integration.
 
@@ -190,6 +174,22 @@ Building on v0.5.0 baseline:
 - Native validation and serialization for dimensioned quantities
 - Enables safe configuration in data models and APIs
 - Bridges ucon's algebraic model with modern Python typing ecosystems
+
+---
+
+## v0.7.0 — NumPy Array Support
+
+**Theme:** Scientific computing integration.
+
+- [ ] `Number` wraps `np.ndarray` values
+- [ ] Vectorized conversion
+- [ ] Vectorized arithmetic with uncertainty propagation
+- [ ] Performance benchmarks
+
+**Outcomes:**
+- Seamless integration with NumPy-based scientific workflows
+- Efficient batch conversions for large datasets
+- Performance characteristics documented and optimized
 
 ---
 
