@@ -315,6 +315,13 @@ class ConversionGraph:
                 # Convert via the rebased unit
                 return self._bfs_convert(start=rebased, target=dst, dim=dst.dimension)
 
+        # Check if dst has a rebased version (inverse conversion)
+        if dst in self._rebased:
+            rebased_dst = self._rebased[dst]
+            if rebased_dst.dimension == src.dimension:
+                # Convert from src to the rebased dst
+                return self._bfs_convert(start=src, target=rebased_dst, dim=src.dimension)
+
         # Check for dimension mismatch
         if src.dimension != dst.dimension:
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
