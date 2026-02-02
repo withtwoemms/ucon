@@ -234,6 +234,10 @@ m3 = Measurement(value={"quantity": 9.8, "unit": "m/s^2"})  # ASCII
 m4 = Measurement(value={"quantity": 9.8, "unit": "m/s²"})   # Unicode
 ```
 
+**Design notes:**
+- **Serialization format**: Units serialize as human-readable shorthand strings (`"km"`, `"m/s^2"`) rather than structured dicts, aligning with how scientists express units.
+- **Parsing priority**: When parsing `"kg"`, ucon returns `Scale.kilo * gram` rather than looking up a `kilogram` Unit, ensuring consistent round-trip serialization and avoiding redundant unit definitions.
+
 ### Custom Unit Systems
 
 `BasisTransform` enables conversions between incompatible dimensional structures (e.g., fantasy game physics, CGS units, domain-specific systems).
