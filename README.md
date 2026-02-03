@@ -54,7 +54,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 | **`UnitProduct`**             | `ucon.core`                             | A product/quotient of `UnitFactor`s with exponent tracking and simplification.                      | Representing composite units like m/s, kg·m/s², kJ·h.                                                                 |
 | **`Number`**                  | `ucon.core`                             | Combines a numeric quantity with a unit; the primary measurable type.                               | Performing arithmetic with units; representing physical quantities like 5 m/s.                                         |
 | **`Ratio`**                   | `ucon.core`                             | Represents the division of two `Number` objects; captures relationships between quantities.         | Expressing rates, densities, efficiencies (e.g., energy / time = power, length / time = velocity).                     |
-| **`Map`** hierarchy           | `ucon.maps`                             | Composable conversion morphisms: `LinearMap`, `AffineMap`, `ComposedMap`.                           | Defining conversion functions between units (e.g., meter→foot, celsius→kelvin).                                        |
+| **`Map`** hierarchy           | `ucon.maps`                             | Composable conversion morphisms: `LinearMap`, `AffineMap`, `LogMap`, `ExpMap`, `ComposedMap`.       | Defining conversion functions between units (e.g., meter→foot, celsius→kelvin, availability→nines).                    |
 | **`ConversionGraph`**         | `ucon.graph`                            | Registry of unit conversion edges with BFS path composition.                                        | Converting between units via `Number.to(target)`; managing default and custom graphs.                                  |
 | **`UnitSystem`**              | `ucon.core`                             | Named mapping from dimensions to base units (e.g., SI, Imperial).                                   | Defining coherent unit systems; grouping base units by dimension.                                                      |
 | **`BasisTransform`**          | `ucon.core`                             | Matrix-based transformation between dimensional exponent spaces.                                    | Converting between incompatible dimensional structures; exact arithmetic with `Fraction`.                              |
@@ -187,6 +187,10 @@ print(ratio.to(units.ppm))  # <500000.0 ppm>
 
 # Cross-family conversions are prevented
 units.radian(1).to(units.percent)  # raises ConversionNotFound
+
+# SRE "nines" for availability (99.999% = 5 nines)
+uptime = units.percent(99.999)
+print(uptime.to(units.nines))  # <5.0 nines>
 ```
 
 ### Uncertainty Propagation
