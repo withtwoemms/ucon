@@ -16,16 +16,16 @@ jobs:
           fetch-depth: 0  # needed for ancestry check
           ref: ${{ github.ref_name }}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
       - name: Build distribution 📦
-        run: PYTHONWARNINGS=ignore LOCAL_VERSION_SCHEME=true nox -s build
+        run: LOCAL_VERSION_SCHEME=true make build
 
       - name: Publish to Test PyPI
         if: github.ref == 'refs/heads/main'
