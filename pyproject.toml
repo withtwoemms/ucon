@@ -37,7 +37,7 @@ Homepage = "https://github.com/withtwoemms/ucon"
 Repository = "https://github.com/withtwoemms/ucon"
 
 [project.optional-dependencies]
-test = ["coverage>=5.5"]
+test = ["coverage[toml]>=5.5"]
 pydantic = ["pydantic>=2.0"]
 mcp = ["mcp>=1.0; python_version >= '3.10'"]
 
