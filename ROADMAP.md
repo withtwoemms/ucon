@@ -27,6 +27,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.5.x | BasisTransform + UnitSystem | Complete |
 | v0.6.0 | Pydantic + Serialization | Complete |
 | v0.6.x | MCP Server | Complete |
+| v0.6.x | LogMap + Nines | Complete |
 | v0.7.0 | NumPy Array Support | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
@@ -200,6 +201,25 @@ Building on v0.5.x baseline:
 
 ---
 
+## v0.6.x — LogMap + Nines (Complete)
+
+**Theme:** Logarithmic conversions.
+
+- [x] `LogMap` class: `y = scale · log_base(x) + offset`
+- [x] `ExpMap` class: `y = base^(scale · x + offset)`
+- [x] Composition with existing maps via `@` operator
+- [x] Derivative support for uncertainty propagation
+- [x] `nines` unit for SRE availability (99.999% = 5 nines)
+- [x] `fraction` unit (renamed from `ratio_one`)
+
+**Outcomes:**
+- Foundation for logarithmic unit conversions
+- SRE teams can express availability in nines notation
+- Uncertainty propagates correctly through nonlinear conversions
+- Paves the way for decibels, pH in v0.9.0
+
+---
+
 ## v0.7.0 — NumPy Array Support
 
 **Theme:** Scientific computing integration.
@@ -237,15 +257,15 @@ Building on v0.5.x baseline:
 **Theme:** Physical completeness.
 
 - [ ] Physical constants with uncertainties: `c`, `h`, `G`, `k_B`, `N_A`, etc.
-- [ ] `LogMap` for logarithmic conversions
-- [ ] Logarithmic units: `decibel`, `bel`, `neper`
+- [x] `LogMap`/`ExpMap` for logarithmic conversions (completed in v0.6.x)
+- [ ] Logarithmic units with reference levels: `decibel`, `bel`, `neper`
 - [ ] pH scale support
 - [ ] Currency dimension (with caveats about exchange rates)
 
 **Outcomes:**
-- Support for function-based (nonlinear) physical conversions
-- Enables acoustics (dB), chemistry (pH), and signal processing domains
 - Physical constants with CODATA uncertainties
+- Enables acoustics (dB), chemistry (pH), and signal processing domains
+- Reference-level infrastructure for dBm, dBV, dBSPL variants
 
 ---
 
