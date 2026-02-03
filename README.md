@@ -238,6 +238,47 @@ m4 = Measurement(value={"quantity": 9.8, "unit": "m/s²"})   # Unicode
 - **Serialization format**: Units serialize as human-readable shorthand strings (`"km"`, `"m/s^2"`) rather than structured dicts, aligning with how scientists express units.
 - **Parsing priority**: When parsing `"kg"`, ucon returns `Scale.kilo * gram` rather than looking up a `kilogram` Unit, ensuring consistent round-trip serialization and avoiding redundant unit definitions.
 
+### MCP Server
+
+ucon ships with an MCP server for AI agent integration (Claude Desktop, Claude Code, Cursor, etc.):
+
+```bash
+pip install ucon[mcp]
+```
+
+Configure in Claude Desktop (`claude_desktop_config.json`):
+
+**Via uvx (recommended, zero-install):**
+```json
+{
+  "mcpServers": {
+    "ucon": {
+      "command": "uvx",
+      "args": ["--from", "ucon[mcp]", "ucon-mcp"]
+    }
+  }
+}
+```
+
+**Local development:**
+```json
+{
+  "mcpServers": {
+    "ucon": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/ucon", "--extra", "mcp", "ucon-mcp"]
+    }
+  }
+}
+```
+
+Available tools:
+- `convert(value, from_unit, to_unit)` — Unit conversion with dimensional validation
+- `list_units(dimension?)` — Discover available units
+- `list_scales()` — List SI and binary prefixes
+- `check_dimensions(unit_a, unit_b)` — Check dimensional compatibility
+- `list_dimensions()` — List physical dimensions
+
 ### Custom Unit Systems
 
 `BasisTransform` enables conversions between incompatible dimensional structures (e.g., fantasy game physics, CGS units, domain-specific systems).
@@ -255,7 +296,7 @@ See full example: [docs/examples/basis-transform-fantasy-units.md](./docs/exampl
 | **0.5.0** | Dimensionless Units | Pseudo-dimensions for angle, solid angle, ratio | ✅ Complete |
 | **0.5.x** | Uncertainty | Propagation through arithmetic and conversions | ✅ Complete |
 | **0.5.x** | Unit Systems | `BasisTransform`, `UnitSystem`, cross-basis conversion | ✅ Complete |
-| **0.6.x** | Pydantic Integration | Type-safe quantity validation, JSON serialization | ✅ Complete |
+| **0.6.x** | Pydantic + MCP | API validation, AI agent integration | ✅ Complete |
 | **0.7.x** | NumPy Arrays | Vectorized conversion and arithmetic | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)
