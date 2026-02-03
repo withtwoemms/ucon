@@ -39,7 +39,7 @@ jobs:
       - name: Verify tag is on mainline
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          git fetch origin main --depth=1
+          git fetch origin main --unshallow 2>/dev/null || git fetch origin main
           TAG=${GITHUB_REF#refs/tags/}
           TAG_COMMIT=$(git rev-list -n 1 "$TAG")
           if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
