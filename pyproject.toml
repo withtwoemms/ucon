@@ -7,7 +7,7 @@ name = "ucon"
 dynamic = ["version"]
 description = "A tool for dimensional analysis: a 'Unit CONverter'"
 readme = "README.md"
-license = "Apache-2.0"
+license = { text = "Apache-2.0" }
 requires-python = ">=3.7"
 authors = [
     { name = "Emmanuel I. Obi", email = "withtwoemms@gmail.com" }
