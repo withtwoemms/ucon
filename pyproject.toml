@@ -57,6 +57,8 @@ packages = ["ucon", "ucon.mcp"]
 
 [tool.setuptools_scm]
 # Version derived from git tags
+# no-local-version prevents +gXXXXXX suffixes that PyPI rejects
+local_scheme = "no-local-version"
 
 # -----------------------------------------------------------------------------
 # uv Configuration
