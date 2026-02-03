@@ -171,6 +171,10 @@ def list_scales() -> list[ScaleInfo]:
     Includes both SI decimal prefixes (kilo, mega, milli, micro, etc.)
     and binary prefixes (kibi, mebi, gibi) for information units.
 
+    Note on bytes:
+    - SI prefixes: kB = 1000 B, MB = 1,000,000 B (decimal)
+    - Binary prefixes: KiB = 1024 B, MiB = 1,048,576 B (powers of 2)
+
     Returns:
         List of ScaleInfo objects with name, prefix symbol, and numeric factor.
     """
