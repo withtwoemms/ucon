@@ -20,6 +20,12 @@ setup(
     packages=find_packages(exclude=['tests']),
     extras_require={
         'pydantic': ['pydantic>=2.0'],
+        'mcp': ['mcp>=1.0'],
+    },
+    entry_points={
+        'console_scripts': [
+            'ucon-mcp=ucon.mcp.server:main',
+        ],
     },
     author='Emmanuel I. Obi',
     maintainer='Emmanuel I. Obi',

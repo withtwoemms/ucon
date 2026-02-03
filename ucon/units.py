@@ -90,23 +90,23 @@ day = Unit(name='day', dimension=Dimension.time, aliases=('d',))
 
 # -- Imperial / US Customary Units -------------------------------------
 # Length
-foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
-inch = Unit(name='inch', dimension=Dimension.length, aliases=('in',))
-yard = Unit(name='yard', dimension=Dimension.length, aliases=('yd',))
-mile = Unit(name='mile', dimension=Dimension.length, aliases=('mi',))
+foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft', 'feet'))
+inch = Unit(name='inch', dimension=Dimension.length, aliases=('in', 'inches'))
+yard = Unit(name='yard', dimension=Dimension.length, aliases=('yd', 'yards'))
+mile = Unit(name='mile', dimension=Dimension.length, aliases=('mi', 'miles'))
 
 # Mass
 pound = Unit(name='pound', dimension=Dimension.mass, aliases=('lb', 'lbs'))
-ounce = Unit(name='ounce', dimension=Dimension.mass, aliases=('oz',))
+ounce = Unit(name='ounce', dimension=Dimension.mass, aliases=('oz', 'ounces'))
 
 # Temperature
 fahrenheit = Unit(name='fahrenheit', dimension=Dimension.temperature, aliases=('°F', 'degF'))
 
 # Volume
-gallon = Unit(name='gallon', dimension=Dimension.volume, aliases=('gal',))
+gallon = Unit(name='gallon', dimension=Dimension.volume, aliases=('gal', 'gallons'))
 
 # Energy
-calorie = Unit(name='calorie', dimension=Dimension.energy, aliases=('cal',))
+calorie = Unit(name='calorie', dimension=Dimension.energy, aliases=('cal', 'calories'))
 btu = Unit(name='btu', dimension=Dimension.energy, aliases=('BTU',))
 
 # Power
@@ -114,14 +114,14 @@ horsepower = Unit(name='horsepower', dimension=Dimension.power, aliases=('hp',))
 
 # Pressure
 bar = Unit(name='bar', dimension=Dimension.pressure, aliases=('bar',))
-psi = Unit(name='psi', dimension=Dimension.pressure, aliases=('lbf/in²',))
+psi = Unit(name='psi', dimension=Dimension.pressure, aliases=('psi', 'lbf/in²'))
 atmosphere = Unit(name='atmosphere', dimension=Dimension.pressure, aliases=('atm',))
 # ----------------------------------------------------------------------
 
 
 # -- Information Units -------------------------------------------------
-bit = Unit(name='bit', dimension=Dimension.information, aliases=('b',))
-byte = Unit(name='byte', dimension=Dimension.information, aliases=('B',))
+bit = Unit(name='bit', dimension=Dimension.information, aliases=('b', 'bits'))
+byte = Unit(name='byte', dimension=Dimension.information, aliases=('B', 'bytes'))
 # ----------------------------------------------------------------------
 
 
@@ -310,15 +310,12 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
         UnknownUnitError: If the unit cannot be resolved.
     """
     # Try scale prefix + unit first (prioritize decomposition)
+    # Only case-sensitive matching for remainder (e.g., "fT" = femto-tesla, "ft" = foot)
     for prefix in _SCALE_PREFIXES_SORTED:
         if s.startswith(prefix) and len(s) > len(prefix):
             remainder = s[len(prefix):]
-            # Try case-sensitive remainder first (e.g., 'mL' -> milli + liter)
             if remainder in _UNIT_REGISTRY_CASE_SENSITIVE:
                 return _UNIT_REGISTRY_CASE_SENSITIVE[remainder], _SCALE_PREFIXES[prefix]
-            # Try case-insensitive remainder
-            if remainder.lower() in _UNIT_REGISTRY:
-                return _UNIT_REGISTRY[remainder.lower()], _SCALE_PREFIXES[prefix]
 
     # Fall back to exact case-sensitive match (for aliases like 'L', 'B', 'm')
     if s in _UNIT_REGISTRY_CASE_SENSITIVE:

@@ -1108,16 +1108,21 @@ class UnitProduct:
         part = getattr(unit, "shorthand", "") or getattr(unit, "name", "") or ""
         if not part:
             return
+
+        def fmt_exp(p: float) -> str:
+            """Format exponent, using int when possible to avoid '2.0' → '²·⁰'."""
+            return str(int(p) if p == int(p) else p).translate(cls._SUPERSCRIPTS)
+
         if power > 0:
             if power == 1:
                 num.append(part)
             else:
-                num.append(part + str(power).translate(cls._SUPERSCRIPTS))
+                num.append(part + fmt_exp(power))
         elif power < 0:
             if power == -1:
                 den.append(part)
             else:
-                den.append(part + str(-power).translate(cls._SUPERSCRIPTS))
+                den.append(part + fmt_exp(-power))
 
     @property
     def shorthand(self) -> str:
