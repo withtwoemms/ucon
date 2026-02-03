@@ -14,10 +14,13 @@ Classes
 - :class:`Map` — Abstract base for conversion morphisms.
 - :class:`LinearMap` — y = a * x
 - :class:`AffineMap` — y = a * x + b
+- :class:`LogMap` — y = scale * log_base(x) + offset
+- :class:`ExpMap` — y = base^(scale * x + offset)
 - :class:`ComposedMap` — Generic composition fallback: g(f(x))
 """
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -143,6 +146,119 @@ class AffineMap(Map):
     def derivative(self, x: float) -> float:
         """Derivative of y = a*x + b is a (constant)."""
         return self.a
+
+
+@dataclass(frozen=True)
+class LogMap(Map):
+    """
+    Logarithmic map: ``y = scale * log_base(x) + offset``
+
+    Examples::
+
+        LogMap()                  # log₁₀(x)
+        LogMap(scale=10)          # 10·log₁₀(x) — decibels (power)
+        LogMap(scale=20)          # 20·log₁₀(x) — decibels (amplitude)
+        LogMap(scale=-1)          # -log₁₀(x)   — pH-style
+        LogMap(base=math.e)       # ln(x)       — neper
+
+    For transforms like nines ``(-log₁₀(1-x))``, compose with AffineMap::
+
+        LogMap(scale=-1) @ AffineMap(a=-1, b=1)
+    """
+
+    scale: float = 1.0
+    base: float = 10.0
+    offset: float = 0.0
+
+    def __call__(self, x: float) -> float:
+        if x <= 0:
+            raise ValueError(f"Logarithm argument must be positive, got {x}")
+        return self.scale * math.log(x, self.base) + self.offset
+
+    @property
+    def invertible(self) -> bool:
+        return self.scale != 0
+
+    def inverse(self) -> 'ExpMap':
+        """Return the inverse exponential map."""
+        if not self.invertible:
+            raise ZeroDivisionError("LogMap with scale=0 is not invertible.")
+        return ExpMap(
+            scale=1.0 / self.scale,
+            base=self.base,
+            offset=-self.offset / self.scale,
+        )
+
+    def __matmul__(self, other: Map) -> Map:
+        if not isinstance(other, Map):
+            return NotImplemented
+        return ComposedMap(self, other)
+
+    def __pow__(self, exp: float) -> Map:
+        if exp == 1:
+            return self
+        if exp == -1:
+            return self.inverse()
+        raise ValueError("LogMap only supports exp=1 or exp=-1")
+
+    def derivative(self, x: float) -> float:
+        """Derivative: d/dx[scale * log_base(x) + offset] = scale / (x * ln(base))"""
+        if x <= 0:
+            raise ValueError(f"Derivative undefined for x={x}")
+        return self.scale / (x * math.log(self.base))
+
+    def is_identity(self, tol: float = 1e-9) -> bool:
+        return False  # Logarithm is never identity
+
+
+@dataclass(frozen=True)
+class ExpMap(Map):
+    """
+    Exponential map: ``y = base^(scale * x + offset)``
+
+    This is the inverse of :class:`LogMap`. Typically obtained via
+    ``LogMap.inverse()`` rather than constructed directly.
+    """
+
+    scale: float = 1.0
+    base: float = 10.0
+    offset: float = 0.0
+
+    def __call__(self, x: float) -> float:
+        return self.base ** (self.scale * x + self.offset)
+
+    @property
+    def invertible(self) -> bool:
+        return self.scale != 0
+
+    def inverse(self) -> LogMap:
+        """Return the inverse logarithmic map."""
+        if not self.invertible:
+            raise ZeroDivisionError("ExpMap with scale=0 is not invertible.")
+        return LogMap(
+            scale=1.0 / self.scale,
+            base=self.base,
+            offset=-self.offset / self.scale,
+        )
+
+    def __matmul__(self, other: Map) -> Map:
+        if not isinstance(other, Map):
+            return NotImplemented
+        return ComposedMap(self, other)
+
+    def __pow__(self, exp: float) -> Map:
+        if exp == 1:
+            return self
+        if exp == -1:
+            return self.inverse()
+        raise ValueError("ExpMap only supports exp=1 or exp=-1")
+
+    def derivative(self, x: float) -> float:
+        """Derivative: d/dx[base^(scale*x + offset)] = ln(base) * scale * base^(scale*x + offset)"""
+        return math.log(self.base) * self.scale * self(x)
+
+    def is_identity(self, tol: float = 1e-9) -> bool:
+        return False  # Exponential is never identity
 
 
 @dataclass(frozen=True)

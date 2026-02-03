@@ -185,17 +185,17 @@ class TestRatioConversions(unittest.TestCase):
     """Test ratio unit conversions."""
 
     def test_one_to_percent(self):
-        r = units.ratio_one(0.5)
+        r = units.fraction(0.5)
         result = r.to(units.percent)
         self.assertAlmostEqual(result.value, 50, places=9)
 
     def test_percent_to_one(self):
         r = units.percent(25)
-        result = r.to(units.ratio_one)
+        result = r.to(units.fraction)
         self.assertAlmostEqual(result.value, 0.25, places=9)
 
     def test_one_to_ppm(self):
-        r = units.ratio_one(0.001)
+        r = units.fraction(0.001)
         result = r.to(units.ppm)
         self.assertAlmostEqual(result.value, 1000, places=9)
 
@@ -205,7 +205,7 @@ class TestRatioConversions(unittest.TestCase):
         self.assertAlmostEqual(result.value, 1000, places=9)
 
     def test_one_to_permille(self):
-        r = units.ratio_one(0.005)
+        r = units.fraction(0.005)
         result = r.to(units.permille)
         self.assertAlmostEqual(result.value, 5, places=9)
 

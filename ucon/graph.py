@@ -37,7 +37,7 @@ from ucon.core import (
     UnitProduct,
     Scale,
 )
-from ucon.maps import Map, LinearMap, AffineMap
+from ucon.maps import Map, LinearMap, AffineMap, LogMap
 
 
 class DimensionMismatch(Exception):
@@ -589,10 +589,12 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.steradian, dst=units.square_degree, map=LinearMap((180 / math.pi) ** 2))
 
     # --- Ratio ---
-    graph.add_edge(src=units.ratio_one, dst=units.percent, map=LinearMap(100))
-    graph.add_edge(src=units.ratio_one, dst=units.permille, map=LinearMap(1000))
-    graph.add_edge(src=units.ratio_one, dst=units.ppm, map=LinearMap(1e6))
-    graph.add_edge(src=units.ratio_one, dst=units.ppb, map=LinearMap(1e9))
-    graph.add_edge(src=units.ratio_one, dst=units.basis_point, map=LinearMap(10000))
+    graph.add_edge(src=units.fraction, dst=units.percent, map=LinearMap(100))
+    graph.add_edge(src=units.fraction, dst=units.permille, map=LinearMap(1000))
+    graph.add_edge(src=units.fraction, dst=units.ppm, map=LinearMap(1e6))
+    graph.add_edge(src=units.fraction, dst=units.ppb, map=LinearMap(1e9))
+    graph.add_edge(src=units.fraction, dst=units.basis_point, map=LinearMap(10000))
+    # nines: -log₁₀(1 - availability) for SRE uptime (0.99999 → 5 nines)
+    graph.add_edge(src=units.fraction, dst=units.nines, map=LogMap(scale=-1) @ AffineMap(a=-1, b=1))
 
     return graph
