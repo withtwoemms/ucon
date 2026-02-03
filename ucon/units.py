@@ -140,7 +140,7 @@ square_degree = Unit(name='square_degree', dimension=Dimension.solid_angle, alia
 
 
 # -- Ratio Units -------------------------------------------------------
-ratio_one = Unit(name='one', dimension=Dimension.ratio, aliases=('1',))
+fraction = Unit(name='fraction', dimension=Dimension.ratio, aliases=('frac', '1'))
 percent = Unit(name='percent', dimension=Dimension.ratio, aliases=('%',))
 permille = Unit(name='permille', dimension=Dimension.ratio, aliases=('‰',))
 ppm = Unit(name='ppm', dimension=Dimension.ratio, aliases=())
