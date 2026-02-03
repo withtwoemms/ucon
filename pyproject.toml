@@ -1,0 +1,88 @@
+# © 2025 The Radiativity Company
+# Licensed under the Apache License, Version 2.0
+# See the LICENSE file for details.
+
+[project]
+name = "ucon"
+dynamic = ["version"]
+description = "A tool for dimensional analysis: a 'Unit CONverter'"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.7"
+authors = [
+    { name = "Emmanuel I. Obi", email = "withtwoemms@gmail.com" }
+]
+maintainers = [
+    { name = "Emmanuel I. Obi", email = "withtwoemms@gmail.com" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/withtwoemms/ucon"
+Repository = "https://github.com/withtwoemms/ucon"
+
+[project.optional-dependencies]
+test = ["coverage>=5.5"]
+pydantic = ["pydantic>=2.0"]
+mcp = ["mcp>=1.0"]
+
+[project.scripts]
+ucon-mcp = "ucon.mcp.server:main"
+
+# -----------------------------------------------------------------------------
+# Build System
+# -----------------------------------------------------------------------------
+
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["ucon", "ucon.mcp"]
+
+[tool.setuptools_scm]
+# Version derived from git tags
+
+# -----------------------------------------------------------------------------
+# uv Configuration
+# -----------------------------------------------------------------------------
+
+[tool.uv]
+python-preference = "managed"
+cache-dir = ".uv_cache"
+
+# -----------------------------------------------------------------------------
+# Coverage Configuration
+# -----------------------------------------------------------------------------
+
+[tool.coverage.run]
+source = ["."]
+branch = true
+omit = [
+    "**/tests/*",
+    "**/site-packages/*.py",
+    "noxfile.py",
+    "setup.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.coverage.xml]
+output = "coverage.xml"
