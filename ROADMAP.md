@@ -26,6 +26,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.5.x | Uncertainty Propagation | Complete |
 | v0.5.x | BasisTransform + UnitSystem | Complete |
 | v0.6.0 | Pydantic + Serialization | Complete |
+| v0.6.x | MCP Server | Complete |
 | v0.7.0 | NumPy Array Support | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
@@ -172,13 +173,30 @@ Building on v0.5.x baseline:
 - [x] JSON serialization/deserialization
 - [x] Pickle support
 - [x] Unit string parsing: `get_unit_by_name()` with Unicode and ASCII notation
-- [ ] Optional: MCP server for unit conversion tool (deferred)
 
 **Outcomes:**
 - Native validation and serialization for dimensioned quantities
 - Enables safe configuration in data models and APIs
 - Bridges ucon's algebraic model with modern Python typing ecosystems
 - Unit strings parsed in both Unicode (`m/s²`) and ASCII (`m/s^2`) notation
+
+---
+
+## v0.6.x — MCP Server (Complete)
+
+**Theme:** AI agent integration.
+
+- [x] MCP server exposing unit conversion tools
+- [x] `convert` tool with dimensional validation
+- [x] `list_units`, `list_scales`, `list_dimensions` discovery tools
+- [x] `check_dimensions` compatibility tool
+- [x] stdio transport for Claude Desktop, Claude Code, Cursor
+- [x] `ucon-mcp` CLI entry point
+
+**Outcomes:**
+- Zero-code adoption for AI tool users
+- Agents can perform unit-safe arithmetic without codebase integration
+- Dimensional errors become visible and correctable in conversation
 
 ---
 
