@@ -114,7 +114,7 @@ horsepower = Unit(name='horsepower', dimension=Dimension.power, aliases=('hp',))
 
 # Pressure
 bar = Unit(name='bar', dimension=Dimension.pressure, aliases=('bar',))
-psi = Unit(name='psi', dimension=Dimension.pressure, aliases=('lbf/in²',))
+psi = Unit(name='psi', dimension=Dimension.pressure, aliases=('psi', 'lbf/in²'))
 atmosphere = Unit(name='atmosphere', dimension=Dimension.pressure, aliases=('atm',))
 # ----------------------------------------------------------------------
 
