@@ -146,6 +146,7 @@ permille = Unit(name='permille', dimension=Dimension.ratio, aliases=('‰',))
 ppm = Unit(name='ppm', dimension=Dimension.ratio, aliases=())
 ppb = Unit(name='ppb', dimension=Dimension.ratio, aliases=())
 basis_point = Unit(name='basis_point', dimension=Dimension.ratio, aliases=('bp', 'bps'))
+nines = Unit(name='nines', dimension=Dimension.ratio, aliases=('9s',))
 # ----------------------------------------------------------------------
 
 
