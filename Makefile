@@ -78,7 +78,7 @@ test: ${DEPS_INSTALLED}
 	@echo "${GREEN}Running tests with Python ${PYTHON}...${RESET}"
 ifeq ($(COVERAGE),true)
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage run --source=ucon --branch \
-		--omit="**/tests/*,**/site-packages/*.py,noxfile.py,setup.py" \
+		--omit="**/tests/*,**/site-packages/*.py,setup.py" \
 		-m unittest $(if $(TESTNAME),$(TESTNAME),discover --start-directory ${TESTDIR} --top-level-directory .)
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage report -m
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage xml

@@ -76,7 +76,6 @@ branch = true
 omit = [
     "**/tests/*",
     "**/site-packages/*.py",
-    "noxfile.py",
     "setup.py",
 ]
 
