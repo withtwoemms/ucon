@@ -90,23 +90,23 @@ day = Unit(name='day', dimension=Dimension.time, aliases=('d',))
 
 # -- Imperial / US Customary Units -------------------------------------
 # Length
-foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
-inch = Unit(name='inch', dimension=Dimension.length, aliases=('in',))
-yard = Unit(name='yard', dimension=Dimension.length, aliases=('yd',))
-mile = Unit(name='mile', dimension=Dimension.length, aliases=('mi',))
+foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft', 'feet'))
+inch = Unit(name='inch', dimension=Dimension.length, aliases=('in', 'inches'))
+yard = Unit(name='yard', dimension=Dimension.length, aliases=('yd', 'yards'))
+mile = Unit(name='mile', dimension=Dimension.length, aliases=('mi', 'miles'))
 
 # Mass
 pound = Unit(name='pound', dimension=Dimension.mass, aliases=('lb', 'lbs'))
-ounce = Unit(name='ounce', dimension=Dimension.mass, aliases=('oz',))
+ounce = Unit(name='ounce', dimension=Dimension.mass, aliases=('oz', 'ounces'))
 
 # Temperature
 fahrenheit = Unit(name='fahrenheit', dimension=Dimension.temperature, aliases=('°F', 'degF'))
 
 # Volume
-gallon = Unit(name='gallon', dimension=Dimension.volume, aliases=('gal',))
+gallon = Unit(name='gallon', dimension=Dimension.volume, aliases=('gal', 'gallons'))
 
 # Energy
-calorie = Unit(name='calorie', dimension=Dimension.energy, aliases=('cal',))
+calorie = Unit(name='calorie', dimension=Dimension.energy, aliases=('cal', 'calories'))
 btu = Unit(name='btu', dimension=Dimension.energy, aliases=('BTU',))
 
 # Power
@@ -120,8 +120,8 @@ atmosphere = Unit(name='atmosphere', dimension=Dimension.pressure, aliases=('atm
 
 
 # -- Information Units -------------------------------------------------
-bit = Unit(name='bit', dimension=Dimension.information, aliases=('b',))
-byte = Unit(name='byte', dimension=Dimension.information, aliases=('B',))
+bit = Unit(name='bit', dimension=Dimension.information, aliases=('b', 'bits'))
+byte = Unit(name='byte', dimension=Dimension.information, aliases=('B', 'bytes'))
 # ----------------------------------------------------------------------
 
 
