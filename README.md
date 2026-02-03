@@ -265,14 +265,21 @@ See full roadmap: [ROADMAP.md](./ROADMAP.md)
 ## Contributing
 
 Contributions, issues, and pull requests are welcome!
-Ensure `nox` is installed.
-```
-pip install -r requirements.txt
-```
-Then run the full test suite (against all supported python versions) before committing:
 
+Set up your development environment:
 ```bash
-nox -s test
+make venv
+source .ucon-3.12/bin/activate
+```
+
+Run the test suite before committing:
+```bash
+make test
+```
+
+Run tests across all supported Python versions:
+```bash
+make test-all
 ```
 ---
 
