@@ -310,15 +310,12 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
         UnknownUnitError: If the unit cannot be resolved.
     """
     # Try scale prefix + unit first (prioritize decomposition)
+    # Only case-sensitive matching for remainder (e.g., "fT" = femto-tesla, "ft" = foot)
     for prefix in _SCALE_PREFIXES_SORTED:
         if s.startswith(prefix) and len(s) > len(prefix):
             remainder = s[len(prefix):]
-            # Try case-sensitive remainder first (e.g., 'mL' -> milli + liter)
             if remainder in _UNIT_REGISTRY_CASE_SENSITIVE:
                 return _UNIT_REGISTRY_CASE_SENSITIVE[remainder], _SCALE_PREFIXES[prefix]
-            # Try case-insensitive remainder
-            if remainder.lower() in _UNIT_REGISTRY:
-                return _UNIT_REGISTRY[remainder.lower()], _SCALE_PREFIXES[prefix]
 
     # Fall back to exact case-sensitive match (for aliases like 'L', 'B', 'm')
     if s in _UNIT_REGISTRY_CASE_SENSITIVE:
