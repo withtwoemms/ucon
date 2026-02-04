@@ -479,7 +479,8 @@ class ConversionGraph:
 
         Tries in order:
         1. Direct product edge
-        2. Factorwise decomposition
+        2. Product edge to base-scale version of dst (then apply scale)
+        3. Factorwise decomposition
         """
         if src.dimension != dst.dimension:
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
@@ -494,6 +495,17 @@ class ConversionGraph:
         # Same product? Identity.
         if src_key == dst_key:
             return LinearMap.identity()
+
+        # Try product edge to base-scale version of dst
+        # This handles cases like BTU/h → kW where edge exists to watt but not kW
+        dst_base = dst.simplify_to_base_scale()
+        dst_base_key = self._product_key(dst_base)
+        if dst_base_key != dst_key and src_key in self._product_edges:
+            if dst_base_key in self._product_edges.get(src_key, {}):
+                # Found edge to base-scale version, compose with scale factor
+                base_map = self._product_edges[src_key][dst_base_key]
+                scale_ratio = dst_base.fold_scale() / dst.fold_scale()
+                return LinearMap(scale_ratio) @ base_map
 
         # Try factorwise decomposition
         return self._convert_factorwise(src=src, dst=dst)
