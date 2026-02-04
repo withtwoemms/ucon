@@ -123,6 +123,14 @@ horsepower = Unit(name='horsepower', dimension=Dimension.power, aliases=('hp',))
 bar = Unit(name='bar', dimension=Dimension.pressure, aliases=('bar',))
 psi = Unit(name='psi', dimension=Dimension.pressure, aliases=('psi', 'lbf/in²'))
 atmosphere = Unit(name='atmosphere', dimension=Dimension.pressure, aliases=('atm',))
+torr = Unit(name='torr', dimension=Dimension.pressure, aliases=('Torr',))
+millimeter_mercury = Unit(name='millimeter_mercury', dimension=Dimension.pressure, aliases=('mmHg',))
+inch_mercury = Unit(name='inch_mercury', dimension=Dimension.pressure, aliases=('inHg',))
+
+# Force
+pound_force = Unit(name='pound_force', dimension=Dimension.force, aliases=('lbf',))
+kilogram_force = Unit(name='kilogram_force', dimension=Dimension.force, aliases=('kgf',))
+dyne = Unit(name='dyne', dimension=Dimension.force, aliases=('dyn',))
 # ----------------------------------------------------------------------
 
 
