@@ -570,6 +570,22 @@ def _build_standard_graph() -> ConversionGraph:
     # 1 inHg = 3386.389 Pa
     graph.add_edge(src=units.inch_mercury, dst=units.pascal, map=LinearMap(3386.389))
 
+    # --- Force ---
+    # 1 lbf = 4.4482216152605 N (exact, from lb_m × g_n)
+    graph.add_edge(src=units.pound_force, dst=units.newton, map=LinearMap(4.4482216152605))
+    # 1 kgf = 9.80665 N (exact, by definition)
+    graph.add_edge(src=units.kilogram_force, dst=units.newton, map=LinearMap(9.80665))
+    # 1 dyne = 1e-5 N (CGS unit)
+    graph.add_edge(src=units.dyne, dst=units.newton, map=LinearMap(1e-5))
+
+    # --- Dynamic Viscosity ---
+    # 1 poise = 0.1 Pa·s (CGS unit)
+    graph.add_edge(src=units.poise, dst=units.pascal * units.second, map=LinearMap(0.1))
+
+    # --- Kinematic Viscosity ---
+    # 1 stokes = 1e-4 m²/s (CGS unit)
+    graph.add_edge(src=units.stokes, dst=units.meter ** 2 / units.second, map=LinearMap(1e-4))
+
     # --- Volume ---
     graph.add_edge(src=units.liter, dst=units.gallon, map=LinearMap(0.264172))
 
