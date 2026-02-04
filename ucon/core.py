@@ -165,6 +165,76 @@ class Dimension(Enum):
     def __bool__(self):
         return False if self is Dimension.none else True
 
+    # -- Base dimension introspection --
+
+    _BASE_DIMENSIONS: ClassVar[set['Dimension']] = None  # Populated after class definition
+
+    @classmethod
+    def _get_base_dimensions(cls) -> set['Dimension']:
+        """Return the set of base dimensions (lazily initialized)."""
+        if cls._BASE_DIMENSIONS is None:
+            cls._BASE_DIMENSIONS = {
+                cls.time, cls.length, cls.mass, cls.current,
+                cls.temperature, cls.luminous_intensity,
+                cls.amount_of_substance, cls.information,
+            }
+        return cls._BASE_DIMENSIONS
+
+    def is_base(self) -> bool:
+        """
+        Return True if this is a base (non-derived) dimension.
+
+        Base dimensions are the 8 SI base dimensions. Pseudo-dimensions
+        (angle, solid_angle, ratio) return False as they have zero vectors.
+        """
+        return self in self._get_base_dimensions()
+
+    def base_expansion(self) -> dict['Dimension', 'Fraction']:
+        """
+        Return this dimension as a product of base dimensions.
+
+        Base dimensions return {self: 1}.
+        Derived dimensions return their expansion:
+          - volume → {length: 3}
+          - energy → {mass: 1, length: 2, time: -2}
+          - power → {mass: 1, length: 2, time: -3}
+
+        Pseudo-dimensions (angle, solid_angle, ratio) return empty dict.
+        """
+        from fractions import Fraction
+
+        # Pseudo-dimensions have zero vector
+        if isinstance(self.value, tuple):
+            return {}
+
+        # Base dimensions return themselves
+        if self.is_base():
+            return {self: Fraction(1)}
+
+        # Derived dimensions: decompose from vector
+        result: dict[Dimension, Fraction] = {}
+        vec = self.vector
+
+        # Map vector indices to base dimensions
+        # Vector order: (T, L, M, I, Θ, J, N, B)
+        base_dims = [
+            Dimension.time,              # index 0
+            Dimension.length,            # index 1
+            Dimension.mass,              # index 2
+            Dimension.current,           # index 3
+            Dimension.temperature,       # index 4
+            Dimension.luminous_intensity,  # index 5
+            Dimension.amount_of_substance,  # index 6
+            Dimension.information,       # index 7
+        ]
+
+        for i, base_dim in enumerate(base_dims):
+            exp = vec[i]
+            if exp != 0:
+                result[base_dim] = Fraction(exp).limit_denominator(1000)
+
+        return result
+
 
 # --------------------------------------------------------------------------------------
 # Scale (with descriptor)
