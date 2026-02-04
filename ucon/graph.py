@@ -498,7 +498,11 @@ class ConversionGraph:
 
         # Try product edge to base-scale version of dst
         # This handles cases like BTU/h → kW where edge exists to watt but not kW
-        dst_base = dst.simplify_to_base_scale()
+        dst_base_factors = {
+            UnitFactor(f.unit, Scale.one): exp
+            for f, exp in dst.factors.items()
+        }
+        dst_base = UnitProduct(dst_base_factors)
         dst_base_key = self._product_key(dst_base)
         if dst_base_key != dst_key and src_key in self._product_edges:
             if dst_base_key in self._product_edges.get(src_key, {}):
