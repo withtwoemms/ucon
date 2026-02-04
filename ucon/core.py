@@ -19,6 +19,7 @@ Classes
 """
 from __future__ import annotations
 
+from fractions import Fraction
 import math
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
@@ -164,6 +165,71 @@ class Dimension(Enum):
 
     def __bool__(self):
         return False if self is Dimension.none else True
+
+    # -- Base dimension introspection --
+
+    @staticmethod
+    def basis() -> tuple['Dimension', ...]:
+        """The 8 SI base dimensions."""
+        return (
+            Dimension.time, Dimension.length, Dimension.mass, Dimension.current,
+            Dimension.temperature, Dimension.luminous_intensity,
+            Dimension.amount_of_substance, Dimension.information,
+        )
+
+    def is_base(self) -> bool:
+        """
+        Return True if this is a base (non-derived) dimension.
+
+        Base dimensions are the 8 SI base dimensions. Pseudo-dimensions
+        (angle, solid_angle, ratio) return False as they have zero vectors.
+        """
+        return self in Dimension.basis()
+
+    def base_expansion(self) -> dict['Dimension', 'Fraction']:
+        """
+        Return this dimension as a product of base dimensions.
+
+        Base dimensions return {self: 1}.
+        Derived dimensions return their expansion:
+          - volume → {length: 3}
+          - energy → {mass: 1, length: 2, time: -2}
+          - power → {mass: 1, length: 2, time: -3}
+
+        Pseudo-dimensions (angle, solid_angle, ratio) return empty dict.
+        """
+        from fractions import Fraction
+
+        # Pseudo-dimensions have zero vector
+        if isinstance(self.value, tuple):
+            return {}
+
+        # Base dimensions return themselves
+        if self.is_base():
+            return {self: Fraction(1)}
+
+        # Derived dimensions: decompose from vector
+        result: dict[Dimension, Fraction] = {}
+        vec = self.vector
+
+        # Map vector attributes to base dimensions
+        attr_to_dim = [
+            ('T', Dimension.time),
+            ('L', Dimension.length),
+            ('M', Dimension.mass),
+            ('I', Dimension.current),
+            ('Θ', Dimension.temperature),
+            ('J', Dimension.luminous_intensity),
+            ('N', Dimension.amount_of_substance),
+            ('B', Dimension.information),
+        ]
+
+        for attr, base_dim in attr_to_dim:
+            exp = getattr(vec, attr)
+            if exp != 0:
+                result[base_dim] = Fraction(exp).limit_denominator(1000)
+
+        return result
 
 
 # --------------------------------------------------------------------------------------

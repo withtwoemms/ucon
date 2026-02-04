@@ -28,6 +28,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Union
 
+from ucon.algebra import Vector
 from ucon.core import (
     BasisTransform,
     Dimension,
@@ -403,12 +404,83 @@ class ConversionGraph:
 
         raise ConversionNotFound(f"No path from {start} to {target}")
 
+    def _bfs_product_path(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
+        """
+        BFS to find conversion path through product AND unit edges.
+
+        Used for cross-dimension conversions where vectors match but dimensions differ
+        (e.g., gallon → liter → m³).
+
+        Traverses both product edges and unit edges (for single-unit products).
+        """
+        src_key = self._product_key(src)
+        dst_key = self._product_key(dst)
+
+        # Direct edge?
+        if src_key in self._product_edges and dst_key in self._product_edges.get(src_key, {}):
+            return self._product_edges[src_key][dst_key]
+
+        # BFS over product edges AND unit edges
+        # Store: key → (Map, UnitProduct)
+        visited: dict[tuple, tuple[Map, UnitProduct]] = {src_key: (LinearMap.identity(), src)}
+        queue = deque([src_key])
+
+        while queue:
+            current_key = queue.popleft()
+            current_map, current_product = visited[current_key]
+
+            # Try product edges
+            if current_key in self._product_edges:
+                for neighbor_key, edge_map in self._product_edges[current_key].items():
+                    if neighbor_key in visited:
+                        continue
+
+                    composed = edge_map @ current_map
+                    # We don't have the UnitProduct for neighbor_key, but we can reconstruct later
+                    visited[neighbor_key] = (composed, None)
+
+                    if neighbor_key == dst_key:
+                        return composed
+
+                    queue.append(neighbor_key)
+
+            # Try unit edges if current is a single-unit product
+            if len(current_product.factors) == 1:
+                factor, exp = next(iter(current_product.factors.items()))
+                if abs(exp - 1.0) < 1e-12:  # exponent is 1
+                    unit = factor.unit
+                    dim = unit.dimension
+                    if dim in self._unit_edges and unit in self._unit_edges[dim]:
+                        for neighbor_unit, edge_map in self._unit_edges[dim][unit].items():
+                            # Wrap neighbor as UnitProduct
+                            neighbor_prod = UnitProduct.from_unit(neighbor_unit)
+                            neighbor_key = self._product_key(neighbor_prod)
+
+                            if neighbor_key in visited:
+                                continue
+
+                            # Apply scale factor from original factor
+                            scale_factor = factor.scale.value.evaluated
+                            neighbor_factor = UnitFactor(neighbor_unit, Scale.one)
+                            scale_map = LinearMap(scale_factor)
+                            composed = edge_map @ scale_map @ current_map
+
+                            visited[neighbor_key] = (composed, neighbor_prod)
+
+                            if neighbor_key == dst_key:
+                                return composed
+
+                            queue.append(neighbor_key)
+
+        raise ConversionNotFound(f"No product path from {src} to {dst}")
+
     def _convert_products(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
         """Convert between UnitProducts.
 
         Tries in order:
         1. Direct product edge
-        2. Factorwise decomposition
+        2. Product edge to base-scale version of dst (then apply scale)
+        3. Factorwise decomposition
         """
         if src.dimension != dst.dimension:
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
@@ -424,51 +496,122 @@ class ConversionGraph:
         if src_key == dst_key:
             return LinearMap.identity()
 
+        # Try product edge to base-scale version of dst
+        # This handles cases like BTU/h → kW where edge exists to watt but not kW
+        dst_base_factors = {
+            UnitFactor(f.unit, Scale.one): exp
+            for f, exp in dst.factors.items()
+        }
+        dst_base = UnitProduct(dst_base_factors)
+        dst_base_key = self._product_key(dst_base)
+        if dst_base_key != dst_key and src_key in self._product_edges:
+            if dst_base_key in self._product_edges.get(src_key, {}):
+                # Found edge to base-scale version, compose with scale factor
+                base_map = self._product_edges[src_key][dst_base_key]
+                scale_ratio = dst_base.fold_scale() / dst.fold_scale()
+                return LinearMap(scale_ratio) @ base_map
+
         # Try factorwise decomposition
         return self._convert_factorwise(src=src, dst=dst)
 
     def _convert_factorwise(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
-        """Factorwise conversion when factor structures align."""
+        """
+        Factorwise conversion when factor structures align.
+
+        Uses vector-based grouping instead of Dimension enum identity,
+        so that named dimensions (volume) match their base expansions (length³).
+        """
         try:
             src_by_dim = src.factors_by_dimension()
             dst_by_dim = dst.factors_by_dimension()
         except ValueError as e:
             raise ConversionNotFound(f"Ambiguous decomposition: {e}")
 
-        # Check that dimensions match exactly
-        if set(src_by_dim.keys()) != set(dst_by_dim.keys()):
+        # Group by EFFECTIVE dimensional vector (dimension × exponent).
+        # This allows volume¹ (vec = L³) to match length³ (vec = L¹ × 3 = L³).
+        src_by_vector: dict[Vector, tuple[UnitFactor, float, Dimension]] = {}
+        dst_by_vector: dict[Vector, tuple[UnitFactor, float, Dimension]] = {}
+
+        for dim, (factor, exp) in src_by_dim.items():
+            # Effective vector = dimension's vector × exponent
+            effective_vec = dim.vector * exp
+            if effective_vec in src_by_vector:
+                raise ConversionNotFound(
+                    f"Multiple source factors with same effective dimensional vector: {effective_vec}"
+                )
+            src_by_vector[effective_vec] = (factor, exp, dim)
+
+        for dim, (factor, exp) in dst_by_dim.items():
+            # Effective vector = dimension's vector × exponent
+            effective_vec = dim.vector * exp
+            if effective_vec in dst_by_vector:
+                raise ConversionNotFound(
+                    f"Multiple destination factors with same effective dimensional vector: {effective_vec}"
+                )
+            dst_by_vector[effective_vec] = (factor, exp, dim)
+
+        # Check that effective vectors match
+        if set(src_by_vector.keys()) != set(dst_by_vector.keys()):
             raise ConversionNotFound(
                 f"Factor structures don't align: {set(src_by_dim.keys())} vs {set(dst_by_dim.keys())}"
             )
 
         result = LinearMap.identity()
 
-        for dim, (src_factor, src_exp) in src_by_dim.items():
-            dst_factor, dst_exp = dst_by_dim[dim]
+        for vec, (src_factor, src_exp, src_dim) in src_by_vector.items():
+            dst_factor, dst_exp, dst_dim = dst_by_vector[vec]
 
-            if abs(src_exp - dst_exp) > 1e-12:
-                raise ConversionNotFound(
-                    f"Exponent mismatch for {dim}: {src_exp} vs {dst_exp}"
-                )
+            # Pseudo-dimensions (angle, solid_angle, ratio) are semantically isolated.
+            # They share zero vectors but must NOT convert between each other.
+            src_is_pseudo = isinstance(src_dim.value, tuple)
+            dst_is_pseudo = isinstance(dst_dim.value, tuple)
+            if src_is_pseudo or dst_is_pseudo:
+                if src_dim != dst_dim:
+                    raise ConversionNotFound(
+                        f"Cannot convert between pseudo-dimensions: {src_dim.name} and {dst_dim.name}"
+                    )
 
-            # Scale ratio
-            src_scale_val = src_factor.scale.value.evaluated
-            dst_scale_val = dst_factor.scale.value.evaluated
-            scale_ratio = src_scale_val / dst_scale_val
-            scale_map = LinearMap(scale_ratio)
+            # Same dimension case: exponents must match, convert units directly
+            if src_dim == dst_dim or (src_dim.vector == dst_dim.vector and abs(src_exp - dst_exp) < 1e-12):
+                if abs(src_exp - dst_exp) > 1e-12:
+                    raise ConversionNotFound(
+                        f"Exponent mismatch for {src_dim}: {src_exp} vs {dst_exp}"
+                    )
 
-            # Unit conversion (if different base units)
-            if src_factor.unit == dst_factor.unit:
-                unit_map = LinearMap.identity()
+                # Scale ratio
+                src_scale_val = src_factor.scale.value.evaluated
+                dst_scale_val = dst_factor.scale.value.evaluated
+                scale_ratio = src_scale_val / dst_scale_val
+                scale_map = LinearMap(scale_ratio)
+
+                # Unit conversion (if different base units)
+                if src_factor.unit == dst_factor.unit:
+                    unit_map = LinearMap.identity()
+                else:
+                    unit_map = self._convert_units(
+                        src=src_factor.unit,
+                        dst=dst_factor.unit,
+                    )
+
+                # Combine scale and unit conversion, apply exponent
+                factor_map = (scale_map @ unit_map) ** src_exp
+                result = result @ factor_map
+
             else:
-                unit_map = self._convert_units(
-                    src=src_factor.unit,
-                    dst=dst_factor.unit,
-                )
+                # Cross-dimension case: e.g., volume¹ ↔ length³
+                # Need to find a path through product edges (e.g., gallon → liter → m³)
+                src_product = UnitProduct({src_factor: src_exp})
+                dst_product = UnitProduct({dst_factor: dst_exp})
 
-            # Combine scale and unit conversion, apply exponent
-            factor_map = (scale_map @ unit_map) ** src_exp
-            result = result @ factor_map
+                # Try BFS over product edges to find a path
+                try:
+                    factor_map = self._bfs_product_path(src=src_product, dst=dst_product)
+                except ConversionNotFound:
+                    raise ConversionNotFound(
+                        f"No conversion path from {src_product} ({src_dim}) to {dst_product} ({dst_dim})"
+                    )
+
+                result = result @ factor_map
 
         return result
 
@@ -590,10 +733,16 @@ def _build_standard_graph() -> ConversionGraph:
 
     # --- Volume ---
     graph.add_edge(src=units.liter, dst=units.gallon, map=LinearMap(0.264172))
+    # Cross-dimension: volume → length³ (enables gal/min → m³/h)
+    # 1 L = 0.001 m³
+    graph.add_edge(src=units.liter, dst=units.meter ** 3, map=LinearMap(0.001))
 
     # --- Energy ---
     graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
     graph.add_edge(src=units.joule, dst=units.btu, map=LinearMap(1/1055.06))
+    # Cross-structure: energy/time → power (enables BTU/h → kW)
+    # 1 BTU/h = 1055.06 J/h = 1055.06/3600 W = 0.29307 W
+    graph.add_edge(src=units.btu / units.hour, dst=units.watt, map=LinearMap(1055.06 / 3600))
 
     # --- Power ---
     graph.add_edge(src=units.watt, dst=units.horsepower, map=LinearMap(1/745.7))
