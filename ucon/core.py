@@ -167,18 +167,14 @@ class Dimension(Enum):
 
     # -- Base dimension introspection --
 
-    _BASE_DIMENSIONS: ClassVar[set['Dimension']] = None  # Populated after class definition
-
-    @classmethod
-    def _get_base_dimensions(cls) -> set['Dimension']:
-        """Return the set of base dimensions (lazily initialized)."""
-        if cls._BASE_DIMENSIONS is None:
-            cls._BASE_DIMENSIONS = {
-                cls.time, cls.length, cls.mass, cls.current,
-                cls.temperature, cls.luminous_intensity,
-                cls.amount_of_substance, cls.information,
-            }
-        return cls._BASE_DIMENSIONS
+    @staticmethod
+    def basis() -> tuple['Dimension', ...]:
+        """The 8 SI base dimensions."""
+        return (
+            Dimension.time, Dimension.length, Dimension.mass, Dimension.current,
+            Dimension.temperature, Dimension.luminous_intensity,
+            Dimension.amount_of_substance, Dimension.information,
+        )
 
     def is_base(self) -> bool:
         """
@@ -187,7 +183,7 @@ class Dimension(Enum):
         Base dimensions are the 8 SI base dimensions. Pseudo-dimensions
         (angle, solid_angle, ratio) return False as they have zero vectors.
         """
-        return self in self._get_base_dimensions()
+        return self in Dimension.basis()
 
     def base_expansion(self) -> dict['Dimension', 'Fraction']:
         """
