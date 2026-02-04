@@ -286,5 +286,48 @@ class TestWhitespaceHandling(unittest.TestCase):
         self.assertEqual(result, units.meter)
 
 
+class TestPriorityAliases(unittest.TestCase):
+    """Test that priority aliases are matched before prefix decomposition.
+
+    Some aliases like 'min' could be misinterpreted as prefix+unit
+    (e.g., 'm' + 'in' = milli-inch). Priority aliases ensure these
+    are matched exactly first.
+    """
+
+    def test_min_is_minute_not_milli_inch(self):
+        """'min' should parse as minute (time), not milli-inch (length)."""
+        from ucon.core import Dimension
+        result = get_unit_by_name("min")
+        self.assertEqual(result, units.minute)
+        self.assertEqual(result.dimension, Dimension.time)
+
+    def test_min_in_composite(self):
+        """'min' should work correctly in composite units."""
+        result = get_unit_by_name("mL/min")
+        self.assertIsInstance(result, UnitProduct)
+        # Volume / time dimension
+        from ucon.core import Dimension
+        expected_dim = Dimension.volume / Dimension.time
+        self.assertEqual(result.dimension, expected_dim)
+
+    def test_mL_per_min_conversion(self):
+        """Conversion using 'min' should work correctly."""
+        from ucon.core import Number
+        rate_per_hour = Number(120, unit=get_unit_by_name("mL/h"))
+        rate_per_min = rate_per_hour.to(get_unit_by_name("mL/min"))
+        self.assertAlmostEqual(rate_per_min.quantity, 2.0, places=9)
+
+    def test_milli_prefix_still_works(self):
+        """Normal milli- prefix parsing should still work."""
+        result = get_unit_by_name("mL")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 0.001, places=10)
+
+    def test_inch_still_works(self):
+        """Inch unit should still be accessible."""
+        result = get_unit_by_name("in")
+        self.assertEqual(result, units.inch)
+
+
 if __name__ == '__main__':
     unittest.main()
