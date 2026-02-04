@@ -19,6 +19,7 @@ Classes
 """
 from __future__ import annotations
 
+from fractions import Fraction
 import math
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
@@ -211,21 +212,20 @@ class Dimension(Enum):
         result: dict[Dimension, Fraction] = {}
         vec = self.vector
 
-        # Map vector indices to base dimensions
-        # Vector order: (T, L, M, I, Θ, J, N, B)
-        base_dims = [
-            Dimension.time,              # index 0
-            Dimension.length,            # index 1
-            Dimension.mass,              # index 2
-            Dimension.current,           # index 3
-            Dimension.temperature,       # index 4
-            Dimension.luminous_intensity,  # index 5
-            Dimension.amount_of_substance,  # index 6
-            Dimension.information,       # index 7
+        # Map vector attributes to base dimensions
+        attr_to_dim = [
+            ('T', Dimension.time),
+            ('L', Dimension.length),
+            ('M', Dimension.mass),
+            ('I', Dimension.current),
+            ('Θ', Dimension.temperature),
+            ('J', Dimension.luminous_intensity),
+            ('N', Dimension.amount_of_substance),
+            ('B', Dimension.information),
         ]
 
-        for i, base_dim in enumerate(base_dims):
-            exp = vec[i]
+        for attr, base_dim in attr_to_dim:
+            exp = getattr(vec, attr)
             if exp != 0:
                 result[base_dim] = Fraction(exp).limit_denominator(1000)
 
