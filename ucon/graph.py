@@ -555,6 +555,8 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.celsius, dst=units.kelvin, map=AffineMap(1, 273.15))
     # F → C: C = (F - 32) * 5/9
     graph.add_edge(src=units.fahrenheit, dst=units.celsius, map=AffineMap(5/9, -32 * 5/9))
+    # K → °R: °R = K × 9/5 (both absolute scales, same zero point)
+    graph.add_edge(src=units.kelvin, dst=units.rankine, map=LinearMap(9/5))
 
     # --- Pressure ---
     # 1 Pa = 0.00001 bar, so 1 bar = 100000 Pa
@@ -563,6 +565,28 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.pascal, dst=units.psi, map=LinearMap(0.000145038))
     # 1 atm = 101325 Pa
     graph.add_edge(src=units.atmosphere, dst=units.pascal, map=LinearMap(101325))
+    # 1 torr = 133.322368 Pa
+    graph.add_edge(src=units.torr, dst=units.pascal, map=LinearMap(133.322368))
+    # 1 mmHg ≈ 1 torr (by definition, at 0°C)
+    graph.add_edge(src=units.millimeter_mercury, dst=units.torr, map=LinearMap(1.0))
+    # 1 inHg = 3386.389 Pa
+    graph.add_edge(src=units.inch_mercury, dst=units.pascal, map=LinearMap(3386.389))
+
+    # --- Force ---
+    # 1 lbf = 4.4482216152605 N (exact, from lb_m × g_n)
+    graph.add_edge(src=units.pound_force, dst=units.newton, map=LinearMap(4.4482216152605))
+    # 1 kgf = 9.80665 N (exact, by definition)
+    graph.add_edge(src=units.kilogram_force, dst=units.newton, map=LinearMap(9.80665))
+    # 1 dyne = 1e-5 N (CGS unit)
+    graph.add_edge(src=units.dyne, dst=units.newton, map=LinearMap(1e-5))
+
+    # --- Dynamic Viscosity ---
+    # 1 poise = 0.1 Pa·s (CGS unit)
+    graph.add_edge(src=units.poise, dst=units.pascal * units.second, map=LinearMap(0.1))
+
+    # --- Kinematic Viscosity ---
+    # 1 stokes = 1e-4 m²/s (CGS unit)
+    graph.add_edge(src=units.stokes, dst=units.meter ** 2 / units.second, map=LinearMap(1e-4))
 
     # --- Volume ---
     graph.add_edge(src=units.liter, dst=units.gallon, map=LinearMap(0.264172))

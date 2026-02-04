@@ -99,6 +99,8 @@ class Dimension(Enum):
     permittivity = Vector(4, -3, -1, 2, 0, 0, 0, 0)
     power = Vector(-3, 2, 1, 0, 0, 0, 0, 0)
     pressure = Vector(-2, -1, 1, 0, 0, 0, 0, 0)
+    dynamic_viscosity = Vector(-1, -1, 1, 0, 0, 0, 0, 0)    # M·L⁻¹·T⁻¹ (Pa·s)
+    kinematic_viscosity = Vector(-1, 2, 0, 0, 0, 0, 0, 0)   # L²·T⁻¹ (m²/s)
     resistance = Vector(-3, 2, 1, -2, 0, 0, 0, 0)
     resistivity = Vector(-3, 3, 1, -2, 0, 0, 0, 0)
     specific_heat_capacity = Vector(-2, 2, 0, 0, -1, 0, 0, 0)

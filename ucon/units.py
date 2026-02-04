@@ -80,6 +80,12 @@ webers_per_meter = Unit(name='webers_per_meter', dimension=Dimension.magnetic_pe
 # ----------------------------------------------------------------------
 
 
+# -- Viscosity Units ---------------------------------------------------
+poise = Unit(name='poise', dimension=Dimension.dynamic_viscosity, aliases=('P',))
+stokes = Unit(name='stokes', dimension=Dimension.kinematic_viscosity, aliases=('St',))
+# ----------------------------------------------------------------------
+
+
 # -- Time Units --------------------------------------------------------
 second = Unit(name='second', dimension=Dimension.time, aliases=('s', 'sec'))
 minute = Unit(name='minute', dimension=Dimension.time, aliases=('min',))
@@ -101,6 +107,7 @@ ounce = Unit(name='ounce', dimension=Dimension.mass, aliases=('oz', 'ounces'))
 
 # Temperature
 fahrenheit = Unit(name='fahrenheit', dimension=Dimension.temperature, aliases=('°F', 'degF'))
+rankine = Unit(name='rankine', dimension=Dimension.temperature, aliases=('°R', 'degR', 'R'))
 
 # Volume
 gallon = Unit(name='gallon', dimension=Dimension.volume, aliases=('gal', 'gallons'))
@@ -116,6 +123,14 @@ horsepower = Unit(name='horsepower', dimension=Dimension.power, aliases=('hp',))
 bar = Unit(name='bar', dimension=Dimension.pressure, aliases=('bar',))
 psi = Unit(name='psi', dimension=Dimension.pressure, aliases=('psi', 'lbf/in²'))
 atmosphere = Unit(name='atmosphere', dimension=Dimension.pressure, aliases=('atm',))
+torr = Unit(name='torr', dimension=Dimension.pressure, aliases=('Torr',))
+millimeter_mercury = Unit(name='millimeter_mercury', dimension=Dimension.pressure, aliases=('mmHg',))
+inch_mercury = Unit(name='inch_mercury', dimension=Dimension.pressure, aliases=('inHg',))
+
+# Force
+pound_force = Unit(name='pound_force', dimension=Dimension.force, aliases=('lbf',))
+kilogram_force = Unit(name='kilogram_force', dimension=Dimension.force, aliases=('kgf',))
+dyne = Unit(name='dyne', dimension=Dimension.force, aliases=('dyn',))
 # ----------------------------------------------------------------------
 
 
