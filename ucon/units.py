@@ -208,6 +208,11 @@ _UNIT_REGISTRY_CASE_SENSITIVE: Dict[str, Unit] = {}
 # Prevents ambiguous parses like "min" -> milli-inch instead of minute.
 _PRIORITY_ALIASES: set = {'min'}
 
+# Priority scaled aliases that map to a specific (unit, scale) tuple.
+# Used for medical conventions like "mcg" -> (gram, Scale.micro).
+# Populated by _build_registry() after units are defined.
+_PRIORITY_SCALED_ALIASES: Dict[str, Tuple[Unit, Scale]] = {}
+
 # Scale prefix mapping (shorthand -> Scale)
 # Sorted by length descending for greedy matching
 _SCALE_PREFIXES: Dict[str, Scale] = {
