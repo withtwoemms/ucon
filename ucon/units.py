@@ -107,6 +107,7 @@ ounce = Unit(name='ounce', dimension=Dimension.mass, aliases=('oz', 'ounces'))
 
 # Temperature
 fahrenheit = Unit(name='fahrenheit', dimension=Dimension.temperature, aliases=('°F', 'degF'))
+rankine = Unit(name='rankine', dimension=Dimension.temperature, aliases=('°R', 'degR', 'R'))
 
 # Volume
 gallon = Unit(name='gallon', dimension=Dimension.volume, aliases=('gal', 'gallons'))
