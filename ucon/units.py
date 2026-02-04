@@ -432,8 +432,8 @@ def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
 
     name = name.strip()
 
-    # Check for composite (has operators)
-    if '/' in name or '·' in name or '*' in name:
+    # Check for composite (has operators or parentheses)
+    if '/' in name or '·' in name or '*' in name or '(' in name:
         return _parse_composite(name)
 
     # Check for exponent
