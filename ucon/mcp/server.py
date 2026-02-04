@@ -91,16 +91,11 @@ def convert(value: float, from_unit: str, to_unit: str) -> ConversionResult:
     num = Number(quantity=value, unit=src)
     result = num.to(dst)
 
-    unit_str = None
-    dim_name = "none"
-
-    if result.unit:
-        if isinstance(result.unit, UnitProduct):
-            unit_str = result.unit.shorthand
-            dim_name = result.unit.dimension.name
-        elif isinstance(result.unit, Unit):
-            unit_str = result.unit.shorthand
-            dim_name = result.unit.dimension.name
+    # Use the target unit string as output (what the user asked for).
+    # This handles cases like mg/kg → µg/kg where internal representation
+    # may lose unit info due to dimension cancellation.
+    unit_str = to_unit
+    dim_name = dst.dimension.name if hasattr(dst, 'dimension') else "none"
 
     return ConversionResult(
         quantity=result.quantity,
