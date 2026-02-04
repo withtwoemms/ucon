@@ -504,8 +504,8 @@ class ConversionGraph:
             else:
                 # Cross-dimension case: e.g., volume¹ ↔ length³
                 # Build UnitProducts and use product-level conversion
-                src_product = UnitProduct.from_unit(src_factor.unit, src_factor.scale) ** src_exp
-                dst_product = UnitProduct.from_unit(dst_factor.unit, dst_factor.scale) ** dst_exp
+                src_product = UnitProduct({src_factor: src_exp})
+                dst_product = UnitProduct({dst_factor: dst_exp})
 
                 # Try to find a conversion path at the product level
                 try:
