@@ -619,6 +619,9 @@ def _build_standard_graph() -> ConversionGraph:
 
     # --- Volume ---
     graph.add_edge(src=units.liter, dst=units.gallon, map=LinearMap(0.264172))
+    # Cross-dimension: volume → length³ (enables gal/min → m³/h)
+    # 1 L = 0.001 m³
+    graph.add_edge(src=units.liter, dst=units.meter ** 3, map=LinearMap(0.001))
 
     # --- Energy ---
     graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
