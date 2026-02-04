@@ -298,7 +298,10 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     """
     Look up a single unit factor, handling scale prefixes.
 
-    Prioritizes prefix+unit interpretation over direct unit lookup.
+    Prioritizes prefix+unit interpretation over direct unit lookup,
+    except for priority aliases (like 'min') which are checked first
+    to avoid ambiguous parses.
+
     This means "kg" returns (gram, Scale.kilo) rather than (kilogram, Scale.one).
 
     Examples:
@@ -307,6 +310,7 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     - 'km' -> (meter, Scale.kilo)
     - 'kg' -> (gram, Scale.kilo)
     - 'mL' -> (liter, Scale.milli)
+    - 'min' -> (minute, Scale.one)  # priority alias, not milli-inch
 
     Returns:
         Tuple of (unit, scale).
@@ -314,7 +318,15 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     Raises:
         UnknownUnitError: If the unit cannot be resolved.
     """
-    # Try scale prefix + unit first (prioritize decomposition)
+    # Check priority aliases first (prevents "min" -> milli-inch)
+    if s in _PRIORITY_ALIASES:
+        if s in _UNIT_REGISTRY_CASE_SENSITIVE:
+            return _UNIT_REGISTRY_CASE_SENSITIVE[s], Scale.one
+        s_lower = s.lower()
+        if s_lower in _UNIT_REGISTRY:
+            return _UNIT_REGISTRY[s_lower], Scale.one
+
+    # Try scale prefix + unit (prioritize decomposition)
     # Only case-sensitive matching for remainder (e.g., "fT" = femto-tesla, "ft" = foot)
     for prefix in _SCALE_PREFIXES_SORTED:
         if s.startswith(prefix) and len(s) > len(prefix):
