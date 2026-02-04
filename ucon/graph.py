@@ -428,27 +428,53 @@ class ConversionGraph:
         return self._convert_factorwise(src=src, dst=dst)
 
     def _convert_factorwise(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
-        """Factorwise conversion when factor structures align."""
+        """
+        Factorwise conversion when factor structures align.
+
+        Uses vector-based grouping instead of Dimension enum identity,
+        so that named dimensions (volume) match their base expansions (length³).
+        """
         try:
             src_by_dim = src.factors_by_dimension()
             dst_by_dim = dst.factors_by_dimension()
         except ValueError as e:
             raise ConversionNotFound(f"Ambiguous decomposition: {e}")
 
-        # Check that dimensions match exactly
-        if set(src_by_dim.keys()) != set(dst_by_dim.keys()):
+        # Group by dimensional VECTOR instead of enum identity.
+        # This allows volume (Vector(0,3,...)) to match length³ (same vector).
+        src_by_vector: dict[Vector, tuple[UnitFactor, float, Dimension]] = {}
+        dst_by_vector: dict[Vector, tuple[UnitFactor, float, Dimension]] = {}
+
+        for dim, (factor, exp) in src_by_dim.items():
+            vec = dim.vector
+            if vec in src_by_vector:
+                raise ConversionNotFound(
+                    f"Multiple source factors with same dimensional vector: {vec}"
+                )
+            src_by_vector[vec] = (factor, exp, dim)
+
+        for dim, (factor, exp) in dst_by_dim.items():
+            vec = dim.vector
+            if vec in dst_by_vector:
+                raise ConversionNotFound(
+                    f"Multiple destination factors with same dimensional vector: {vec}"
+                )
+            dst_by_vector[vec] = (factor, exp, dim)
+
+        # Check that vectors match (not enum identity)
+        if set(src_by_vector.keys()) != set(dst_by_vector.keys()):
             raise ConversionNotFound(
                 f"Factor structures don't align: {set(src_by_dim.keys())} vs {set(dst_by_dim.keys())}"
             )
 
         result = LinearMap.identity()
 
-        for dim, (src_factor, src_exp) in src_by_dim.items():
-            dst_factor, dst_exp = dst_by_dim[dim]
+        for vec, (src_factor, src_exp, src_dim) in src_by_vector.items():
+            dst_factor, dst_exp, dst_dim = dst_by_vector[vec]
 
             if abs(src_exp - dst_exp) > 1e-12:
                 raise ConversionNotFound(
-                    f"Exponent mismatch for {dim}: {src_exp} vs {dst_exp}"
+                    f"Exponent mismatch for {src_dim}: {src_exp} vs {dst_exp}"
                 )
 
             # Scale ratio
