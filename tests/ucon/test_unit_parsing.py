@@ -428,29 +428,36 @@ class TestRecursiveDescentParser(unittest.TestCase):
         self.assertEqual(len(factors), 3)
 
     def test_chained_division_dosage(self):
-        """GIVEN mg/kg/d THEN returns mg·kg⁻¹·d⁻¹."""
+        """GIVEN mg/kg/d THEN returns 1/d with scale factor 1e-6.
+
+        Note: mg and kg cancel dimensionally (mass/mass) but the scale
+        difference (milli/kilo = 1e-6) is preserved in the residual.
+        """
         result = get_unit_by_name("mg/kg/d")
         self.assertIsInstance(result, UnitProduct)
-        # mg (exp 1), kg (exp -1), d (exp -1)
+        # mg and kg cancel (same dimension), leaving 1/d
         factors = result.factors
-        self.assertEqual(len(factors), 3)
-        # All factors should have exponent magnitude 1
-        for uf, exp in factors.items():
-            self.assertEqual(abs(exp), 1)
+        self.assertEqual(len(factors), 1)  # Only day remains
+        # Scale should be 1e-6 (milli/kilo)
+        self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_chained_division_infusion_rate(self):
-        """GIVEN µg/kg/min THEN returns µg·kg⁻¹·min⁻¹."""
+        """GIVEN µg/kg/min THEN returns 1/min with scale factor 1e-9."""
         result = get_unit_by_name("µg/kg/min")
         self.assertIsInstance(result, UnitProduct)
         factors = result.factors
-        self.assertEqual(len(factors), 3)
+        self.assertEqual(len(factors), 1)  # Only minute remains
+        # Scale: micro/kilo = 1e-6/1e3 = 1e-9
+        self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
 
     def test_mcg_chained_division(self):
-        """GIVEN mcg/kg/min THEN returns mcg·kg⁻¹·min⁻¹."""
+        """GIVEN mcg/kg/min THEN returns 1/min with scale factor 1e-9."""
         result = get_unit_by_name("mcg/kg/min")
         self.assertIsInstance(result, UnitProduct)
         factors = result.factors
-        self.assertEqual(len(factors), 3)
+        self.assertEqual(len(factors), 1)  # Only minute remains
+        # Scale: micro/kilo = 1e-6/1e3 = 1e-9
+        self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
 
     def test_acceleration_unicode_superscript(self):
         """GIVEN m/s² THEN returns UnitProduct with dimension acceleration."""
