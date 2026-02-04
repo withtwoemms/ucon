@@ -32,6 +32,7 @@ import re
 from typing import Dict, Tuple, Union
 
 from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct, UnitSystem
+from ucon.parsing import parse_unit_expression, ParseError
 
 
 class UnknownUnitError(Exception):
@@ -377,53 +378,26 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
 
 def _parse_composite(s: str) -> UnitProduct:
     """
-    Parse composite unit string into UnitProduct.
+    Parse composite unit string into UnitProduct using recursive descent.
 
     Accepts both Unicode and ASCII notation:
-    - Unicode: 'm/s²', 'kg·m/s²', 'N·m'
-    - ASCII:  'm/s^2', 'kg*m/s^2', 'N*m'
+    - Unicode: 'm/s²', 'kg·m/s²', 'N·m', 'W/(m²*K)'
+    - ASCII:  'm/s^2', 'kg*m/s^2', 'N*m', 'W/(m^2*K)'
 
-    Delimiters:
-    - Division: '/'
-    - Multiplication: '·' (Unicode) or '*' (ASCII)
+    Supports:
+    - Parentheses: `W/(m²*K)`, `(kg*m)/(s^2)`
+    - Chained division: `mg/kg/d`
+    - Unicode superscripts: `⁰¹²³⁴⁵⁶⁷⁸⁹⁻`
+    - ASCII exponents: `^2`, `^-1`
 
     Returns:
         UnitProduct representing the parsed composite unit.
+
+    Raises:
+        ParseError: If the expression is malformed (e.g., unbalanced parens).
+        UnknownUnitError: If a unit name cannot be resolved.
     """
-    # Normalize multiplication operator
-    s = s.replace('*', '·')
-
-    # Split numerator and denominator
-    if '/' in s:
-        num_part, den_part = s.split('/', 1)
-    else:
-        num_part, den_part = s, ''
-
-    factors: Dict[UnitFactor, float] = {}
-
-    # Parse numerator factors
-    if num_part:
-        for factor_str in num_part.split('·'):
-            factor_str = factor_str.strip()
-            if not factor_str:
-                continue
-            base_str, exp = _parse_exponent(factor_str)
-            unit, scale = _lookup_factor(base_str)
-            uf = UnitFactor(unit, scale)
-            factors[uf] = factors.get(uf, 0) + exp
-
-    # Parse denominator factors (negative exponents)
-    if den_part:
-        for factor_str in den_part.split('·'):
-            factor_str = factor_str.strip()
-            if not factor_str:
-                continue
-            base_str, exp = _parse_exponent(factor_str)
-            unit, scale = _lookup_factor(base_str)
-            uf = UnitFactor(unit, scale)
-            factors[uf] = factors.get(uf, 0) - exp
-
-    return UnitProduct(factors)
+    return parse_unit_expression(s, _lookup_factor, UnitFactor, UnitProduct)
 
 
 def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
@@ -458,8 +432,9 @@ def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
 
     name = name.strip()
 
-    # Check for composite (has operators)
-    if '/' in name or '·' in name or '*' in name:
+    # Check for composite (has operators or parentheses)
+    # Note: · (U+00B7 middle dot) and ⋅ (U+22C5 dot operator) are both multiplication
+    if '/' in name or '·' in name or '⋅' in name or '*' in name or '(' in name:
         return _parse_composite(name)
 
     # Check for exponent
