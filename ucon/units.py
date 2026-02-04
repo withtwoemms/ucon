@@ -267,6 +267,7 @@ def _build_registry() -> None:
 
     # Register priority scaled aliases (medical conventions)
     _PRIORITY_SCALED_ALIASES['mcg'] = (gram, Scale.micro)  # microgram
+    _PRIORITY_SCALED_ALIASES['cc'] = (liter, Scale.milli)  # cubic centimeter = 1 mL
 
 
 def _parse_exponent(s: str) -> Tuple[str, float]:

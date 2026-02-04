@@ -371,6 +371,28 @@ class TestPriorityScaledAliases(unittest.TestCase):
         result = get_unit_by_name("mcg")
         self.assertIsInstance(result, UnitProduct)
 
+    def test_cc_is_milliliter(self):
+        """'cc' should parse as milliliter (1 cc = 1 mL)."""
+        from ucon.core import Dimension
+        result = get_unit_by_name("cc")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertEqual(result.dimension, Dimension.volume)
+        self.assertAlmostEqual(result.fold_scale(), 0.001, places=10)
+
+    def test_cc_to_mL(self):
+        """Conversion from cc to mL should be 1:1."""
+        from ucon.core import Number
+        vol = Number(5, unit=get_unit_by_name("cc"))
+        result = vol.to(get_unit_by_name("mL"))
+        self.assertAlmostEqual(result.quantity, 5.0, places=9)
+
+    def test_cc_to_L(self):
+        """Conversion from cc to L should work."""
+        from ucon.core import Number
+        vol = Number(1000, unit=get_unit_by_name("cc"))
+        result = vol.to(get_unit_by_name("L"))
+        self.assertAlmostEqual(result.quantity, 1.0, places=9)
+
 
 if __name__ == '__main__':
     unittest.main()
