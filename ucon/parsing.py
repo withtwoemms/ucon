@@ -95,19 +95,27 @@ class Tokenizer:
         while self.pos < self.length and self.expression[self.pos].isspace():
             self.pos += 1
 
+    # Unicode superscript characters (should NOT be part of identifiers)
+    _SUPERSCRIPT_CHARS = set('⁰¹²³⁴⁵⁶⁷⁸⁹⁻')
+
     def _read_identifier(self) -> str:
         """
-        Read an identifier (unit name, possibly with trailing superscript exponent).
+        Read an identifier (unit name).
 
         Identifiers can contain:
         - Letters (including µ, °)
-        - Digits (but not starting with digit)
+        - ASCII digits (but not starting with digit)
         - Underscores
+
+        Stops at Unicode superscripts (they are separate exponent tokens).
         """
         start = self.pos
         while self.pos < self.length:
             ch = self.expression[self.pos]
-            # Allow letters, digits, underscores, and special chars like µ, °
+            # Stop at superscript characters - they are exponents, not part of unit name
+            if ch in self._SUPERSCRIPT_CHARS:
+                break
+            # Allow letters, ASCII digits, underscores, and special chars like µ, °
             if ch.isalnum() or ch in '_µ°':
                 self.pos += 1
             else:
