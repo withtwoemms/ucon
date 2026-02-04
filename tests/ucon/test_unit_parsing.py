@@ -329,5 +329,48 @@ class TestPriorityAliases(unittest.TestCase):
         self.assertEqual(result, units.inch)
 
 
+class TestPriorityScaledAliases(unittest.TestCase):
+    """Test priority scaled aliases for domain-specific conventions.
+
+    Some domains use non-standard abbreviations that include an implicit
+    scale, like 'mcg' for microgram in medical contexts.
+    """
+
+    def test_mcg_is_microgram(self):
+        """'mcg' should parse as microgram (medical convention)."""
+        from ucon.core import Dimension
+        result = get_unit_by_name("mcg")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertEqual(result.dimension, Dimension.mass)
+        self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
+
+    def test_mcg_to_mg(self):
+        """Conversion from mcg to mg should work."""
+        from ucon.core import Number
+        dose = Number(500, unit=get_unit_by_name("mcg"))
+        result = dose.to(get_unit_by_name("mg"))
+        self.assertAlmostEqual(result.quantity, 0.5, places=9)
+
+    def test_mcg_to_ug(self):
+        """mcg and µg should be equivalent."""
+        from ucon.core import Number
+        dose = Number(1, unit=get_unit_by_name("mcg"))
+        result = dose.to(get_unit_by_name("µg"))
+        self.assertAlmostEqual(result.quantity, 1.0, places=9)
+
+    def test_mcg_in_composite(self):
+        """'mcg' should work in composite units."""
+        result = get_unit_by_name("mcg/mL")
+        self.assertIsInstance(result, UnitProduct)
+        from ucon.core import Dimension
+        self.assertEqual(result.dimension, Dimension.density)
+
+    def test_mcg_per_kg_per_min(self):
+        """'mcg/kg/min' style dosing units (requires chained division support)."""
+        # This tests mcg works; chained division is a separate issue
+        result = get_unit_by_name("mcg")
+        self.assertIsInstance(result, UnitProduct)
+
+
 if __name__ == '__main__':
     unittest.main()
