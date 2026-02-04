@@ -406,10 +406,12 @@ class ConversionGraph:
 
     def _bfs_product_path(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
         """
-        BFS to find conversion path through product edges.
+        BFS to find conversion path through product AND unit edges.
 
         Used for cross-dimension conversions where vectors match but dimensions differ
         (e.g., gallon → liter → m³).
+
+        Traverses both product edges and unit edges (for single-unit products).
         """
         src_key = self._product_key(src)
         dst_key = self._product_key(dst)
@@ -418,28 +420,57 @@ class ConversionGraph:
         if src_key in self._product_edges and dst_key in self._product_edges.get(src_key, {}):
             return self._product_edges[src_key][dst_key]
 
-        # BFS over product edges
-        visited: dict[tuple, Map] = {src_key: LinearMap.identity()}
+        # BFS over product edges AND unit edges
+        # Store: key → (Map, UnitProduct)
+        visited: dict[tuple, tuple[Map, UnitProduct]] = {src_key: (LinearMap.identity(), src)}
         queue = deque([src_key])
 
         while queue:
             current_key = queue.popleft()
-            current_map = visited[current_key]
+            current_map, current_product = visited[current_key]
 
-            if current_key not in self._product_edges:
-                continue
+            # Try product edges
+            if current_key in self._product_edges:
+                for neighbor_key, edge_map in self._product_edges[current_key].items():
+                    if neighbor_key in visited:
+                        continue
 
-            for neighbor_key, edge_map in self._product_edges[current_key].items():
-                if neighbor_key in visited:
-                    continue
+                    composed = edge_map @ current_map
+                    # We don't have the UnitProduct for neighbor_key, but we can reconstruct later
+                    visited[neighbor_key] = (composed, None)
 
-                composed = edge_map @ current_map
-                visited[neighbor_key] = composed
+                    if neighbor_key == dst_key:
+                        return composed
 
-                if neighbor_key == dst_key:
-                    return composed
+                    queue.append(neighbor_key)
 
-                queue.append(neighbor_key)
+            # Try unit edges if current is a single-unit product
+            if len(current_product.factors) == 1:
+                factor, exp = next(iter(current_product.factors.items()))
+                if abs(exp - 1.0) < 1e-12:  # exponent is 1
+                    unit = factor.unit
+                    dim = unit.dimension
+                    if dim in self._unit_edges and unit in self._unit_edges[dim]:
+                        for neighbor_unit, edge_map in self._unit_edges[dim][unit].items():
+                            # Wrap neighbor as UnitProduct
+                            neighbor_prod = UnitProduct.from_unit(neighbor_unit)
+                            neighbor_key = self._product_key(neighbor_prod)
+
+                            if neighbor_key in visited:
+                                continue
+
+                            # Apply scale factor from original factor
+                            scale_factor = factor.scale.value.evaluated
+                            neighbor_factor = UnitFactor(neighbor_unit, Scale.one)
+                            scale_map = LinearMap(scale_factor)
+                            composed = edge_map @ scale_map @ current_map
+
+                            visited[neighbor_key] = (composed, neighbor_prod)
+
+                            if neighbor_key == dst_key:
+                                return composed
+
+                            queue.append(neighbor_key)
 
         raise ConversionNotFound(f"No product path from {src} to {dst}")
 
