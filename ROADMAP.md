@@ -244,6 +244,7 @@ Building on v0.5.x baseline:
 - [x] `parse("kg * m / s^2")` → `UnitProduct` (completed in v0.6.0 via `get_unit_by_name()`)
 - [x] Alias resolution (`meters`, `metre`, `m` all work) (completed in v0.6.0)
 - [ ] Uncertainty parsing: `parse("1.234 ± 0.005 m")`
+- [ ] Revisit priority alias architecture (v0.6.x uses `_PRIORITY_ALIASES` / `_PRIORITY_SCALED_ALIASES` for `min`, `mcg`; consider "exact match first" or longest-match strategy if list grows)
 
 **Outcomes:**
 - Human-friendly unit input for interactive and configuration use cases

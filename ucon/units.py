@@ -208,6 +208,11 @@ _UNIT_REGISTRY_CASE_SENSITIVE: Dict[str, Unit] = {}
 # Prevents ambiguous parses like "min" -> milli-inch instead of minute.
 _PRIORITY_ALIASES: set = {'min'}
 
+# Priority scaled aliases that map to a specific (unit, scale) tuple.
+# Used for medical conventions like "mcg" -> (gram, Scale.micro).
+# Populated by _build_registry() after units are defined.
+_PRIORITY_SCALED_ALIASES: Dict[str, Tuple[Unit, Scale]] = {}
+
 # Scale prefix mapping (shorthand -> Scale)
 # Sorted by length descending for greedy matching
 _SCALE_PREFIXES: Dict[str, Scale] = {
@@ -260,6 +265,9 @@ def _build_registry() -> None:
                     _UNIT_REGISTRY[alias.lower()] = obj
                     _UNIT_REGISTRY_CASE_SENSITIVE[alias] = obj
 
+    # Register priority scaled aliases (medical conventions)
+    _PRIORITY_SCALED_ALIASES['mcg'] = (gram, Scale.micro)  # microgram
+
 
 def _parse_exponent(s: str) -> Tuple[str, float]:
     """
@@ -299,8 +307,8 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     Look up a single unit factor, handling scale prefixes.
 
     Prioritizes prefix+unit interpretation over direct unit lookup,
-    except for priority aliases (like 'min') which are checked first
-    to avoid ambiguous parses.
+    except for priority aliases (like 'min', 'mcg') which are checked first
+    to avoid ambiguous parses or to handle domain-specific conventions.
 
     This means "kg" returns (gram, Scale.kilo) rather than (kilogram, Scale.one).
 
@@ -311,6 +319,7 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     - 'kg' -> (gram, Scale.kilo)
     - 'mL' -> (liter, Scale.milli)
     - 'min' -> (minute, Scale.one)  # priority alias, not milli-inch
+    - 'mcg' -> (gram, Scale.micro)  # medical convention for microgram
 
     Returns:
         Tuple of (unit, scale).
@@ -318,7 +327,11 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     Raises:
         UnknownUnitError: If the unit cannot be resolved.
     """
-    # Check priority aliases first (prevents "min" -> milli-inch)
+    # Check priority scaled aliases first (e.g., "mcg" -> microgram)
+    if s in _PRIORITY_SCALED_ALIASES:
+        return _PRIORITY_SCALED_ALIASES[s]
+
+    # Check priority aliases (prevents "min" -> milli-inch)
     if s in _PRIORITY_ALIASES:
         if s in _UNIT_REGISTRY_CASE_SENSITIVE:
             return _UNIT_REGISTRY_CASE_SENSITIVE[s], Scale.one
