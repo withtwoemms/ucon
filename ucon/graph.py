@@ -555,6 +555,8 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.celsius, dst=units.kelvin, map=AffineMap(1, 273.15))
     # F → C: C = (F - 32) * 5/9
     graph.add_edge(src=units.fahrenheit, dst=units.celsius, map=AffineMap(5/9, -32 * 5/9))
+    # K → °R: °R = K × 9/5 (both absolute scales, same zero point)
+    graph.add_edge(src=units.kelvin, dst=units.rankine, map=LinearMap(9/5))
 
     # --- Pressure ---
     # 1 Pa = 0.00001 bar, so 1 bar = 100000 Pa
