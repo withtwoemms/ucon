@@ -204,6 +204,10 @@ def have(name: str) -> bool:
 _UNIT_REGISTRY: Dict[str, Unit] = {}
 _UNIT_REGISTRY_CASE_SENSITIVE: Dict[str, Unit] = {}
 
+# Priority aliases that must match exactly before prefix decomposition.
+# Prevents ambiguous parses like "min" -> milli-inch instead of minute.
+_PRIORITY_ALIASES: set = {'min'}
+
 # Scale prefix mapping (shorthand -> Scale)
 # Sorted by length descending for greedy matching
 _SCALE_PREFIXES: Dict[str, Scale] = {
