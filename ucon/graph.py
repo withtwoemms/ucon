@@ -475,29 +475,47 @@ class ConversionGraph:
         for vec, (src_factor, src_exp, src_dim) in src_by_vector.items():
             dst_factor, dst_exp, dst_dim = dst_by_vector[vec]
 
-            if abs(src_exp - dst_exp) > 1e-12:
-                raise ConversionNotFound(
-                    f"Exponent mismatch for {src_dim}: {src_exp} vs {dst_exp}"
-                )
+            # Same dimension case: exponents must match, convert units directly
+            if src_dim == dst_dim or (src_dim.vector == dst_dim.vector and abs(src_exp - dst_exp) < 1e-12):
+                if abs(src_exp - dst_exp) > 1e-12:
+                    raise ConversionNotFound(
+                        f"Exponent mismatch for {src_dim}: {src_exp} vs {dst_exp}"
+                    )
 
-            # Scale ratio
-            src_scale_val = src_factor.scale.value.evaluated
-            dst_scale_val = dst_factor.scale.value.evaluated
-            scale_ratio = src_scale_val / dst_scale_val
-            scale_map = LinearMap(scale_ratio)
+                # Scale ratio
+                src_scale_val = src_factor.scale.value.evaluated
+                dst_scale_val = dst_factor.scale.value.evaluated
+                scale_ratio = src_scale_val / dst_scale_val
+                scale_map = LinearMap(scale_ratio)
 
-            # Unit conversion (if different base units)
-            if src_factor.unit == dst_factor.unit:
-                unit_map = LinearMap.identity()
+                # Unit conversion (if different base units)
+                if src_factor.unit == dst_factor.unit:
+                    unit_map = LinearMap.identity()
+                else:
+                    unit_map = self._convert_units(
+                        src=src_factor.unit,
+                        dst=dst_factor.unit,
+                    )
+
+                # Combine scale and unit conversion, apply exponent
+                factor_map = (scale_map @ unit_map) ** src_exp
+                result = result @ factor_map
+
             else:
-                unit_map = self._convert_units(
-                    src=src_factor.unit,
-                    dst=dst_factor.unit,
-                )
+                # Cross-dimension case: e.g., volume¹ ↔ length³
+                # Build UnitProducts and use product-level conversion
+                src_product = UnitProduct.from_unit(src_factor.unit, src_factor.scale) ** src_exp
+                dst_product = UnitProduct.from_unit(dst_factor.unit, dst_factor.scale) ** dst_exp
 
-            # Combine scale and unit conversion, apply exponent
-            factor_map = (scale_map @ unit_map) ** src_exp
-            result = result @ factor_map
+                # Try to find a conversion path at the product level
+                try:
+                    factor_map = self._convert_products(src=src_product, dst=dst_product)
+                except ConversionNotFound:
+                    raise ConversionNotFound(
+                        f"No conversion path from {src_product} ({src_dim}) to {dst_product} ({dst_dim})"
+                    )
+
+                result = result @ factor_map
 
         return result
 
