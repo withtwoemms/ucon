@@ -80,6 +80,12 @@ webers_per_meter = Unit(name='webers_per_meter', dimension=Dimension.magnetic_pe
 # ----------------------------------------------------------------------
 
 
+# -- Viscosity Units ---------------------------------------------------
+poise = Unit(name='poise', dimension=Dimension.dynamic_viscosity, aliases=('P',))
+stokes = Unit(name='stokes', dimension=Dimension.kinematic_viscosity, aliases=('St',))
+# ----------------------------------------------------------------------
+
+
 # -- Time Units --------------------------------------------------------
 second = Unit(name='second', dimension=Dimension.time, aliases=('s', 'sec'))
 minute = Unit(name='minute', dimension=Dimension.time, aliases=('min',))
