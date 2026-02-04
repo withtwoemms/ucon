@@ -404,6 +404,45 @@ class ConversionGraph:
 
         raise ConversionNotFound(f"No path from {start} to {target}")
 
+    def _bfs_product_path(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
+        """
+        BFS to find conversion path through product edges.
+
+        Used for cross-dimension conversions where vectors match but dimensions differ
+        (e.g., gallon → liter → m³).
+        """
+        src_key = self._product_key(src)
+        dst_key = self._product_key(dst)
+
+        # Direct edge?
+        if src_key in self._product_edges and dst_key in self._product_edges.get(src_key, {}):
+            return self._product_edges[src_key][dst_key]
+
+        # BFS over product edges
+        visited: dict[tuple, Map] = {src_key: LinearMap.identity()}
+        queue = deque([src_key])
+
+        while queue:
+            current_key = queue.popleft()
+            current_map = visited[current_key]
+
+            if current_key not in self._product_edges:
+                continue
+
+            for neighbor_key, edge_map in self._product_edges[current_key].items():
+                if neighbor_key in visited:
+                    continue
+
+                composed = edge_map @ current_map
+                visited[neighbor_key] = composed
+
+                if neighbor_key == dst_key:
+                    return composed
+
+                queue.append(neighbor_key)
+
+        raise ConversionNotFound(f"No product path from {src} to {dst}")
+
     def _convert_products(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
         """Convert between UnitProducts.
 
@@ -503,13 +542,13 @@ class ConversionGraph:
 
             else:
                 # Cross-dimension case: e.g., volume¹ ↔ length³
-                # Build UnitProducts and use product-level conversion
+                # Need to find a path through product edges (e.g., gallon → liter → m³)
                 src_product = UnitProduct({src_factor: src_exp})
                 dst_product = UnitProduct({dst_factor: dst_exp})
 
-                # Try to find a conversion path at the product level
+                # Try BFS over product edges to find a path
                 try:
-                    factor_map = self._convert_products(src=src_product, dst=dst_product)
+                    factor_map = self._bfs_product_path(src=src_product, dst=dst_product)
                 except ConversionNotFound:
                     raise ConversionNotFound(
                         f"No conversion path from {src_product} ({src_dim}) to {dst_product} ({dst_dim})"
