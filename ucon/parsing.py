@@ -332,23 +332,28 @@ class UnitParser:
         return self.unit_product_cls({uf: 1})
 
     def _multiply(self, left: 'UnitProduct', right: 'UnitProduct') -> 'UnitProduct':
-        """Multiply two UnitProducts."""
-        factors: Dict['UnitFactor', float] = dict(left.factors)
-        for uf, exp in right.factors.items():
-            factors[uf] = factors.get(uf, 0) + exp
-        return self.unit_product_cls(factors)
+        """Multiply two UnitProducts.
+
+        Uses UnitProduct as a key to leverage its built-in merge logic,
+        which handles UnitFactors with the same unit but different scales correctly.
+        """
+        # Pass both products as keys; UnitProduct flattens nested products
+        return self.unit_product_cls({left: 1, right: 1})
 
     def _divide(self, left: 'UnitProduct', right: 'UnitProduct') -> 'UnitProduct':
-        """Divide left by right (negate right's exponents)."""
-        factors: Dict['UnitFactor', float] = dict(left.factors)
-        for uf, exp in right.factors.items():
-            factors[uf] = factors.get(uf, 0) - exp
-        return self.unit_product_cls(factors)
+        """Divide left by right (negate right's exponents).
+
+        Uses UnitProduct as a key to leverage its built-in merge logic.
+        """
+        # Pass left with exp 1, right with exp -1
+        return self.unit_product_cls({left: 1, right: -1})
 
     def _power(self, base: 'UnitProduct', exp: float) -> 'UnitProduct':
-        """Raise a UnitProduct to a power."""
-        factors = {uf: e * exp for uf, e in base.factors.items()}
-        return self.unit_product_cls(factors)
+        """Raise a UnitProduct to a power.
+
+        Uses UnitProduct as a key to leverage its built-in merge logic.
+        """
+        return self.unit_product_cls({base: exp})
 
 
 def parse_unit_expression(
