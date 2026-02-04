@@ -1069,6 +1069,10 @@ class UnitProduct:
                     return
             merged[fu] = merged.get(fu, 0.0) + exponent
 
+        # Track residual scale from nested UnitProducts that get flattened.
+        # This captures scale from previously-cancelled units.
+        inherited_residual: float = 1.0
+
         # -----------------------------------------------------
         # Step 1 — Flatten sources into UnitFactors
         # -----------------------------------------------------
@@ -1077,6 +1081,11 @@ class UnitProduct:
                 # Flatten nested UnitProducts
                 for inner_fu, inner_exp in key.factors.items():
                     merge_fu(inner_fu, inner_exp * exp)
+                # Capture residual scale from the nested product
+                # (e.g., from mg/kg cancellation)
+                inner_residual = getattr(key, '_residual_scale_factor', 1.0)
+                if inner_residual != 1.0:
+                    inherited_residual *= inner_residual ** exp
             else:
                 merge_fu(to_factored(key), exp)
 
@@ -1151,7 +1160,8 @@ class UnitProduct:
         self.factors = final
 
         # Store the residual scale factor from cancellations (numeric)
-        self._residual_scale_factor = residual_scale_factor
+        # Include inherited residual from nested UnitProducts
+        self._residual_scale_factor = residual_scale_factor * inherited_residual
 
         # -----------------------------------------------------
         # Step 5 — Derive dimension via exponent algebra
