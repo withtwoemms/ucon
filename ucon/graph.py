@@ -545,6 +545,16 @@ class ConversionGraph:
         for vec, (src_factor, src_exp, src_dim) in src_by_vector.items():
             dst_factor, dst_exp, dst_dim = dst_by_vector[vec]
 
+            # Pseudo-dimensions (angle, solid_angle, ratio) are semantically isolated.
+            # They share zero vectors but must NOT convert between each other.
+            src_is_pseudo = isinstance(src_dim.value, tuple)
+            dst_is_pseudo = isinstance(dst_dim.value, tuple)
+            if src_is_pseudo or dst_is_pseudo:
+                if src_dim != dst_dim:
+                    raise ConversionNotFound(
+                        f"Cannot convert between pseudo-dimensions: {src_dim.name} and {dst_dim.name}"
+                    )
+
             # Same dimension case: exponents must match, convert units directly
             if src_dim == dst_dim or (src_dim.vector == dst_dim.vector and abs(src_exp - dst_exp) < 1e-12):
                 if abs(src_exp - dst_exp) > 1e-12:
