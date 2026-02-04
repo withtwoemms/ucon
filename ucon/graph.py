@@ -28,6 +28,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Union
 
+from ucon.algebra import Vector
 from ucon.core import (
     BasisTransform,
     Dimension,
@@ -440,28 +441,30 @@ class ConversionGraph:
         except ValueError as e:
             raise ConversionNotFound(f"Ambiguous decomposition: {e}")
 
-        # Group by dimensional VECTOR instead of enum identity.
-        # This allows volume (Vector(0,3,...)) to match length³ (same vector).
+        # Group by EFFECTIVE dimensional vector (dimension × exponent).
+        # This allows volume¹ (vec = L³) to match length³ (vec = L¹ × 3 = L³).
         src_by_vector: dict[Vector, tuple[UnitFactor, float, Dimension]] = {}
         dst_by_vector: dict[Vector, tuple[UnitFactor, float, Dimension]] = {}
 
         for dim, (factor, exp) in src_by_dim.items():
-            vec = dim.vector
-            if vec in src_by_vector:
+            # Effective vector = dimension's vector × exponent
+            effective_vec = dim.vector * exp
+            if effective_vec in src_by_vector:
                 raise ConversionNotFound(
-                    f"Multiple source factors with same dimensional vector: {vec}"
+                    f"Multiple source factors with same effective dimensional vector: {effective_vec}"
                 )
-            src_by_vector[vec] = (factor, exp, dim)
+            src_by_vector[effective_vec] = (factor, exp, dim)
 
         for dim, (factor, exp) in dst_by_dim.items():
-            vec = dim.vector
-            if vec in dst_by_vector:
+            # Effective vector = dimension's vector × exponent
+            effective_vec = dim.vector * exp
+            if effective_vec in dst_by_vector:
                 raise ConversionNotFound(
-                    f"Multiple destination factors with same dimensional vector: {vec}"
+                    f"Multiple destination factors with same effective dimensional vector: {effective_vec}"
                 )
-            dst_by_vector[vec] = (factor, exp, dim)
+            dst_by_vector[effective_vec] = (factor, exp, dim)
 
-        # Check that vectors match (not enum identity)
+        # Check that effective vectors match
         if set(src_by_vector.keys()) != set(dst_by_vector.keys()):
             raise ConversionNotFound(
                 f"Factor structures don't align: {set(src_by_dim.keys())} vs {set(dst_by_dim.keys())}"
