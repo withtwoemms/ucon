@@ -563,6 +563,12 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.pascal, dst=units.psi, map=LinearMap(0.000145038))
     # 1 atm = 101325 Pa
     graph.add_edge(src=units.atmosphere, dst=units.pascal, map=LinearMap(101325))
+    # 1 torr = 133.322368 Pa
+    graph.add_edge(src=units.torr, dst=units.pascal, map=LinearMap(133.322368))
+    # 1 mmHg ≈ 1 torr (by definition, at 0°C)
+    graph.add_edge(src=units.millimeter_mercury, dst=units.torr, map=LinearMap(1.0))
+    # 1 inHg = 3386.389 Pa
+    graph.add_edge(src=units.inch_mercury, dst=units.pascal, map=LinearMap(3386.389))
 
     # --- Volume ---
     graph.add_edge(src=units.liter, dst=units.gallon, map=LinearMap(0.264172))
