@@ -52,7 +52,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 | **`Unit`**                    | `ucon.core`                             | An atomic, scale-free measurement symbol (e.g., meter, second, joule) with a `Dimension`.           | Defining base units; serving as graph nodes for future conversions.                                                    |
 | **`UnitFactor`**              | `ucon.core`                             | Pairs a `Unit` with a `Scale` (e.g., kilo + gram = kg). Used as keys inside `UnitProduct`.          | Preserving user-provided scale prefixes through algebraic operations.                                                  |
 | **`UnitProduct`**             | `ucon.core`                             | A product/quotient of `UnitFactor`s with exponent tracking and simplification.                      | Representing composite units like m/s, kg·m/s², kJ·h.                                                                 |
-| **`Number`**                  | `ucon.core`                             | Combines a numeric quantity with a unit; the primary measurable type.                               | Performing arithmetic with units; representing physical quantities like 5 m/s.                                         |
+| **`Number`**                  | `ucon.core`                             | Combines a numeric quantity with a unit; the primary measurable type. Supports `Number[Dimension]` for type-safe annotations. | Performing arithmetic with units; representing physical quantities like 5 m/s; annotating function parameters with dimensional constraints. |
 | **`Ratio`**                   | `ucon.core`                             | Represents the division of two `Number` objects; captures relationships between quantities.         | Expressing rates, densities, efficiencies (e.g., energy / time = power, length / time = velocity).                     |
 | **`Map`** hierarchy           | `ucon.maps`                             | Composable conversion morphisms: `LinearMap`, `AffineMap`, `LogMap`, `ExpMap`, `ComposedMap`.       | Defining conversion functions between units (e.g., meter→foot, celsius→kelvin, availability→nines).                    |
 | **`ConversionGraph`**         | `ucon.graph`                            | Registry of unit conversion edges with BFS path composition.                                        | Converting between units via `Number.to(target)`; managing default and custom graphs.                                  |
@@ -241,6 +241,33 @@ m4 = Measurement(value={"quantity": 9.8, "unit": "m/s²"})   # Unicode
 **Design notes:**
 - **Serialization format**: Units serialize as human-readable shorthand strings (`"km"`, `"m/s^2"`) rather than structured dicts, aligning with how scientists express units.
 - **Parsing priority**: When parsing `"kg"`, ucon returns `Scale.kilo * gram` rather than looking up a `kilogram` Unit, ensuring consistent round-trip serialization and avoiding redundant unit definitions.
+
+### Type-Safe Dimensional Annotations
+
+`Number` supports subscript syntax for declaring dimensional constraints in function signatures:
+
+```python
+from ucon import Number, Dimension
+
+def speed(
+    distance: Number[Dimension.length],
+    time: Number[Dimension.time],
+) -> Number[Dimension.velocity]:
+    return distance / time
+```
+
+This produces `typing.Annotated[Number, DimConstraint(dim)]`, enabling runtime introspection:
+
+```python
+from typing import get_origin, get_args, Annotated
+from ucon import Number, Dimension, DimConstraint
+
+hint = Number[Dimension.time]
+assert get_origin(hint) is Annotated
+assert get_args(hint)[1].dimension == Dimension.time
+```
+
+The `@enforce_dimensions` decorator (coming in v0.6.x) will validate these constraints at call time, catching dimension mismatches at the function boundary with clear error messages.
 
 ### MCP Server
 
