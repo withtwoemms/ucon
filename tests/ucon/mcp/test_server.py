@@ -351,5 +351,173 @@ class TestListDimensionsTool(unittest.TestCase):
         self.assertEqual(result, sorted(result))
 
 
+class TestConvertToolSuggestions(unittest.TestCase):
+    """Test suggestion features in the convert tool."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import convert
+            from ucon.mcp.suggestions import ConversionError
+            cls.convert = staticmethod(convert)
+            cls.ConversionError = ConversionError
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+
+    def test_typo_single_match(self):
+        """Test that typo with single high-confidence match gets likely_fix."""
+        result = self.convert(100, "meetr", "ft")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+        self.assertEqual(result.parameter, "from_unit")
+        self.assertIsNotNone(result.likely_fix)
+        self.assertIn("meter", result.likely_fix)
+
+    def test_bad_to_unit(self):
+        """Test that typo in to_unit position is detected."""
+        result = self.convert(100, "meter", "feeet")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.parameter, "to_unit")
+        # Should suggest "foot"
+        self.assertTrue(
+            (result.likely_fix and "foot" in result.likely_fix) or
+            any("foot" in h for h in result.hints)
+        )
+
+    def test_unrecognizable_no_spurious_matches(self):
+        """Test that completely unknown unit doesn't produce spurious matches."""
+        result = self.convert(100, "xyzzy", "kg")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertIsNone(result.likely_fix)
+        self.assertTrue(any("list_units" in h for h in result.hints))
+
+    def test_dimension_mismatch_readable(self):
+        """Test that dimension mismatch error uses readable names."""
+        result = self.convert(100, "meter", "second")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "dimension_mismatch")
+        self.assertEqual(result.got, "length")
+        self.assertIn("length", result.error)
+        self.assertIn("time", result.error)
+        self.assertNotIn("Vector", result.error)
+
+    def test_derived_dimension_readable(self):
+        """Test that derived dimension uses readable name in error."""
+        result = self.convert(1, "m/s", "kg")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertIn("velocity", result.error)
+        self.assertNotIn("Vector", result.error)
+
+    def test_unnamed_derived_dimension(self):
+        """Test that unnamed derived dimension doesn't show Vector."""
+        result = self.convert(1, "m^3/s", "kg")
+        self.assertIsInstance(result, self.ConversionError)
+        # Should show readable format, not Vector(...)
+        self.assertNotIn("Vector", result.error)
+        # Should have some dimension info
+        self.assertTrue("length" in result.error or "derived(" in result.error)
+
+    def test_pseudo_dimension_explains_isolation(self):
+        """Test that pseudo-dimension isolation is explained."""
+        result = self.convert(1, "radian", "percent")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "no_conversion_path")
+        self.assertEqual(result.got, "angle")
+        self.assertEqual(result.expected, "ratio")
+        self.assertTrue(
+            any("cannot interconvert" in h or "isolated" in h for h in result.hints)
+        )
+
+    def test_compatible_units_in_hints(self):
+        """Test that dimension mismatch includes compatible units."""
+        result = self.convert(100, "meter", "second")
+        self.assertIsInstance(result, self.ConversionError)
+        # Should suggest compatible length units
+        hints_str = str(result.hints)
+        self.assertTrue(
+            "ft" in hints_str or "in" in hints_str or
+            "foot" in hints_str or "inch" in hints_str
+        )
+
+    def test_no_vector_in_any_error(self):
+        """Test that no error response contains raw Vector representation."""
+        cases = [
+            ("m^3/s", "kg"),
+            ("kg*m/s^2", "A"),
+        ]
+        for from_u, to_u in cases:
+            result = self.convert(1, from_u, to_u)
+            if isinstance(result, self.ConversionError):
+                self.assertNotIn("Vector(", result.error)
+                for h in result.hints:
+                    self.assertNotIn("Vector(", h)
+
+
+class TestCheckDimensionsErrors(unittest.TestCase):
+    """Test error handling in the check_dimensions tool."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import check_dimensions
+            from ucon.mcp.suggestions import ConversionError
+            cls.check_dimensions = staticmethod(check_dimensions)
+            cls.ConversionError = ConversionError
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+
+    def test_bad_unit_a(self):
+        """Test that bad unit_a returns ConversionError."""
+        result = self.check_dimensions("meetr", "foot")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.parameter, "unit_a")
+
+    def test_bad_unit_b(self):
+        """Test that bad unit_b returns ConversionError."""
+        result = self.check_dimensions("meter", "fooot")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.parameter, "unit_b")
+
+
+class TestListUnitsErrors(unittest.TestCase):
+    """Test error handling in the list_units tool."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import list_units
+            from ucon.mcp.suggestions import ConversionError
+            cls.list_units = staticmethod(list_units)
+            cls.ConversionError = ConversionError
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+
+    def test_bad_dimension_filter(self):
+        """Test that bad dimension filter returns ConversionError."""
+        result = self.list_units(dimension="lenth")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.parameter, "dimension")
+        # Should suggest "length"
+        self.assertTrue(
+            (result.likely_fix and "length" in result.likely_fix) or
+            any("length" in h for h in result.hints)
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
