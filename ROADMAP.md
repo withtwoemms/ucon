@@ -28,7 +28,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.6.0 | Pydantic + Serialization | Complete |
 | v0.6.x | MCP Server | Complete |
 | v0.6.x | LogMap + Nines | Complete |
-| v0.6.x | Dimensional Type Safety | Planned |
+| v0.6.x | Dimensional Type Safety | Complete |
 | v0.7.0 | NumPy Array Support | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
@@ -221,7 +221,7 @@ Building on v0.5.x baseline:
 
 ---
 
-## v0.6.x — Dimensional Type Safety (Planned)
+## v0.6.x — Dimensional Type Safety (Complete)
 
 **Theme:** Type-directed validation for AI agents and domain formulas.
 
@@ -229,13 +229,18 @@ Building on v0.5.x baseline:
 - [x] `Number[Dimension]` type-safe generics via `typing.Annotated`
 - [x] `DimConstraint` marker class for annotation introspection
 - [x] `@enforce_dimensions` decorator for runtime validation at function boundaries
-- [ ] MCP error suggestions with actionable recovery hints
+- [x] MCP error suggestions with actionable recovery hints
+- [x] `ConversionError` response model with `likely_fix` and `hints`
+- [x] Fuzzy matching for unknown units with confidence tiers
+- [x] Compatible unit suggestions from graph edges
+- [x] Pseudo-dimension isolation explanation
 
 **Outcomes:**
 - Dimension errors caught at function boundaries with clear messages
 - AI agents can self-correct via readable error diagnostics
 - Domain authors declare dimensional constraints declaratively, not imperatively
 - MCP server returns structured errors with fuzzy-matched suggestions
+- High-confidence fixes enable single-retry correction loops
 - Foundation for schema-level dimension constraints in MCP tools
 
 ---
