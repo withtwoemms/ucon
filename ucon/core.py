@@ -24,7 +24,7 @@ import math
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from dataclasses import dataclass, field, fields
-from typing import Dict, Tuple, Union
+from typing import Annotated, Dict, Tuple, Union
 
 from ucon.algebra import Exponent, Vector
 
@@ -1451,6 +1451,28 @@ _none = Unit()
 
 
 Quantifiable = Union['Number', 'Ratio']
+
+
+class DimConstraint:
+    """Annotation marker: constrains a Number to a specific Dimension.
+
+    Used with typing.Annotated to enable Number[Dimension.time] syntax.
+    The decorator @enforce_dimensions introspects this marker at runtime.
+    """
+
+    __slots__ = ("dimension",)
+
+    def __init__(self, dim: Dimension):
+        self.dimension = dim
+
+    def __repr__(self) -> str:
+        return f"DimConstraint({self.dimension.name})"
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, DimConstraint) and self.dimension == other.dimension
+
+    def __hash__(self) -> int:
+        return hash(("DimConstraint", self.dimension))
 
 
 @dataclass
