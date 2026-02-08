@@ -19,10 +19,9 @@ import sys
 
 if sys.version_info >= (3, 9):
     from typing import Annotated, get_type_hints, get_args, get_origin
-elif sys.version_info >= (3, 8):
-    from typing import get_args, get_origin
-    from typing_extensions import Annotated, get_type_hints
 else:
+    # Python 3.7 and 3.8: use typing_extensions for all Annotated-related utilities
+    # to ensure get_origin() correctly identifies typing_extensions.Annotated
     from typing_extensions import Annotated, get_type_hints, get_args, get_origin
 
 from ucon.core import Dimension, Number, Unit, UnitProduct, DimConstraint
