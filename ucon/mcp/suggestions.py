@@ -219,9 +219,15 @@ def build_unknown_unit_error(bad_name: str, parameter: str) -> ConversionError:
     likely_fix, similar = _suggest_units(bad_name)
 
     hints = []
-    if similar:
+
+    # If we have a likely_fix but also other similar units, mention them
+    if likely_fix and similar:
+        hints.append(f"Other similar units: {', '.join(similar)}")
+    elif similar:
+        # No likely_fix, just hints
         hints.append(f"Similar units: {', '.join(similar)}")
     elif not likely_fix:
+        # No matches at all
         hints.append("No similar units found")
         hints.append("Use list_units() to see all available units")
 
