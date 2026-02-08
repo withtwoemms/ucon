@@ -53,6 +53,7 @@ from ucon.core import (
     Number,
     Ratio,
 )
+from ucon.checking import enforce_dimensions
 from ucon.graph import get_default_graph, using_graph
 from ucon.units import UnknownUnitError, get_unit_by_name
 
@@ -65,6 +66,7 @@ __all__ = [
     'Exponent',
     'NonInvertibleTransform',
     'Number',
+    'enforce_dimensions',
     'Ratio',
     'RebasedUnit',
     'Scale',
