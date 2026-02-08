@@ -28,6 +28,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.6.0 | Pydantic + Serialization | Complete |
 | v0.6.x | MCP Server | Complete |
 | v0.6.x | LogMap + Nines | Complete |
+| v0.6.x | Dimensional Type Safety | Planned |
 | v0.7.0 | NumPy Array Support | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
@@ -220,6 +221,25 @@ Building on v0.5.x baseline:
 
 ---
 
+## v0.6.x — Dimensional Type Safety (Planned)
+
+**Theme:** Type-directed validation for AI agents and domain formulas.
+
+- [x] Human-readable derived dimension names (`derived(length^3/time)` not `Vector(...)`)
+- [ ] `Number[Dimension]` type-safe generics via `typing.Annotated`
+- [ ] `DimConstraint` marker class for annotation introspection
+- [ ] `@enforce_dimensions` decorator for runtime validation at function boundaries
+- [ ] MCP error suggestions with actionable recovery hints
+
+**Outcomes:**
+- Dimension errors caught at function boundaries with clear messages
+- AI agents can self-correct via readable error diagnostics
+- Domain authors declare dimensional constraints declaratively, not imperatively
+- MCP server returns structured errors with fuzzy-matched suggestions
+- Foundation for schema-level dimension constraints in MCP tools
+
+---
+
 ## v0.7.0 — NumPy Array Support
 
 **Theme:** Scientific computing integration.
@@ -312,7 +332,6 @@ Building on v0.5.x baseline:
 | Additional integrations | SQLAlchemy, msgpack, protobuf |
 | Localization | Unit names in multiple languages |
 | NIST/CODATA updates | Automated constant updates |
-| Type-safe generics | `Number[Dimension.length]` for IDE hints |
 | Symbolic bridge to SymPy | Export units for symbolic manipulation |
 | Visualization | Dimensional relationship graphs |
 

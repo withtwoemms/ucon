@@ -23,7 +23,7 @@ from fractions import Fraction
 import math
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Dict, Tuple, Union
 
 from ucon.algebra import Exponent, Vector
@@ -128,7 +128,7 @@ class Dimension(Enum):
             if dim.vector == vector:
                 return dim
         dyn = object.__new__(cls)
-        dyn._name_ = f"derived({vector})"
+        dyn._name_ = f"derived({_vector_to_dim_expr(vector)})"
         dyn._value_ = vector
         return dyn
 
@@ -230,6 +230,57 @@ class Dimension(Enum):
                 result[base_dim] = Fraction(exp).limit_denominator(1000)
 
         return result
+
+
+def _vector_to_dim_expr(v: 'Vector') -> str:
+    """Render a Vector as a human-readable dimensional expression.
+
+    Positive exponents go in the numerator, negative in the denominator.
+    Exponent 1 is implicit. Integer fractions render as ints.
+
+    Examples:
+        Vector(T=-2, L=1, M=1) → "length·mass/time^2"
+        Vector(L=3, T=-1)      → "length^3/time"
+        Vector()               → "dimensionless"
+    """
+    # Map vector field names to dimension names using basis dimensions
+    field_to_dim = {
+        'T': Dimension.time.name,
+        'L': Dimension.length.name,
+        'M': Dimension.mass.name,
+        'I': Dimension.current.name,
+        'Θ': Dimension.temperature.name,
+        'J': Dimension.luminous_intensity.name,
+        'N': Dimension.amount_of_substance.name,
+        'B': Dimension.information.name,
+    }
+
+    numerator = []
+    denominator = []
+
+    for fld in fields(v):
+        exp = getattr(v, fld.name)
+        if exp == 0:
+            continue
+
+        name = field_to_dim.get(fld.name, fld.name)
+        exp_val = int(exp) if exp.denominator == 1 else float(exp)
+        abs_exp = abs(exp_val)
+
+        token = name if abs_exp == 1 else f"{name}^{abs_exp}"
+
+        if exp > 0:
+            numerator.append(token)
+        else:
+            denominator.append(token)
+
+    if not numerator and not denominator:
+        return "dimensionless"
+
+    num_str = "·".join(numerator) if numerator else "1"
+    if denominator:
+        return f"{num_str}/{'·'.join(denominator)}"
+    return num_str
 
 
 # --------------------------------------------------------------------------------------
