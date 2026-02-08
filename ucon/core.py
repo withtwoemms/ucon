@@ -1504,6 +1504,16 @@ class Number:
         if self.unit is None:
             object.__setattr__(self, 'unit', _none)
 
+    def __class_getitem__(cls, dim):
+        """Enable Number[Dimension.X] syntax for type annotations.
+
+        Returns Annotated[Number, DimConstraint(dim)] for runtime introspection
+        by @enforce_dimensions decorator.
+        """
+        if isinstance(dim, Dimension):
+            return Annotated[cls, DimConstraint(dim)]
+        return cls
+
     @property
     def value(self) -> float:
         """Return the numeric magnitude as-expressed (no scale folding).
