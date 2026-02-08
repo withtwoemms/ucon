@@ -30,7 +30,9 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-dependencies = []
+dependencies = [
+    "typing_extensions>=3.7.4; python_version < '3.9'",
+]
 
 [project.urls]
 Homepage = "https://github.com/withtwoemms/ucon"

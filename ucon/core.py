@@ -24,7 +24,13 @@ import math
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from dataclasses import dataclass, field, fields
-from typing import Annotated, Dict, Tuple, Union
+import sys
+from typing import Dict, Tuple, Union
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:
+    from typing_extensions import Annotated
 
 from ucon.algebra import Exponent, Vector
 
