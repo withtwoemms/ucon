@@ -91,10 +91,10 @@ This allows you to:
 Where Pint, Unum, and SymPy focus on _how_ to compute with units,
 `ucon` focuses on why those computations make sense. Every operation checks the dimensional structure, _not just the unit labels_. This means ucon doesn't just track names: it enforces physics:
 ```python
-from ucon import Number, units
+from ucon import units
 
-length = Number(quantity=5, unit=units.meter)
-time = Number(quantity=2, unit=units.second)
+length = units.meter(5)
+time = units.second(2)
 
 speed = length / time     # ✅ valid: L / T = velocity
 invalid = length + time   # ❌ raises: incompatible dimensions
@@ -124,18 +124,14 @@ Dimensional analysis like this:
 ```
 becomes straightforward:
 ```python
-from ucon import Number, Scale, units
-from ucon.quantity import Ratio
+from ucon import Scale, units
 
 mL = Scale.milli * units.liter
-two_mL_bromine = Number(quantity=2, unit=mL)
+two_mL_bromine = mL(2)
 
-bromine_density = Ratio(
-    numerator=Number(unit=units.gram, quantity=3.119),
-    denominator=Number(unit=mL),
-)
+bromine_density = (units.gram / mL)(3.119)
 
-grams_bromine = bromine_density.evaluate() * two_mL_bromine
+grams_bromine = bromine_density * two_mL_bromine
 print(grams_bromine)  # <6.238 g>
 ```
 
