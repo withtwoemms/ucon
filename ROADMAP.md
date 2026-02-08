@@ -226,8 +226,8 @@ Building on v0.5.x baseline:
 **Theme:** Type-directed validation for AI agents and domain formulas.
 
 - [x] Human-readable derived dimension names (`derived(length^3/time)` not `Vector(...)`)
-- [ ] `Number[Dimension]` type-safe generics via `typing.Annotated`
-- [ ] `DimConstraint` marker class for annotation introspection
+- [x] `Number[Dimension]` type-safe generics via `typing.Annotated`
+- [x] `DimConstraint` marker class for annotation introspection
 - [ ] `@enforce_dimensions` decorator for runtime validation at function boundaries
 - [ ] MCP error suggestions with actionable recovery hints
 

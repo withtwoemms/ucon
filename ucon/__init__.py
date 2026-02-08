@@ -40,6 +40,7 @@ from ucon import units
 from ucon.algebra import Exponent
 from ucon.core import (
     BasisTransform,
+    DimConstraint,
     Dimension,
     DimensionNotCovered,
     NonInvertibleTransform,
@@ -58,6 +59,7 @@ from ucon.units import UnknownUnitError, get_unit_by_name
 
 __all__ = [
     'BasisTransform',
+    'DimConstraint',
     'Dimension',
     'DimensionNotCovered',
     'Exponent',

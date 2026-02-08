@@ -52,7 +52,7 @@ To best answer this question, we turn to an age-old technique ([dimensional anal
 | **`Unit`**                    | `ucon.core`                             | An atomic, scale-free measurement symbol (e.g., meter, second, joule) with a `Dimension`.           | Defining base units; serving as graph nodes for future conversions.                                                    |
 | **`UnitFactor`**              | `ucon.core`                             | Pairs a `Unit` with a `Scale` (e.g., kilo + gram = kg). Used as keys inside `UnitProduct`.          | Preserving user-provided scale prefixes through algebraic operations.                                                  |
 | **`UnitProduct`**             | `ucon.core`                             | A product/quotient of `UnitFactor`s with exponent tracking and simplification.                      | Representing composite units like m/s, kg·m/s², kJ·h.                                                                 |
-| **`Number`**                  | `ucon.core`                             | Combines a numeric quantity with a unit; the primary measurable type.                               | Performing arithmetic with units; representing physical quantities like 5 m/s.                                         |
+| **`Number`**                  | `ucon.core`                             | Combines a numeric quantity with a unit; the primary measurable type. Supports `Number[Dimension]` for type-safe annotations. | Performing arithmetic with units; representing physical quantities like 5 m/s; annotating function parameters with dimensional constraints. |
 | **`Ratio`**                   | `ucon.core`                             | Represents the division of two `Number` objects; captures relationships between quantities.         | Expressing rates, densities, efficiencies (e.g., energy / time = power, length / time = velocity).                     |
 | **`Map`** hierarchy           | `ucon.maps`                             | Composable conversion morphisms: `LinearMap`, `AffineMap`, `LogMap`, `ExpMap`, `ComposedMap`.       | Defining conversion functions between units (e.g., meter→foot, celsius→kelvin, availability→nines).                    |
 | **`ConversionGraph`**         | `ucon.graph`                            | Registry of unit conversion edges with BFS path composition.                                        | Converting between units via `Number.to(target)`; managing default and custom graphs.                                  |
@@ -91,10 +91,10 @@ This allows you to:
 Where Pint, Unum, and SymPy focus on _how_ to compute with units,
 `ucon` focuses on why those computations make sense. Every operation checks the dimensional structure, _not just the unit labels_. This means ucon doesn't just track names: it enforces physics:
 ```python
-from ucon import Number, units
+from ucon import units
 
-length = Number(quantity=5, unit=units.meter)
-time = Number(quantity=2, unit=units.second)
+length = units.meter(5)
+time = units.second(2)
 
 speed = length / time     # ✅ valid: L / T = velocity
 invalid = length + time   # ❌ raises: incompatible dimensions
@@ -124,18 +124,14 @@ Dimensional analysis like this:
 ```
 becomes straightforward:
 ```python
-from ucon import Number, Scale, units
-from ucon.quantity import Ratio
+from ucon import Scale, units
 
 mL = Scale.milli * units.liter
-two_mL_bromine = Number(quantity=2, unit=mL)
+two_mL_bromine = mL(2)
 
-bromine_density = Ratio(
-    numerator=Number(unit=units.gram, quantity=3.119),
-    denominator=Number(unit=mL),
-)
+bromine_density = (units.gram / mL)(3.119)
 
-grams_bromine = bromine_density.evaluate() * two_mL_bromine
+grams_bromine = bromine_density * two_mL_bromine
 print(grams_bromine)  # <6.238 g>
 ```
 
@@ -241,6 +237,33 @@ m4 = Measurement(value={"quantity": 9.8, "unit": "m/s²"})   # Unicode
 **Design notes:**
 - **Serialization format**: Units serialize as human-readable shorthand strings (`"km"`, `"m/s^2"`) rather than structured dicts, aligning with how scientists express units.
 - **Parsing priority**: When parsing `"kg"`, ucon returns `Scale.kilo * gram` rather than looking up a `kilogram` Unit, ensuring consistent round-trip serialization and avoiding redundant unit definitions.
+
+### Type-Safe Dimensional Annotations
+
+`Number` supports subscript syntax for declaring dimensional constraints in function signatures:
+
+```python
+from ucon import Number, Dimension
+
+def speed(
+    distance: Number[Dimension.length],
+    time: Number[Dimension.time],
+) -> Number[Dimension.velocity]:
+    return distance / time
+```
+
+This produces `typing.Annotated[Number, DimConstraint(dim)]`, enabling runtime introspection:
+
+```python
+from typing import get_origin, get_args, Annotated
+from ucon import Number, Dimension, DimConstraint
+
+hint = Number[Dimension.time]
+assert get_origin(hint) is Annotated
+assert get_args(hint)[1].dimension == Dimension.time
+```
+
+The `@enforce_dimensions` decorator (coming in v0.6.x) will validate these constraints at call time, catching dimension mismatches at the function boundary with clear error messages.
 
 ### MCP Server
 
