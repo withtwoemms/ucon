@@ -16,12 +16,12 @@ from __future__ import annotations
 import functools
 import inspect
 import sys
-from typing import get_type_hints, get_args, get_origin
+from typing import get_args, get_origin
 
 if sys.version_info >= (3, 9):
-    from typing import Annotated
+    from typing import Annotated, get_type_hints
 else:
-    from typing_extensions import Annotated
+    from typing_extensions import Annotated, get_type_hints
 
 from ucon.core import Dimension, Number, Unit, UnitProduct, DimConstraint
 
