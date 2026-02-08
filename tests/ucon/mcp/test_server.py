@@ -78,7 +78,9 @@ class TestConvertToolErrors(unittest.TestCase):
     def setUpClass(cls):
         try:
             from ucon.mcp.server import convert
+            from ucon.mcp.suggestions import ConversionError
             cls.convert = staticmethod(convert)
+            cls.ConversionError = ConversionError
             cls.skip_tests = False
         except ImportError:
             cls.skip_tests = True
@@ -88,22 +90,24 @@ class TestConvertToolErrors(unittest.TestCase):
             self.skipTest("mcp not installed")
 
     def test_unknown_source_unit(self):
-        """Test that unknown source unit raises error."""
-        from ucon.units import UnknownUnitError
-        with self.assertRaises(UnknownUnitError):
-            self.convert(1, "foobar", "m")
+        """Test that unknown source unit returns ConversionError."""
+        result = self.convert(1, "foobar", "m")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+        self.assertEqual(result.parameter, "from_unit")
 
     def test_unknown_target_unit(self):
-        """Test that unknown target unit raises error."""
-        from ucon.units import UnknownUnitError
-        with self.assertRaises(UnknownUnitError):
-            self.convert(1, "m", "bazqux")
+        """Test that unknown target unit returns ConversionError."""
+        result = self.convert(1, "m", "bazqux")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+        self.assertEqual(result.parameter, "to_unit")
 
     def test_dimension_mismatch(self):
-        """Test that incompatible dimensions raise error."""
-        from ucon.graph import DimensionMismatch
-        with self.assertRaises(DimensionMismatch):
-            self.convert(1, "m", "s")
+        """Test that incompatible dimensions return ConversionError."""
+        result = self.convert(1, "m", "s")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "dimension_mismatch")
 
 
 class TestListUnitsTool(unittest.TestCase):
