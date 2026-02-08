@@ -263,7 +263,22 @@ assert get_origin(hint) is Annotated
 assert get_args(hint)[1].dimension == Dimension.time
 ```
 
-The `@enforce_dimensions` decorator (coming in v0.6.x) will validate these constraints at call time, catching dimension mismatches at the function boundary with clear error messages.
+The `@enforce_dimensions` decorator validates these constraints at call time:
+
+```python
+from ucon import enforce_dimensions
+
+@enforce_dimensions
+def speed(
+    distance: Number[Dimension.length],
+    time: Number[Dimension.time],
+) -> Number:
+    return distance / time
+
+speed(units.meter(100), units.second(10))  # ✅ <10.0 m/s>
+speed(units.second(100), units.second(10)) # ❌ ValueError: distance: expected dimension 'length', got 'time'
+speed(100, units.second(10))               # ❌ TypeError: distance: expected Number, got int
+```
 
 ### MCP Server
 
