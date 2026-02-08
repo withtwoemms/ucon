@@ -87,8 +87,9 @@ def _suggest_units(bad_name: str) -> tuple[str | None, list[str]]:
     Returns
     -------
     tuple[str | None, list[str]]
-        (likely_fix, similar_names) where likely_fix is set only when
-        a single match scores >= 0.7.
+        (likely_fix, similar_names) where likely_fix is set when
+        the top match scores >= 0.7 and is significantly better than
+        alternatives. Ambiguous matches go to hints only.
     """
     from ucon.units import _UNIT_REGISTRY
 
@@ -98,14 +99,29 @@ def _suggest_units(bad_name: str) -> tuple[str | None, list[str]]:
     if not matches:
         return None, []
 
-    # Single high-confidence match → likely_fix
-    if len(matches) == 1:
-        top_score = _similarity(bad_name.lower(), matches[0])
-        if top_score >= 0.7:
+    # Check top match score
+    top_score = _similarity(bad_name.lower(), matches[0])
+
+    # High-confidence top match (>= 0.7) with clear gap to second match → likely_fix
+    if top_score >= 0.7:
+        # If there's a second match, check if top is clearly better
+        if len(matches) >= 2:
+            second_score = _similarity(bad_name.lower(), matches[1])
+            # Gap of 0.1 means top match is clearly the intended unit
+            if top_score - second_score >= 0.1:
+                unit = _UNIT_REGISTRY[matches[0]]
+                # Include other matches as hints
+                other_formatted = [
+                    _format_unit_with_aliases(_UNIT_REGISTRY[m])
+                    for m in matches[1:]
+                ]
+                return _format_unit_with_aliases(unit), other_formatted
+        else:
+            # Single match at >= 0.7 → definitely likely_fix
             unit = _UNIT_REGISTRY[matches[0]]
             return _format_unit_with_aliases(unit), []
 
-    # Multiple matches or lower confidence → hints only
+    # Multiple matches with similar scores or lower confidence → hints only
     formatted = [_format_unit_with_aliases(_UNIT_REGISTRY[m]) for m in matches]
     return None, formatted
 
