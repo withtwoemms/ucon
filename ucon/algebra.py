@@ -134,6 +134,18 @@ class Vector:
         # Not the most performant, but effective
         return hash(str(tuple(self)))
 
+    def __repr__(self) -> str:
+        """Compact representation showing only non-zero components."""
+        parts = []
+        for field in fields(self):
+            val = getattr(self, field.name)
+            if val == 0:
+                continue
+            # Render as int when denominator is 1, else as Fraction
+            display = int(val) if val.denominator == 1 else val
+            parts.append(f"{field.name}={display}")
+        return f"Vector({', '.join(parts)})" if parts else "Vector()"
+
 
 # TODO -- consider using a dataclass
 @total_ordering
