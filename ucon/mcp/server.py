@@ -11,6 +11,14 @@ from pydantic import BaseModel
 
 from ucon import Dimension, get_unit_by_name
 from ucon.core import Number, Scale, Unit, UnitProduct
+from ucon.graph import DimensionMismatch, ConversionNotFound
+from ucon.mcp.suggestions import (
+    ConversionError,
+    build_unknown_unit_error,
+    build_dimension_mismatch_error,
+    build_no_path_error,
+    build_unknown_dimension_error,
+)
 from ucon.units import UnknownUnitError
 
 
@@ -63,7 +71,7 @@ class DimensionCheck(BaseModel):
 
 
 @mcp.tool()
-def convert(value: float, from_unit: str, to_unit: str) -> ConversionResult:
+def convert(value: float, from_unit: str, to_unit: str) -> ConversionResult | ConversionError:
     """
     Convert a numeric value from one unit to another.
 
@@ -80,16 +88,28 @@ def convert(value: float, from_unit: str, to_unit: str) -> ConversionResult:
 
     Returns:
         ConversionResult with converted quantity, unit, and dimension.
-
-    Raises:
-        UnknownUnitError: If a unit string cannot be parsed.
-        DimensionMismatch: If units have incompatible dimensions.
+        ConversionError if the conversion fails, with suggestions for correction.
     """
-    src = get_unit_by_name(from_unit)
-    dst = get_unit_by_name(to_unit)
+    # 1. Parse source unit
+    try:
+        src = get_unit_by_name(from_unit)
+    except UnknownUnitError:
+        return build_unknown_unit_error(from_unit, parameter="from_unit")
 
-    num = Number(quantity=value, unit=src)
-    result = num.to(dst)
+    # 2. Parse target unit
+    try:
+        dst = get_unit_by_name(to_unit)
+    except UnknownUnitError:
+        return build_unknown_unit_error(to_unit, parameter="to_unit")
+
+    # 3. Perform conversion
+    try:
+        num = Number(quantity=value, unit=src)
+        result = num.to(dst)
+    except DimensionMismatch:
+        return build_dimension_mismatch_error(from_unit, to_unit, src, dst)
+    except ConversionNotFound as e:
+        return build_no_path_error(from_unit, to_unit, src, dst, e)
 
     # Use the target unit string as output (what the user asked for).
     # This handles cases like mg/kg → µg/kg where internal representation
@@ -106,7 +126,7 @@ def convert(value: float, from_unit: str, to_unit: str) -> ConversionResult:
 
 
 @mcp.tool()
-def list_units(dimension: str | None = None) -> list[UnitInfo]:
+def list_units(dimension: str | None = None) -> list[UnitInfo] | ConversionError:
     """
     List available units, optionally filtered by dimension.
 
@@ -119,8 +139,15 @@ def list_units(dimension: str | None = None) -> list[UnitInfo]:
 
     Returns:
         List of UnitInfo objects describing available units.
+        ConversionError if the dimension filter is invalid.
     """
     import ucon.units as units_module
+
+    # Validate dimension filter if provided
+    if dimension:
+        known_dimensions = [d.name for d in Dimension]
+        if dimension not in known_dimensions:
+            return build_unknown_dimension_error(dimension)
 
     # Units that accept SI scale prefixes
     SCALABLE_UNITS = {
@@ -188,7 +215,7 @@ def list_scales() -> list[ScaleInfo]:
 
 
 @mcp.tool()
-def check_dimensions(unit_a: str, unit_b: str) -> DimensionCheck:
+def check_dimensions(unit_a: str, unit_b: str) -> DimensionCheck | ConversionError:
     """
     Check if two units have compatible dimensions.
 
@@ -201,9 +228,17 @@ def check_dimensions(unit_a: str, unit_b: str) -> DimensionCheck:
 
     Returns:
         DimensionCheck indicating compatibility and the dimension of each unit.
+        ConversionError if a unit string cannot be parsed.
     """
-    a = get_unit_by_name(unit_a)
-    b = get_unit_by_name(unit_b)
+    try:
+        a = get_unit_by_name(unit_a)
+    except UnknownUnitError:
+        return build_unknown_unit_error(unit_a, parameter="unit_a")
+
+    try:
+        b = get_unit_by_name(unit_b)
+    except UnknownUnitError:
+        return build_unknown_unit_error(unit_b, parameter="unit_b")
 
     dim_a = a.dimension if isinstance(a, Unit) else a.dimension
     dim_b = b.dimension if isinstance(b, Unit) else b.dimension
