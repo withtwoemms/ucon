@@ -85,6 +85,7 @@ class Dimension(Enum):
     angular_momentum = Vector(-1, 2, 1, 0, 0, 0, 0, 0)
     area = Vector(0, 2, 0, 0, 0, 0, 0, 0)
     capacitance = Vector(4, -2, -1, 2, 0, 0, 0, 0)
+    catalytic_activity = Vector(-1, 0, 0, 0, 0, 0, 1, 0)  # mol/s (katal)
     charge = Vector(1, 0, 0, 1, 0, 0, 0, 0)
     conductance = Vector(3, -2, -1, 2, 0, 0, 0, 0)
     conductivity = Vector(3, -3, -1, 2, 0, 0, 0, 0)
