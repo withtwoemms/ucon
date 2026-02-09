@@ -47,7 +47,7 @@ none = Unit()
 
 
 # -- International System of Units (SI) --------------------------------
-ampere = Unit(name='ampere', dimension=Dimension.current, aliases=('I', 'amp'))
+ampere = Unit(name='ampere', dimension=Dimension.current, aliases=('A', 'I', 'amp'))
 becquerel = Unit(name='becquerel', dimension=Dimension.frequency, aliases=('Bq',))
 celsius = Unit(name='celsius', dimension=Dimension.temperature, aliases=('°C', 'degC'))
 coulomb = Unit(name='coulomb', dimension=Dimension.charge, aliases=('C',))
