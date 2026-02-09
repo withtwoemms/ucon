@@ -31,9 +31,13 @@ class ConversionError(BaseModel):
     error : str
         Human-readable description of what went wrong.
     error_type : str
-        One of: "unknown_unit", "dimension_mismatch", "no_conversion_path".
+        One of: "unknown_unit", "dimension_mismatch", "no_conversion_path",
+        "parse_error".
     parameter : str | None
         Which input caused the error (e.g., "from_unit", "to_unit", "unit_a").
+    step : int | None
+        For multi-step chains (compute tool), the 0-indexed step where the
+        error occurred. None for single conversions.
     got : str | None
         What the agent provided (dimension or unit name).
     expected : str | None
@@ -49,6 +53,7 @@ class ConversionError(BaseModel):
     error: str
     error_type: str
     parameter: str | None = None
+    step: int | None = None
     got: str | None = None
     expected: str | None = None
     likely_fix: str | None = None
@@ -201,7 +206,11 @@ def _get_dimension_name(unit) -> str:
 # -----------------------------------------------------------------------------
 
 
-def build_unknown_unit_error(bad_name: str, parameter: str) -> ConversionError:
+def build_unknown_unit_error(
+    bad_name: str,
+    parameter: str,
+    step: int | None = None,
+) -> ConversionError:
     """Build a ConversionError for an unknown unit.
 
     Parameters
@@ -210,6 +219,8 @@ def build_unknown_unit_error(bad_name: str, parameter: str) -> ConversionError:
         The unrecognized unit string.
     parameter : str
         Which parameter was bad (e.g., "from_unit", "to_unit").
+    step : int | None
+        For multi-step chains, the 0-indexed step where the error occurred.
 
     Returns
     -------
@@ -242,6 +253,7 @@ def build_unknown_unit_error(bad_name: str, parameter: str) -> ConversionError:
         error=f"Unknown unit: '{bad_name}'",
         error_type="unknown_unit",
         parameter=parameter,
+        step=step,
         likely_fix=likely_fix,
         hints=hints,
     )
@@ -252,6 +264,7 @@ def build_dimension_mismatch_error(
     to_unit_str: str,
     src_unit,
     dst_unit,
+    step: int | None = None,
 ) -> ConversionError:
     """Build a ConversionError for a dimension mismatch.
 
@@ -265,6 +278,8 @@ def build_dimension_mismatch_error(
         The parsed source unit.
     dst_unit : Unit or UnitProduct
         The parsed target unit.
+    step : int | None
+        For multi-step chains, the 0-indexed step where the error occurred.
 
     Returns
     -------
@@ -294,6 +309,7 @@ def build_dimension_mismatch_error(
               f"{src_dim_name} is not compatible with {dst_dim_name}",
         error_type="dimension_mismatch",
         parameter="to_unit",
+        step=step,
         got=src_dim_name,
         expected=src_dim_name,  # Expected same dimension as source
         hints=hints,
@@ -306,6 +322,7 @@ def build_no_path_error(
     src_unit,
     dst_unit,
     exception: Exception,
+    step: int | None = None,
 ) -> ConversionError:
     """Build a ConversionError for a missing conversion path.
 
@@ -321,6 +338,8 @@ def build_no_path_error(
         The parsed target unit.
     exception : Exception
         The ConversionNotFound exception.
+    step : int | None
+        For multi-step chains, the 0-indexed step where the error occurred.
 
     Returns
     -------
