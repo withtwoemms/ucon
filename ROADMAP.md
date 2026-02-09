@@ -257,20 +257,54 @@ Building on v0.5.x baseline:
 
 ---
 
-## v0.7.x — MCP Compute + Schema Constraints (Planned)
+## v0.7.1 — Pre-Compute Foundations (Planned)
 
-**Theme:** Domain formulas for AI agents.
+**Theme:** Architectural prerequisites for multi-step factor-label chains.
 
-- [ ] `compute` tool for dimensionally-validated domain formulas
-- [ ] Schema-level dimension constraints (expose `DimConstraint` in MCP tool schemas)
-- [ ] Per-parameter error localization in multi-input formulas
-- [ ] Formula registration/discovery mechanism
+- [ ] SI symbol coverage audit (ensure `A`, `V`, `W`, etc. in case-sensitive registry)
+- [ ] Add `step: int | None` field to `ConversionError` for chain error localization
+- [ ] Extract `_resolve_unit(name, parameter)` helper to reduce try/except duplication
+- [ ] Add `build_parse_error` builder for malformed composite expressions
+- [ ] Document priority alias invariant for contributors
 
 **Outcomes:**
-- AI agents can run domain formulas (FIB-4, dosage calculations, etc.) with dimensional safety
+- Expressions like `V/mA`, `mA·h`, `µA/cm²` resolve correctly
+- Error responses can localize failures to specific steps in a chain
+- MCP server code is DRY and ready for compute's N-factor resolution
+- `ParseError` wrapped in structured `ConversionError` like other error types
+
+---
+
+## v0.7.2 — Compute Tool (Planned)
+
+**Theme:** Multi-step factor-label calculations for AI agents.
+
+- [ ] `compute` tool for dimensionally-validated factor-label chains
+- [ ] `steps` array in response showing intermediate dimensional state
+- [ ] Per-step error localization using `ConversionError.step`
+- [ ] Multi-factor cancellation tests for `UnitProduct` (medical dosage, stoichiometry)
+
+**Outcomes:**
+- AI agents can run factor-label chains with dimensional safety at each step
+- Intermediate state visible for debugging and benchmarks (SLM vs LLM comparison)
+- Agents can self-correct mid-chain rather than only at the end
+- `UnitProduct` cancellation logic validated against realistic compute inputs
+
+---
+
+## v0.7.x — Schema-Level Dimension Constraints (Planned)
+
+**Theme:** Pre-call validation for AI agents.
+
+- [ ] Expose `DimConstraint` in MCP tool schemas
+- [ ] Schema generator introspects dimension constraints from `@enforce_dimensions` functions
+- [ ] Formula registration/discovery mechanism for domain packages
+
+**Outcomes:**
 - MCP schemas declare expected dimensions per parameter
 - LLMs can validate inputs before calling, reducing round-trips
 - Completes the type-directed correction loop
+- Foundation for ucon.dev marketplace of domain formula packages
 
 ---
 
