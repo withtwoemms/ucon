@@ -28,11 +28,12 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.6.0 | Pydantic + Serialization | Complete |
 | v0.6.x | MCP Server | Complete |
 | v0.6.x | LogMap + Nines | Complete |
-| v0.6.x | Dimensional Type Safety | Planned |
-| v0.7.0 | NumPy Array Support | Planned |
+| v0.6.x | Dimensional Type Safety | Complete |
+| v0.7.0 | MCP Error Suggestions | Complete |
+| v0.7.x | MCP Compute + Schema Constraints | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
-| v0.10.0 | DataFrame Integration | Planned |
+| v0.10.0 | Scientific Computing | Planned |
 | v1.0.0 | API Stability | Planned |
 
 ---
@@ -221,38 +222,89 @@ Building on v0.5.x baseline:
 
 ---
 
-## v0.6.x — Dimensional Type Safety (Planned)
+## v0.6.x — Dimensional Type Safety (Complete)
 
-**Theme:** Type-directed validation for AI agents and domain formulas.
+**Theme:** Type-directed validation for domain formulas.
 
 - [x] Human-readable derived dimension names (`derived(length^3/time)` not `Vector(...)`)
 - [x] `Number[Dimension]` type-safe generics via `typing.Annotated`
 - [x] `DimConstraint` marker class for annotation introspection
 - [x] `@enforce_dimensions` decorator for runtime validation at function boundaries
-- [ ] MCP error suggestions with actionable recovery hints
 
 **Outcomes:**
 - Dimension errors caught at function boundaries with clear messages
-- AI agents can self-correct via readable error diagnostics
 - Domain authors declare dimensional constraints declaratively, not imperatively
-- MCP server returns structured errors with fuzzy-matched suggestions
-- Foundation for schema-level dimension constraints in MCP tools
+- Foundation for MCP error suggestions and schema-level constraints
 
 ---
 
-## v0.7.0 — NumPy Array Support
+## v0.7.0 — MCP Error Suggestions (Complete)
 
-**Theme:** Scientific computing integration.
+**Theme:** AI agent self-correction.
 
-- [ ] `Number` wraps `np.ndarray` values
-- [ ] Vectorized conversion
-- [ ] Vectorized arithmetic with uncertainty propagation
-- [ ] Performance benchmarks
+- [x] `ConversionError` response model with `likely_fix` and `hints`
+- [x] Fuzzy matching for unknown units with confidence tiers (≥0.7 for `likely_fix`)
+- [x] Compatible unit suggestions from graph edges
+- [x] Pseudo-dimension isolation explanation
+- [x] `ucon/mcp/suggestions.py` module (independently testable)
+- [x] Error handling in `convert()`, `check_dimensions()`, `list_units()`
 
 **Outcomes:**
-- Seamless integration with NumPy-based scientific workflows
-- Efficient batch conversions for large datasets
-- Performance characteristics documented and optimized
+- MCP tools return structured errors instead of raw exceptions
+- High-confidence fixes enable single-retry correction loops
+- AI agents can self-correct via readable error diagnostics
+- Foundation for schema-level dimension constraints
+
+---
+
+## v0.7.1 — Pre-Compute Foundations (Planned)
+
+**Theme:** Architectural prerequisites for multi-step factor-label chains.
+
+- [ ] SI symbol coverage audit (ensure `A`, `V`, `W`, etc. in case-sensitive registry)
+- [ ] Add `step: int | None` field to `ConversionError` for chain error localization
+- [ ] Extract `_resolve_unit(name, parameter)` helper to reduce try/except duplication
+- [ ] Add `build_parse_error` builder for malformed composite expressions
+- [ ] Document priority alias invariant for contributors
+
+**Outcomes:**
+- Expressions like `V/mA`, `mA·h`, `µA/cm²` resolve correctly
+- Error responses can localize failures to specific steps in a chain
+- MCP server code is DRY and ready for compute's N-factor resolution
+- `ParseError` wrapped in structured `ConversionError` like other error types
+
+---
+
+## v0.7.2 — Compute Tool (Planned)
+
+**Theme:** Multi-step factor-label calculations for AI agents.
+
+- [ ] `compute` tool for dimensionally-validated factor-label chains
+- [ ] `steps` array in response showing intermediate dimensional state
+- [ ] Per-step error localization using `ConversionError.step`
+- [ ] Multi-factor cancellation tests for `UnitProduct` (medical dosage, stoichiometry)
+
+**Outcomes:**
+- AI agents can run factor-label chains with dimensional safety at each step
+- Intermediate state visible for debugging and benchmarks (SLM vs LLM comparison)
+- Agents can self-correct mid-chain rather than only at the end
+- `UnitProduct` cancellation logic validated against realistic compute inputs
+
+---
+
+## v0.7.x — Schema-Level Dimension Constraints (Planned)
+
+**Theme:** Pre-call validation for AI agents.
+
+- [ ] Expose `DimConstraint` in MCP tool schemas
+- [ ] Schema generator introspects dimension constraints from `@enforce_dimensions` functions
+- [ ] Formula registration/discovery mechanism for domain packages
+
+**Outcomes:**
+- MCP schemas declare expected dimensions per parameter
+- LLMs can validate inputs before calling, reducing round-trips
+- Completes the type-directed correction loop
+- Foundation for ucon.dev marketplace of domain formula packages
 
 ---
 
@@ -290,19 +342,25 @@ Building on v0.5.x baseline:
 
 ---
 
-## v0.10.0 — DataFrame Integration
+## v0.10.0 — Scientific Computing
 
-**Theme:** Data science workflows.
+**Theme:** NumPy and DataFrame integration.
 
+- [ ] `Number` wraps `np.ndarray` values
+- [ ] Vectorized conversion and arithmetic
+- [ ] Vectorized uncertainty propagation
 - [ ] Polars integration: `NumberColumn` type
 - [ ] Pandas integration: `NumberSeries` type
 - [ ] Column-wise conversion
 - [ ] Unit-aware arithmetic on columns
+- [ ] Performance benchmarks
 
 **Outcomes:**
+- Seamless integration with NumPy-based scientific workflows
+- Efficient batch conversions for large datasets
 - First-class support for data science workflows
 - Unit-safe transformations on tabular data
-- Interoperability with modern DataFrame ecosystems
+- Performance characteristics documented and optimized
 
 ---
 
