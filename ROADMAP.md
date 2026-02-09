@@ -30,7 +30,9 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.6.x | LogMap + Nines | Complete |
 | v0.6.x | Dimensional Type Safety | Complete |
 | v0.7.0 | MCP Error Suggestions | Complete |
-| v0.7.x | MCP Compute + Schema Constraints | Planned |
+| v0.7.1 | Pre-Compute Foundations | Planned |
+| v0.7.2 | Compute Tool | Planned |
+| v0.7.x | Schema-Level Dimension Constraints | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
 | v0.10.0 | Scientific Computing | Planned |
