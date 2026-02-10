@@ -221,6 +221,28 @@ def have(name: str) -> bool:
 _UNIT_REGISTRY: Dict[str, Unit] = {}
 _UNIT_REGISTRY_CASE_SENSITIVE: Dict[str, Unit] = {}
 
+# -----------------------------------------------------------------------------
+# Priority Alias Invariant (for contributors)
+# -----------------------------------------------------------------------------
+#
+# When a unit alias could be misinterpreted as a scale prefix + unit symbol,
+# add it to _PRIORITY_ALIASES or _PRIORITY_SCALED_ALIASES to prevent ambiguity.
+#
+# Examples:
+#   - "min" could parse as milli-inch (m + in), but should be minute
+#   - "mcg" could fail (no "mc" prefix), but should be microgram
+#   - "cc" could fail, but should be cubic centimeter (cm³)
+#
+# Rule: If a unit string starts with a valid scale prefix AND the remainder
+# is a valid unit symbol, check whether the whole string should be treated
+# as a single unit. If so, add it to:
+#
+#   _PRIORITY_ALIASES - for unscaled units (e.g., "min" -> minute)
+#   _PRIORITY_SCALED_ALIASES - for scaled units (e.g., "mcg" -> microgram)
+#
+# The parser checks these sets BEFORE attempting prefix decomposition.
+# -----------------------------------------------------------------------------
+
 # Priority aliases that must match exactly before prefix decomposition.
 # Prevents ambiguous parses like "min" -> milli-inch instead of minute.
 _PRIORITY_ALIASES: set = {'min'}
