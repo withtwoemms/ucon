@@ -167,6 +167,11 @@ nines = Unit(name='nines', dimension=Dimension.ratio, aliases=('9s',))
 # ----------------------------------------------------------------------
 
 
+# -- Count Units -------------------------------------------------------
+each = Unit(name='each', dimension=Dimension.count, aliases=('ea', 'item', 'ct'))
+# ----------------------------------------------------------------------
+
+
 # Backward compatibility alias
 webers = weber
 
