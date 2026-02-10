@@ -519,5 +519,60 @@ class TestListUnitsErrors(unittest.TestCase):
         )
 
 
+class TestParseErrorHandling(unittest.TestCase):
+    """Test that malformed unit expressions return structured errors."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import convert, check_dimensions
+            from ucon.mcp.suggestions import ConversionError
+            cls.convert = staticmethod(convert)
+            cls.check_dimensions = staticmethod(check_dimensions)
+            cls.ConversionError = ConversionError
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+
+    def test_unbalanced_parens_from_unit(self):
+        """Test that unbalanced parentheses in from_unit returns parse_error."""
+        result = self.convert(1, "W/(m^2*K", "W/(m^2*K)")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "parse_error")
+        self.assertEqual(result.parameter, "from_unit")
+        self.assertIn("parse", result.error.lower())
+
+    def test_unbalanced_parens_to_unit(self):
+        """Test that unbalanced parentheses in to_unit returns parse_error."""
+        result = self.convert(1, "W/(m^2*K)", "W/(m^2*K")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "parse_error")
+        self.assertEqual(result.parameter, "to_unit")
+
+    def test_parse_error_in_check_dimensions(self):
+        """Test that parse errors work in check_dimensions too."""
+        result = self.check_dimensions("m/s)", "m/s")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "parse_error")
+        self.assertEqual(result.parameter, "unit_a")
+
+    def test_parse_error_hints_helpful(self):
+        """Test that parse error hints are helpful."""
+        result = self.convert(1, "kg*(m/s^2", "N")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "parse_error")
+        # Should have hints about syntax
+        hints_str = str(result.hints)
+        self.assertTrue(
+            "parenthes" in hints_str.lower() or
+            "syntax" in hints_str.lower() or
+            "parse" in hints_str.lower()
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
