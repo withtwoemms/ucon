@@ -740,6 +740,7 @@ def _build_standard_graph() -> ConversionGraph:
     # --- Energy ---
     graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
     graph.add_edge(src=units.joule, dst=units.btu, map=LinearMap(1/1055.06))
+    graph.add_edge(src=units.joule, dst=units.watt_hour, map=LinearMap(1/3600))  # 1 Wh = 3600 J
     # Cross-structure: energy/time → power (enables BTU/h → kW)
     # 1 BTU/h = 1055.06 J/h = 1055.06/3600 W = 0.29307 W
     graph.add_edge(src=units.btu / units.hour, dst=units.watt, map=LinearMap(1055.06 / 3600))
