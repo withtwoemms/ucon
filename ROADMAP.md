@@ -278,9 +278,23 @@ Building on v0.5.x baseline:
 
 ---
 
-## v0.7.2 — Compute Tool (Planned)
+## v0.7.2 — Compute Tool (In Progress)
 
 **Theme:** Multi-step factor-label calculations for AI agents.
+
+### Interrupt: Dimension.count + `each` Unit (Complete)
+
+Prerequisite for factor-label chains with countable items (tablets, doses).
+
+- [x] `Dimension.count` pseudo-dimension (zero vector, named identity)
+- [x] `each` unit with aliases `ea`, `item`, `ct`
+- [x] Pseudo-dimension isolation (count ≠ angle ≠ ratio)
+- [x] `mg/ea` renders correctly with `mass` dimension
+- [x] MCP tests for `list_units(dimension="count")`, fuzzy recovery
+
+**Design decision:** Single `each` unit instead of domain-specific atomizers (dose, tablet, capsule). Atomizers are application-layer metadata, not core units.
+
+### Compute Tool
 
 - [ ] `compute` tool for dimensionally-validated factor-label chains
 - [ ] `steps` array in response showing intermediate dimensional state
@@ -292,6 +306,7 @@ Building on v0.5.x baseline:
 - Intermediate state visible for debugging and benchmarks (SLM vs LLM comparison)
 - Agents can self-correct mid-chain rather than only at the end
 - `UnitProduct` cancellation logic validated against realistic compute inputs
+- Countable items (30 ea × 500 mg/ea = 15000 mg) work in factor-label chains
 
 ---
 

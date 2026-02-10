@@ -79,6 +79,7 @@ class Dimension(Enum):
     angle       = (Vector(), "angle")        # radian, degree, etc.
     solid_angle = (Vector(), "solid_angle")  # steradian, square_degree
     ratio       = (Vector(), "ratio")        # percent, ppm, etc.
+    count       = (Vector(), "count")        # discrete items: each, dose, tablet
     # ----------------------------------------------------------------
 
     acceleration = Vector(-2, 1, 0, 0, 0, 0, 0, 0)
