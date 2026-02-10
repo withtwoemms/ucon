@@ -718,16 +718,16 @@ class TestComputeTool(unittest.TestCase):
             factors=[
                 {"value": 1, "numerator": "kg", "denominator": "2.205 lb"},
                 {"value": 15, "numerator": "mg", "denominator": "kg*day"},
-                {"value": 1, "numerator": "day", "denominator": "3 dose"},
+                {"value": 1, "numerator": "day", "denominator": "3 ea"},  # ea = each (dose)
             ]
         )
         self.assertIsInstance(result, self.ComputeResult)
-        # 154 lb × (1 kg / 2.205 lb) × (15 mg / kg·day) × (1 day / 3 doses)
-        # = 154 / 2.205 × 15 / 3 mg/dose
-        # ≈ 69.84 × 5 mg/dose ≈ 349.2 mg/dose
+        # 154 lb × (1 kg / 2.205 lb) × (15 mg / kg·day) × (1 day / 3 ea)
+        # = 154 / 2.205 × 15 / 3 mg/ea
+        # ≈ 69.84 × 5 mg/ea ≈ 349.2 mg/ea
         expected = 154 / 2.205 * 15 / 3
         self.assertAlmostEqual(result.quantity, expected, places=2)
-        # Should have mass/dose dimension → mass (dose is dimensionless)
+        # Should have mass/ea dimension → mass (count is dimensionless)
         self.assertEqual(len(result.steps), 4)  # initial + 3 factors
 
     def test_denominator_with_numeric_prefix(self):
