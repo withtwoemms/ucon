@@ -9,17 +9,16 @@
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
-from ucon import Dimension, get_unit_by_name
+from ucon import Dimension
 from ucon.core import Number, Scale, Unit, UnitProduct
 from ucon.graph import DimensionMismatch, ConversionNotFound
 from ucon.mcp.suggestions import (
     ConversionError,
-    build_unknown_unit_error,
+    resolve_unit,
     build_dimension_mismatch_error,
     build_no_path_error,
     build_unknown_dimension_error,
 )
-from ucon.units import UnknownUnitError
 
 
 mcp = FastMCP("ucon")
@@ -91,16 +90,14 @@ def convert(value: float, from_unit: str, to_unit: str) -> ConversionResult | Co
         ConversionError if the conversion fails, with suggestions for correction.
     """
     # 1. Parse source unit
-    try:
-        src = get_unit_by_name(from_unit)
-    except UnknownUnitError:
-        return build_unknown_unit_error(from_unit, parameter="from_unit")
+    src, err = resolve_unit(from_unit, parameter="from_unit")
+    if err:
+        return err
 
     # 2. Parse target unit
-    try:
-        dst = get_unit_by_name(to_unit)
-    except UnknownUnitError:
-        return build_unknown_unit_error(to_unit, parameter="to_unit")
+    dst, err = resolve_unit(to_unit, parameter="to_unit")
+    if err:
+        return err
 
     # 3. Perform conversion
     try:
@@ -230,15 +227,13 @@ def check_dimensions(unit_a: str, unit_b: str) -> DimensionCheck | ConversionErr
         DimensionCheck indicating compatibility and the dimension of each unit.
         ConversionError if a unit string cannot be parsed.
     """
-    try:
-        a = get_unit_by_name(unit_a)
-    except UnknownUnitError:
-        return build_unknown_unit_error(unit_a, parameter="unit_a")
+    a, err = resolve_unit(unit_a, parameter="unit_a")
+    if err:
+        return err
 
-    try:
-        b = get_unit_by_name(unit_b)
-    except UnknownUnitError:
-        return build_unknown_unit_error(unit_b, parameter="unit_b")
+    b, err = resolve_unit(unit_b, parameter="unit_b")
+    if err:
+        return err
 
     dim_a = a.dimension if isinstance(a, Unit) else a.dimension
     dim_b = b.dimension if isinstance(b, Unit) else b.dimension

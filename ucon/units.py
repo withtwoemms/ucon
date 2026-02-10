@@ -47,7 +47,7 @@ none = Unit()
 
 
 # -- International System of Units (SI) --------------------------------
-ampere = Unit(name='ampere', dimension=Dimension.current, aliases=('I', 'amp'))
+ampere = Unit(name='ampere', dimension=Dimension.current, aliases=('A', 'I', 'amp'))
 becquerel = Unit(name='becquerel', dimension=Dimension.frequency, aliases=('Bq',))
 celsius = Unit(name='celsius', dimension=Dimension.temperature, aliases=('°C', 'degC'))
 coulomb = Unit(name='coulomb', dimension=Dimension.charge, aliases=('C',))
@@ -58,6 +58,7 @@ henry = Unit(name='henry', dimension=Dimension.inductance, aliases=('H',))
 hertz = Unit(name='hertz', dimension=Dimension.frequency, aliases=('Hz',))
 joule = Unit(name='joule', dimension=Dimension.energy, aliases=('J',))
 joule_per_kelvin = Unit(name='joule_per_kelvin', dimension=Dimension.entropy, aliases=('J/K',))
+katal = Unit(name='katal', dimension=Dimension.catalytic_activity, aliases=('kat',))
 kelvin = Unit(name='kelvin', dimension=Dimension.temperature, aliases=('K',))
 kilogram = Unit(name='kilogram', dimension=Dimension.mass, aliases=('kg',))
 liter = Unit(name='liter', dimension=Dimension.volume, aliases=('L', 'l'))
@@ -219,6 +220,28 @@ def have(name: str) -> bool:
 # Module-level registries (populated by _build_registry at module load)
 _UNIT_REGISTRY: Dict[str, Unit] = {}
 _UNIT_REGISTRY_CASE_SENSITIVE: Dict[str, Unit] = {}
+
+# -----------------------------------------------------------------------------
+# Priority Alias Invariant (for contributors)
+# -----------------------------------------------------------------------------
+#
+# When a unit alias could be misinterpreted as a scale prefix + unit symbol,
+# add it to _PRIORITY_ALIASES or _PRIORITY_SCALED_ALIASES to prevent ambiguity.
+#
+# Examples:
+#   - "min" could parse as milli-inch (m + in), but should be minute
+#   - "mcg" could fail (no "mc" prefix), but should be microgram
+#   - "cc" could fail, but should be cubic centimeter (cm³)
+#
+# Rule: If a unit string starts with a valid scale prefix AND the remainder
+# is a valid unit symbol, check whether the whole string should be treated
+# as a single unit. If so, add it to:
+#
+#   _PRIORITY_ALIASES - for unscaled units (e.g., "min" -> minute)
+#   _PRIORITY_SCALED_ALIASES - for scaled units (e.g., "mcg" -> microgram)
+#
+# The parser checks these sets BEFORE attempting prefix decomposition.
+# -----------------------------------------------------------------------------
 
 # Priority aliases that must match exactly before prefix decomposition.
 # Prevents ambiguous parses like "min" -> milli-inch instead of minute.
