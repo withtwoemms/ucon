@@ -574,5 +574,78 @@ class TestParseErrorHandling(unittest.TestCase):
         )
 
 
+class TestCountDimensionMCP(unittest.TestCase):
+    """Test count dimension and each unit in MCP tools."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import (
+                convert, list_units, list_dimensions, check_dimensions
+            )
+            from ucon.mcp.suggestions import ConversionError
+            cls.convert = staticmethod(convert)
+            cls.list_units = staticmethod(list_units)
+            cls.list_dimensions = staticmethod(list_dimensions)
+            cls.check_dimensions = staticmethod(check_dimensions)
+            cls.ConversionError = ConversionError
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+
+    def test_list_units_count_dimension(self):
+        """Test that list_units(dimension='count') returns each."""
+        result = self.list_units(dimension="count")
+        names = [u.name for u in result]
+        self.assertIn("each", names)
+
+    def test_list_dimensions_includes_count(self):
+        """Test that list_dimensions returns count."""
+        result = self.list_dimensions()
+        self.assertIn("count", result)
+
+    def test_convert_each_rejected_cross_dimension(self):
+        """Test that converting ea to rad returns dimension mismatch."""
+        result = self.convert(5, "ea", "rad")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "dimension_mismatch")
+
+    def test_convert_each_to_percent_rejected(self):
+        """Test that converting ea to % returns dimension mismatch."""
+        result = self.convert(5, "ea", "%")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "dimension_mismatch")
+
+    def test_check_dimensions_ea_vs_rad_incompatible(self):
+        """Test that ea and rad are incompatible."""
+        result = self.check_dimensions("ea", "rad")
+        self.assertFalse(result.compatible)
+        self.assertEqual(result.dimension_a, "count")
+        self.assertEqual(result.dimension_b, "angle")
+
+    def test_check_dimensions_mg_per_ea_vs_mg_compatible(self):
+        """Test that mg/ea and mg are compatible (count cancels dimensionally)."""
+        result = self.check_dimensions("mg/ea", "mg")
+        self.assertTrue(result.compatible)
+        self.assertEqual(result.dimension_a, "mass")
+        self.assertEqual(result.dimension_b, "mass")
+
+    def test_each_fuzzy_recovery(self):
+        """Test that typo 'eech' suggests each."""
+        result = self.convert(5, "eech", "kg")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+        # Should suggest 'each' in likely_fix or hints
+        suggestions = (result.likely_fix or "") + str(result.hints)
+        self.assertTrue(
+            "each" in suggestions.lower() or "ea" in suggestions.lower(),
+            f"Expected 'each' or 'ea' in suggestions: {suggestions}"
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
