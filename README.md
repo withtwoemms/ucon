@@ -29,7 +29,7 @@ It combines **units**, **scales**, and **dimensions** into a composable algebra 
 - Dimensional analysis through `Number` and `Ratio`
 - Scale-aware arithmetic via `UnitFactor` and `UnitProduct`
 - Metric and binary prefixes (`kilo`, `kibi`, `micro`, `mebi`, etc.)
-- Pseudo-dimensions for angles, solid angles, and ratios with semantic isolation
+- Pseudo-dimensions for angles, solid angles, ratios, and counts with semantic isolation
 - Uncertainty propagation through arithmetic and conversions
 - Pydantic v2 integration for API validation and JSON serialization
 - A clean foundation for physics, chemistry, data modeling, and beyond
@@ -170,7 +170,7 @@ print(distance_mi)  # <3.107... mi>
 
 ### Dimensionless Units
 
-Angles, solid angles, and ratios are semantically isolated:
+Angles, solid angles, ratios, and counts are semantically isolated pseudo-dimensions:
 ```python
 import math
 from ucon import units
@@ -188,6 +188,30 @@ units.radian(1).to(units.percent)  # raises ConversionNotFound
 uptime = units.percent(99.999)
 print(uptime.to(units.nines))  # <5.0 nines>
 ```
+
+### Counting Units
+
+The `each` unit represents discrete, countable items (tablets, doses, events):
+```python
+from ucon import units, Scale
+
+# "each" is a generic counting unit with aliases: ea, item, ct
+items = units.each(30)
+print(items)  # <30 ea>
+
+# Express rates per item (e.g., mg per tablet)
+mg = Scale.milli * units.gram
+dose_rate = mg(500) / units.each(1)  # 500 mg/ea
+
+# Factor-label calculations cancel correctly
+total = items * dose_rate
+print(total)  # <15000 mg> — count dimension cancels
+
+# Count is isolated from other pseudo-dimensions
+units.each(5).to(units.percent)  # raises ConversionNotFound
+```
+
+**Design note:** `each` is intentionally generic. Domain-specific atomizers (dose, tablet, capsule) are application-layer metadata, not core units. This keeps the unit system tractable while supporting any counting context.
 
 ### Uncertainty Propagation
 
