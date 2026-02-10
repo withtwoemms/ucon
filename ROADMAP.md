@@ -30,7 +30,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.6.x | LogMap + Nines | Complete |
 | v0.6.x | Dimensional Type Safety | Complete |
 | v0.7.0 | MCP Error Suggestions | Complete |
-| v0.7.1 | Pre-Compute Foundations | Planned |
+| v0.7.1 | MCP Error Infrastructure for Multi-Step Chains | Complete |
 | v0.7.2 | Compute Tool | Planned |
 | v0.7.x | Schema-Level Dimension Constraints | Planned |
 | v0.8.0 | String Parsing | Planned |
@@ -259,18 +259,19 @@ Building on v0.5.x baseline:
 
 ---
 
-## v0.7.1 — Pre-Compute Foundations (Planned)
+## v0.7.1 — MCP Error Infrastructure for Multi-Step Chains (Complete)
 
 **Theme:** Architectural prerequisites for multi-step factor-label chains.
 
-- [ ] SI symbol coverage audit (ensure `A`, `V`, `W`, etc. in case-sensitive registry)
-- [ ] Add `step: int | None` field to `ConversionError` for chain error localization
-- [ ] Extract `_resolve_unit(name, parameter)` helper to reduce try/except duplication
-- [ ] Add `build_parse_error` builder for malformed composite expressions
-- [ ] Document priority alias invariant for contributors
+- [x] SI symbol coverage audit (`A` for ampere, `kat` for katal)
+- [x] `catalytic_activity` dimension and `katal` unit added
+- [x] `step: int | None` field in `ConversionError` for chain error localization
+- [x] `resolve_unit()` helper to reduce try/except duplication
+- [x] `build_parse_error` builder for malformed composite expressions
+- [x] Priority alias invariant documented for contributors
 
 **Outcomes:**
-- Expressions like `V/mA`, `mA·h`, `µA/cm²` resolve correctly
+- Expressions like `V/mA`, `mA·h`, `µA/cm²`, `mkat` resolve correctly
 - Error responses can localize failures to specific steps in a chain
 - MCP server code is DRY and ready for compute's N-factor resolution
 - `ParseError` wrapped in structured `ConversionError` like other error types
