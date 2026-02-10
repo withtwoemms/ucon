@@ -304,18 +304,23 @@ def compute(
     """
     import re
 
+    from ucon.core import UnitFactor
+
     # Parse initial unit
     initial_parsed, err = resolve_unit(initial_unit, parameter="initial_unit")
     if err:
         return err
 
-    # Build running result
-    result = Number(quantity=initial_value, unit=initial_parsed)
+    # Track numeric value and unit product separately for factor-label
+    # This avoids Number's internal scale handling which breaks factor-label math
+    running_value = float(initial_value)
+    running_unit = UnitProduct.from_unit(initial_parsed) if isinstance(initial_parsed, Unit) else initial_parsed
+
     steps: list[ComputeStep] = []
 
     # Record initial state
     initial_dim = initial_parsed.dimension.name
-    initial_unit_str = initial_parsed.shorthand or initial_parsed.name if isinstance(initial_parsed, Unit) else str(initial_parsed)
+    initial_unit_str = _format_unit_output(initial_parsed)
     steps.append(ComputeStep(
         factor=f"{initial_value} {initial_unit}",
         dimension=initial_dim,
@@ -377,15 +382,19 @@ def compute(
         if err:
             return err
 
-        # Create the factor as a Number ratio
+        # Apply factor: multiply by (value * num_unit) / (denom_value * denom_unit)
         try:
-            # factor_number = (value * numerator) / (denom_value * denominator)
-            numerator_num = Number(quantity=value, unit=num_unit)
-            denominator_num = Number(quantity=denom_value, unit=denom_unit)
-            factor_ratio = numerator_num / denominator_num
+            # Compute numeric factor: value / denom_value
+            numeric_factor = value / denom_value
+            running_value *= numeric_factor
 
-            # Multiply running result by factor
-            result = result * factor_ratio
+            # Compute unit factor: num_unit / denom_unit
+            num_as_product = UnitProduct.from_unit(num_unit) if isinstance(num_unit, Unit) else num_unit
+            denom_as_product = UnitProduct.from_unit(denom_unit) if isinstance(denom_unit, Unit) else denom_unit
+            unit_factor = num_as_product / denom_as_product
+
+            # Multiply running unit by unit factor
+            running_unit = running_unit * unit_factor
 
         except Exception as e:
             return ConversionError(
@@ -397,16 +406,8 @@ def compute(
             )
 
         # Record step
-        result_unit = result.unit
-        if result_unit is None:
-            result_dim = "none"
-            result_unit_str = "1"
-        elif isinstance(result_unit, Unit):
-            result_dim = result_unit.dimension.name
-            result_unit_str = result_unit.shorthand or result_unit.name
-        else:
-            result_dim = result_unit.dimension.name
-            result_unit_str = str(result_unit)
+        result_dim = running_unit.dimension.name if running_unit else "none"
+        result_unit_str = _format_unit_output(running_unit)
 
         # Format factor description
         if denom_value != 1.0:
@@ -421,23 +422,25 @@ def compute(
         ))
 
     # Build final result
-    final_unit = result.unit
-    if final_unit is None:
-        final_dim = "none"
-        final_unit_str = "1"
-    elif isinstance(final_unit, Unit):
-        final_dim = final_unit.dimension.name
-        final_unit_str = final_unit.shorthand or final_unit.name
-    else:
-        final_dim = final_unit.dimension.name
-        final_unit_str = str(final_unit)
+    final_dim = running_unit.dimension.name if running_unit else "none"
+    final_unit_str = _format_unit_output(running_unit)
 
     return ComputeResult(
-        quantity=result.quantity,
+        quantity=running_value,
         unit=final_unit_str,
         dimension=final_dim,
         steps=steps,
     )
+
+
+def _format_unit_output(unit) -> str:
+    """Format a unit or unit product for output display."""
+    if unit is None:
+        return "1"
+    elif isinstance(unit, Unit):
+        return unit.shorthand or unit.name
+    else:
+        return str(unit)
 
 
 @mcp.tool()
