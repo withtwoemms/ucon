@@ -19,6 +19,10 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
+from ucon import get_unit_by_name
+from ucon.parsing import ParseError
+from ucon.units import UnknownUnitError
+
 if TYPE_CHECKING:
     from ucon.core import Dimension, Unit, UnitProduct
 
@@ -199,6 +203,43 @@ def _get_dimension_name(unit) -> str:
     """
     dim = unit.dimension
     return dim.name
+
+
+# -----------------------------------------------------------------------------
+# Unit Resolution Helper
+# -----------------------------------------------------------------------------
+
+
+def resolve_unit(
+    name: str,
+    parameter: str,
+    step: int | None = None,
+):
+    """Try to parse a unit string, returning a structured error on failure.
+
+    This helper reduces try/except boilerplate in MCP tools.
+
+    Parameters
+    ----------
+    name : str
+        The unit string to parse.
+    parameter : str
+        Which parameter this is (e.g., "from_unit", "to_unit").
+    step : int | None
+        For multi-step chains, the 0-indexed step.
+
+    Returns
+    -------
+    tuple[Unit | UnitProduct, None] | tuple[None, ConversionError]
+        On success: (parsed_unit, None)
+        On failure: (None, ConversionError)
+    """
+    try:
+        return get_unit_by_name(name), None
+    except UnknownUnitError:
+        return None, build_unknown_unit_error(name, parameter=parameter, step=step)
+    except ParseError as e:
+        return None, build_parse_error(name, str(e), parameter=parameter, step=step)
 
 
 # -----------------------------------------------------------------------------
@@ -401,8 +442,48 @@ def build_no_path_error(
         error=f"No conversion path from '{from_unit_str}' to '{to_unit_str}'",
         error_type="no_conversion_path",
         parameter=None,
+        step=step,
         got=src_dim_name,
         expected=dst_dim_name,
+        hints=hints,
+    )
+
+
+def build_parse_error(
+    bad_expression: str,
+    error_message: str,
+    parameter: str,
+    step: int | None = None,
+) -> ConversionError:
+    """Build a ConversionError for a malformed unit expression.
+
+    Parameters
+    ----------
+    bad_expression : str
+        The malformed unit string (e.g., "W/(m²*K" with unbalanced parens).
+    error_message : str
+        The parse error message from the parser.
+    parameter : str
+        Which parameter was bad (e.g., "from_unit", "to_unit").
+    step : int | None
+        For multi-step chains, the 0-indexed step where the error occurred.
+
+    Returns
+    -------
+    ConversionError
+        Structured error with parse error details.
+    """
+    hints = [
+        f"Parse error: {error_message}",
+        "Check for unbalanced parentheses or invalid characters",
+        "Valid syntax: m/s, kg*m/s^2, W/(m²·K)",
+    ]
+
+    return ConversionError(
+        error=f"Cannot parse unit expression: '{bad_expression}'",
+        error_type="parse_error",
+        parameter=parameter,
+        step=step,
         hints=hints,
     )
 
@@ -452,8 +533,10 @@ def build_unknown_dimension_error(bad_dimension: str) -> ConversionError:
 
 __all__ = [
     "ConversionError",
+    "resolve_unit",
     "build_unknown_unit_error",
     "build_dimension_mismatch_error",
     "build_no_path_error",
+    "build_parse_error",
     "build_unknown_dimension_error",
 ]
