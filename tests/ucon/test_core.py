@@ -503,6 +503,45 @@ class TestUnit(unittest.TestCase):
         self.assertFalse(Unit(name="meter", dimension=Dimension.length, aliases=("m",)) == "meter")
 
 
+class TestEachUnit(unittest.TestCase):
+    """Tests for the `each` unit and count dimension."""
+
+    def test_each_unit_exists(self):
+        """Test that each unit is defined."""
+        self.assertEqual(units.each.name, "each")
+        self.assertEqual(units.each.dimension, Dimension.count)
+
+    def test_each_shorthand(self):
+        """Test that each has 'ea' as shorthand."""
+        self.assertEqual(units.each.shorthand, "ea")
+
+    def test_each_aliases(self):
+        """Test that each has expected aliases."""
+        self.assertIn("ea", units.each.aliases)
+        self.assertIn("item", units.each.aliases)
+        self.assertIn("ct", units.each.aliases)
+
+    def test_mg_per_each_has_mass_dimension(self):
+        """Test that mg/ea has mass dimension (count cancels dimensionally)."""
+        mg = UnitFactor(unit=units.gram, scale=Scale.milli)
+        ea = UnitFactor(unit=units.each, scale=Scale.one)
+        product = UnitProduct({mg: 1, ea: -1})
+        self.assertEqual(product.dimension, Dimension.mass)
+
+    def test_mg_per_each_renders_with_ea(self):
+        """Test that mg/ea renders with 'ea' in shorthand."""
+        mg = UnitFactor(unit=units.gram, scale=Scale.milli)
+        ea = UnitFactor(unit=units.each, scale=Scale.one)
+        product = UnitProduct({mg: 1, ea: -1})
+        self.assertIn("ea", product.shorthand)
+
+    def test_each_number_creation(self):
+        """Test that Number can be created with each unit."""
+        n = Number(quantity=5, unit=units.each)
+        self.assertEqual(n.quantity, 5)
+        self.assertEqual(n.unit.dimension, Dimension.count)
+
+
 class TestUnitProduct(unittest.TestCase):
 
     mf = UnitFactor(unit=units.meter, scale=Scale.one)
