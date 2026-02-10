@@ -757,6 +757,184 @@ class TestComputeTool(unittest.TestCase):
         self.assertIsInstance(result, self.ComputeResult)
         self.assertAlmostEqual(result.quantity, 3600.0)  # 1 m/s = 3600 m/h
 
+    # -------------------------------------------------------------------------
+    # Chemical Engineering / Stoichiometry Tests
+    # -------------------------------------------------------------------------
+
+    def test_stoichiometry_molar_mass_conversion(self):
+        """Test molar mass calculation: grams to moles.
+
+        Example: How many moles in 180 g of glucose (C6H12O6, MW = 180.16 g/mol)?
+        180 g × (1 mol / 180.16 g) ≈ 0.999 mol
+        """
+        result = self.compute(
+            initial_value=180,
+            initial_unit="g",
+            factors=[
+                {"value": 1, "numerator": "mol", "denominator": "180.16 g"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        expected = 180 / 180.16
+        self.assertAlmostEqual(result.quantity, expected, places=3)
+
+    def test_stoichiometry_molarity_calculation(self):
+        """Test molarity calculation: moles per liter.
+
+        Example: 0.5 mol NaCl in 250 mL water → molarity in mol/L
+        0.5 mol × (1000 mL / 1 L) / 250 mL = 2.0 mol/L
+        """
+        result = self.compute(
+            initial_value=0.5,
+            initial_unit="mol",
+            factors=[
+                {"value": 1000, "numerator": "mL", "denominator": "L"},
+                {"value": 1, "numerator": "1", "denominator": "250 mL"},  # dimensionless numerator
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        expected = 0.5 * 1000 / 250
+        self.assertAlmostEqual(result.quantity, expected, places=3)
+
+    def test_stoichiometry_reaction_yield(self):
+        """Test reaction stoichiometry with molar ratios.
+
+        Example: 2 H2 + O2 → 2 H2O
+        Given 10 mol H2, how many grams of H2O produced?
+        10 mol H2 × (2 mol H2O / 2 mol H2) × (18.015 g H2O / 1 mol H2O) = 180.15 g
+
+        Using 'ea' for the stoichiometric ratio since mol cancels.
+        """
+        result = self.compute(
+            initial_value=10,
+            initial_unit="mol",
+            factors=[
+                {"value": 2, "numerator": "ea", "denominator": "2 ea"},  # 2:2 stoich ratio
+                {"value": 18.015, "numerator": "g", "denominator": "mol"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        expected = 10 * (2/2) * 18.015
+        self.assertAlmostEqual(result.quantity, expected, places=2)
+
+    # -------------------------------------------------------------------------
+    # Multi-Factor Cancellation Tests (6+ factors)
+    # -------------------------------------------------------------------------
+
+    def test_six_factor_chain(self):
+        """Test 6-factor chain: complex unit conversion.
+
+        Convert 1 mile/hour to cm/s:
+        1 mi/h × (5280 ft/mi) × (12 in/ft) × (2.54 cm/in) × (1 h/60 min) × (1 min/60 s)
+        = 44.704 cm/s
+        """
+        result = self.compute(
+            initial_value=1,
+            initial_unit="mi/h",
+            factors=[
+                {"value": 5280, "numerator": "ft", "denominator": "mi"},
+                {"value": 12, "numerator": "in", "denominator": "ft"},
+                {"value": 2.54, "numerator": "cm", "denominator": "in"},
+                {"value": 1, "numerator": "h", "denominator": "60 min"},
+                {"value": 1, "numerator": "min", "denominator": "60 s"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        expected = 1 * 5280 * 12 * 2.54 / 60 / 60
+        self.assertAlmostEqual(result.quantity, expected, places=2)
+
+    def test_seven_factor_energy_chain(self):
+        """Test 7-factor chain: energy unit conversion with intermediates.
+
+        Convert 1 kWh to BTU via joules and calories:
+        1 kWh × (1000 W/kW) × (3600 s/h) × (1 J/W·s) × (1 cal/4.184 J) × (1 BTU/252 cal)
+        ≈ 3412 BTU
+
+        Simplified version without composite unit parsing issues:
+        1 kWh = 3.6e6 J, 1 BTU = 1055.06 J
+        So: value × (3.6e6 J / kWh) × (1 BTU / 1055.06 J)
+        """
+        result = self.compute(
+            initial_value=1,
+            initial_unit="kWh",
+            factors=[
+                {"value": 1000, "numerator": "W", "denominator": "kW"},
+                {"value": 3600, "numerator": "s", "denominator": "h"},
+                {"value": 1, "numerator": "J", "denominator": "W*s"},
+                {"value": 1, "numerator": "cal", "denominator": "4.184 J"},
+                {"value": 1, "numerator": "BTU", "denominator": "252 cal"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        expected = 1 * 1000 * 3600 / 4.184 / 252
+        self.assertAlmostEqual(result.quantity, expected, places=0)  # ~3412 BTU
+
+    # -------------------------------------------------------------------------
+    # Tests for 4+ Base Unit Cancellation
+    # -------------------------------------------------------------------------
+
+    def test_four_base_units_cancel(self):
+        """Test chain where 4 different base units cancel.
+
+        Power density to force: W/m² × m × s / (m/s) = W·s/m = J/m = N
+        This involves: mass (kg), length (m), time (s), and their combinations.
+
+        Simplified: 100 W × 1 s / 1 m = 100 J/m = 100 N
+        """
+        result = self.compute(
+            initial_value=100,
+            initial_unit="W",
+            factors=[
+                {"value": 1, "numerator": "s", "denominator": "1 ea"},  # × 1 s
+                {"value": 1, "numerator": "1", "denominator": "1 m"},   # / 1 m
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        # W·s/m = J/m = N, so 100 W·s/m = 100 N
+        self.assertAlmostEqual(result.quantity, 100.0, places=2)
+
+    def test_pressure_volume_work_calculation(self):
+        """Test pressure × volume = energy with multiple unit conversions.
+
+        1 atm × 1 L = 101.325 J
+        Using: 1 atm × (101325 Pa/atm) × 1 L × (0.001 m³/L) = 101.325 Pa·m³ = 101.325 J
+        """
+        result = self.compute(
+            initial_value=1,
+            initial_unit="atm",
+            factors=[
+                {"value": 101325, "numerator": "Pa", "denominator": "atm"},
+                {"value": 1, "numerator": "L", "denominator": "1 ea"},  # multiply by 1 L
+                {"value": 0.001, "numerator": "m^3", "denominator": "L"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        expected = 1 * 101325 * 1 * 0.001
+        self.assertAlmostEqual(result.quantity, expected, places=2)
+
+    def test_flow_rate_mass_transfer(self):
+        """Test volumetric flow × density × time = mass.
+
+        10 L/min × 1.0 g/mL × 60 min = 600,000 g = 600 kg
+
+        L/min × g/mL × min:
+        - L cancels with mL (factor 1000)
+        - min cancels
+        - Result: g
+        """
+        result = self.compute(
+            initial_value=10,
+            initial_unit="L/min",
+            factors=[
+                {"value": 1000, "numerator": "mL", "denominator": "L"},  # convert L to mL
+                {"value": 1.0, "numerator": "g", "denominator": "mL"},   # density
+                {"value": 60, "numerator": "min", "denominator": "1 ea"},  # time
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        expected = 10 * 1000 * 1.0 * 60
+        self.assertAlmostEqual(result.quantity, expected, places=0)
+
 
 class TestComputeToolErrors(unittest.TestCase):
     """Test error handling in the compute tool."""
