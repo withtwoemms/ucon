@@ -153,6 +153,38 @@ class TestDimension(unittest.TestCase):
         with self.assertRaises(TypeError):
             Dimension.time / "bad"
 
+    # -- Pseudo-dimension tests ------------------------------------------
+
+    def test_count_pseudo_dimension_exists(self):
+        """Test that count is a valid pseudo-dimension."""
+        self.assertIn(Dimension.count, list(Dimension))
+        self.assertEqual(Dimension.count.name, "count")
+
+    def test_count_has_zero_vector(self):
+        """Test that count has zero vector like other pseudo-dimensions."""
+        self.assertEqual(Dimension.count.vector, Vector())
+
+    def test_count_is_distinct_from_other_pseudo_dimensions(self):
+        """Test that count is distinct from angle, solid_angle, ratio, and none."""
+        self.assertNotEqual(Dimension.count, Dimension.none)
+        self.assertNotEqual(Dimension.count, Dimension.angle)
+        self.assertNotEqual(Dimension.count, Dimension.solid_angle)
+        self.assertNotEqual(Dimension.count, Dimension.ratio)
+
+    def test_pseudo_dimensions_compare_by_identity(self):
+        """Test that pseudo-dimensions with same vector are distinct."""
+        # All have zero vector but should not be equal
+        zero_vector_dims = [
+            Dimension.none,
+            Dimension.angle,
+            Dimension.solid_angle,
+            Dimension.ratio,
+            Dimension.count,
+        ]
+        for i, d1 in enumerate(zero_vector_dims):
+            for d2 in zero_vector_dims[i+1:]:
+                self.assertNotEqual(d1, d2, f"{d1.name} should not equal {d2.name}")
+
 
 class TestDimensionResolve(unittest.TestCase):
 
@@ -469,6 +501,45 @@ class TestUnit(unittest.TestCase):
 
     def test_unit_invalid_eq_type(self):
         self.assertFalse(Unit(name="meter", dimension=Dimension.length, aliases=("m",)) == "meter")
+
+
+class TestEachUnit(unittest.TestCase):
+    """Tests for the `each` unit and count dimension."""
+
+    def test_each_unit_exists(self):
+        """Test that each unit is defined."""
+        self.assertEqual(units.each.name, "each")
+        self.assertEqual(units.each.dimension, Dimension.count)
+
+    def test_each_shorthand(self):
+        """Test that each has 'ea' as shorthand."""
+        self.assertEqual(units.each.shorthand, "ea")
+
+    def test_each_aliases(self):
+        """Test that each has expected aliases."""
+        self.assertIn("ea", units.each.aliases)
+        self.assertIn("item", units.each.aliases)
+        self.assertIn("ct", units.each.aliases)
+
+    def test_mg_per_each_has_mass_dimension(self):
+        """Test that mg/ea has mass dimension (count cancels dimensionally)."""
+        mg = UnitFactor(unit=units.gram, scale=Scale.milli)
+        ea = UnitFactor(unit=units.each, scale=Scale.one)
+        product = UnitProduct({mg: 1, ea: -1})
+        self.assertEqual(product.dimension, Dimension.mass)
+
+    def test_mg_per_each_renders_with_ea(self):
+        """Test that mg/ea renders with 'ea' in shorthand."""
+        mg = UnitFactor(unit=units.gram, scale=Scale.milli)
+        ea = UnitFactor(unit=units.each, scale=Scale.one)
+        product = UnitProduct({mg: 1, ea: -1})
+        self.assertIn("ea", product.shorthand)
+
+    def test_each_number_creation(self):
+        """Test that Number can be created with each unit."""
+        n = Number(quantity=5, unit=units.each)
+        self.assertEqual(n.quantity, 5)
+        self.assertEqual(n.unit.dimension, Dimension.count)
 
 
 class TestUnitProduct(unittest.TestCase):
