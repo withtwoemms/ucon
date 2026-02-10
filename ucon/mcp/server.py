@@ -64,6 +64,23 @@ class DimensionCheck(BaseModel):
     dimension_b: str
 
 
+class ComputeStep(BaseModel):
+    """A single step in a compute chain."""
+
+    factor: str
+    dimension: str
+    unit: str
+
+
+class ComputeResult(BaseModel):
+    """Result of a multi-step factor-label computation."""
+
+    quantity: float
+    unit: str
+    dimension: str
+    steps: list[ComputeStep]
+
+
 # -----------------------------------------------------------------------------
 # Tools
 # -----------------------------------------------------------------------------
