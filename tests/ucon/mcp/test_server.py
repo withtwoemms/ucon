@@ -574,5 +574,239 @@ class TestParseErrorHandling(unittest.TestCase):
         )
 
 
+class TestComputeTool(unittest.TestCase):
+    """Test the compute tool for multi-step factor-label calculations."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import compute, ComputeResult, ComputeStep
+            from ucon.mcp.suggestions import ConversionError
+            cls.compute = staticmethod(compute)
+            cls.ComputeResult = ComputeResult
+            cls.ComputeStep = ComputeStep
+            cls.ConversionError = ConversionError
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+
+    def test_simple_single_factor(self):
+        """Test simple single-factor conversion (km to m)."""
+        result = self.compute(
+            initial_value=5,
+            initial_unit="km",
+            factors=[
+                {"value": 1000, "numerator": "m", "denominator": "km"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        self.assertAlmostEqual(result.quantity, 5000.0)
+        self.assertEqual(result.dimension, "length")
+
+    def test_returns_steps(self):
+        """Test that compute returns step trace."""
+        result = self.compute(
+            initial_value=10,
+            initial_unit="m",
+            factors=[
+                {"value": 100, "numerator": "cm", "denominator": "m"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        self.assertIsInstance(result.steps, list)
+        self.assertEqual(len(result.steps), 2)  # initial + 1 factor
+        self.assertIsInstance(result.steps[0], self.ComputeStep)
+
+    def test_initial_step_recorded(self):
+        """Test that initial value is recorded as first step."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="lb",
+            factors=[
+                {"value": 1, "numerator": "kg", "denominator": "2.205 lb"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        self.assertIn("100", result.steps[0].factor)
+        self.assertIn("lb", result.steps[0].factor)
+        self.assertEqual(result.steps[0].dimension, "mass")
+
+    def test_medical_dosage_calculation(self):
+        """Test medical dosing calculation: 154 lb patient, 15 mg/kg/day, 3 doses/day."""
+        result = self.compute(
+            initial_value=154,
+            initial_unit="lb",
+            factors=[
+                {"value": 1, "numerator": "kg", "denominator": "2.205 lb"},
+                {"value": 15, "numerator": "mg", "denominator": "kg*day"},
+                {"value": 1, "numerator": "day", "denominator": "3 dose"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        # 154 lb × (1 kg / 2.205 lb) × (15 mg / kg·day) × (1 day / 3 doses)
+        # = 154 / 2.205 × 15 / 3 mg/dose
+        # ≈ 69.84 × 5 mg/dose ≈ 349.2 mg/dose
+        expected = 154 / 2.205 * 15 / 3
+        self.assertAlmostEqual(result.quantity, expected, places=2)
+        # Should have mass/dose dimension → mass (dose is dimensionless)
+        self.assertEqual(len(result.steps), 4)  # initial + 3 factors
+
+    def test_denominator_with_numeric_prefix(self):
+        """Test that denominators can have numeric prefixes (e.g., '2.205 lb')."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="lb",
+            factors=[
+                {"value": 1, "numerator": "kg", "denominator": "2.205 lb"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        expected = 100 / 2.205
+        self.assertAlmostEqual(result.quantity, expected, places=2)
+
+    def test_multi_factor_unit_cancellation(self):
+        """Test that units cancel correctly across multiple factors."""
+        # m/s * s/min * min/h → m/h
+        result = self.compute(
+            initial_value=1,
+            initial_unit="m/s",
+            factors=[
+                {"value": 60, "numerator": "s", "denominator": "min"},
+                {"value": 60, "numerator": "min", "denominator": "h"},
+            ]
+        )
+        self.assertIsInstance(result, self.ComputeResult)
+        self.assertAlmostEqual(result.quantity, 3600.0)  # 1 m/s = 3600 m/h
+
+
+class TestComputeToolErrors(unittest.TestCase):
+    """Test error handling in the compute tool."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import compute
+            from ucon.mcp.suggestions import ConversionError
+            cls.compute = staticmethod(compute)
+            cls.ConversionError = ConversionError
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+
+    def test_unknown_initial_unit(self):
+        """Test that unknown initial unit returns error."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="foobar",
+            factors=[]
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+        self.assertEqual(result.parameter, "initial_unit")
+
+    def test_unknown_numerator_unit(self):
+        """Test that unknown numerator returns error with step."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="m",
+            factors=[
+                {"value": 1, "numerator": "foobar", "denominator": "m"},
+            ]
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+        self.assertEqual(result.parameter, "factors[0].numerator")
+        self.assertEqual(result.step, 0)
+
+    def test_unknown_denominator_unit(self):
+        """Test that unknown denominator returns error with step."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="m",
+            factors=[
+                {"value": 1, "numerator": "km", "denominator": "bazqux"},
+            ]
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+        self.assertEqual(result.parameter, "factors[0].denominator")
+        self.assertEqual(result.step, 0)
+
+    def test_error_localization_later_step(self):
+        """Test that errors in later steps report correct step number."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="m",
+            factors=[
+                {"value": 1000, "numerator": "mm", "denominator": "m"},
+                {"value": 1, "numerator": "badunit", "denominator": "mm"},
+            ]
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.step, 1)  # Second factor (0-indexed)
+        self.assertIn("factors[1]", result.parameter)
+
+    def test_missing_numerator(self):
+        """Test that missing numerator returns structured error."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="m",
+            factors=[
+                {"value": 1, "denominator": "m"},  # Missing numerator
+            ]
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "invalid_input")
+        self.assertIn("numerator", result.parameter)
+        self.assertEqual(result.step, 0)
+
+    def test_missing_denominator(self):
+        """Test that missing denominator returns structured error."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="m",
+            factors=[
+                {"value": 1, "numerator": "km"},  # Missing denominator
+            ]
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "invalid_input")
+        self.assertIn("denominator", result.parameter)
+
+    def test_parse_error_in_factor(self):
+        """Test that parse errors in factors are localized."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="m",
+            factors=[
+                {"value": 1, "numerator": "kg/(m", "denominator": "s"},  # Unbalanced
+            ]
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "parse_error")
+        self.assertEqual(result.step, 0)
+
+    def test_empty_factors_returns_initial(self):
+        """Test that empty factors list returns initial value unchanged."""
+        result = self.compute(
+            initial_value=100,
+            initial_unit="m",
+            factors=[]
+        )
+        # Should return ComputeResult, not error
+        from ucon.mcp.server import ComputeResult
+        self.assertIsInstance(result, ComputeResult)
+        self.assertAlmostEqual(result.quantity, 100.0)
+        self.assertEqual(result.dimension, "length")
+
+
 if __name__ == '__main__':
     unittest.main()
