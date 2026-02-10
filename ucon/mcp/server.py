@@ -263,6 +263,184 @@ def check_dimensions(unit_a: str, unit_b: str) -> DimensionCheck | ConversionErr
 
 
 @mcp.tool()
+def compute(
+    initial_value: float,
+    initial_unit: str,
+    factors: list[dict],
+) -> ComputeResult | ConversionError:
+    """
+    Perform multi-step factor-label calculations with dimensional tracking.
+
+    This tool processes a chain of conversion factors, validating dimensional
+    consistency at each step. It's designed for dosage calculations, stoichiometry,
+    and other multi-step unit conversions.
+
+    Each factor is applied as: result = result × (value × numerator / denominator)
+
+    Args:
+        initial_value: Starting numeric quantity.
+        initial_unit: Starting unit string.
+        factors: List of conversion factors. Each factor is a dict with:
+            - value: Numeric coefficient (multiplied into numerator)
+            - numerator: Numerator unit string (e.g., "kg", "mg")
+            - denominator: Denominator unit string, optionally with numeric prefix
+                          (e.g., "lb", "2.205 lb", "kg*day")
+
+    Returns:
+        ComputeResult with final quantity, unit, dimension, and step-by-step trace.
+        ConversionError with step localization if any factor fails.
+
+    Example:
+        # Convert 154 lb to mg/dose for a drug with 15 mg/kg/day dosing, 3 doses/day
+        compute(
+            initial_value=154,
+            initial_unit="lb",
+            factors=[
+                {"value": 1, "numerator": "kg", "denominator": "2.205 lb"},
+                {"value": 15, "numerator": "mg", "denominator": "kg*day"},
+                {"value": 1, "numerator": "day", "denominator": "3 dose"},
+            ]
+        )
+    """
+    import re
+
+    # Parse initial unit
+    initial_parsed, err = resolve_unit(initial_unit, parameter="initial_unit")
+    if err:
+        return err
+
+    # Build running result
+    result = Number(quantity=initial_value, unit=initial_parsed)
+    steps: list[ComputeStep] = []
+
+    # Record initial state
+    initial_dim = initial_parsed.dimension.name
+    initial_unit_str = initial_parsed.shorthand or initial_parsed.name if isinstance(initial_parsed, Unit) else str(initial_parsed)
+    steps.append(ComputeStep(
+        factor=f"{initial_value} {initial_unit}",
+        dimension=initial_dim,
+        unit=initial_unit_str,
+    ))
+
+    # Process each factor
+    for i, factor in enumerate(factors):
+        step_num = i + 1  # 1-indexed for user-facing errors
+
+        # Validate factor structure
+        if not isinstance(factor, dict):
+            return ConversionError(
+                error=f"Factor at step {step_num} must be a dict",
+                error_type="invalid_input",
+                parameter=f"factors[{i}]",
+                step=i,
+                hints=["Each factor should be: {\"value\": float, \"numerator\": str, \"denominator\": str}"],
+            )
+
+        value = factor.get("value", 1.0)
+        numerator = factor.get("numerator")
+        denominator = factor.get("denominator")
+
+        if numerator is None:
+            return ConversionError(
+                error=f"Factor at step {step_num} missing 'numerator' field",
+                error_type="invalid_input",
+                parameter=f"factors[{i}].numerator",
+                step=i,
+                hints=["Each factor needs a numerator unit string"],
+            )
+
+        if denominator is None:
+            return ConversionError(
+                error=f"Factor at step {step_num} missing 'denominator' field",
+                error_type="invalid_input",
+                parameter=f"factors[{i}].denominator",
+                step=i,
+                hints=["Each factor needs a denominator unit string"],
+            )
+
+        # Parse numerator unit
+        num_unit, err = resolve_unit(numerator, parameter=f"factors[{i}].numerator", step=i)
+        if err:
+            return err
+
+        # Parse denominator - may have numeric prefix (e.g., "2.205 lb")
+        denom_value = 1.0
+        denom_unit_str = denominator.strip()
+
+        # Try to extract leading number from denominator
+        match = re.match(r'^([0-9]*\.?[0-9]+)\s*(.+)$', denom_unit_str)
+        if match:
+            denom_value = float(match.group(1))
+            denom_unit_str = match.group(2).strip()
+
+        denom_unit, err = resolve_unit(denom_unit_str, parameter=f"factors[{i}].denominator", step=i)
+        if err:
+            return err
+
+        # Create the factor as a Number ratio
+        try:
+            # factor_number = (value * numerator) / (denom_value * denominator)
+            numerator_num = Number(quantity=value, unit=num_unit)
+            denominator_num = Number(quantity=denom_value, unit=denom_unit)
+            factor_ratio = numerator_num / denominator_num
+
+            # Multiply running result by factor
+            result = result * factor_ratio
+
+        except Exception as e:
+            return ConversionError(
+                error=f"Error applying factor at step {step_num}: {str(e)}",
+                error_type="computation_error",
+                parameter=f"factors[{i}]",
+                step=i,
+                hints=["Check that units are compatible for this operation"],
+            )
+
+        # Record step
+        result_unit = result.unit
+        if result_unit is None:
+            result_dim = "none"
+            result_unit_str = "1"
+        elif isinstance(result_unit, Unit):
+            result_dim = result_unit.dimension.name
+            result_unit_str = result_unit.shorthand or result_unit.name
+        else:
+            result_dim = result_unit.dimension.name
+            result_unit_str = str(result_unit)
+
+        # Format factor description
+        if denom_value != 1.0:
+            factor_desc = f"× ({value} {numerator} / {denom_value} {denom_unit_str})"
+        else:
+            factor_desc = f"× ({value} {numerator} / {denom_unit_str})"
+
+        steps.append(ComputeStep(
+            factor=factor_desc,
+            dimension=result_dim,
+            unit=result_unit_str,
+        ))
+
+    # Build final result
+    final_unit = result.unit
+    if final_unit is None:
+        final_dim = "none"
+        final_unit_str = "1"
+    elif isinstance(final_unit, Unit):
+        final_dim = final_unit.dimension.name
+        final_unit_str = final_unit.shorthand or final_unit.name
+    else:
+        final_dim = final_unit.dimension.name
+        final_unit_str = str(final_unit)
+
+    return ComputeResult(
+        quantity=result.quantity,
+        unit=final_unit_str,
+        dimension=final_dim,
+        steps=steps,
+    )
+
+
+@mcp.tool()
 def list_dimensions() -> list[str]:
     """
     List available physical dimensions.
