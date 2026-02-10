@@ -153,6 +153,38 @@ class TestDimension(unittest.TestCase):
         with self.assertRaises(TypeError):
             Dimension.time / "bad"
 
+    # -- Pseudo-dimension tests ------------------------------------------
+
+    def test_count_pseudo_dimension_exists(self):
+        """Test that count is a valid pseudo-dimension."""
+        self.assertIn(Dimension.count, list(Dimension))
+        self.assertEqual(Dimension.count.name, "count")
+
+    def test_count_has_zero_vector(self):
+        """Test that count has zero vector like other pseudo-dimensions."""
+        self.assertEqual(Dimension.count.vector, Vector())
+
+    def test_count_is_distinct_from_other_pseudo_dimensions(self):
+        """Test that count is distinct from angle, solid_angle, ratio, and none."""
+        self.assertNotEqual(Dimension.count, Dimension.none)
+        self.assertNotEqual(Dimension.count, Dimension.angle)
+        self.assertNotEqual(Dimension.count, Dimension.solid_angle)
+        self.assertNotEqual(Dimension.count, Dimension.ratio)
+
+    def test_pseudo_dimensions_compare_by_identity(self):
+        """Test that pseudo-dimensions with same vector are distinct."""
+        # All have zero vector but should not be equal
+        zero_vector_dims = [
+            Dimension.none,
+            Dimension.angle,
+            Dimension.solid_angle,
+            Dimension.ratio,
+            Dimension.count,
+        ]
+        for i, d1 in enumerate(zero_vector_dims):
+            for d2 in zero_vector_dims[i+1:]:
+                self.assertNotEqual(d1, d2, f"{d1.name} should not equal {d2.name}")
+
 
 class TestDimensionResolve(unittest.TestCase):
 
