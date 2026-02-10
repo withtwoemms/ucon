@@ -609,16 +609,18 @@ class TestCountDimensionMCP(unittest.TestCase):
         self.assertIn("count", result)
 
     def test_convert_each_rejected_cross_dimension(self):
-        """Test that converting ea to rad returns dimension mismatch."""
+        """Test that converting ea to rad is rejected (pseudo-dimension isolation)."""
         result = self.convert(5, "ea", "rad")
         self.assertIsInstance(result, self.ConversionError)
-        self.assertEqual(result.error_type, "dimension_mismatch")
+        # Pseudo-dimensions have same zero vector but are isolated
+        self.assertEqual(result.error_type, "no_conversion_path")
 
     def test_convert_each_to_percent_rejected(self):
-        """Test that converting ea to % returns dimension mismatch."""
+        """Test that converting ea to % is rejected (pseudo-dimension isolation)."""
         result = self.convert(5, "ea", "%")
         self.assertIsInstance(result, self.ConversionError)
-        self.assertEqual(result.error_type, "dimension_mismatch")
+        # Pseudo-dimensions have same zero vector but are isolated
+        self.assertEqual(result.error_type, "no_conversion_path")
 
     def test_check_dimensions_ea_vs_rad_incompatible(self):
         """Test that ea and rad are incompatible."""
