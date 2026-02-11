@@ -774,5 +774,10 @@ def _build_standard_graph() -> ConversionGraph:
     # --- Clinical ---
     # milliequivalent: 1 mEq = 1 mmol for monovalent ions (clinical standard)
     graph.add_edge(src=units.milliequivalent, dst=units.mole, map=LinearMap(0.001))
+    # drop factor: 15 gtt = 1 mL (standard macrodrip tubing)
+    # 1 gtt = 1/15 mL = 1/15000 L
+    graph.add_edge(src=units.drop, dst=units.liter, map=LinearMap(1/15000))
+    # percent w/v solution: 1% = 1 g/100 mL = 10 g/L
+    graph.add_edge(src=units.percent_wv, dst=units.gram / units.liter, map=LinearMap(10))
 
     return graph

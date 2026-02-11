@@ -170,14 +170,18 @@ nines = Unit(name='nines', dimension=Dimension.ratio, aliases=('9s',))
 
 # -- Count Units -------------------------------------------------------
 each = Unit(name='each', dimension=Dimension.count, aliases=('ea', 'item', 'ct'))
-international_unit = Unit(name='international_unit', dimension=Dimension.count, aliases=('IU', 'units'))
-drop = Unit(name='drop', dimension=Dimension.count, aliases=('gtt', 'drops'))
+international_unit = Unit(name='international_unit', dimension=Dimension.count, aliases=('IU', 'units', 'unit'))
 # ----------------------------------------------------------------------
 
 
 # -- Clinical Units ----------------------------------------------------
 # milliequivalent: 1 mEq = 1 mmol for monovalent ions (Na+, K+, Cl-, HCO3-)
 milliequivalent = Unit(name='milliequivalent', dimension=Dimension.amount_of_substance, aliases=('mEq',))
+# drop: volume unit for IV drip calculations (15 gtt = 1 mL standard macrodrip)
+drop = Unit(name='drop', dimension=Dimension.volume, aliases=('gtt', 'drops'))
+# percent_wv: w/v percent solution (1% = 1 g/100 mL = 10 mg/mL)
+# Distinct from ratio percent - this is a concentration (density) unit
+percent_wv = Unit(name='percent_wv', dimension=Dimension.mass / Dimension.volume, aliases=('%w/v', '%wv'))
 # ----------------------------------------------------------------------
 
 
