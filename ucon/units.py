@@ -170,6 +170,14 @@ nines = Unit(name='nines', dimension=Dimension.ratio, aliases=('9s',))
 
 # -- Count Units -------------------------------------------------------
 each = Unit(name='each', dimension=Dimension.count, aliases=('ea', 'item', 'ct'))
+international_unit = Unit(name='international_unit', dimension=Dimension.count, aliases=('IU', 'units'))
+drop = Unit(name='drop', dimension=Dimension.count, aliases=('gtt', 'drops'))
+# ----------------------------------------------------------------------
+
+
+# -- Clinical Units ----------------------------------------------------
+# milliequivalent: 1 mEq = 1 mmol for monovalent ions (Na+, K+, Cl-, HCO3-)
+milliequivalent = Unit(name='milliequivalent', dimension=Dimension.amount_of_substance, aliases=('mEq',))
 # ----------------------------------------------------------------------
 
 
