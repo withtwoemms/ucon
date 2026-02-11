@@ -304,23 +304,24 @@ def compute(
     """
     import re
 
-    from ucon.core import UnitFactor
-
     # Parse initial unit
     initial_parsed, err = resolve_unit(initial_unit, parameter="initial_unit")
     if err:
         return err
 
-    # Track numeric value and unit product separately for factor-label
-    # This avoids Number's internal scale handling which breaks factor-label math
+    # Track numeric value separately from unit accumulator
+    # The flat accumulator keys by (unit.name, dimension, scale) so that
+    # mg and kg remain separate entries (different scales, shouldn't cancel)
     running_value = float(initial_value)
-    running_unit = UnitProduct.from_unit(initial_parsed) if isinstance(initial_parsed, Unit) else initial_parsed
+    accum: dict[tuple, tuple] = {}
+    _accumulate_factors(accum, initial_parsed, +1.0)
 
     steps: list[ComputeStep] = []
 
     # Record initial state
+    running_unit = _build_product_from_accum(accum)
     initial_dim = initial_parsed.dimension.name
-    initial_unit_str = _format_unit_output(initial_parsed)
+    initial_unit_str = _format_unit_output(running_unit)
     steps.append(ComputeStep(
         factor=f"{initial_value} {initial_unit}",
         dimension=initial_dim,
@@ -388,13 +389,12 @@ def compute(
             numeric_factor = value / denom_value
             running_value *= numeric_factor
 
-            # Compute unit factor: num_unit / denom_unit
-            num_as_product = UnitProduct.from_unit(num_unit) if isinstance(num_unit, Unit) else num_unit
-            denom_as_product = UnitProduct.from_unit(denom_unit) if isinstance(denom_unit, Unit) else denom_unit
-            unit_factor = num_as_product / denom_as_product
+            # Accumulate numerator factors at +1, denominator factors at -1
+            _accumulate_factors(accum, num_unit, +1.0)
+            _accumulate_factors(accum, denom_unit, -1.0)
 
-            # Multiply running unit by unit factor
-            running_unit = running_unit * unit_factor
+            # Build current unit product for step recording
+            running_unit = _build_product_from_accum(accum)
 
         except Exception as e:
             return ConversionError(
@@ -422,6 +422,7 @@ def compute(
         ))
 
     # Build final result
+    running_unit = _build_product_from_accum(accum)
     final_dim = running_unit.dimension.name if running_unit else "none"
     final_unit_str = _format_unit_output(running_unit)
 
@@ -439,8 +440,52 @@ def _format_unit_output(unit) -> str:
         return "1"
     elif isinstance(unit, Unit):
         return unit.shorthand or unit.name
+    elif isinstance(unit, UnitProduct):
+        return unit.shorthand or "1"
     else:
         return str(unit)
+
+
+def _accumulate_factors(
+    accum: dict[tuple, tuple],
+    product: Unit | UnitProduct,
+    sign: float,
+) -> None:
+    """Add all UnitFactors from a parsed unit into the accumulator.
+
+    The accumulator is keyed by (unit.name, dimension, scale) so that
+    same-unit-different-scale entries (mg vs kg) don't cancel.
+
+    Args:
+        accum: The accumulator dict mapping key → (UnitFactor, exponent).
+        product: A Unit or UnitProduct to accumulate.
+        sign: +1.0 for numerator factors, -1.0 for denominator factors.
+    """
+    from ucon.core import UnitFactor
+
+    if isinstance(product, Unit):
+        product = UnitProduct.from_unit(product)
+
+    for uf, exp in product.factors.items():
+        key = (uf.unit.name, uf.unit.dimension, uf.scale)
+        if key in accum:
+            existing_uf, existing_exp = accum[key]
+            accum[key] = (existing_uf, existing_exp + exp * sign)
+        else:
+            accum[key] = (uf, exp * sign)
+
+
+def _build_product_from_accum(
+    accum: dict[tuple, tuple],
+) -> UnitProduct:
+    """Build a UnitProduct from surviving non-zero accumulator entries."""
+    surviving = {}
+    for key, (uf, exp) in accum.items():
+        if abs(exp) > 1e-12:
+            surviving[uf] = exp
+    if not surviving:
+        return UnitProduct({})
+    return UnitProduct(surviving)
 
 
 @mcp.tool()
