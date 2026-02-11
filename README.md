@@ -340,10 +340,28 @@ Configure in Claude Desktop (`claude_desktop_config.json`):
 
 Available tools:
 - `convert(value, from_unit, to_unit)` — Unit conversion with dimensional validation
+- `compute(initial_value, initial_unit, factors)` — Multi-step factor-label calculations
 - `list_units(dimension?)` — Discover available units
 - `list_scales()` — List SI and binary prefixes
 - `check_dimensions(unit_a, unit_b)` — Check dimensional compatibility
 - `list_dimensions()` — List physical dimensions
+
+**Factor-label calculations** with `compute`:
+```python
+# Convert 154 lb patient weight to mg/dose for a drug dosed at 15 mg/kg/day, 3 doses/day
+compute(
+    initial_value=154,
+    initial_unit="lb",
+    factors=[
+        {"value": 1, "numerator": "kg", "denominator": "2.205 lb"},
+        {"value": 15, "numerator": "mg", "denominator": "kg*day"},
+        {"value": 1, "numerator": "day", "denominator": "3 ea"},
+    ]
+)
+# → {"quantity": 349.2, "unit": "mg/ea", "dimension": "mass/count", "steps": [...]}
+```
+
+Each step in the response shows the intermediate quantity, unit, and dimension — enabling AI agents to verify dimensional consistency throughout the calculation chain.
 
 ### Custom Unit Systems
 
@@ -363,7 +381,9 @@ See full example: [docs/examples/basis-transform-fantasy-units.md](./docs/exampl
 | **0.5.x** | Uncertainty | Propagation through arithmetic and conversions | ✅ Complete |
 | **0.5.x** | Unit Systems | `BasisTransform`, `UnitSystem`, cross-basis conversion | ✅ Complete |
 | **0.6.x** | Pydantic + MCP | API validation, AI agent integration | ✅ Complete |
-| **0.7.x** | NumPy Arrays | Vectorized conversion and arithmetic | ⏳ Planned |
+| **0.7.x** | MCP Compute | Factor-label chains, error suggestions, count dimension | ✅ Complete |
+| **0.8.x** | String Parsing | `parse("60 mph")` → Number | ⏳ Planned |
+| **0.10.x** | NumPy Arrays | Vectorized conversion and arithmetic | ⏳ Planned |
 
 See full roadmap: [ROADMAP.md](./ROADMAP.md)
 
