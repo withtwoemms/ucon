@@ -1626,10 +1626,22 @@ class Number:
         # Use raw quantity - the conversion map handles scale via factorwise decomposition
         converted_quantity = conversion_map(self.quantity)
 
+        # Account for residual scale factors from cancelled dimensions.
+        # When units cancel (e.g., mcg/kg), the scale ratio goes into _residual_scale_factor.
+        # The graph conversion only sees the remaining dimensions, so we must apply
+        # the residual ratio here: src_residual / dst_residual.
+        src_residual = getattr(src, '_residual_scale_factor', 1.0)
+        dst_residual = getattr(dst, '_residual_scale_factor', 1.0)
+        if src_residual != 1.0 or dst_residual != 1.0:
+            converted_quantity *= (src_residual / dst_residual)
+
         # Propagate uncertainty through conversion using derivative
         new_uncertainty = None
         if self.uncertainty is not None:
             derivative = abs(conversion_map.derivative(self.quantity))
+            # Also apply residual scale to uncertainty
+            if src_residual != 1.0 or dst_residual != 1.0:
+                derivative *= abs(src_residual / dst_residual)
             new_uncertainty = derivative * self.uncertainty
 
         return Number(quantity=converted_quantity, unit=target, uncertainty=new_uncertainty)
