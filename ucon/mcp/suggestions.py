@@ -327,11 +327,26 @@ def build_dimension_mismatch_error(
     ConversionError
         Structured error with dimension info and compatible units.
     """
+    from ucon.core import Dimension
+
     src_dim_name = _get_dimension_name(src_unit)
     dst_dim_name = _get_dimension_name(dst_unit)
 
+    likely_fix = None
+
+    # Special case: % (ratio) → concentration (density)
+    # Suggest %w/v for weight/volume percent solutions
+    if (from_unit_str in ('%', 'percent') and
+        src_unit.dimension == Dimension.ratio and
+        dst_dim_name == 'density'):
+        likely_fix = "%w/v"
+
     # Build hints
     hints = [f"{from_unit_str} is {src_dim_name}; {to_unit_str} is {dst_dim_name}"]
+
+    # Add context-specific hint for percent → concentration
+    if likely_fix == "%w/v":
+        hints.insert(0, "For weight/volume percent solutions (e.g., '0.9% saline'), use '%w/v' not '%'")
 
     # Get compatible units for source dimension
     compatible = _get_compatible_units(src_unit.dimension)
@@ -353,6 +368,7 @@ def build_dimension_mismatch_error(
         step=step,
         got=src_dim_name,
         expected=src_dim_name,  # Expected same dimension as source
+        likely_fix=likely_fix,
         hints=hints,
     )
 
