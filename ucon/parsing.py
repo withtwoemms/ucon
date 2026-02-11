@@ -334,19 +334,51 @@ class UnitParser:
     def _multiply(self, left: 'UnitProduct', right: 'UnitProduct') -> 'UnitProduct':
         """Multiply two UnitProducts.
 
-        Uses UnitProduct as a key to leverage its built-in merge logic,
-        which handles UnitFactors with the same unit but different scales correctly.
+        Explicitly accumulates factors to:
+        1. Handle equal operands correctly (second*second → s²)
+        2. Propagate _residual_scale_factor from both operands
         """
-        # Pass both products as keys; UnitProduct flattens nested products
-        return self.unit_product_cls({left: 1, right: 1})
+        # Accumulate factors from both operands
+        combined = {}
+        for uf, exp in left.factors.items():
+            combined[uf] = combined.get(uf, 0.0) + exp
+        for uf, exp in right.factors.items():
+            combined[uf] = combined.get(uf, 0.0) + exp
+
+        result = self.unit_product_cls(combined)
+
+        # Propagate residual scale factors from both operands
+        left_residual = getattr(left, '_residual_scale_factor', 1.0)
+        right_residual = getattr(right, '_residual_scale_factor', 1.0)
+        if left_residual != 1.0 or right_residual != 1.0:
+            result._residual_scale_factor = result._residual_scale_factor * left_residual * right_residual
+
+        return result
 
     def _divide(self, left: 'UnitProduct', right: 'UnitProduct') -> 'UnitProduct':
         """Divide left by right (negate right's exponents).
 
-        Uses UnitProduct as a key to leverage its built-in merge logic.
+        Explicitly accumulates factors to:
+        1. Handle equal operands correctly
+        2. Propagate _residual_scale_factor from both operands
         """
-        # Pass left with exp 1, right with exp -1
-        return self.unit_product_cls({left: 1, right: -1})
+        # Accumulate factors: left at +exp, right at -exp
+        combined = {}
+        for uf, exp in left.factors.items():
+            combined[uf] = combined.get(uf, 0.0) + exp
+        for uf, exp in right.factors.items():
+            combined[uf] = combined.get(uf, 0.0) - exp
+
+        result = self.unit_product_cls(combined)
+
+        # Propagate residual scale factors (right is inverted, so its residual is raised to -1)
+        left_residual = getattr(left, '_residual_scale_factor', 1.0)
+        right_residual = getattr(right, '_residual_scale_factor', 1.0)
+        if left_residual != 1.0 or right_residual != 1.0:
+            # right's residual is inverted since we're dividing
+            result._residual_scale_factor = result._residual_scale_factor * left_residual / right_residual
+
+        return result
 
     def _power(self, base: 'UnitProduct', exp: float) -> 'UnitProduct':
         """Raise a UnitProduct to a power.

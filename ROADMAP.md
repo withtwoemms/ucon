@@ -31,7 +31,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.6.x | Dimensional Type Safety | Complete |
 | v0.7.0 | MCP Error Suggestions | Complete |
 | v0.7.1 | MCP Error Infrastructure for Multi-Step Chains | Complete |
-| v0.7.2 | Compute Tool | Planned |
+| v0.7.2 | Compute Tool | Complete |
 | v0.7.x | Schema-Level Dimension Constraints | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
@@ -278,7 +278,7 @@ Building on v0.5.x baseline:
 
 ---
 
-## v0.7.2 — Compute Tool (In Progress)
+## v0.7.2 — Compute Tool (Complete)
 
 **Theme:** Multi-step factor-label calculations for AI agents.
 
@@ -296,16 +296,19 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ### Compute Tool
 
-- [ ] `compute` tool for dimensionally-validated factor-label chains
-- [ ] `steps` array in response showing intermediate dimensional state
-- [ ] Per-step error localization using `ConversionError.step`
-- [ ] Multi-factor cancellation tests for `UnitProduct` (medical dosage, stoichiometry)
+- [x] `compute` tool for dimensionally-validated factor-label chains
+- [x] `ComputeStep` and `ComputeResult` response models
+- [x] `steps` array in response showing intermediate dimensional state
+- [x] Per-step error localization using `ConversionError.step`
+- [x] Multi-factor cancellation tests (medical dosage, stoichiometry, 6-7 factor chains)
+- [x] `watt_hour` unit with `Wh` alias for energy chain tests
+- [x] Flat accumulator fix: unit tracking keyed by `(name, dimension, scale)` so `mg` and `kg` don't cancel
 
 **Outcomes:**
 - AI agents can run factor-label chains with dimensional safety at each step
 - Intermediate state visible for debugging and benchmarks (SLM vs LLM comparison)
 - Agents can self-correct mid-chain rather than only at the end
-- `UnitProduct` cancellation logic validated against realistic compute inputs
+- Factor-label methodology preserved: `154 lb × (1 kg / 2.205 lb) × (15 mg / kg·day)` yields `mg/d` not `kg/d`
 - Countable items (30 ea × 500 mg/ea = 15000 mg) work in factor-label chains
 
 ---
