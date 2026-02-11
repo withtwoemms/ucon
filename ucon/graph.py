@@ -771,4 +771,8 @@ def _build_standard_graph() -> ConversionGraph:
     # nines: -log₁₀(1 - availability) for SRE uptime (0.99999 → 5 nines)
     graph.add_edge(src=units.fraction, dst=units.nines, map=LogMap(scale=-1) @ AffineMap(a=-1, b=1))
 
+    # --- Clinical ---
+    # milliequivalent: 1 mEq = 1 mmol for monovalent ions (clinical standard)
+    graph.add_edge(src=units.milliequivalent, dst=units.mole, map=LinearMap(0.001))
+
     return graph
