@@ -706,6 +706,7 @@ class ConversionGraph:
 
 _default_graph: ConversionGraph | None = None
 _graph_context: ContextVar[ConversionGraph | None] = ContextVar("graph", default=None)
+_parsing_graph: ContextVar[ConversionGraph | None] = ContextVar("parsing_graph", default=None)
 
 
 def get_default_graph() -> ConversionGraph:
@@ -739,20 +740,50 @@ def reset_default_graph() -> None:
     _default_graph = None
 
 
+def get_parsing_graph() -> ConversionGraph | None:
+    """Get the graph to use for name resolution during parsing.
+
+    Returns the context-local parsing graph if set, otherwise None.
+    Used by _lookup_factor() to check graph-local registry first.
+
+    Returns
+    -------
+    ConversionGraph | None
+        The parsing graph, or None if not in a using_graph() context.
+    """
+    return _parsing_graph.get()
+
+
 @contextmanager
 def using_graph(graph: ConversionGraph):
     """Context manager for scoped graph override.
+
+    Sets both the conversion graph and parsing graph contexts,
+    so that name resolution and conversions both use the same graph.
 
     Usage::
 
         with using_graph(custom_graph):
             result = value.to(target)  # uses custom_graph
+            unit = get_unit_by_name("custom_unit")  # resolves in custom_graph
+
+    Parameters
+    ----------
+    graph : ConversionGraph
+        The graph to use within this context.
+
+    Yields
+    ------
+    ConversionGraph
+        The same graph passed in.
     """
-    token = _graph_context.set(graph)
+    token_graph = _graph_context.set(graph)
+    token_parsing = _parsing_graph.set(graph)
     try:
         yield graph
     finally:
-        _graph_context.reset(token)
+        _graph_context.reset(token_graph)
+        _parsing_graph.reset(token_parsing)
 
 
 def _build_standard_graph() -> ConversionGraph:
