@@ -32,6 +32,9 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.0 | MCP Error Suggestions | Complete |
 | v0.7.1 | MCP Error Infrastructure for Multi-Step Chains | Complete |
 | v0.7.2 | Compute Tool | Complete |
+| v0.7.3 | Graph-Local Name Resolution | Planned |
+| v0.7.4 | UnitPackage + TOML Loading | Planned |
+| v0.7.5 | MCP Extension Tools | Planned |
 | v0.7.x | Schema-Level Dimension Constraints | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
@@ -294,7 +297,7 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 **Design decision:** Single `each` unit instead of domain-specific atomizers (dose, tablet, capsule). Atomizers are application-layer metadata, not core units.
 
-### Compute Tool
+### Compute Tool (Complete)
 
 - [x] `compute` tool for dimensionally-validated factor-label chains
 - [x] `ComputeStep` and `ComputeResult` response models
@@ -302,7 +305,9 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - [x] Per-step error localization using `ConversionError.step`
 - [x] Multi-factor cancellation tests (medical dosage, stoichiometry, 6-7 factor chains)
 - [x] `watt_hour` unit with `Wh` alias for energy chain tests
-- [x] Flat accumulator fix: unit tracking keyed by `(name, dimension, scale)` so `mg` and `kg` don't cancel
+- [x] Accumulator-style unit tracking (flat factor accumulation)
+- [x] Residual scale factor propagation through graph conversions
+- [x] `second*second` → `s²` parsing fix (explicit factor accumulation)
 
 **Outcomes:**
 - AI agents can run factor-label chains with dimensional safety at each step
@@ -310,6 +315,74 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - Agents can self-correct mid-chain rather than only at the end
 - Factor-label methodology preserved: `154 lb × (1 kg / 2.205 lb) × (15 mg / kg·day)` yields `mg/d` not `kg/d`
 - Countable items (30 ea × 500 mg/ea = 15000 mg) work in factor-label chains
+
+---
+
+## v0.7.3 — Graph-Local Name Resolution (Planned)
+
+**Theme:** Shared infrastructure for dynamic unit extension.
+
+- [ ] `ConversionGraph._name_registry` (case-insensitive) and `_name_registry_cs` (case-sensitive)
+- [ ] `graph.register_unit(unit)` — Register unit for name resolution within graph
+- [ ] `graph.resolve_unit(name)` — Lookup in graph-local registry, return None if not found
+- [ ] `graph.copy()` — Deep copy edges, shallow copy registries
+- [ ] `_parsing_graph` ContextVar for threading resolution through parsing
+- [ ] `using_graph()` sets both conversion and parsing context
+- [ ] `_lookup_factor()` checks graph-local first, falls back to global
+- [ ] `_build_standard_graph()` calls `register_unit()` for all standard units
+
+**Outcomes:**
+- Unit name resolution becomes graph-scoped, not global
+- `using_graph(custom_graph)` automatically scopes both conversions AND name lookups
+- Foundation for UnitPackage (v0.7.4) and MCP extension tools (v0.7.5)
+- No global state mutation required for custom unit definitions
+
+---
+
+## v0.7.4 — UnitPackage + TOML Loading (Planned)
+
+**Theme:** Config-file-based unit extension for application developers.
+
+- [ ] `UnitDef` dataclass: `{name, dimension, aliases, shorthand}`
+- [ ] `EdgeDef` dataclass: `{src, dst, factor}`
+- [ ] `UnitPackage` frozen dataclass: `{name, version, units, edges, requires}`
+- [ ] `load_package(path)` — Parse TOML file into `UnitPackage`
+- [ ] `graph.with_package(pkg)` — Return new graph with package contents added
+- [ ] `set_default_graph(graph)` — Replace module-level default
+- [ ] Example package: `examples/aerospace.ucon.toml`
+
+**Outcomes:**
+- Implementers define domain units in TOML config files
+- Units loaded at application startup without modifying library code
+- Immutable composition: `graph.with_package(a).with_package(b)`
+- No global state mutation — graphs are composed, not mutated
+- Foundation for ucon.dev marketplace of domain packages
+
+---
+
+## v0.7.5 — MCP Extension Tools (Planned)
+
+**Theme:** Runtime unit extension for AI agents.
+
+### Session Tools (Token Efficient)
+
+- [ ] `_session_graph` ContextVar for session-scoped custom graphs
+- [ ] `define_unit(name, dimension, aliases)` — Register unit in session graph
+- [ ] `define_conversion(src, dst, factor)` — Add edge to session graph
+- [ ] `reset_session()` — Clear session graph, return to default
+
+### Inline Parameters (Recoverable)
+
+- [ ] `convert(..., custom_units=[...], custom_edges=[...])` — Self-contained conversion
+- [ ] `compute(..., custom_units=[...], custom_edges=[...])` — Self-contained multi-step
+- [ ] Graph caching by definition hash for performance
+
+**Outcomes:**
+- Agents can bring their own units without prior registration
+- Session tools minimize token cost for repeated definitions
+- Inline parameters enable recovery when session state is lost
+- Hybrid approach: session for efficiency, inline for fault tolerance
+- Exotic domain evals (aerospace, radiation, chemeng) work without core bloat
 
 ---
 
