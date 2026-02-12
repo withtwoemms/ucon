@@ -19,6 +19,7 @@ Functions
 - :func:`set_default_graph` — Replace the default graph.
 - :func:`reset_default_graph` — Reset to standard graph on next access.
 - :func:`using_graph` — Context manager for scoped graph override.
+- :func:`get_parsing_graph` — Get the graph for name resolution during parsing.
 """
 from __future__ import annotations
 
@@ -791,6 +792,12 @@ def _build_standard_graph() -> ConversionGraph:
     from ucon import units
 
     graph = ConversionGraph()
+
+    # Register all standard units for graph-local name resolution
+    for name in dir(units):
+        obj = getattr(units, name)
+        if isinstance(obj, Unit) and not isinstance(obj, RebasedUnit):
+            graph.register_unit(obj)
 
     # --- Length ---
     graph.add_edge(src=units.meter, dst=units.foot, map=LinearMap(3.28084))
