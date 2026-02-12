@@ -242,7 +242,13 @@ class ConversionDefinitionResult(BaseModel):
 
 
 @mcp.tool()
-def convert(value: float, from_unit: str, to_unit: str) -> ConversionResult | ConversionError:
+def convert(
+    value: float,
+    from_unit: str,
+    to_unit: str,
+    custom_units: list[dict] | None = None,
+    custom_edges: list[dict] | None = None,
+) -> ConversionResult | ConversionError:
     """
     Convert a numeric value from one unit to another.
 
@@ -252,33 +258,56 @@ def convert(value: float, from_unit: str, to_unit: str) -> ConversionResult | Co
     - Composite units: "m/s", "kg*m/s^2", "N*m"
     - Exponents: "m^2", "s^-1" (ASCII) or "m²", "s⁻¹" (Unicode)
 
+    For custom/domain-specific units, you can either:
+    1. Use define_unit() and define_conversion() to register them for the session
+    2. Pass them inline via custom_units and custom_edges parameters
+
     Args:
         value: The numeric quantity to convert.
         from_unit: Source unit string.
         to_unit: Target unit string.
+        custom_units: Optional list of inline unit definitions for this call only.
+            Each dict should have: {"name": str, "dimension": str, "aliases": [str]}
+        custom_edges: Optional list of inline conversion edges for this call only.
+            Each dict should have: {"src": str, "dst": str, "factor": float}
 
     Returns:
         ConversionResult with converted quantity, unit, and dimension.
         ConversionError if the conversion fails, with suggestions for correction.
+
+    Example with inline definitions:
+        convert(1, "slug", "kg",
+            custom_units=[{"name": "slug", "dimension": "mass", "aliases": ["slug"]}],
+            custom_edges=[{"src": "slug", "dst": "kg", "factor": 14.5939}])
     """
-    # 1. Parse source unit
-    src, err = resolve_unit(from_unit, parameter="from_unit")
+    # Build inline graph if custom definitions provided
+    inline_graph, err = _build_inline_graph(custom_units, custom_edges)
     if err:
         return err
 
-    # 2. Parse target unit
-    dst, err = resolve_unit(to_unit, parameter="to_unit")
-    if err:
-        return err
+    # Use inline graph, session graph, or default
+    graph = inline_graph or _session_graph.get() or get_default_graph()
 
-    # 3. Perform conversion
-    try:
-        num = Number(quantity=value, unit=src)
-        result = num.to(dst)
-    except DimensionMismatch:
-        return build_dimension_mismatch_error(from_unit, to_unit, src, dst)
-    except ConversionNotFound as e:
-        return build_no_path_error(from_unit, to_unit, src, dst, e)
+    # Perform resolution and conversion within graph context
+    with using_graph(graph):
+        # 1. Parse source unit
+        src, err = resolve_unit(from_unit, parameter="from_unit")
+        if err:
+            return err
+
+        # 2. Parse target unit
+        dst, err = resolve_unit(to_unit, parameter="to_unit")
+        if err:
+            return err
+
+        # 3. Perform conversion
+        try:
+            num = Number(quantity=value, unit=src)
+            result = num.to(dst, graph=graph)
+        except DimensionMismatch:
+            return build_dimension_mismatch_error(from_unit, to_unit, src, dst)
+        except ConversionNotFound as e:
+            return build_no_path_error(from_unit, to_unit, src, dst, e)
 
     # Use the target unit string as output (what the user asked for).
     # This handles cases like mg/kg → µg/kg where internal representation
