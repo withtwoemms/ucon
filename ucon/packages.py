@@ -35,8 +35,13 @@ Example
 """
 from __future__ import annotations
 
-import tomllib
+import sys
 from dataclasses import dataclass
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
