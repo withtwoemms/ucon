@@ -32,6 +32,7 @@ import re
 from typing import Dict, Tuple, Union
 
 from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct, UnitSystem
+from ucon.graph import get_parsing_graph
 from ucon.parsing import parse_unit_expression, ParseError
 
 
@@ -352,6 +353,9 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     """
     Look up a single unit factor, handling scale prefixes.
 
+    Checks graph-local registry first (if within a using_graph() context),
+    then falls back to the global registry.
+
     Prioritizes prefix+unit interpretation over direct unit lookup,
     except for priority aliases (like 'min', 'mcg') which are checked first
     to avoid ambiguous parses or to handle domain-specific conventions.
@@ -373,6 +377,13 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     Raises:
         UnknownUnitError: If the unit cannot be resolved.
     """
+    # Check graph-local registry first (if in using_graph() context)
+    graph = get_parsing_graph()
+    if graph is not None:
+        result = graph.resolve_unit(s)
+        if result is not None:
+            return result
+
     # Check priority scaled aliases first (e.g., "mcg" -> microgram)
     if s in _PRIORITY_SCALED_ALIASES:
         return _PRIORITY_SCALED_ALIASES[s]
