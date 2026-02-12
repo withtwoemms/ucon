@@ -6,12 +6,18 @@
 #   ucon-mcp              # Run via entry point
 #   python -m ucon.mcp    # Run as module
 
+import hashlib
+import json
+from contextvars import ContextVar
+from typing import TYPE_CHECKING
+
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
-from ucon import Dimension
+from ucon import Dimension, get_default_graph
 from ucon.core import Number, Scale, Unit, UnitProduct
-from ucon.graph import DimensionMismatch, ConversionNotFound
+from ucon.graph import ConversionGraph, DimensionMismatch, ConversionNotFound, using_graph
+from ucon.maps import LinearMap
 from ucon.mcp.suggestions import (
     ConversionError,
     resolve_unit,
@@ -19,9 +25,131 @@ from ucon.mcp.suggestions import (
     build_no_path_error,
     build_unknown_dimension_error,
 )
+from ucon.packages import EdgeDef, PackageLoadError, UnitDef
 
 
 mcp = FastMCP("ucon")
+
+
+# -----------------------------------------------------------------------------
+# Session Graph Management
+# -----------------------------------------------------------------------------
+
+# Session-scoped graph for persistent custom definitions
+_session_graph: ContextVar[ConversionGraph | None] = ContextVar(
+    '_session_graph', default=None
+)
+
+# Cache for inline graph compilation (keyed by hash of definitions)
+_inline_graph_cache: dict[str, ConversionGraph] = {}
+
+
+def _get_session_graph() -> ConversionGraph:
+    """Get or create the session graph.
+
+    Returns a copy of the default graph on first access, then reuses
+    the session graph for subsequent calls within the same session.
+    """
+    graph = _session_graph.get()
+    if graph is None:
+        graph = get_default_graph().copy()
+        _session_graph.set(graph)
+    return graph
+
+
+def _reset_session_graph() -> None:
+    """Reset the session graph to a fresh copy of the default graph."""
+    graph = get_default_graph().copy()
+    _session_graph.set(graph)
+
+
+def _hash_definitions(
+    custom_units: list[dict] | None,
+    custom_edges: list[dict] | None,
+) -> str:
+    """Compute a stable hash for inline definitions."""
+    data = {
+        'units': sorted([json.dumps(u, sort_keys=True) for u in (custom_units or [])]),
+        'edges': sorted([json.dumps(e, sort_keys=True) for e in (custom_edges or [])]),
+    }
+    return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def _build_inline_graph(
+    custom_units: list[dict] | None,
+    custom_edges: list[dict] | None,
+) -> tuple[ConversionGraph | None, ConversionError | None]:
+    """Build an ephemeral graph with inline definitions.
+
+    Returns (graph, None) on success, (None, error) on failure.
+    Uses caching to avoid redundant compilation.
+    """
+    if not custom_units and not custom_edges:
+        return None, None
+
+    # Check cache
+    cache_key = _hash_definitions(custom_units, custom_edges)
+    if cache_key in _inline_graph_cache:
+        return _inline_graph_cache[cache_key], None
+
+    # Build new graph from session (or default)
+    base_graph = _session_graph.get()
+    if base_graph is None:
+        base_graph = get_default_graph()
+    graph = base_graph.copy()
+
+    # Register custom units first
+    for i, unit_dict in enumerate(custom_units or []):
+        try:
+            unit_def = UnitDef(
+                name=unit_dict.get('name', ''),
+                dimension=unit_dict.get('dimension', ''),
+                aliases=tuple(unit_dict.get('aliases', ())),
+            )
+            unit = unit_def.materialize()
+            graph.register_unit(unit)
+        except PackageLoadError as e:
+            return None, ConversionError(
+                error=str(e),
+                error_type="invalid_input",
+                parameter=f"custom_units[{i}]",
+                hints=["Check dimension name is valid (use list_dimensions())"],
+            )
+        except Exception as e:
+            return None, ConversionError(
+                error=f"Invalid unit definition: {e}",
+                error_type="invalid_input",
+                parameter=f"custom_units[{i}]",
+                hints=["Unit needs 'name' and 'dimension' fields"],
+            )
+
+    # Add custom edges
+    for i, edge_dict in enumerate(custom_edges or []):
+        try:
+            edge_def = EdgeDef(
+                src=edge_dict.get('src', ''),
+                dst=edge_dict.get('dst', ''),
+                factor=float(edge_dict.get('factor', 1.0)),
+            )
+            edge_def.materialize(graph)
+        except PackageLoadError as e:
+            return None, ConversionError(
+                error=str(e),
+                error_type="invalid_input",
+                parameter=f"custom_edges[{i}]",
+                hints=["Check that src and dst units are defined"],
+            )
+        except Exception as e:
+            return None, ConversionError(
+                error=f"Invalid edge definition: {e}",
+                error_type="invalid_input",
+                parameter=f"custom_edges[{i}]",
+                hints=["Edge needs 'src', 'dst', and 'factor' fields"],
+            )
+
+    # Cache the compiled graph
+    _inline_graph_cache[cache_key] = graph
+    return graph, None
 
 
 # -----------------------------------------------------------------------------
