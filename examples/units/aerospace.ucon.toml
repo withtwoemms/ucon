@@ -1,0 +1,46 @@
+# Aerospace Unit Package
+# Example domain-specific units for aviation and aerospace applications
+
+name = "aerospace"
+version = "1.0.0"
+description = "Aerospace and aviation units"
+
+[[units]]
+name = "slug"
+dimension = "mass"
+aliases = ["slug"]
+
+[[units]]
+name = "knot"
+dimension = "velocity"
+aliases = ["kn", "kt", "knots"]
+
+[[units]]
+name = "nautical_mile"
+dimension = "length"
+aliases = ["nmi", "NM"]
+
+[[units]]
+name = "poundal"
+dimension = "force"
+aliases = ["pdl"]
+
+[[edges]]
+src = "slug"
+dst = "kilogram"
+factor = 14.5939
+
+[[edges]]
+src = "nautical_mile"
+dst = "meter"
+factor = 1852
+
+[[edges]]
+src = "knot"
+dst = "meter/second"
+factor = 0.514444
+
+[[edges]]
+src = "poundal"
+dst = "newton"
+factor = 0.138255

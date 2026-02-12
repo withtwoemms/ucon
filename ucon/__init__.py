@@ -55,6 +55,7 @@ from ucon.core import (
 )
 from ucon.checking import enforce_dimensions
 from ucon.graph import get_default_graph, get_parsing_graph, set_default_graph, using_graph
+from ucon.packages import EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
 from ucon.units import UnknownUnitError, get_unit_by_name
 
 
@@ -63,15 +64,20 @@ __all__ = [
     'DimConstraint',
     'Dimension',
     'DimensionNotCovered',
+    'EdgeDef',
     'Exponent',
     'NonInvertibleTransform',
     'Number',
+    'PackageLoadError',
     'enforce_dimensions',
+    'load_package',
     'Ratio',
     'RebasedUnit',
     'Scale',
     'Unit',
+    'UnitDef',
     'UnitFactor',
+    'UnitPackage',
     'UnitProduct',
     'UnitSystem',
     'UnknownUnitError',

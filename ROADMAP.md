@@ -33,7 +33,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.1 | MCP Error Infrastructure for Multi-Step Chains | Complete |
 | v0.7.2 | Compute Tool | Complete |
 | v0.7.3 | Graph-Local Name Resolution | Complete |
-| v0.7.4 | UnitPackage + TOML Loading | Planned |
+| v0.7.4 | UnitPackage + TOML Loading | Complete |
 | v0.7.5 | MCP Extension Tools | Planned |
 | v0.7.x | Schema-Level Dimension Constraints | Planned |
 | v0.8.0 | String Parsing | Planned |
@@ -339,17 +339,17 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.7.4 — UnitPackage + TOML Loading (Planned)
+## v0.7.4 — UnitPackage + TOML Loading (Complete)
 
 **Theme:** Config-file-based unit extension for application developers.
 
-- [ ] `UnitDef` dataclass: `{name, dimension, aliases, shorthand}`
-- [ ] `EdgeDef` dataclass: `{src, dst, factor}`
-- [ ] `UnitPackage` frozen dataclass: `{name, version, units, edges, requires}`
-- [ ] `load_package(path)` — Parse TOML file into `UnitPackage`
-- [ ] `graph.with_package(pkg)` — Return new graph with package contents added
-- [ ] `set_default_graph(graph)` — Replace module-level default
-- [ ] Example package: `examples/aerospace.ucon.toml`
+- [x] `UnitDef` dataclass: `{name, dimension, aliases}`
+- [x] `EdgeDef` dataclass: `{src, dst, factor}`
+- [x] `UnitPackage` frozen dataclass: `{name, version, units, edges, requires}`
+- [x] `load_package(path)` — Parse TOML file into `UnitPackage`
+- [x] `graph.with_package(pkg)` — Return new graph with package contents added
+- [x] `set_default_graph(graph)` — Already implemented in v0.7.3
+- [x] Example package: `examples/units/aerospace.ucon.toml`
 
 **Outcomes:**
 - Implementers define domain units in TOML config files
