@@ -32,7 +32,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.0 | MCP Error Suggestions | Complete |
 | v0.7.1 | MCP Error Infrastructure for Multi-Step Chains | Complete |
 | v0.7.2 | Compute Tool | Complete |
-| v0.7.3 | Graph-Local Name Resolution | Planned |
+| v0.7.3 | Graph-Local Name Resolution | Complete |
 | v0.7.4 | UnitPackage + TOML Loading | Planned |
 | v0.7.5 | MCP Extension Tools | Planned |
 | v0.7.x | Schema-Level Dimension Constraints | Planned |
@@ -318,18 +318,18 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.7.3 — Graph-Local Name Resolution (Planned)
+## v0.7.3 — Graph-Local Name Resolution (Complete)
 
 **Theme:** Shared infrastructure for dynamic unit extension.
 
-- [ ] `ConversionGraph._name_registry` (case-insensitive) and `_name_registry_cs` (case-sensitive)
-- [ ] `graph.register_unit(unit)` — Register unit for name resolution within graph
-- [ ] `graph.resolve_unit(name)` — Lookup in graph-local registry, return None if not found
-- [ ] `graph.copy()` — Deep copy edges, shallow copy registries
-- [ ] `_parsing_graph` ContextVar for threading resolution through parsing
-- [ ] `using_graph()` sets both conversion and parsing context
-- [ ] `_lookup_factor()` checks graph-local first, falls back to global
-- [ ] `_build_standard_graph()` calls `register_unit()` for all standard units
+- [x] `ConversionGraph._name_registry` (case-insensitive) and `_name_registry_cs` (case-sensitive)
+- [x] `graph.register_unit(unit)` — Register unit for name resolution within graph
+- [x] `graph.resolve_unit(name)` — Lookup in graph-local registry, return None if not found
+- [x] `graph.copy()` — Deep copy edges, shallow copy registries
+- [x] `_parsing_graph` ContextVar for threading resolution through parsing
+- [x] `using_graph()` sets both conversion and parsing context
+- [x] `_lookup_factor()` checks graph-local first, falls back to global
+- [x] `_build_standard_graph()` calls `register_unit()` for all standard units
 
 **Outcomes:**
 - Unit name resolution becomes graph-scoped, not global
