@@ -451,6 +451,8 @@ def compute(
     initial_value: float,
     initial_unit: str,
     factors: list[dict],
+    custom_units: list[dict] | None = None,
+    custom_edges: list[dict] | None = None,
 ) -> ComputeResult | ConversionError:
     """
     Perform multi-step factor-label calculations with dimensional tracking.
@@ -461,6 +463,10 @@ def compute(
 
     Each factor is applied as: result = result × (value × numerator / denominator)
 
+    For custom/domain-specific units, you can either:
+    1. Use define_unit() and define_conversion() to register them for the session
+    2. Pass them inline via custom_units and custom_edges parameters
+
     Args:
         initial_value: Starting numeric quantity.
         initial_unit: Starting unit string.
@@ -469,6 +475,10 @@ def compute(
             - numerator: Numerator unit string (e.g., "kg", "mg")
             - denominator: Denominator unit string, optionally with numeric prefix
                           (e.g., "lb", "2.205 lb", "kg*day")
+        custom_units: Optional list of inline unit definitions for this call only.
+            Each dict should have: {"name": str, "dimension": str, "aliases": [str]}
+        custom_edges: Optional list of inline conversion edges for this call only.
+            Each dict should have: {"src": str, "dst": str, "factor": float}
 
     Returns:
         ComputeResult with final quantity, unit, dimension, and step-by-step trace.
@@ -487,6 +497,14 @@ def compute(
         )
     """
     import re
+
+    # Build inline graph if custom definitions provided
+    inline_graph, err = _build_inline_graph(custom_units, custom_edges)
+    if err:
+        return err
+
+    # Use inline graph, session graph, or default
+    graph = inline_graph or _session_graph.get() or get_default_graph()
 
     # Parse initial unit
     initial_parsed, err = resolve_unit(initial_unit, parameter="initial_unit")
