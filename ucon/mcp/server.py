@@ -209,6 +209,33 @@ class ComputeResult(BaseModel):
     steps: list[ComputeStep]
 
 
+class SessionResult(BaseModel):
+    """Result of a session management operation."""
+
+    success: bool
+    message: str
+
+
+class UnitDefinitionResult(BaseModel):
+    """Result of defining a custom unit."""
+
+    success: bool
+    name: str
+    dimension: str
+    aliases: list[str]
+    message: str
+
+
+class ConversionDefinitionResult(BaseModel):
+    """Result of defining a custom conversion."""
+
+    success: bool
+    src: str
+    dst: str
+    factor: float
+    message: str
+
+
 # -----------------------------------------------------------------------------
 # Tools
 # -----------------------------------------------------------------------------
