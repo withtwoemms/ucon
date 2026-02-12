@@ -117,6 +117,7 @@ gallon = Unit(name='gallon', dimension=Dimension.volume, aliases=('gal', 'gallon
 # Energy
 calorie = Unit(name='calorie', dimension=Dimension.energy, aliases=('cal', 'calories'))
 btu = Unit(name='btu', dimension=Dimension.energy, aliases=('BTU',))
+watt_hour = Unit(name='watt_hour', dimension=Dimension.energy, aliases=('Wh',))
 
 # Power
 horsepower = Unit(name='horsepower', dimension=Dimension.power, aliases=('hp',))

@@ -300,8 +300,11 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 ### Compute Tool (Complete)
 
 - [x] `compute` tool for dimensionally-validated factor-label chains
+- [x] `ComputeStep` and `ComputeResult` response models
 - [x] `steps` array in response showing intermediate dimensional state
 - [x] Per-step error localization using `ConversionError.step`
+- [x] Multi-factor cancellation tests (medical dosage, stoichiometry, 6-7 factor chains)
+- [x] `watt_hour` unit with `Wh` alias for energy chain tests
 - [x] Accumulator-style unit tracking (flat factor accumulation)
 - [x] Residual scale factor propagation through graph conversions
 - [x] `second*second` → `s²` parsing fix (explicit factor accumulation)
@@ -310,7 +313,7 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - AI agents can run factor-label chains with dimensional safety at each step
 - Intermediate state visible for debugging and benchmarks (SLM vs LLM comparison)
 - Agents can self-correct mid-chain rather than only at the end
-- `UnitProduct` cancellation logic validated against realistic compute inputs
+- Factor-label methodology preserved: `154 lb × (1 kg / 2.205 lb) × (15 mg / kg·day)` yields `mg/d` not `kg/d`
 - Countable items (30 ea × 500 mg/ea = 15000 mg) work in factor-label chains
 
 ---

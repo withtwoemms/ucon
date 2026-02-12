@@ -64,6 +64,23 @@ class DimensionCheck(BaseModel):
     dimension_b: str
 
 
+class ComputeStep(BaseModel):
+    """A single step in a compute chain."""
+
+    factor: str
+    dimension: str
+    unit: str
+
+
+class ComputeResult(BaseModel):
+    """Result of a multi-step factor-label computation."""
+
+    quantity: float
+    unit: str
+    dimension: str
+    steps: list[ComputeStep]
+
+
 # -----------------------------------------------------------------------------
 # Tools
 # -----------------------------------------------------------------------------
@@ -243,6 +260,232 @@ def check_dimensions(unit_a: str, unit_b: str) -> DimensionCheck | ConversionErr
         dimension_a=dim_a.name,
         dimension_b=dim_b.name,
     )
+
+
+@mcp.tool()
+def compute(
+    initial_value: float,
+    initial_unit: str,
+    factors: list[dict],
+) -> ComputeResult | ConversionError:
+    """
+    Perform multi-step factor-label calculations with dimensional tracking.
+
+    This tool processes a chain of conversion factors, validating dimensional
+    consistency at each step. It's designed for dosage calculations, stoichiometry,
+    and other multi-step unit conversions.
+
+    Each factor is applied as: result = result × (value × numerator / denominator)
+
+    Args:
+        initial_value: Starting numeric quantity.
+        initial_unit: Starting unit string.
+        factors: List of conversion factors. Each factor is a dict with:
+            - value: Numeric coefficient (multiplied into numerator)
+            - numerator: Numerator unit string (e.g., "kg", "mg")
+            - denominator: Denominator unit string, optionally with numeric prefix
+                          (e.g., "lb", "2.205 lb", "kg*day")
+
+    Returns:
+        ComputeResult with final quantity, unit, dimension, and step-by-step trace.
+        ConversionError with step localization if any factor fails.
+
+    Example:
+        # Convert 154 lb to mg/dose for a drug with 15 mg/kg/day dosing, 3 doses/day
+        compute(
+            initial_value=154,
+            initial_unit="lb",
+            factors=[
+                {"value": 1, "numerator": "kg", "denominator": "2.205 lb"},
+                {"value": 15, "numerator": "mg", "denominator": "kg*day"},
+                {"value": 1, "numerator": "day", "denominator": "3 dose"},
+            ]
+        )
+    """
+    import re
+
+    # Parse initial unit
+    initial_parsed, err = resolve_unit(initial_unit, parameter="initial_unit")
+    if err:
+        return err
+
+    # Track numeric value separately from unit accumulator
+    # The flat accumulator keys by (unit.name, dimension, scale) so that
+    # mg and kg remain separate entries (different scales, shouldn't cancel)
+    running_value = float(initial_value)
+    accum: dict[tuple, tuple] = {}
+    _accumulate_factors(accum, initial_parsed, +1.0)
+
+    steps: list[ComputeStep] = []
+
+    # Record initial state
+    running_unit = _build_product_from_accum(accum)
+    initial_dim = initial_parsed.dimension.name
+    initial_unit_str = _format_unit_output(running_unit)
+    steps.append(ComputeStep(
+        factor=f"{initial_value} {initial_unit}",
+        dimension=initial_dim,
+        unit=initial_unit_str,
+    ))
+
+    # Process each factor
+    for i, factor in enumerate(factors):
+        step_num = i + 1  # 1-indexed for user-facing errors
+
+        # Validate factor structure
+        if not isinstance(factor, dict):
+            return ConversionError(
+                error=f"Factor at step {step_num} must be a dict",
+                error_type="invalid_input",
+                parameter=f"factors[{i}]",
+                step=i,
+                hints=["Each factor should be: {\"value\": float, \"numerator\": str, \"denominator\": str}"],
+            )
+
+        value = factor.get("value", 1.0)
+        numerator = factor.get("numerator")
+        denominator = factor.get("denominator")
+
+        if numerator is None:
+            return ConversionError(
+                error=f"Factor at step {step_num} missing 'numerator' field",
+                error_type="invalid_input",
+                parameter=f"factors[{i}].numerator",
+                step=i,
+                hints=["Each factor needs a numerator unit string"],
+            )
+
+        if denominator is None:
+            return ConversionError(
+                error=f"Factor at step {step_num} missing 'denominator' field",
+                error_type="invalid_input",
+                parameter=f"factors[{i}].denominator",
+                step=i,
+                hints=["Each factor needs a denominator unit string"],
+            )
+
+        # Parse numerator unit
+        num_unit, err = resolve_unit(numerator, parameter=f"factors[{i}].numerator", step=i)
+        if err:
+            return err
+
+        # Parse denominator - may have numeric prefix (e.g., "2.205 lb")
+        denom_value = 1.0
+        denom_unit_str = denominator.strip()
+
+        # Try to extract leading number from denominator
+        match = re.match(r'^([0-9]*\.?[0-9]+)\s*(.+)$', denom_unit_str)
+        if match:
+            denom_value = float(match.group(1))
+            denom_unit_str = match.group(2).strip()
+
+        denom_unit, err = resolve_unit(denom_unit_str, parameter=f"factors[{i}].denominator", step=i)
+        if err:
+            return err
+
+        # Apply factor: multiply by (value * num_unit) / (denom_value * denom_unit)
+        try:
+            # Compute numeric factor: value / denom_value
+            numeric_factor = value / denom_value
+            running_value *= numeric_factor
+
+            # Accumulate numerator factors at +1, denominator factors at -1
+            _accumulate_factors(accum, num_unit, +1.0)
+            _accumulate_factors(accum, denom_unit, -1.0)
+
+            # Build current unit product for step recording
+            running_unit = _build_product_from_accum(accum)
+
+        except Exception as e:
+            return ConversionError(
+                error=f"Error applying factor at step {step_num}: {str(e)}",
+                error_type="computation_error",
+                parameter=f"factors[{i}]",
+                step=i,
+                hints=["Check that units are compatible for this operation"],
+            )
+
+        # Record step
+        result_dim = running_unit.dimension.name if running_unit else "none"
+        result_unit_str = _format_unit_output(running_unit)
+
+        # Format factor description
+        if denom_value != 1.0:
+            factor_desc = f"× ({value} {numerator} / {denom_value} {denom_unit_str})"
+        else:
+            factor_desc = f"× ({value} {numerator} / {denom_unit_str})"
+
+        steps.append(ComputeStep(
+            factor=factor_desc,
+            dimension=result_dim,
+            unit=result_unit_str,
+        ))
+
+    # Build final result
+    running_unit = _build_product_from_accum(accum)
+    final_dim = running_unit.dimension.name if running_unit else "none"
+    final_unit_str = _format_unit_output(running_unit)
+
+    return ComputeResult(
+        quantity=running_value,
+        unit=final_unit_str,
+        dimension=final_dim,
+        steps=steps,
+    )
+
+
+def _format_unit_output(unit) -> str:
+    """Format a unit or unit product for output display."""
+    if unit is None:
+        return "1"
+    elif isinstance(unit, Unit):
+        return unit.shorthand or unit.name
+    elif isinstance(unit, UnitProduct):
+        return unit.shorthand or "1"
+    else:
+        return str(unit)
+
+
+def _accumulate_factors(
+    accum: dict[tuple, tuple],
+    product: Unit | UnitProduct,
+    sign: float,
+) -> None:
+    """Add all UnitFactors from a parsed unit into the accumulator.
+
+    The accumulator is keyed by (unit.name, dimension, scale) so that
+    same-unit-different-scale entries (mg vs kg) don't cancel.
+
+    Args:
+        accum: The accumulator dict mapping key → (UnitFactor, exponent).
+        product: A Unit or UnitProduct to accumulate.
+        sign: +1.0 for numerator factors, -1.0 for denominator factors.
+    """
+    from ucon.core import UnitFactor
+
+    if isinstance(product, Unit):
+        product = UnitProduct.from_unit(product)
+
+    for uf, exp in product.factors.items():
+        key = (uf.unit.name, uf.unit.dimension, uf.scale)
+        if key in accum:
+            existing_uf, existing_exp = accum[key]
+            accum[key] = (existing_uf, existing_exp + exp * sign)
+        else:
+            accum[key] = (uf, exp * sign)
+
+
+def _build_product_from_accum(
+    accum: dict[tuple, tuple],
+) -> UnitProduct:
+    """Build a UnitProduct from surviving non-zero accumulator entries."""
+    surviving = {}
+    for key, (uf, exp) in accum.items():
+        if abs(exp) > 1e-12:
+            surviving[uf] = exp
+    if not surviving:
+        return UnitProduct({})
+    return UnitProduct(surviving)
 
 
 @mcp.tool()
