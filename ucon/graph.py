@@ -362,6 +362,43 @@ class ConversionGraph:
         new._name_registry_cs = dict(self._name_registry_cs)
         return new
 
+    def with_package(self, package: 'UnitPackage') -> 'ConversionGraph':
+        """Return a new graph with this package's units and edges added.
+
+        Creates a copy of this graph and applies the package contents.
+        The original graph is not modified.
+
+        Parameters
+        ----------
+        package : UnitPackage
+            Package containing unit and edge definitions.
+
+        Returns
+        -------
+        ConversionGraph
+            New graph with package contents added.
+
+        Example
+        -------
+        >>> from ucon.packages import load_package
+        >>> aero = load_package("aerospace.ucon.toml")
+        >>> graph = get_default_graph().with_package(aero)
+        """
+        from ucon.packages import UnitPackage
+
+        new = self.copy()
+
+        # Materialize and register units first
+        for unit_def in package.units:
+            unit = unit_def.materialize()
+            new.register_unit(unit)
+
+        # Materialize and add edges (resolved within new graph context)
+        for edge_def in package.edges:
+            edge_def.materialize(new)
+
+        return new
+
     # ------------- Internal Helpers ------------------------------------------
 
     def _ensure_dimension(self, dim: Dimension) -> None:
