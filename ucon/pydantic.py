@@ -216,6 +216,7 @@ class _NumberType:
         super().__init_subclass__(**kwargs)
         # Subclasses can add validators
 
+    @classmethod
     def __class_getitem__(cls, dimension: Dimension) -> type:
         """Return an Annotated type with dimension validation."""
         if not isinstance(dimension, Dimension):
@@ -226,11 +227,21 @@ class _NumberType:
         annotations = [_NumberPydanticAnnotation(dimension)] + list(cls._extra_validators)
         return Annotated[_Number, *annotations]
 
-    def __new__(cls) -> type:
-        """When used without subscript, return the base Annotated type."""
-        if cls._extra_validators:
-            return Annotated[_Number, _NumberPydanticAnnotation(), *cls._extra_validators]
-        return Annotated[_Number, _NumberPydanticAnnotation()]
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """
+        Generate Pydantic core schema when Number is used without subscript.
+
+        This allows both:
+            value: Number                    # Any dimension
+            length: Number[Dimension.length] # Constrained dimension
+        """
+        annotation = _NumberPydanticAnnotation()
+        return annotation.__get_pydantic_core_schema__(_source_type, _handler)
 
 
 def constrained_number(*validators):
