@@ -708,6 +708,147 @@ def list_dimensions() -> list[str]:
 
 
 # -----------------------------------------------------------------------------
+# Session Management Tools
+# -----------------------------------------------------------------------------
+
+
+@mcp.tool()
+def define_unit(
+    name: str,
+    dimension: str,
+    aliases: list[str] | None = None,
+) -> UnitDefinitionResult | ConversionError:
+    """
+    Define a custom unit for the current session.
+
+    The unit will be available for all subsequent convert() and compute() calls
+    until reset_session() is called. Use this to extend ucon with domain-specific
+    units (e.g., "slug" for aerospace, "mmHg" for medical).
+
+    After defining a unit, use define_conversion() to add conversion edges
+    to existing units.
+
+    Args:
+        name: Canonical name of the unit (e.g., "slug", "nautical_mile").
+        dimension: Dimension name (e.g., "mass", "length"). Use list_dimensions()
+            to see available dimensions.
+        aliases: Optional list of shorthand symbols (e.g., ["slug"] or ["nmi", "NM"]).
+
+    Returns:
+        UnitDefinitionResult confirming the unit was registered.
+        ConversionError if the dimension is invalid.
+
+    Example:
+        define_unit(name="slug", dimension="mass", aliases=["slug"])
+    """
+    aliases = aliases or []
+
+    # Validate dimension
+    known_dimensions = [d.name for d in Dimension]
+    if dimension not in known_dimensions:
+        return build_unknown_dimension_error(dimension)
+
+    # Create unit definition and materialize
+    try:
+        unit_def = UnitDef(
+            name=name,
+            dimension=dimension,
+            aliases=tuple(aliases),
+        )
+        unit = unit_def.materialize()
+    except PackageLoadError as e:
+        return ConversionError(
+            error=str(e),
+            error_type="invalid_input",
+            parameter="dimension",
+            hints=["Use list_dimensions() to see available dimensions"],
+        )
+
+    # Register in session graph
+    graph = _get_session_graph()
+    graph.register_unit(unit)
+
+    return UnitDefinitionResult(
+        success=True,
+        name=name,
+        dimension=dimension,
+        aliases=aliases,
+        message=f"Unit '{name}' registered for session. Use define_conversion() to add conversion edges.",
+    )
+
+
+@mcp.tool()
+def define_conversion(
+    src: str,
+    dst: str,
+    factor: float,
+) -> ConversionDefinitionResult | ConversionError:
+    """
+    Define a conversion edge between two units for the current session.
+
+    The conversion factor specifies: dst_value = src_value × factor
+
+    Both src and dst must be resolvable units - either standard ucon units
+    or custom units previously defined via define_unit().
+
+    Args:
+        src: Source unit name or alias (e.g., "slug").
+        dst: Destination unit name or alias (e.g., "kg").
+        factor: Conversion multiplier (e.g., 14.5939 for slug → kg).
+
+    Returns:
+        ConversionDefinitionResult confirming the edge was added.
+        ConversionError if either unit cannot be resolved.
+
+    Example:
+        define_conversion(src="slug", dst="kg", factor=14.5939)
+    """
+    graph = _get_session_graph()
+
+    # Create edge definition and materialize
+    try:
+        edge_def = EdgeDef(src=src, dst=dst, factor=factor)
+        edge_def.materialize(graph)
+    except PackageLoadError as e:
+        return ConversionError(
+            error=str(e),
+            error_type="unknown_unit",
+            parameter="src" if src in str(e) else "dst",
+            hints=[
+                "Make sure both units are defined (use define_unit() for custom units)",
+                "Use list_units() to see available standard units",
+            ],
+        )
+
+    return ConversionDefinitionResult(
+        success=True,
+        src=src,
+        dst=dst,
+        factor=factor,
+        message=f"Conversion edge '{src}' → '{dst}' (factor={factor}) added to session.",
+    )
+
+
+@mcp.tool()
+def reset_session() -> SessionResult:
+    """
+    Reset the session graph, clearing all custom units and conversions.
+
+    After reset, the session starts fresh with only the standard ucon units.
+    Any units defined via define_unit() and edges from define_conversion()
+    will be removed.
+
+    Returns:
+        SessionResult confirming the reset.
+    """
+    _reset_session_graph()
+    return SessionResult(
+        success=True,
+        message="Session reset. All custom units and conversions cleared.",
+    )
+
+
+# -----------------------------------------------------------------------------
 # Entry Point
 # -----------------------------------------------------------------------------
 
