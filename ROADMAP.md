@@ -34,7 +34,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.2 | Compute Tool | Complete |
 | v0.7.3 | Graph-Local Name Resolution | Complete |
 | v0.7.4 | UnitPackage + TOML Loading | Complete |
-| v0.7.5 | MCP Extension Tools | Planned |
+| v0.7.5 | MCP Extension Tools | Complete |
 | v0.7.x | Schema-Level Dimension Constraints | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
@@ -360,22 +360,22 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.7.5 — MCP Extension Tools (Planned)
+## v0.7.5 — MCP Extension Tools (Complete)
 
 **Theme:** Runtime unit extension for AI agents.
 
 ### Session Tools (Token Efficient)
 
-- [ ] `_session_graph` ContextVar for session-scoped custom graphs
-- [ ] `define_unit(name, dimension, aliases)` — Register unit in session graph
-- [ ] `define_conversion(src, dst, factor)` — Add edge to session graph
-- [ ] `reset_session()` — Clear session graph, return to default
+- [x] `_session_graph` ContextVar for session-scoped custom graphs
+- [x] `define_unit(name, dimension, aliases)` — Register unit in session graph
+- [x] `define_conversion(src, dst, factor)` — Add edge to session graph
+- [x] `reset_session()` — Clear session graph, return to default
 
 ### Inline Parameters (Recoverable)
 
-- [ ] `convert(..., custom_units=[...], custom_edges=[...])` — Self-contained conversion
-- [ ] `compute(..., custom_units=[...], custom_edges=[...])` — Self-contained multi-step
-- [ ] Graph caching by definition hash for performance
+- [x] `convert(..., custom_units=[...], custom_edges=[...])` — Self-contained conversion
+- [x] `compute(..., custom_units=[...], custom_edges=[...])` — Self-contained multi-step
+- [x] Graph caching by definition hash for performance
 
 **Outcomes:**
 - Agents can bring their own units without prior registration
