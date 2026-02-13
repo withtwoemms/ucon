@@ -125,9 +125,10 @@ def _serialize_number(n: _Number) -> dict:
 def _make_dimension_validator(dimension: Dimension):
     """Create a validator function for a specific dimension."""
     def validate_dimension(n: _Number) -> _Number:
-        if n.dimension != dimension:
+        actual_dim = n.unit.dimension if n.unit else Dimension.none
+        if actual_dim != dimension:
             raise ValueError(
-                f"expected dimension '{dimension.name}', got '{n.dimension.name}'"
+                f"expected dimension '{dimension.name}', got '{actual_dim.name}'"
             )
         return n
     return validate_dimension
