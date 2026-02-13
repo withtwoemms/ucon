@@ -33,7 +33,7 @@ Requires Pydantic v2. Install with::
 
 """
 
-from typing import Annotated, Any, Generic, TypeVar
+from typing import Annotated, Any, Generic, Optional, TypeVar
 
 try:
     from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
@@ -143,9 +143,9 @@ class _NumberPydanticAnnotation:
     the internal Unit/UnitProduct types.
     """
 
-    dimension: Dimension | None = None
+    dimension: Optional[Dimension] = None
 
-    def __init__(self, dimension: Dimension | None = None):
+    def __init__(self, dimension: Optional[Dimension] = None):
         self.dimension = dimension
 
     def __get_pydantic_core_schema__(
