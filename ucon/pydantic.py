@@ -224,8 +224,10 @@ class _NumberType:
                 f"Number[...] requires a Dimension, got {type(dimension).__name__}"
             )
         # Build the Annotated type with base annotation + extra validators
-        annotations = [_NumberPydanticAnnotation(dimension)] + list(cls._extra_validators)
-        return Annotated[_Number, *annotations]
+        # Use __class_getitem__ directly for Python 3.10 compatibility
+        # (unpacking in Annotated[...] requires Python 3.11+)
+        annotations = tuple([_NumberPydanticAnnotation(dimension)] + list(cls._extra_validators))
+        return Annotated.__class_getitem__((_Number,) + annotations)
 
     @classmethod
     def __get_pydantic_core_schema__(
