@@ -1,0 +1,98 @@
+# Service Level Objectives for a production API
+service:
+  name: "payments-api"
+  tier: "critical"
+
+# SLO definitions
+slos:
+  availability:
+    target:
+      quantity: 99.95
+      unit: "%"
+    window:
+      quantity: 30
+      unit: "day"
+
+  latency_p50:
+    target:
+      quantity: 50
+      unit: "ms"
+    threshold_type: "upper"
+
+  latency_p99:
+    target:
+      quantity: 200
+      unit: "ms"
+    threshold_type: "upper"
+
+  error_rate:
+    target:
+      quantity: 0.1
+      unit: "%"
+    threshold_type: "upper"
+
+  throughput:
+    target:
+      quantity: 5000
+      unit: "Hz"
+    threshold_type: "lower"
+
+# Current measurements (from monitoring)
+current:
+  availability:
+    quantity: 99.92
+    unit: "%"
+    uncertainty: 0.01  # measurement confidence
+
+  latency_p50:
+    quantity: 45
+    unit: "ms"
+    uncertainty: 2
+
+  latency_p99:
+    quantity: 180
+    unit: "ms"
+    uncertainty: 10
+
+  error_rate:
+    quantity: 0.08
+    unit: "%"
+    uncertainty: 0.005
+
+  throughput:
+    quantity: 4800
+    unit: "Hz"
+    uncertainty: 100
+
+  # Time elapsed in current window
+  window_elapsed:
+    quantity: 15
+    unit: "day"
+
+# Alert thresholds
+alerting:
+  # Burn rate multipliers that trigger alerts
+  burn_rate_critical:
+    quantity: 14.4
+    unit: "1"
+  burn_rate_warning:
+    quantity: 6
+    unit: "1"
+
+  # Error budget remaining threshold for alerts
+  budget_remaining_critical:
+    quantity: 10
+    unit: "%"
+  budget_remaining_warning:
+    quantity: 25
+    unit: "%"
+
+# Capacity planning
+capacity:
+  current_instances: 10
+  requests_per_instance:
+    quantity: 600
+    unit: "Hz"
+  headroom_target:
+    quantity: 30
+    unit: "%"

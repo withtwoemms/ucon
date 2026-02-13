@@ -1821,6 +1821,30 @@ class Number:
 
         return True
 
+    def __pow__(self, power: Union[int, float]) -> 'Number':
+        """Raise Number to a power.
+
+        Examples
+        --------
+        >>> from ucon import units
+        >>> v = units.meter(3) / units.second(1)
+        >>> v ** 2
+        <9 m²/s²>
+        """
+        new_quantity = self.quantity ** power
+        new_unit = self.unit ** power
+
+        # Uncertainty propagation: δ(x^n) = |n| * x^(n-1) * δx = |n| * (x^n / x) * δx
+        new_uncertainty = None
+        if self.uncertainty is not None and self.quantity != 0:
+            new_uncertainty = abs(power) * abs(new_quantity / self.quantity) * self.uncertainty
+
+        return Number(
+            quantity=new_quantity,
+            unit=new_unit,
+            uncertainty=new_uncertainty,
+        )
+
     def __repr__(self):
         if self.uncertainty is not None:
             if not self.unit.dimension:

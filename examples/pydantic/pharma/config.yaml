@@ -1,0 +1,43 @@
+drug:
+  name: "Amoxicillin"
+  concentration:
+    quantity: 250
+    unit: "mg/mL"
+    uncertainty: 5
+  stability_duration:
+    quantity: 14
+    unit: "day"
+  storage_temp:
+    min:
+      quantity: 2
+      unit: "degC"
+    max:
+      quantity: 8
+      unit: "degC"
+
+patient:
+  weight:
+    quantity: 70
+    unit: "kg"
+    uncertainty: 0.5
+  age_category: "adult"
+
+dosing:
+  target_dose:
+    quantity: 25
+    unit: "mg/kg/day"
+  frequency: 3
+  max_single_dose:
+    quantity: 500
+    unit: "mg"
+  min_single_dose:
+    quantity: 100
+    unit: "mg"
+
+infusion:
+  rate:
+    quantity: 100
+    unit: "mL/h"
+  duration:
+    quantity: 0.5
+    unit: "h"
