@@ -209,6 +209,11 @@ class _NumberType:
     When subscripted with a Dimension, validation will fail if the
     parsed Number has a different dimension.
     """
+    _extra_validators: tuple = ()
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Subclasses can add validators
 
     def __class_getitem__(cls, dimension: Dimension) -> type:
         """Return an Annotated type with dimension validation."""
@@ -216,11 +221,38 @@ class _NumberType:
             raise TypeError(
                 f"Number[...] requires a Dimension, got {type(dimension).__name__}"
             )
-        return Annotated[_Number, _NumberPydanticAnnotation(dimension)]
+        # Build the Annotated type with base annotation + extra validators
+        annotations = [_NumberPydanticAnnotation(dimension)] + list(cls._extra_validators)
+        return Annotated[_Number, *annotations]
 
     def __new__(cls) -> type:
         """When used without subscript, return the base Annotated type."""
+        if cls._extra_validators:
+            return Annotated[_Number, _NumberPydanticAnnotation(), *cls._extra_validators]
         return Annotated[_Number, _NumberPydanticAnnotation()]
+
+
+def constrained_number(*validators):
+    """
+    Factory to create subscriptable Number types with additional validators.
+
+    Usage::
+
+        from pydantic.functional_validators import AfterValidator
+
+        def must_be_positive(n):
+            if n.quantity <= 0:
+                raise ValueError("must be positive")
+            return n
+
+        PositiveNumber = constrained_number(AfterValidator(must_be_positive))
+
+        class Model(BaseModel):
+            value: PositiveNumber[Dimension.time]  # positive time value
+    """
+    class ConstrainedNumber(_NumberType):
+        _extra_validators = validators
+    return ConstrainedNumber
 
 
 # Export Number as the subscriptable type
