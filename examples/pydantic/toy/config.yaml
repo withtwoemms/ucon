@@ -1,0 +1,29 @@
+vehicle:
+  mass:
+    quantity: 1500
+    unit: "kg"
+  max_speed:
+    quantity: 33.33  # ~120 km/h
+    unit: "m/s"
+  drag_coefficient:
+    quantity: 0.32
+    unit: "1"
+  frontal_area:
+    quantity: 2.2
+    unit: "m^2"
+
+simulation:
+  time_step:
+    quantity: 0.01
+    unit: "s"
+  duration:
+    quantity: 60
+    unit: "s"
+
+environment:
+  air_density:
+    quantity: 1.225
+    unit: "kg/m^3"
+  gravity:
+    quantity: 9.81
+    unit: "m/s^2"

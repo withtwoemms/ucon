@@ -33,7 +33,7 @@ Requires Pydantic v2. Install with::
 
 """
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Generic, Optional, TypeVar
 
 try:
     from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
@@ -45,7 +45,7 @@ except ImportError as e:
         "Install with: pip install ucon[pydantic]"
     ) from e
 
-from ucon.core import Number as _Number
+from ucon.core import Dimension, Number as _Number
 from ucon.units import UnknownUnitError, get_unit_by_name
 
 
@@ -122,6 +122,18 @@ def _serialize_number(n: _Number) -> dict:
     }
 
 
+def _make_dimension_validator(dimension: Dimension):
+    """Create a validator function for a specific dimension."""
+    def validate_dimension(n: _Number) -> _Number:
+        actual_dim = n.unit.dimension if n.unit else Dimension.none
+        if actual_dim != dimension:
+            raise ValueError(
+                f"expected dimension '{dimension.name}', got '{actual_dim.name}'"
+            )
+        return n
+    return validate_dimension
+
+
 class _NumberPydanticAnnotation:
     """
     Pydantic annotation helper for ucon Number type.
@@ -131,9 +143,13 @@ class _NumberPydanticAnnotation:
     the internal Unit/UnitProduct types.
     """
 
-    @classmethod
+    dimension: Optional[Dimension] = None
+
+    def __init__(self, dimension: Optional[Dimension] = None):
+        self.dimension = dimension
+
     def __get_pydantic_core_schema__(
-        cls,
+        self,
         _source_type: Any,
         _handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
@@ -143,8 +159,18 @@ class _NumberPydanticAnnotation:
         Uses no_info_plain_validator_function to bypass Pydantic's default
         introspection of the Number class fields.
         """
+        if self.dimension is not None:
+            # Chain dimension validation after number parsing
+            dim_validator = _make_dimension_validator(self.dimension)
+            def validate_with_dimension(v: Any) -> _Number:
+                n = _validate_number(v)
+                return dim_validator(n)
+            validator = validate_with_dimension
+        else:
+            validator = _validate_number
+
         return core_schema.no_info_plain_validator_function(
-            _validate_number,
+            validator,
             serialization=core_schema.plain_serializer_function_ser_schema(
                 _serialize_number,
                 info_arg=False,
@@ -152,14 +178,13 @@ class _NumberPydanticAnnotation:
             ),
         )
 
-    @classmethod
     def __get_pydantic_json_schema__(
-        cls,
+        self,
         _core_schema: CoreSchema,
         handler: GetJsonSchemaHandler,
     ) -> JsonSchemaValue:
         """Generate JSON schema for OpenAPI documentation."""
-        return {
+        schema = {
             "type": "object",
             "properties": {
                 "quantity": {"type": "number"},
@@ -168,16 +193,91 @@ class _NumberPydanticAnnotation:
             },
             "required": ["quantity"],
         }
+        if self.dimension is not None:
+            schema["description"] = f"Number with dimension '{self.dimension.name}'"
+        return schema
 
 
-Number = Annotated[_Number, _NumberPydanticAnnotation]
+class _NumberType:
+    """
+    Subscriptable Number type for Pydantic models.
+
+    Supports both unconstrained and dimension-constrained usage:
+
+        value: Number                    # Any dimension
+        length: Number[Dimension.length] # Must be length dimension
+
+    When subscripted with a Dimension, validation will fail if the
+    parsed Number has a different dimension.
+    """
+    _extra_validators: tuple = ()
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Subclasses can add validators
+
+    @classmethod
+    def __class_getitem__(cls, dimension: Dimension) -> type:
+        """Return an Annotated type with dimension validation."""
+        if not isinstance(dimension, Dimension):
+            raise TypeError(
+                f"Number[...] requires a Dimension, got {type(dimension).__name__}"
+            )
+        # Build the Annotated type with base annotation + extra validators
+        # Use __class_getitem__ directly for Python 3.10 compatibility
+        # (unpacking in Annotated[...] requires Python 3.11+)
+        annotations = tuple([_NumberPydanticAnnotation(dimension)] + list(cls._extra_validators))
+        return Annotated.__class_getitem__((_Number,) + annotations)
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """
+        Generate Pydantic core schema when Number is used without subscript.
+
+        This allows both:
+            value: Number                    # Any dimension
+            length: Number[Dimension.length] # Constrained dimension
+        """
+        annotation = _NumberPydanticAnnotation()
+        return annotation.__get_pydantic_core_schema__(_source_type, _handler)
+
+
+def constrained_number(*validators):
+    """
+    Factory to create subscriptable Number types with additional validators.
+
+    Usage::
+
+        from pydantic.functional_validators import AfterValidator
+
+        def must_be_positive(n):
+            if n.quantity <= 0:
+                raise ValueError("must be positive")
+            return n
+
+        PositiveNumber = constrained_number(AfterValidator(must_be_positive))
+
+        class Model(BaseModel):
+            value: PositiveNumber[Dimension.time]  # positive time value
+    """
+    class ConstrainedNumber(_NumberType):
+        _extra_validators = validators
+    return ConstrainedNumber
+
+
+# Export Number as the subscriptable type
+Number = _NumberType
 """
-Pydantic-compatible Number type.
+Pydantic-compatible Number type with optional dimension constraints.
 
 Use this as a type hint in Pydantic models to enable automatic validation
 and JSON serialization of ucon Number instances.
 
-Example::
+Basic usage (any dimension)::
 
     from pydantic import BaseModel
     from ucon.pydantic import Number
@@ -185,15 +285,39 @@ Example::
     class Measurement(BaseModel):
         value: Number
 
-    # From dict
-    m = Measurement(value={"quantity": 5, "unit": "m"})
+    m = Measurement(value={"quantity": 5, "unit": "km"})
+    print(m.value)  # <5 km>
 
-    # From Number instance
+With dimension constraint::
+
+    from ucon import Dimension
+    from ucon.pydantic import Number
+
+    class Vehicle(BaseModel):
+        mass: Number[Dimension.mass]
+        speed: Number[Dimension.velocity]
+
+    # Valid
+    v = Vehicle(
+        mass={"quantity": 1500, "unit": "kg"},
+        speed={"quantity": 100, "unit": "km/h"}
+    )
+
+    # Invalid - wrong dimension
+    Vehicle(
+        mass={"quantity": 5, "unit": "m"},  # ValueError: expected 'mass', got 'length'
+        speed={"quantity": 100, "unit": "km/h"}
+    )
+
+From Number instance::
+
     from ucon import units
     m2 = Measurement(value=units.meter(10))
 
-    # Serialize to JSON
+Serialize to JSON::
+
     print(m.model_dump_json())
+    # {"value": {"quantity": 5.0, "unit": "km", "uncertainty": null}}
 """
 
-__all__ = ["Number"]
+__all__ = ["Number", "constrained_number"]
