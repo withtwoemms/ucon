@@ -8,6 +8,7 @@
 
 import hashlib
 import json
+import re
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
@@ -496,8 +497,6 @@ def compute(
             ]
         )
     """
-    import re
-
     # Build inline graph if custom definitions provided
     inline_graph, err = _build_inline_graph(custom_units, custom_edges)
     if err:
@@ -506,134 +505,136 @@ def compute(
     # Use inline graph, session graph, or default
     graph = inline_graph or _session_graph.get() or get_default_graph()
 
-    # Parse initial unit
-    initial_parsed, err = resolve_unit(initial_unit, parameter="initial_unit")
-    if err:
-        return err
-
-    # Track numeric value separately from unit accumulator
-    # The flat accumulator keys by (unit.name, dimension, scale) so that
-    # mg and kg remain separate entries (different scales, shouldn't cancel)
-    running_value = float(initial_value)
-    accum: dict[tuple, tuple] = {}
-    _accumulate_factors(accum, initial_parsed, +1.0)
-
-    steps: list[ComputeStep] = []
-
-    # Record initial state
-    running_unit = _build_product_from_accum(accum)
-    initial_dim = initial_parsed.dimension.name
-    initial_unit_str = _format_unit_output(running_unit)
-    steps.append(ComputeStep(
-        factor=f"{initial_value} {initial_unit}",
-        dimension=initial_dim,
-        unit=initial_unit_str,
-    ))
-
-    # Process each factor
-    for i, factor in enumerate(factors):
-        step_num = i + 1  # 1-indexed for user-facing errors
-
-        # Validate factor structure
-        if not isinstance(factor, dict):
-            return ConversionError(
-                error=f"Factor at step {step_num} must be a dict",
-                error_type="invalid_input",
-                parameter=f"factors[{i}]",
-                step=i,
-                hints=["Each factor should be: {\"value\": float, \"numerator\": str, \"denominator\": str}"],
-            )
-
-        value = factor.get("value", 1.0)
-        numerator = factor.get("numerator")
-        denominator = factor.get("denominator")
-
-        if numerator is None:
-            return ConversionError(
-                error=f"Factor at step {step_num} missing 'numerator' field",
-                error_type="invalid_input",
-                parameter=f"factors[{i}].numerator",
-                step=i,
-                hints=["Each factor needs a numerator unit string"],
-            )
-
-        if denominator is None:
-            return ConversionError(
-                error=f"Factor at step {step_num} missing 'denominator' field",
-                error_type="invalid_input",
-                parameter=f"factors[{i}].denominator",
-                step=i,
-                hints=["Each factor needs a denominator unit string"],
-            )
-
-        # Parse numerator unit
-        num_unit, err = resolve_unit(numerator, parameter=f"factors[{i}].numerator", step=i)
+    # All unit resolution within graph context
+    with using_graph(graph):
+        # Parse initial unit
+        initial_parsed, err = resolve_unit(initial_unit, parameter="initial_unit")
         if err:
             return err
 
-        # Parse denominator - may have numeric prefix (e.g., "2.205 lb")
-        denom_value = 1.0
-        denom_unit_str = denominator.strip()
+        # Track numeric value separately from unit accumulator
+        # The flat accumulator keys by (unit.name, dimension, scale) so that
+        # mg and kg remain separate entries (different scales, shouldn't cancel)
+        running_value = float(initial_value)
+        accum: dict[tuple, tuple] = {}
+        _accumulate_factors(accum, initial_parsed, +1.0)
 
-        # Try to extract leading number from denominator
-        match = re.match(r'^([0-9]*\.?[0-9]+)\s*(.+)$', denom_unit_str)
-        if match:
-            denom_value = float(match.group(1))
-            denom_unit_str = match.group(2).strip()
+        steps: list[ComputeStep] = []
 
-        denom_unit, err = resolve_unit(denom_unit_str, parameter=f"factors[{i}].denominator", step=i)
-        if err:
-            return err
-
-        # Apply factor: multiply by (value * num_unit) / (denom_value * denom_unit)
-        try:
-            # Compute numeric factor: value / denom_value
-            numeric_factor = value / denom_value
-            running_value *= numeric_factor
-
-            # Accumulate numerator factors at +1, denominator factors at -1
-            _accumulate_factors(accum, num_unit, +1.0)
-            _accumulate_factors(accum, denom_unit, -1.0)
-
-            # Build current unit product for step recording
-            running_unit = _build_product_from_accum(accum)
-
-        except Exception as e:
-            return ConversionError(
-                error=f"Error applying factor at step {step_num}: {str(e)}",
-                error_type="computation_error",
-                parameter=f"factors[{i}]",
-                step=i,
-                hints=["Check that units are compatible for this operation"],
-            )
-
-        # Record step
-        result_dim = running_unit.dimension.name if running_unit else "none"
-        result_unit_str = _format_unit_output(running_unit)
-
-        # Format factor description
-        if denom_value != 1.0:
-            factor_desc = f"× ({value} {numerator} / {denom_value} {denom_unit_str})"
-        else:
-            factor_desc = f"× ({value} {numerator} / {denom_unit_str})"
-
+        # Record initial state
+        running_unit = _build_product_from_accum(accum)
+        initial_dim = initial_parsed.dimension.name
+        initial_unit_str = _format_unit_output(running_unit)
         steps.append(ComputeStep(
-            factor=factor_desc,
-            dimension=result_dim,
-            unit=result_unit_str,
+            factor=f"{initial_value} {initial_unit}",
+            dimension=initial_dim,
+            unit=initial_unit_str,
         ))
 
-    # Build final result
-    running_unit = _build_product_from_accum(accum)
-    final_dim = running_unit.dimension.name if running_unit else "none"
-    final_unit_str = _format_unit_output(running_unit)
+        # Process each factor
+        for i, factor in enumerate(factors):
+            step_num = i + 1  # 1-indexed for user-facing errors
 
-    return ComputeResult(
-        quantity=running_value,
-        unit=final_unit_str,
-        dimension=final_dim,
-        steps=steps,
-    )
+            # Validate factor structure
+            if not isinstance(factor, dict):
+                return ConversionError(
+                    error=f"Factor at step {step_num} must be a dict",
+                    error_type="invalid_input",
+                    parameter=f"factors[{i}]",
+                    step=i,
+                    hints=["Each factor should be: {\"value\": float, \"numerator\": str, \"denominator\": str}"],
+                )
+
+            value = factor.get("value", 1.0)
+            numerator = factor.get("numerator")
+            denominator = factor.get("denominator")
+
+            if numerator is None:
+                return ConversionError(
+                    error=f"Factor at step {step_num} missing 'numerator' field",
+                    error_type="invalid_input",
+                    parameter=f"factors[{i}].numerator",
+                    step=i,
+                    hints=["Each factor needs a numerator unit string"],
+                )
+
+            if denominator is None:
+                return ConversionError(
+                    error=f"Factor at step {step_num} missing 'denominator' field",
+                    error_type="invalid_input",
+                    parameter=f"factors[{i}].denominator",
+                    step=i,
+                    hints=["Each factor needs a denominator unit string"],
+                )
+
+            # Parse numerator unit
+            num_unit, err = resolve_unit(numerator, parameter=f"factors[{i}].numerator", step=i)
+            if err:
+                return err
+
+            # Parse denominator - may have numeric prefix (e.g., "2.205 lb")
+            denom_value = 1.0
+            denom_unit_str = denominator.strip()
+
+            # Try to extract leading number from denominator
+            match = re.match(r'^([0-9]*\.?[0-9]+)\s*(.+)$', denom_unit_str)
+            if match:
+                denom_value = float(match.group(1))
+                denom_unit_str = match.group(2).strip()
+
+            denom_unit, err = resolve_unit(denom_unit_str, parameter=f"factors[{i}].denominator", step=i)
+            if err:
+                return err
+
+            # Apply factor: multiply by (value * num_unit) / (denom_value * denom_unit)
+            try:
+                # Compute numeric factor: value / denom_value
+                numeric_factor = value / denom_value
+                running_value *= numeric_factor
+
+                # Accumulate numerator factors at +1, denominator factors at -1
+                _accumulate_factors(accum, num_unit, +1.0)
+                _accumulate_factors(accum, denom_unit, -1.0)
+
+                # Build current unit product for step recording
+                running_unit = _build_product_from_accum(accum)
+
+            except Exception as e:
+                return ConversionError(
+                    error=f"Error applying factor at step {step_num}: {str(e)}",
+                    error_type="computation_error",
+                    parameter=f"factors[{i}]",
+                    step=i,
+                    hints=["Check that units are compatible for this operation"],
+                )
+
+            # Record step
+            result_dim = running_unit.dimension.name if running_unit else "none"
+            result_unit_str = _format_unit_output(running_unit)
+
+            # Format factor description
+            if denom_value != 1.0:
+                factor_desc = f"× ({value} {numerator} / {denom_value} {denom_unit_str})"
+            else:
+                factor_desc = f"× ({value} {numerator} / {denom_unit_str})"
+
+            steps.append(ComputeStep(
+                factor=factor_desc,
+                dimension=result_dim,
+                unit=result_unit_str,
+            ))
+
+        # Build final result
+        running_unit = _build_product_from_accum(accum)
+        final_dim = running_unit.dimension.name if running_unit else "none"
+        final_unit_str = _format_unit_output(running_unit)
+
+        return ComputeResult(
+            quantity=running_value,
+            unit=final_unit_str,
+            dimension=final_dim,
+            steps=steps,
+        )
 
 
 def _format_unit_output(unit) -> str:
