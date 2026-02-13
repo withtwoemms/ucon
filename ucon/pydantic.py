@@ -306,4 +306,4 @@ Serialize to JSON::
     # {"value": {"quantity": 5.0, "unit": "km", "uncertainty": null}}
 """
 
-__all__ = ["Number"]
+__all__ = ["Number", "constrained_number"]
