@@ -1059,3 +1059,317 @@ class TestComputeToolErrors(unittest.TestCase):
         self.assertIsInstance(result, ComputeResult)
         self.assertAlmostEqual(result.quantity, 100.0)
         self.assertEqual(result.dimension, "length")
+
+
+class TestSessionTools(unittest.TestCase):
+    """Test session management tools: define_unit, define_conversion, reset_session."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import (
+                define_unit, define_conversion, reset_session, convert,
+                UnitDefinitionResult, ConversionDefinitionResult, SessionResult,
+                _reset_session_graph,
+            )
+            from ucon.mcp.suggestions import ConversionError
+            cls.define_unit = staticmethod(define_unit)
+            cls.define_conversion = staticmethod(define_conversion)
+            cls.reset_session = staticmethod(reset_session)
+            cls.convert = staticmethod(convert)
+            cls.UnitDefinitionResult = UnitDefinitionResult
+            cls.ConversionDefinitionResult = ConversionDefinitionResult
+            cls.SessionResult = SessionResult
+            cls.ConversionError = ConversionError
+            cls._reset_session_graph = staticmethod(_reset_session_graph)
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+        # Reset session before each test
+        self._reset_session_graph()
+
+    def tearDown(self):
+        # Clean up session after each test
+        if not self.skip_tests:
+            self._reset_session_graph()
+
+    def test_define_unit_success(self):
+        """Test defining a custom unit successfully."""
+        result = self.define_unit(
+            name="slug",
+            dimension="mass",
+            aliases=["slug"],
+        )
+        self.assertIsInstance(result, self.UnitDefinitionResult)
+        self.assertTrue(result.success)
+        self.assertEqual(result.name, "slug")
+        self.assertEqual(result.dimension, "mass")
+        self.assertEqual(result.aliases, ["slug"])
+
+    def test_define_unit_invalid_dimension(self):
+        """Test that invalid dimension returns error with suggestions."""
+        result = self.define_unit(
+            name="badunit",
+            dimension="nonexistent",
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.parameter, "dimension")
+
+    def test_define_conversion_success(self):
+        """Test defining a conversion edge successfully."""
+        # First define the unit
+        self.define_unit(name="slug", dimension="mass", aliases=["slug"])
+
+        # Then define the conversion
+        result = self.define_conversion(src="slug", dst="kg", factor=14.5939)
+        self.assertIsInstance(result, self.ConversionDefinitionResult)
+        self.assertTrue(result.success)
+        self.assertEqual(result.src, "slug")
+        self.assertEqual(result.dst, "kg")
+        self.assertAlmostEqual(result.factor, 14.5939)
+
+    def test_define_conversion_unknown_unit(self):
+        """Test that conversion with unknown unit returns error."""
+        result = self.define_conversion(
+            src="nonexistent",
+            dst="kg",
+            factor=1.0,
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+
+    def test_session_unit_usable_in_convert(self):
+        """Test that session-defined unit can be used in convert()."""
+        # Define unit and conversion
+        self.define_unit(name="slug", dimension="mass", aliases=["slug"])
+        self.define_conversion(src="slug", dst="kg", factor=14.5939)
+
+        # Use in convert
+        result = self.convert(1, "slug", "kg")
+        self.assertNotIsInstance(result, self.ConversionError)
+        self.assertAlmostEqual(result.quantity, 14.5939, places=3)
+
+    def test_reset_session_clears_custom_units(self):
+        """Test that reset_session() clears custom units."""
+        # Define unit and conversion
+        self.define_unit(name="slug", dimension="mass", aliases=["slug"])
+        self.define_conversion(src="slug", dst="kg", factor=14.5939)
+
+        # Verify it works
+        result = self.convert(1, "slug", "kg")
+        self.assertNotIsInstance(result, self.ConversionError)
+
+        # Reset session
+        reset_result = self.reset_session()
+        self.assertIsInstance(reset_result, self.SessionResult)
+        self.assertTrue(reset_result.success)
+
+        # Verify unit is no longer available
+        result = self.convert(1, "slug", "kg")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+
+
+class TestInlineParameters(unittest.TestCase):
+    """Test inline custom_units and custom_edges parameters."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import convert, compute, _reset_session_graph
+            from ucon.mcp.suggestions import ConversionError
+            cls.convert = staticmethod(convert)
+            cls.compute = staticmethod(compute)
+            cls.ConversionError = ConversionError
+            cls._reset_session_graph = staticmethod(_reset_session_graph)
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+        # Reset session to ensure clean state
+        self._reset_session_graph()
+
+    def tearDown(self):
+        if not self.skip_tests:
+            self._reset_session_graph()
+
+    def test_convert_with_inline_units(self):
+        """Test convert() with inline custom_units and custom_edges."""
+        result = self.convert(
+            value=1,
+            from_unit="slug",
+            to_unit="kg",
+            custom_units=[
+                {"name": "slug", "dimension": "mass", "aliases": ["slug"]},
+            ],
+            custom_edges=[
+                {"src": "slug", "dst": "kg", "factor": 14.5939},
+            ],
+        )
+        self.assertNotIsInstance(result, self.ConversionError)
+        self.assertAlmostEqual(result.quantity, 14.5939, places=3)
+
+    def test_inline_does_not_modify_session(self):
+        """Test that inline definitions don't persist to session."""
+        # Use inline definition
+        result = self.convert(
+            value=1,
+            from_unit="slug",
+            to_unit="kg",
+            custom_units=[
+                {"name": "slug", "dimension": "mass", "aliases": ["slug"]},
+            ],
+            custom_edges=[
+                {"src": "slug", "dst": "kg", "factor": 14.5939},
+            ],
+        )
+        self.assertNotIsInstance(result, self.ConversionError)
+
+        # Without inline, unit should not be available
+        result = self.convert(1, "slug", "kg")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+
+    def test_compute_with_inline_units(self):
+        """Test compute() with inline custom_units."""
+        result = self.compute(
+            initial_value=1,
+            initial_unit="slug",
+            factors=[
+                {"value": 14.5939, "numerator": "kg", "denominator": "slug"},
+            ],
+            custom_units=[
+                {"name": "slug", "dimension": "mass", "aliases": ["slug"]},
+            ],
+        )
+        self.assertNotIsInstance(result, self.ConversionError)
+        self.assertAlmostEqual(result.quantity, 14.5939, places=3)
+
+    def test_invalid_inline_unit_dimension(self):
+        """Test that invalid dimension in inline unit returns error."""
+        result = self.convert(
+            value=1,
+            from_unit="badunit",
+            to_unit="kg",
+            custom_units=[
+                {"name": "badunit", "dimension": "nonexistent"},
+            ],
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertIn("custom_units", result.parameter)
+
+    def test_invalid_inline_edge_unit(self):
+        """Test that invalid unit in inline edge returns error."""
+        result = self.convert(
+            value=1,
+            from_unit="kg",
+            to_unit="lb",
+            custom_edges=[
+                {"src": "nonexistent", "dst": "kg", "factor": 1.0},
+            ],
+        )
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertIn("custom_edges", result.parameter)
+
+    def test_recovery_pattern(self):
+        """Test agent recovery pattern: unknown_unit error → retry with inline."""
+        # First call fails
+        result = self.convert(1, "slug", "kg")
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "unknown_unit")
+
+        # Retry with inline definitions succeeds
+        result = self.convert(
+            value=1,
+            from_unit="slug",
+            to_unit="kg",
+            custom_units=[
+                {"name": "slug", "dimension": "mass", "aliases": ["slug"]},
+            ],
+            custom_edges=[
+                {"src": "slug", "dst": "kg", "factor": 14.5939},
+            ],
+        )
+        self.assertNotIsInstance(result, self.ConversionError)
+        self.assertAlmostEqual(result.quantity, 14.5939, places=3)
+
+
+class TestGraphCaching(unittest.TestCase):
+    """Test that inline graph compilation is cached."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import (
+                convert, _inline_graph_cache, _hash_definitions, _reset_session_graph
+            )
+            cls.convert = staticmethod(convert)
+            cls._inline_graph_cache = _inline_graph_cache
+            cls._hash_definitions = staticmethod(_hash_definitions)
+            cls._reset_session_graph = staticmethod(_reset_session_graph)
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+        self._reset_session_graph()
+        # Clear cache
+        self._inline_graph_cache.clear()
+
+    def tearDown(self):
+        if not self.skip_tests:
+            self._reset_session_graph()
+            self._inline_graph_cache.clear()
+
+    def test_same_definitions_use_cache(self):
+        """Test that identical definitions use cached graph."""
+        custom_units = [{"name": "slug", "dimension": "mass", "aliases": ["slug"]}]
+        custom_edges = [{"src": "slug", "dst": "kg", "factor": 14.5939}]
+
+        # First call
+        self.convert(1, "slug", "kg", custom_units=custom_units, custom_edges=custom_edges)
+        cache_size_after_first = len(self._inline_graph_cache)
+
+        # Second call with same definitions
+        self.convert(2, "slug", "kg", custom_units=custom_units, custom_edges=custom_edges)
+        cache_size_after_second = len(self._inline_graph_cache)
+
+        # Cache should not grow (reusing same entry)
+        self.assertEqual(cache_size_after_first, cache_size_after_second)
+        self.assertEqual(cache_size_after_first, 1)
+
+    def test_different_definitions_create_new_cache(self):
+        """Test that different definitions create new cache entries."""
+        custom_units_a = [{"name": "unit_a", "dimension": "mass"}]
+        custom_units_b = [{"name": "unit_b", "dimension": "length"}]
+
+        # First call
+        self.convert(1, "kg", "g", custom_units=custom_units_a)
+        cache_size_after_first = len(self._inline_graph_cache)
+
+        # Second call with different definitions
+        self.convert(1, "m", "ft", custom_units=custom_units_b)
+        cache_size_after_second = len(self._inline_graph_cache)
+
+        # Cache should grow
+        self.assertEqual(cache_size_after_second, cache_size_after_first + 1)
+
+    def test_hash_stability(self):
+        """Test that hash is stable for same definitions in different order."""
+        units_a = [{"name": "a", "dimension": "mass"}, {"name": "b", "dimension": "length"}]
+        units_b = [{"name": "b", "dimension": "length"}, {"name": "a", "dimension": "mass"}]
+
+        hash_a = self._hash_definitions(units_a, None)
+        hash_b = self._hash_definitions(units_b, None)
+
+        # Same content, different order → same hash (sorted internally)
+        self.assertEqual(hash_a, hash_b)

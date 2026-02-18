@@ -345,6 +345,26 @@ Available tools:
 - `list_scales()` — List SI and binary prefixes
 - `check_dimensions(unit_a, unit_b)` — Check dimensional compatibility
 - `list_dimensions()` — List physical dimensions
+- `define_unit(name, dimension, aliases)` — Register custom unit for session
+- `define_conversion(src, dst, factor)` — Add conversion edge to session
+- `reset_session()` — Clear custom units and conversions
+
+**Custom unit extension** — Agents can define domain-specific units at runtime:
+```python
+# Register a custom unit and conversion
+define_unit(name="slug", dimension="mass", aliases=["slug"])
+define_conversion(src="slug", dst="kg", factor=14.5939)
+
+# Now use it in conversions
+convert(1, "slug", "kg")  # → {"quantity": 14.5939, ...}
+```
+
+For inline definitions (without session state):
+```python
+convert(1, "slug", "kg",
+    custom_units=[{"name": "slug", "dimension": "mass", "aliases": ["slug"]}],
+    custom_edges=[{"src": "slug", "dst": "kg", "factor": 14.5939}])
+```
 
 **Factor-label calculations** with `compute`:
 ```python
