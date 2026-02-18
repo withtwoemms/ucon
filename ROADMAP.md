@@ -36,6 +36,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.4 | UnitPackage + TOML Loading | Complete |
 | v0.7.5 | MCP Extension Tools | Complete |
 | v0.7.x | Schema-Level Dimension Constraints | Planned |
+| v0.7.x | Decompose Tool (SLM Enablement) | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
 | v0.10.0 | Scientific Computing | Planned |
@@ -399,6 +400,36 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - LLMs can validate inputs before calling, reducing round-trips
 - Completes the type-directed correction loop
 - Foundation for ucon.dev marketplace of domain formula packages
+
+---
+
+## v0.7.x — Decompose Tool (SLM Enablement) (Planned)
+
+**Theme:** Deterministic planning for small language models.
+
+- [ ] `decompose` MCP tool: natural language → factor chain
+- [ ] Slot extraction (value, source_unit, target_unit) via fuzzy matching
+- [ ] Graph path resolution using existing `ConversionGraph` BFS
+- [ ] Factor chain construction with correct orientation
+- [ ] Structured error responses for ambiguous/unknown units
+
+**Design:** `decompose` is deterministic (no LLM inference). It uses graph traversal to produce a valid `compute` input, shifting domain knowledge burden from the model to ucon's infrastructure.
+
+**Two-tool pattern:**
+```
+decompose("3 TB to GiB")  →  { factors: [...] }  →  compute(factors)
+```
+
+**Outcomes:**
+- SLMs can perform unit conversions without recalling conversion factors
+- Factor orientation errors eliminated (graph provides correct numerator/denominator)
+- Correct-or-rejected semantics: never returns plausible-but-wrong chains
+- Composable with `compute` for full audit trail
+
+**Scope limitations (v1):**
+- Single-conversion queries only (not compound queries)
+- Known units only (custom units via `define_unit` supported)
+- No compound unit parsing ("m/s to km/h") in initial version
 
 ---
 
