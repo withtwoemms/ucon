@@ -29,6 +29,8 @@ help:
 	@echo "  ${CYAN}test-all${RESET}      - Run tests across all supported Python versions"
 	@echo "  ${CYAN}coverage${RESET}      - Generate coverage report"
 	@echo "  ${CYAN}build${RESET}         - Build source and wheel distributions"
+	@echo "  ${CYAN}docs${RESET}          - Build documentation (output in site/)"
+	@echo "  ${CYAN}docs-serve${RESET}    - Start documentation dev server"
 	@echo "  ${CYAN}venv${RESET}          - Create virtual environment"
 	@echo "  ${CYAN}clean${RESET}         - Remove build artifacts and caches"
 	@echo ""
@@ -104,6 +106,25 @@ coverage: ${DEPS_INSTALLED}
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage report -m
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage html
 	@echo "${CYAN}HTML report at htmlcov/index.html${RESET}"
+
+# --- Documentation ---
+DOCS_DEPS_INSTALLED := ${UV_VENV}/.docs-deps-installed
+
+${DOCS_DEPS_INSTALLED}: pyproject.toml | ${UV_VENV}
+	@echo "${GREEN}Installing docs dependencies...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv sync --python ${PYTHON} --extra docs
+	@touch ${DOCS_DEPS_INSTALLED}
+
+.PHONY: docs
+docs: ${DOCS_DEPS_INSTALLED}
+	@echo "${GREEN}Building documentation...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} mkdocs build
+	@echo "${CYAN}Documentation at site/${RESET}"
+
+.PHONY: docs-serve
+docs-serve: ${DOCS_DEPS_INSTALLED}
+	@echo "${GREEN}Starting documentation server...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} mkdocs serve
 
 # --- Building ---
 .PHONY: build
