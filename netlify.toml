@@ -2,7 +2,7 @@
 # This file is used when deploying the docs site from the ucon submodule
 
 [build]
-  command = "pip install '.[docs]' && mkdocs build"
+  command = "pip install --upgrade pip setuptools setuptools_scm && pip install '.[docs]' && mkdocs build"
   publish = "site/"
 
 [build.environment]
