@@ -10,7 +10,7 @@ Task-oriented guides for common use cases.
 
 ## Calculation Guides
 
-- **[Factor-Label Calculations](factor-label-calculations.md)** - Step-by-step dimensional analysis
+- **[Dimensional Analysis](dimensional-analysis.md)** - Step-by-step factor-label calculations
 - **[Custom Units & Graphs](custom-units-and-graphs.md)** - Define domain-specific units
 
 ## Domain Walkthroughs
