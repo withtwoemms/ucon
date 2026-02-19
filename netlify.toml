@@ -1,0 +1,28 @@
+# Netlify configuration for docs.ucon.dev
+# This file is used when deploying the docs site from the ucon submodule
+
+[build]
+  command = "pip install -e '.[docs]' && mkdocs build"
+  publish = "site/"
+
+[build.environment]
+  PYTHON_VERSION = "3.12"
+
+# Caching headers for static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
