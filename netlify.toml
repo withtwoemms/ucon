@@ -2,8 +2,7 @@
 # This file is used when deploying the docs site from the ucon submodule
 
 [build]
-  command = "pip install -e '.[docs]' && mkdocs build"
-  publish = "site/"
+  command = "git submodule update --init --recursive && pip install --upgrade pip setuptools setuptools_scm && pip install --no-build-isolation '.[docs]' && mkdocs build"
 
 [build.environment]
   PYTHON_VERSION = "3.12"

@@ -34,8 +34,9 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.2 | Compute Tool | Complete |
 | v0.7.3 | Graph-Local Name Resolution | Complete |
 | v0.7.4 | UnitPackage + TOML Loading | Complete |
-| v0.7.5 | MCP Extension Tools | Planned |
+| v0.7.5 | MCP Extension Tools | Complete |
 | v0.7.x | Schema-Level Dimension Constraints | Planned |
+| v0.7.x | Decompose Tool (SLM Enablement) | Planned |
 | v0.8.0 | String Parsing | Planned |
 | v0.9.0 | Constants + Logarithmic Units | Planned |
 | v0.10.0 | Scientific Computing | Planned |
@@ -360,22 +361,22 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.7.5 — MCP Extension Tools (Planned)
+## v0.7.5 — MCP Extension Tools (Complete)
 
 **Theme:** Runtime unit extension for AI agents.
 
 ### Session Tools (Token Efficient)
 
-- [ ] `_session_graph` ContextVar for session-scoped custom graphs
-- [ ] `define_unit(name, dimension, aliases)` — Register unit in session graph
-- [ ] `define_conversion(src, dst, factor)` — Add edge to session graph
-- [ ] `reset_session()` — Clear session graph, return to default
+- [x] `_session_graph` ContextVar for session-scoped custom graphs
+- [x] `define_unit(name, dimension, aliases)` — Register unit in session graph
+- [x] `define_conversion(src, dst, factor)` — Add edge to session graph
+- [x] `reset_session()` — Clear session graph, return to default
 
 ### Inline Parameters (Recoverable)
 
-- [ ] `convert(..., custom_units=[...], custom_edges=[...])` — Self-contained conversion
-- [ ] `compute(..., custom_units=[...], custom_edges=[...])` — Self-contained multi-step
-- [ ] Graph caching by definition hash for performance
+- [x] `convert(..., custom_units=[...], custom_edges=[...])` — Self-contained conversion
+- [x] `compute(..., custom_units=[...], custom_edges=[...])` — Self-contained multi-step
+- [x] Graph caching by definition hash for performance
 
 **Outcomes:**
 - Agents can bring their own units without prior registration
@@ -399,6 +400,36 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - LLMs can validate inputs before calling, reducing round-trips
 - Completes the type-directed correction loop
 - Foundation for ucon.dev marketplace of domain formula packages
+
+---
+
+## v0.7.x — Decompose Tool (SLM Enablement) (Planned)
+
+**Theme:** Deterministic planning for small language models.
+
+- [ ] `decompose` MCP tool: natural language → factor chain
+- [ ] Slot extraction (value, source_unit, target_unit) via fuzzy matching
+- [ ] Graph path resolution using existing `ConversionGraph` BFS
+- [ ] Factor chain construction with correct orientation
+- [ ] Structured error responses for ambiguous/unknown units
+
+**Design:** `decompose` is deterministic (no LLM inference). It uses graph traversal to produce a valid `compute` input, shifting domain knowledge burden from the model to ucon's infrastructure.
+
+**Two-tool pattern:**
+```
+decompose("3 TB to GiB")  →  { factors: [...] }  →  compute(factors)
+```
+
+**Outcomes:**
+- SLMs can perform unit conversions without recalling conversion factors
+- Factor orientation errors eliminated (graph provides correct numerator/denominator)
+- Correct-or-rejected semantics: never returns plausible-but-wrong chains
+- Composable with `compute` for full audit trail
+
+**Scope limitations (v1):**
+- Single-conversion queries only (not compound queries)
+- Known units only (custom units via `define_unit` supported)
+- No compound unit parsing ("m/s to km/h") in initial version
 
 ---
 
