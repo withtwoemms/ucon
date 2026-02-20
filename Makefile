@@ -81,12 +81,12 @@ test: ${DEPS_INSTALLED}
 ifeq ($(COVERAGE),true)
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage run --source=ucon --branch \
 		--omit="**/tests/*,**/site-packages/*.py,setup.py" \
-		-m unittest $(if $(TESTNAME),$(TESTNAME),discover --start-directory ${TESTDIR} --top-level-directory .)
+		-m pytest $(if $(TESTNAME),$(TESTNAME),${TESTDIR}) -q
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage report -m
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage xml
 else
-	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} -m unittest \
-		$(if $(TESTNAME),$(TESTNAME),discover --start-directory ${TESTDIR} --top-level-directory .)
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} -m pytest \
+		$(if $(TESTNAME),$(TESTNAME),${TESTDIR}) -q
 endif
 
 .PHONY: test-all
@@ -94,8 +94,7 @@ test-all: ${UV_INSTALLED}
 	@echo "${GREEN}Running tests across all supported Python versions...${RESET}"
 	@for pyver in $(SUPPORTED_PYTHONS); do \
 		echo "\n${CYAN}=== Python $$pyver ===${RESET}"; \
-		uv run --python $$pyver -m unittest discover \
-			--start-directory ${TESTDIR} --top-level-directory . \
+		uv run --python $$pyver -m pytest ${TESTDIR} -q \
 		|| echo "${YELLOW}Python $$pyver: FAILED or not available${RESET}"; \
 	done
 

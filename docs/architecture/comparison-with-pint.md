@@ -157,7 +157,12 @@ ureg.Quantity(1, "widget").to("gram")  # 100 gram (stale cache!)
 | Redefinition behavior | Silent overwrite + stale cache | Not possible (immutable extension) |
 
 !!! info "Test Suites"
-    These findings are backed by test suites: 14 tests demonstrating Pint's isolation failures and 16 tests demonstrating ucon's correct isolation across concurrent threads with unique custom units.
+    These findings are backed by executable test suites in [`tests/ucon/comparison/`](https://github.com/withtwoemms/ucon/tree/main/tests/ucon/comparison):
+
+    - [`test_pint_registry_isolation.py`](https://github.com/withtwoemms/ucon/blob/main/tests/ucon/comparison/test_pint_registry_isolation.py) — 14 tests demonstrating Pint's isolation failures
+    - [`test_ucon_graph_isolation.py`](https://github.com/withtwoemms/ucon/blob/main/tests/ucon/comparison/test_ucon_graph_isolation.py) — 16 tests demonstrating ucon's correct isolation
+
+    Run locally: `pytest tests/ucon/comparison/ -v` (requires `pint` installed)
 
 ---
 
