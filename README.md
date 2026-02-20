@@ -128,6 +128,24 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 
 ---
 
+## Roadmap Highlights
+
+| Version | Theme | Status |
+|---------|-------|--------|
+| **0.3.x** | Dimensional Algebra | Complete |
+| **0.4.x** | Conversion System | Complete |
+| **0.5.x** | Dimensionless Units + Uncertainty | Complete |
+| **0.6.x** | Pydantic + MCP Server | Complete |
+| **0.7.x** | Compute Tool + Extension API | Complete |
+| **0.8.x** | String Parsing | Planned |
+| **0.9.x** | Constants + Logarithmic Units | Planned |
+| **0.10.x** | NumPy/Polars Integration | Planned |
+| **1.0.0** | API Stability | Planned |
+
+See full roadmap: [ROADMAP.md](./ROADMAP.md)
+
+---
+
 ## Documentation
 
 | Section | Description |
