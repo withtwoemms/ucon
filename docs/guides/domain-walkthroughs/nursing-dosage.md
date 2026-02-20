@@ -59,9 +59,9 @@ dose_per_admin = daily_dose / 3    # mg per dose
 print(f"{dose_per_admin:.1f} mg per dose")  # 349.2 mg per dose
 ```
 
-### Using `compute`
+### Using `compute` (MCP Tool)
 
-The MCP `compute` tool tracks dimensions through each step:
+The MCP [`compute`](../mcp-server.md#compute) tool tracks dimensions through each step. This is called via the MCP server (e.g., by Claude or another AI agent):
 
 ```python
 compute(
@@ -87,6 +87,14 @@ compute(
 ## IV Drip Rate Calculations
 
 **Problem:** Infuse 1000 mL over 8 hours using a drip set that delivers 15 drops/mL. What's the drip rate in drops/minute?
+
+First, define the `drop` unit (not in ucon's standard library):
+
+```python
+define_unit(name="drop", dimension="count", aliases=["gtt", "drop"])
+```
+
+Then calculate using the MCP `compute` tool:
 
 ```python
 compute(
@@ -175,18 +183,22 @@ rate_mL_hr = volume_mL / 1  # mL/hr
 print(f"Rate: {rate_mL_hr} mL/hr")  # 204 mL/hr
 ```
 
-With `compute`:
+With the MCP `compute` tool (all three calculations in one chain):
 
 ```python
 compute(
     initial_value=68,
     initial_unit="kg",
     factors=[
-        {"value": 15, "numerator": "mg", "denominator": "kg"},
+        {"value": 15, "numerator": "mg", "denominator": "kg"},       # → 1020 mg (dose)
+        {"value": 1, "numerator": "mL", "denominator": "5 mg"},      # → 204 mL (volume at 5 mg/mL)
+        {"value": 1, "numerator": "1", "denominator": "1 hr"},       # → 204 mL/hr (rate over 60 min)
     ]
 )
-# → 1020 mg per dose
+# → 204 mL/hr infusion rate
 ```
+
+The step trace shows each intermediate result: 68 kg → 1020 mg → 204 mL → 204 mL/hr.
 
 ## Key Takeaways
 
