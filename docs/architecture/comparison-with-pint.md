@@ -80,6 +80,87 @@ with using_graph(custom):
 
 ---
 
+## Thread Safety & State Isolation
+
+The registry vs graph distinction has significant implications for concurrent, multi-tenant, and multi-domain scenarios.
+
+### Key Findings
+
+#### Cross-Registry Quantity Incompatibility
+
+Pint quantities carry a reference to their parent registry. Quantities from different registries cannot interact:
+
+```python
+ureg1 = pint.UnitRegistry()
+ureg2 = pint.UnitRegistry()
+
+q1 = ureg1.Quantity(50, "meter")
+q2 = ureg2.Quantity(50, "meter")
+
+q1 + q2  # ValueError: Cannot operate with Quantity of different registries
+```
+
+**ucon:** Conversion graphs produce plain numeric results via `Map` objects. There is no registry-bound `Quantity` type, so cross-graph incompatibility doesn't exist.
+
+#### Application Registry Singleton
+
+Pint's `set_application_registry()` switches the process-global default. Any code using `pint.Quantity` is affected:
+
+```python
+ureg1 = pint.UnitRegistry()
+ureg1.define("smoot = 1.7018 * meter")
+pint.set_application_registry(ureg1)
+
+pint.Quantity(1, "smoot")  # works
+
+ureg2 = pint.UnitRegistry()
+pint.set_application_registry(ureg2)
+
+pint.Quantity(1, "smoot")  # UndefinedUnitError — smoot no longer exists
+```
+
+**ucon:** `set_default_graph()` only affects contexts that haven't explicitly called `using_graph()`. An explicit context is immune to default changes.
+
+#### Silent Redefinition
+
+Pint's `define()` silently overwrites previous definitions. The internal `_units` dictionary updates, but the conversion cache may retain stale values:
+
+```python
+ureg = pint.UnitRegistry()
+ureg.define("widget = 100 * gram")
+ureg.Quantity(1, "widget").to("gram")  # 100 gram (cached)
+
+ureg.define("widget = 200 * gram")
+ureg.Quantity(1, "widget").to("gram")  # 100 gram (stale cache!)
+```
+
+**ucon:** `with_package()` returns a new graph. The original is never mutated. There is no redefinition — only "a different graph with a different definition."
+
+### Scenario Analysis
+
+| Scenario | Pint Hazard | ucon Solution |
+|----------|-------------|---------------|
+| **MCP Server** | Concurrent agents race on shared registry, or separate registries block interoperability | `with_package()` per agent config, `using_graph()` per request |
+| **pytest-xdist** | Parallel tests with `define()` produce intermittent failures | `using_graph()` isolates each test |
+| **Long-running Pipeline** | Recalibration via `define()` corrupts in-flight data | Immutable graphs preserve calibration epochs |
+
+### Architectural Summary
+
+| Property | Pint | ucon |
+|----------|------|------|
+| State container | `UnitRegistry` (mutable) | `ConversionGraph` (copy-on-extend) |
+| Global singleton | `application_registry` (process-wide) | None (ContextVar-scoped default) |
+| Extension mechanism | `define()` (mutates in place) | `with_package()` (returns new graph) |
+| Context scoping | None (manual registry passing) | `using_graph()` via ContextVar |
+| Thread isolation | Requires separate registries | Built-in via ContextVar |
+| Cross-context interop | Blocked (different-registry error) | Native (results are plain numbers) |
+| Redefinition behavior | Silent overwrite + stale cache | Not possible (immutable extension) |
+
+!!! info "Test Suites"
+    These findings are backed by test suites: 14 tests demonstrating Pint's isolation failures and 16 tests demonstrating ucon's correct isolation across concurrent threads with unique custom units.
+
+---
+
 ## Dimensional Type Safety
 
 ### Pint: Runtime Checks
