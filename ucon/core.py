@@ -1160,13 +1160,17 @@ class UnitProduct:
             simplified[fu] = exp
 
         # -----------------------------------------------------
-        # Step 3 — Group by base-unit identity (ignoring scale)
+        # Step 3 — Group by full unit identity (including scale)
         # -----------------------------------------------------
+        # NOTE: We include scale in the group key so that differently-scaled
+        # variants of the same base unit (e.g., mg and kg) remain separate.
+        # This preserves user intent in expressions like mg/kg, allowing
+        # the mg to survive when later multiplied by kg (e.g., mg/kg * kg = mg).
         groups: dict[tuple, dict[UnitFactor, float]] = {}
 
         for fu, exp in simplified.items():
             alias_key = tuple(sorted(a for a in fu.aliases if a))
-            group_key = (fu.name, fu.dimension, alias_key)
+            group_key = (fu.name, fu.dimension, alias_key, fu.scale)
             groups.setdefault(group_key, {})
             groups[group_key][fu] = groups[group_key].get(fu, 0.0) + exp
 
