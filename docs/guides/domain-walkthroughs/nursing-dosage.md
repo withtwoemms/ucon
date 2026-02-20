@@ -31,17 +31,17 @@ from ucon import units, Scale
 mg = Scale.milli * units.gram
 kg = Scale.kilo * units.gram
 
-# Step 1: Convert weight
+# Givens as callable units
 weight = units.pound(154).to(kg)
-print(weight)  # <69.84... kg>
+dose_rate = (mg / kg / units.day)(15)  # 15 mg per kg per day
+doses_per_day = units.each(3) / units.day(1)  # 3 doses per day
 
-# Step 2: Calculate daily dose
-daily_dose = mg(weight.quantity * 15)
-print(daily_dose)  # <1047.6... mg>
+# Calculate: weight × dose_rate ÷ doses_per_day
+daily_dose = weight * dose_rate
+print(daily_dose)  # <1047.6... mg/day>
 
-# Step 3: Divide by doses per day
-dose_per_admin = daily_dose.quantity / 3
-print(f"{dose_per_admin:.1f} mg per dose")  # 349.2 mg per dose
+dose_per_admin = daily_dose / doses_per_day
+print(dose_per_admin)  # <349.2 mg/ea>
 ```
 
 ### MCP Server
