@@ -16,6 +16,9 @@ Both ucon and [Pint](https://pint.readthedocs.io/) solve unit conversion in Pyth
 | **AI Integration** | None | MCP server built-in |
 | **NumPy** | First-class support | Planned (v0.10.x) |
 
+!!! note "Community Interest in Parameterized Types"
+    The Pint community has expressed interest in parameterized type support similar to ucon's `Number[Dimension.X]` generics. See discussions in [pint#778](https://github.com/hgrecco/pint/issues/778) and [pint#1166](https://github.com/hgrecco/pint/issues/1166). Workarounds for Pydantic integration exist but remain unmerged ([pydantic#4929](https://github.com/pydantic/pydantic/discussions/4929)). ucon's type-safe dimensional constraints address this gap natively.
+
 ---
 
 ## Architectural Difference: Registry vs Graph
