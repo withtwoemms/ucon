@@ -36,7 +36,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/withtwoemms/ucon"
+Homepage = "https://docs.ucon.dev/"
 Repository = "https://github.com/withtwoemms/ucon"
 
 [project.optional-dependencies]
