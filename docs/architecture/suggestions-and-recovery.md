@@ -156,45 +156,37 @@ convert(1, "W/(m²*K", "BTU/h")
 
 MCP error responses enable a self-correction loop:
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    AI Agent                          │
-│                                                      │
-│  1. Call convert("kilgoram", "kg")                  │
-│                     │                                │
-│                     ▼                                │
-│  2. Receive ConversionError                         │
-│     likely_fix: "kilogram (kg)"                     │
-│                     │                                │
-│                     ▼                                │
-│  3. Apply likely_fix automatically                  │
-│     Call convert("kilogram", "kg")                  │
-│                     │                                │
-│                     ▼                                │
-│  4. Receive ConversionResult                        │
-│     quantity: 1.0, unit: "kg"                       │
-│                                                      │
-└─────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent
+    participant MCP as ucon MCP Server
+
+    Agent->>MCP: convert("kilgoram", "kg")
+    MCP-->>Agent: ConversionError<br/>likely_fix: "kilogram (kg)"
+
+    Note over Agent: Apply likely_fix automatically
+
+    Agent->>MCP: convert("kilogram", "kg")
+    MCP-->>Agent: ConversionResult<br/>quantity: 1.0, unit: "kg"
 ```
 
 For ambiguous cases (no `likely_fix`):
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    AI Agent                          │
-│                                                      │
-│  1. Call convert("mt", "kg")                        │
-│                     │                                │
-│                     ▼                                │
-│  2. Receive ConversionError                         │
-│     likely_fix: null                                │
-│     hints: ["Similar: meter (m)", "mole (mol)"]    │
-│                     │                                │
-│                     ▼                                │
-│  3. Escalate to user                                │
-│     "Did you mean meter or mole?"                   │
-│                                                      │
-└─────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent
+    participant MCP as ucon MCP Server
+    participant User
+
+    Agent->>MCP: convert("mt", "kg")
+    MCP-->>Agent: ConversionError<br/>likely_fix: null<br/>hints: ["meter (m)", "mole (mol)"]
+
+    Note over Agent: No likely_fix, escalate
+
+    Agent->>User: "Did you mean meter or mole?"
+    User-->>Agent: "meter"
+    Agent->>MCP: convert("meter", "kg")
+    MCP-->>Agent: ConversionError<br/>dimension_mismatch
 ```
 
 ---
