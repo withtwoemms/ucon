@@ -1332,13 +1332,20 @@ class UnitProduct:
         if isinstance(other, Unit):
             combined = self.factors.copy()
             combined[other] = combined.get(other, 0.0) + 1.0
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factor from self
+            result._residual_scale_factor *= self._residual_scale_factor
+            return result
 
         if isinstance(other, UnitProduct):
             combined = self.factors.copy()
             for u, exp in other.factors.items():
                 combined[u] = combined.get(u, 0.0) + exp
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factors from both operands
+            result._residual_scale_factor *= self._residual_scale_factor
+            result._residual_scale_factor *= other._residual_scale_factor
+            return result
 
         if isinstance(other, Scale):
             # respect the convention: Scale * Unit, not Unit * Scale
@@ -1403,13 +1410,20 @@ class UnitProduct:
         if isinstance(other, Unit):
             combined = self.factors.copy()
             combined[other] = combined.get(other, 0.0) - 1.0
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factor from self
+            result._residual_scale_factor *= self._residual_scale_factor
+            return result
 
         if isinstance(other, UnitProduct):
             combined = self.factors.copy()
             for u, exp in other.factors.items():
                 combined[u] = combined.get(u, 0.0) - exp
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual: self's residual divided by other's residual
+            result._residual_scale_factor *= self._residual_scale_factor
+            result._residual_scale_factor /= other._residual_scale_factor
+            return result
 
         return NotImplemented
 
