@@ -91,10 +91,10 @@ infusion_time = units.hour(8)
 
 # Calculate: volume × drip_factor ÷ time
 total_drops = volume * drip_factor
-print(total_drops)  # <15000 drop>
+print(total_drops)  # <15000>
 
 rate = total_drops / infusion_time
-print(rate)  # <1875 drop/hr>
+print(rate)  # <1875.0 gtt/h>
 
 # Convert to drops/min
 rate_per_min = rate.quantity / 60
@@ -222,23 +222,23 @@ mg = Scale.milli * units.gram
 mL = Scale.milli * units.liter
 kg = Scale.kilo * units.gram
 
-# Given
+# Givens as callable units
 weight = kg(68)
-dose_rate = 15  # mg/kg
-concentration = 5  # mg/mL
-infusion_time = 1  # hour (60 minutes)
+dose_rate = (mg / kg)(15)  # 15 mg/kg
+concentration = (mg / mL)(5)  # 5 mg/mL
+infusion_time = units.hour(1)  # 60 minutes
 
-# 1. Dose calculation
-dose = mg(weight.quantity * dose_rate)
+# 1. Dose calculation: weight × dose_rate
+dose = weight * dose_rate
 print(f"Dose: {dose}")  # <1020 mg>
 
-# 2. Volume calculation
-volume = mL(dose.quantity / concentration)
+# 2. Volume calculation: dose ÷ concentration
+volume = dose / concentration
 print(f"Volume: {volume}")  # <204 mL>
 
-# 3. Infusion rate
-rate = volume.quantity / infusion_time
-print(f"Rate: {rate} mL/hr")  # 204 mL/hr
+# 3. Infusion rate: volume ÷ time
+rate = volume / infusion_time
+print(f"Rate: {rate}")  # <204 mL/hr>
 ```
 
 ### MCP Server
