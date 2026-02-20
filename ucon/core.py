@@ -1396,13 +1396,19 @@ class UnitProduct:
                 else:
                     combined[fu] = combined.get(fu, 0.0) + exp
 
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factor from self
+            result._residual_scale_factor *= self._residual_scale_factor
+            return result
 
         if isinstance(other, Unit):
             combined: dict[Unit, float] = {other: 1.0}
             for u, e in self.factors.items():
                 combined[u] = combined.get(u, 0.0) + e
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factor from self
+            result._residual_scale_factor *= self._residual_scale_factor
+            return result
 
         return NotImplemented
 
