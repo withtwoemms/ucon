@@ -5,18 +5,20 @@ repo_name: withtwoemms/ucon
 
 theme:
   name: material
+  logo: assets/ucon-logo.svg
+  favicon: assets/ucon-logo.png
   palette:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep purple
-      accent: amber
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-7
         name: Light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep purple
-      accent: amber
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Dark mode
@@ -31,6 +33,9 @@ theme:
     - search.highlight
   icon:
     repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
 
 exclude_docs: |
   internal/
