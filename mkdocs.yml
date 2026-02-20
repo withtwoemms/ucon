@@ -47,7 +47,7 @@ nav:
     - MCP Server: guides/mcp-server.md
     - Pydantic Integration: guides/pydantic-integration.md
     - Config Safety: guides/dimensional-safety-config.md
-    - Factor-Label Calculations: guides/factor-label-calculations.md
+    - Dimensional Analysis: guides/dimensional-analysis.md
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
     - Domain Walkthroughs:
       - guides/domain-walkthroughs/index.md
