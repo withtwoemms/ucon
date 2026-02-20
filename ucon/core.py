@@ -1160,13 +1160,17 @@ class UnitProduct:
             simplified[fu] = exp
 
         # -----------------------------------------------------
-        # Step 3 — Group by base-unit identity (ignoring scale)
+        # Step 3 — Group by full unit identity (including scale)
         # -----------------------------------------------------
+        # NOTE: We include scale in the group key so that differently-scaled
+        # variants of the same base unit (e.g., mg and kg) remain separate.
+        # This preserves user intent in expressions like mg/kg, allowing
+        # the mg to survive when later multiplied by kg (e.g., mg/kg * kg = mg).
         groups: dict[tuple, dict[UnitFactor, float]] = {}
 
         for fu, exp in simplified.items():
             alias_key = tuple(sorted(a for a in fu.aliases if a))
-            group_key = (fu.name, fu.dimension, alias_key)
+            group_key = (fu.name, fu.dimension, alias_key, fu.scale)
             groups.setdefault(group_key, {})
             groups[group_key][fu] = groups[group_key].get(fu, 0.0) + exp
 
@@ -1332,13 +1336,20 @@ class UnitProduct:
         if isinstance(other, Unit):
             combined = self.factors.copy()
             combined[other] = combined.get(other, 0.0) + 1.0
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factor from self
+            result._residual_scale_factor *= self._residual_scale_factor
+            return result
 
         if isinstance(other, UnitProduct):
             combined = self.factors.copy()
             for u, exp in other.factors.items():
                 combined[u] = combined.get(u, 0.0) + exp
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factors from both operands
+            result._residual_scale_factor *= self._residual_scale_factor
+            result._residual_scale_factor *= other._residual_scale_factor
+            return result
 
         if isinstance(other, Scale):
             # respect the convention: Scale * Unit, not Unit * Scale
@@ -1389,13 +1400,19 @@ class UnitProduct:
                 else:
                     combined[fu] = combined.get(fu, 0.0) + exp
 
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factor from self
+            result._residual_scale_factor *= self._residual_scale_factor
+            return result
 
         if isinstance(other, Unit):
             combined: dict[Unit, float] = {other: 1.0}
             for u, e in self.factors.items():
                 combined[u] = combined.get(u, 0.0) + e
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factor from self
+            result._residual_scale_factor *= self._residual_scale_factor
+            return result
 
         return NotImplemented
 
@@ -1403,13 +1420,20 @@ class UnitProduct:
         if isinstance(other, Unit):
             combined = self.factors.copy()
             combined[other] = combined.get(other, 0.0) - 1.0
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual scale factor from self
+            result._residual_scale_factor *= self._residual_scale_factor
+            return result
 
         if isinstance(other, UnitProduct):
             combined = self.factors.copy()
             for u, exp in other.factors.items():
                 combined[u] = combined.get(u, 0.0) - exp
-            return UnitProduct(combined)
+            result = UnitProduct(combined)
+            # Propagate residual: self's residual divided by other's residual
+            result._residual_scale_factor *= self._residual_scale_factor
+            result._residual_scale_factor /= other._residual_scale_factor
+            return result
 
         return NotImplemented
 

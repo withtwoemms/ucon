@@ -428,34 +428,36 @@ class TestRecursiveDescentParser(unittest.TestCase):
         self.assertEqual(len(factors), 3)
 
     def test_chained_division_dosage(self):
-        """GIVEN mg/kg/d THEN returns 1/d with scale factor 1e-6.
+        """GIVEN mg/kg/d THEN returns mg/kg/d with all factors preserved.
 
-        Note: mg and kg cancel dimensionally (mass/mass) but the scale
-        difference (milli/kilo = 1e-6) is preserved in the residual.
+        Note: Differently-scaled variants of the same base unit (mg, kg) are
+        kept separate so they can cancel properly in later operations
+        (e.g., mg/kg * kg = mg). The fold_scale() still gives the correct
+        combined scale factor.
         """
         result = get_unit_by_name("mg/kg/d")
         self.assertIsInstance(result, UnitProduct)
-        # mg and kg cancel (same dimension), leaving 1/d
+        # All three factors preserved: mg, kg^-1, d^-1
         factors = result.factors
-        self.assertEqual(len(factors), 1)  # Only day remains
+        self.assertEqual(len(factors), 3)
         # Scale should be 1e-6 (milli/kilo)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_chained_division_infusion_rate(self):
-        """GIVEN µg/kg/min THEN returns 1/min with scale factor 1e-9."""
+        """GIVEN µg/kg/min THEN returns µg/kg/min with all factors preserved."""
         result = get_unit_by_name("µg/kg/min")
         self.assertIsInstance(result, UnitProduct)
         factors = result.factors
-        self.assertEqual(len(factors), 1)  # Only minute remains
+        self.assertEqual(len(factors), 3)  # µg, kg^-1, min^-1
         # Scale: micro/kilo = 1e-6/1e3 = 1e-9
         self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
 
     def test_mcg_chained_division(self):
-        """GIVEN mcg/kg/min THEN returns 1/min with scale factor 1e-9."""
+        """GIVEN mcg/kg/min THEN returns mcg/kg/min with all factors preserved."""
         result = get_unit_by_name("mcg/kg/min")
         self.assertIsInstance(result, UnitProduct)
         factors = result.factors
-        self.assertEqual(len(factors), 1)  # Only minute remains
+        self.assertEqual(len(factors), 3)  # mcg, kg^-1, min^-1
         # Scale: micro/kilo = 1e-6/1e3 = 1e-9
         self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
 
