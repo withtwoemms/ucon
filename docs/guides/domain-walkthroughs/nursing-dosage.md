@@ -82,14 +82,23 @@ from ucon.core import Unit
 mL = Scale.milli * units.liter
 
 # Define custom unit for drops (not in standard library)
-drop = Unit("drop", "gtt", Dimension.count, aliases=("gtt", "drop"))
+drop = Unit(name="drop", dimension=Dimension.count, aliases=("gtt", "drop"))
 
-# Calculate
-total_drops = 1000 * 15  # 1000 mL × 15 drops/mL
-total_minutes = 8 * 60   # 8 hours × 60 min/hr
-rate = total_drops / total_minutes
+# Givens as callable units
+volume = mL(1000)
+drip_factor = (drop / mL)(15)  # 15 drops per mL
+infusion_time = units.hour(8)
 
-print(f"{rate:.1f} drops/min")  # 31.2 drops/min
+# Calculate: volume × drip_factor ÷ time
+total_drops = volume * drip_factor
+print(total_drops)  # <15000 drop>
+
+rate = total_drops / infusion_time
+print(rate)  # <1875 drop/hr>
+
+# Convert to drops/min
+rate_per_min = rate.quantity / 60
+print(f"{rate_per_min:.1f} drops/min")  # 31.2 drops/min
 ```
 
 ### MCP Server
