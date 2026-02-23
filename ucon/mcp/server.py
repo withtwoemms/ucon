@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from ucon import Dimension, get_default_graph
 from ucon.core import Number, Scale, Unit, UnitProduct
+from ucon.units import get_unit_by_name
 from ucon.graph import ConversionGraph, DimensionMismatch, ConversionNotFound, using_graph
 from ucon.maps import LinearMap
 from ucon.mcp.formulas import list_formulas as _list_formulas, get_formula
@@ -922,6 +923,184 @@ def list_formulas() -> list[FormulaInfoResponse]:
         )
         for f in formulas
     ]
+
+
+def _number_dimension(num: Number) -> Dimension:
+    """Extract dimension from a Number."""
+    if num.unit is None:
+        return Dimension.dimensionless
+    if isinstance(num.unit, Unit):
+        return num.unit.dimension
+    if isinstance(num.unit, UnitProduct):
+        return num.unit.dimension
+    return Dimension.dimensionless
+
+
+@mcp.tool()
+def call_formula(
+    name: str,
+    parameters: dict[str, dict],
+) -> FormulaResult | FormulaError:
+    """
+    Call a registered formula with the given parameters.
+
+    Use list_formulas() first to discover available formulas and their
+    expected parameter dimensions.
+
+    Args:
+        name: The formula name (from list_formulas).
+        parameters: Dict mapping parameter names to values. Each value should be:
+            - {"value": 5.0, "unit": "kg"} for dimensioned quantities
+            - {"value": 5.0} for dimensionless quantities
+
+    Returns:
+        FormulaResult on success, FormulaError on failure.
+
+    Example:
+        call_formula(
+            name="bmi",
+            parameters={
+                "mass": {"value": 70, "unit": "kg"},
+                "height": {"value": 1.75, "unit": "m"}
+            }
+        )
+        # Returns: {"formula": "bmi", "quantity": 22.86, "unit": "kg/m²", ...}
+    """
+    # Look up the formula
+    info = get_formula(name)
+    if info is None:
+        available = [f.name for f in _list_formulas()]
+        hints = []
+        if available:
+            hints.append(f"Available formulas: {', '.join(available)}")
+        else:
+            hints.append("No formulas registered. Formulas must be registered via @register_formula.")
+        return FormulaError(
+            error=f"Unknown formula: '{name}'",
+            error_type="unknown_formula",
+            formula=name,
+            hints=hints,
+        )
+
+    # Build the arguments
+    kwargs = {}
+    for param_name, expected_dim in info.parameters.items():
+        if param_name not in parameters:
+            return FormulaError(
+                error=f"Missing required parameter: '{param_name}'",
+                error_type="missing_parameter",
+                formula=name,
+                parameter=param_name,
+                expected=expected_dim,
+                hints=[f"Parameter '{param_name}' expects dimension: {expected_dim or 'any'}"],
+            )
+
+        param_value = parameters[param_name]
+
+        # Parse the parameter value
+        if not isinstance(param_value, dict):
+            return FormulaError(
+                error=f"Invalid parameter format for '{param_name}': expected dict with 'value' key",
+                error_type="invalid_parameter",
+                formula=name,
+                parameter=param_name,
+                hints=["Parameters should be: {\"value\": 5.0, \"unit\": \"kg\"} or {\"value\": 5.0}"],
+            )
+
+        if "value" not in param_value:
+            return FormulaError(
+                error=f"Parameter '{param_name}' missing 'value' key",
+                error_type="invalid_parameter",
+                formula=name,
+                parameter=param_name,
+                hints=["Parameters should be: {\"value\": 5.0, \"unit\": \"kg\"} or {\"value\": 5.0}"],
+            )
+
+        value = param_value["value"]
+        unit_str = param_value.get("unit")
+
+        if unit_str:
+            # Parse the unit
+            try:
+                unit = get_unit_by_name(unit_str)
+            except Exception as e:
+                return FormulaError(
+                    error=f"Unknown unit '{unit_str}' for parameter '{param_name}'",
+                    error_type="invalid_parameter",
+                    formula=name,
+                    parameter=param_name,
+                    got=unit_str,
+                    hints=[str(e)],
+                )
+            kwargs[param_name] = Number(value, unit)
+        else:
+            # Dimensionless
+            kwargs[param_name] = Number(value)
+
+    # Call the formula
+    try:
+        result = info.fn(**kwargs)
+    except ValueError as e:
+        # Dimension mismatch from @enforce_dimensions
+        error_msg = str(e)
+        # Parse out parameter name if possible
+        param = None
+        expected = None
+        got = None
+        if ": expected dimension" in error_msg:
+            parts = error_msg.split(":")
+            if len(parts) >= 2:
+                param = parts[0].strip()
+                # Try to extract expected/got
+                match = re.search(r"expected dimension '(\w+)', got '(\w+)'", error_msg)
+                if match:
+                    expected = match.group(1)
+                    got = match.group(2)
+        return FormulaError(
+            error=error_msg,
+            error_type="dimension_mismatch",
+            formula=name,
+            parameter=param,
+            expected=expected,
+            got=got,
+            hints=[f"Check that '{param}' has the correct dimension" if param else "Check parameter dimensions"],
+        )
+    except TypeError as e:
+        return FormulaError(
+            error=str(e),
+            error_type="invalid_parameter",
+            formula=name,
+            hints=["Check parameter types match formula signature"],
+        )
+    except Exception as e:
+        return FormulaError(
+            error=f"Formula execution failed: {e}",
+            error_type="execution_error",
+            formula=name,
+            hints=[],
+        )
+
+    # Format the result
+    if isinstance(result, Number):
+        unit_str = None
+        if result.unit is not None:
+            unit_str = result.unit.shorthand
+        dim = _number_dimension(result)
+        return FormulaResult(
+            formula=name,
+            quantity=result.quantity,
+            unit=unit_str,
+            dimension=dim.name,
+            uncertainty=result.uncertainty,
+        )
+    else:
+        # Non-Number result (shouldn't happen for well-typed formulas)
+        return FormulaResult(
+            formula=name,
+            quantity=float(result),
+            unit=None,
+            dimension="unknown",
+        )
 
 
 # -----------------------------------------------------------------------------
