@@ -241,3 +241,130 @@ class TestFormulaIntegration:
             'dose_per_kg': None,
             'frequency': 'frequency',
         }
+
+
+# -----------------------------------------------------------------------------
+# MCP Tool Tests
+# -----------------------------------------------------------------------------
+
+
+class TestCallFormula:
+    """Tests for call_formula MCP tool."""
+
+    def test_unknown_formula(self):
+        from ucon.mcp.server import call_formula, FormulaError
+
+        result = call_formula("nonexistent", {})
+        assert isinstance(result, FormulaError)
+        assert result.error_type == "unknown_formula"
+        assert "nonexistent" in result.error
+
+    def test_missing_parameter(self):
+        from ucon.mcp.server import call_formula, FormulaError
+
+        @register_formula("needs_params")
+        @enforce_dimensions
+        def needs_params(x: Number[Dimension.length]) -> Number:
+            return x
+
+        result = call_formula("needs_params", {})
+        assert isinstance(result, FormulaError)
+        assert result.error_type == "missing_parameter"
+        assert result.parameter == "x"
+
+    def test_invalid_parameter_format(self):
+        from ucon.mcp.server import call_formula, FormulaError
+
+        @register_formula("simple")
+        def simple(x: Number) -> Number:
+            return x
+
+        # Pass a non-dict value
+        result = call_formula("simple", {"x": 5.0})
+        assert isinstance(result, FormulaError)
+        assert result.error_type == "invalid_parameter"
+
+    def test_missing_value_key(self):
+        from ucon.mcp.server import call_formula, FormulaError
+
+        @register_formula("simple2")
+        def simple2(x: Number) -> Number:
+            return x
+
+        result = call_formula("simple2", {"x": {"unit": "m"}})
+        assert isinstance(result, FormulaError)
+        assert result.error_type == "invalid_parameter"
+        assert "value" in result.error
+
+    def test_unknown_unit(self):
+        from ucon.mcp.server import call_formula, FormulaError
+
+        @register_formula("with_unit")
+        def with_unit(x: Number) -> Number:
+            return x
+
+        result = call_formula("with_unit", {"x": {"value": 5, "unit": "foobar"}})
+        assert isinstance(result, FormulaError)
+        assert result.error_type == "invalid_parameter"
+        assert "foobar" in result.error
+
+    def test_dimension_mismatch(self):
+        from ucon.mcp.server import call_formula, FormulaError
+
+        @register_formula("length_only")
+        @enforce_dimensions
+        def length_only(x: Number[Dimension.length]) -> Number:
+            return x
+
+        # Pass mass instead of length
+        result = call_formula("length_only", {"x": {"value": 5, "unit": "kg"}})
+        assert isinstance(result, FormulaError)
+        assert result.error_type == "dimension_mismatch"
+
+    def test_successful_call(self):
+        from ucon.mcp.server import call_formula, FormulaResult
+
+        @register_formula("double_length")
+        @enforce_dimensions
+        def double_length(x: Number[Dimension.length]) -> Number:
+            return x * Number(2)
+
+        result = call_formula("double_length", {"x": {"value": 5, "unit": "m"}})
+        assert isinstance(result, FormulaResult)
+        assert result.formula == "double_length"
+        assert result.quantity == 10.0
+        assert result.unit == "m"
+        assert result.dimension == "length"
+
+    def test_dimensionless_parameter(self):
+        from ucon.mcp.server import call_formula, FormulaResult
+
+        @register_formula("scale_it")
+        def scale_it(x: Number, factor: Number) -> Number:
+            return x * factor
+
+        result = call_formula("scale_it", {
+            "x": {"value": 5, "unit": "m"},
+            "factor": {"value": 3}
+        })
+        assert isinstance(result, FormulaResult)
+        assert result.quantity == 15.0
+
+    def test_composite_unit_result(self):
+        from ucon.mcp.server import call_formula, FormulaResult
+
+        @register_formula("velocity")
+        @enforce_dimensions
+        def velocity(
+            distance: Number[Dimension.length],
+            time: Number[Dimension.time]
+        ) -> Number:
+            return distance / time
+
+        result = call_formula("velocity", {
+            "distance": {"value": 100, "unit": "m"},
+            "time": {"value": 10, "unit": "s"}
+        })
+        assert isinstance(result, FormulaResult)
+        assert result.quantity == 10.0
+        assert result.unit == "m/s"
