@@ -35,7 +35,8 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.3 | Graph-Local Name Resolution | Complete |
 | v0.7.4 | UnitPackage + TOML Loading | Complete |
 | v0.7.5 | MCP Extension Tools | Complete |
-| v0.7.6 | Schema-Level Dimension Constraints | Complete |
+| v0.7.6 | docs.ucon.dev | Complete |
+| v0.7.7 | Schema-Level Dimension Constraints | Complete |
 | v0.8.0 | Basis Abstraction Core | Planned |
 | v0.8.1 | BasisGraph | Planned |
 | v0.8.2 | Dimension Integration | Planned |
@@ -391,7 +392,23 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.7.6 — Schema-Level Dimension Constraints (Complete)
+## v0.7.6 — docs.ucon.dev (Complete)
+
+**Theme:** Public documentation site.
+
+- [x] MkDocs Material site at docs.ucon.dev
+- [x] Getting Started, Guides, Reference, Architecture sections
+- [x] MCP Server documentation reorganized into dedicated directory
+- [x] Domain walkthroughs (nursing dosage)
+
+**Outcomes:**
+- Comprehensive public documentation for library users
+- Clear separation of guides, reference, and architecture content
+- Foundation for community adoption
+
+---
+
+## v0.7.7 — Schema-Level Dimension Constraints (Complete)
 
 **Theme:** Pre-call validation for AI agents.
 
