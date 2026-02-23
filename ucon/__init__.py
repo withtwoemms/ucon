@@ -38,7 +38,15 @@ Design Philosophy
 """
 from ucon import units
 from ucon.algebra import Exponent
-from ucon.basis import Basis, BasisComponent, Vector as BasisVector
+from ucon.basis import (
+    Basis,
+    BasisComponent,
+    BasisGraph,
+    BasisTransform,
+    LossyProjection,
+    NoTransformPath,
+    Vector as BasisVector,
+)
 from ucon.core import (
     BasisTransform,
     DimConstraint,
@@ -63,10 +71,13 @@ from ucon.units import UnknownUnitError, get_unit_by_name
 __all__ = [
     'Basis',
     'BasisComponent',
+    'BasisGraph',
     'BasisTransform',
     'BasisVector',
     'DimConstraint',
     'Dimension',
+    'LossyProjection',
+    'NoTransformPath',
     'DimensionNotCovered',
     'EdgeDef',
     'Exponent',
