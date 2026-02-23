@@ -35,7 +35,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.3 | Graph-Local Name Resolution | Complete |
 | v0.7.4 | UnitPackage + TOML Loading | Complete |
 | v0.7.5 | MCP Extension Tools | Complete |
-| v0.7.x | Schema-Level Dimension Constraints | Planned |
+| v0.7.6 | Schema-Level Dimension Constraints | Complete |
 | v0.7.x | Decompose Tool (SLM Enablement) | Planned |
 | v0.8.0 | Basis Abstraction Core | Planned |
 | v0.8.1 | BasisGraph | Planned |
@@ -392,17 +392,21 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.7.x — Schema-Level Dimension Constraints (Planned)
+## v0.7.6 — Schema-Level Dimension Constraints (Complete)
 
 **Theme:** Pre-call validation for AI agents.
 
-- [ ] Expose `DimConstraint` in MCP tool schemas
-- [ ] Schema generator introspects dimension constraints from `@enforce_dimensions` functions
-- [ ] Formula registration/discovery mechanism for domain packages
+- [x] `ucon/mcp/schema.py` — `extract_dimension_constraints()` introspects `@enforce_dimensions` functions
+- [x] `ucon/mcp/formulas.py` — `@register_formula` decorator with `FormulaInfo` dataclass
+- [x] `list_formulas` MCP tool — Returns registered formulas with parameter dimensions
+- [x] `call_formula` MCP tool — Invokes formulas with dimensionally-validated inputs
+- [x] `FormulaResult` and `FormulaError` response models
+- [x] Error types: `unknown_formula`, `missing_parameter`, `invalid_parameter`, `dimension_mismatch`
 
 **Outcomes:**
 - MCP schemas declare expected dimensions per parameter
-- LLMs can validate inputs before calling, reducing round-trips
+- Agents can discover formulas via `list_formulas()` before calling
+- `call_formula()` validates dimensions at call time with structured errors
 - Completes the type-directed correction loop
 - Foundation for ucon.dev marketplace of domain formula packages
 

@@ -2,9 +2,14 @@
 
 Task-oriented guides for common use cases.
 
+## MCP Server
+
+- **[Overview](mcp-server/index.md)** - Setup and available tools
+- **[Custom Units](mcp-server/custom-units.md)** - Define domain-specific units at runtime
+- **[Registering Formulas](mcp-server/registering-formulas.md)** - Expose dimensionally-typed calculations to agents
+
 ## Integration Guides
 
-- **[MCP Server](mcp-server.md)** - Use ucon with AI agents via Model Context Protocol
 - **[Pydantic Integration](pydantic-integration.md)** - Type-safe dimensional fields in Pydantic models
 - **[Config Safety](dimensional-safety-config.md)** - Dimensional safety for configuration files
 

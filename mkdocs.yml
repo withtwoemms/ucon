@@ -49,11 +49,14 @@ nav:
     - Installation: getting-started/installation.md
   - Guides:
     - guides/index.md
-    - MCP Server: guides/mcp-server.md
     - Pydantic Integration: guides/pydantic-integration.md
     - Config Safety: guides/dimensional-safety-config.md
     - Dimensional Analysis: guides/dimensional-analysis.md
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
+    - MCP Server:
+      - guides/mcp-server/index.md
+      - Custom Units: guides/mcp-server/custom-units.md
+      - Registering Formulas: guides/mcp-server/registering-formulas.md
     - Domain Walkthroughs:
       - guides/domain-walkthroughs/index.md
       - Nursing Dosage: guides/domain-walkthroughs/nursing-dosage.md
