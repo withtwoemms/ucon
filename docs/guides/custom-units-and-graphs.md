@@ -2,37 +2,10 @@
 
 ucon's unit system is extensible. You can define domain-specific units and conversions for aerospace, medicine, finance, or any specialized field.
 
-## Quick Start: MCP Server
+!!! tip "MCP Users"
+    For AI agent use cases, see [Custom Units via MCP](mcp-server/custom-units.md).
 
-For AI agent use cases, the simplest approach is the MCP server's session tools:
-
-```python
-# Define a custom unit
-define_unit(name="slug", dimension="mass", aliases=["slug"])
-
-# Add conversion to standard units
-define_conversion(src="slug", dst="kg", factor=14.5939)
-
-# Now use it
-convert(1, "slug", "kg")  # → 14.5939 kg
-```
-
-## Inline Definitions
-
-For one-off conversions without session state:
-
-```python
-convert(1, "slug", "kg",
-    custom_units=[
-        {"name": "slug", "dimension": "mass", "aliases": ["slug"]}
-    ],
-    custom_edges=[
-        {"src": "slug", "dst": "kg", "factor": 14.5939}
-    ]
-)
-```
-
-## Python API: Unit Definition
+## Unit Definition
 
 Create units programmatically:
 
@@ -49,7 +22,7 @@ slug = Unit(
 )
 ```
 
-## Python API: ConversionGraph
+## ConversionGraph
 
 Register units and conversions in a graph:
 

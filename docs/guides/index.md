@@ -5,6 +5,7 @@ Task-oriented guides for common use cases.
 ## MCP Server
 
 - **[Overview](mcp-server/index.md)** - Setup and available tools
+- **[Custom Units](mcp-server/custom-units.md)** - Define domain-specific units at runtime
 - **[Registering Formulas](mcp-server/registering-formulas.md)** - Expose dimensionally-typed calculations to agents
 
 ## Integration Guides
