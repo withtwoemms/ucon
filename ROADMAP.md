@@ -35,8 +35,8 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.3 | Graph-Local Name Resolution | Complete |
 | v0.7.4 | UnitPackage + TOML Loading | Complete |
 | v0.7.5 | MCP Extension Tools | Complete |
-| v0.7.6 | Schema-Level Dimension Constraints | Complete |
-| v0.7.x | Decompose Tool (SLM Enablement) | Planned |
+| v0.7.6 | docs.ucon.dev | Complete |
+| v0.7.7 | Schema-Level Dimension Constraints | Complete |
 | v0.8.0 | Basis Abstraction Core | Planned |
 | v0.8.1 | BasisGraph | Planned |
 | v0.8.2 | Dimension Integration | Planned |
@@ -392,7 +392,23 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.7.6 — Schema-Level Dimension Constraints (Complete)
+## v0.7.6 — docs.ucon.dev (Complete)
+
+**Theme:** Public documentation site.
+
+- [x] MkDocs Material site at docs.ucon.dev
+- [x] Getting Started, Guides, Reference, Architecture sections
+- [x] MCP Server documentation reorganized into dedicated directory
+- [x] Domain walkthroughs (nursing dosage)
+
+**Outcomes:**
+- Comprehensive public documentation for library users
+- Clear separation of guides, reference, and architecture content
+- Foundation for community adoption
+
+---
+
+## v0.7.7 — Schema-Level Dimension Constraints (Complete)
 
 **Theme:** Pre-call validation for AI agents.
 
@@ -409,36 +425,6 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - `call_formula()` validates dimensions at call time with structured errors
 - Completes the type-directed correction loop
 - Foundation for ucon.dev marketplace of domain formula packages
-
----
-
-## v0.7.x — Decompose Tool (SLM Enablement) (Planned)
-
-**Theme:** Deterministic planning for small language models.
-
-- [ ] `decompose` MCP tool: natural language → factor chain
-- [ ] Slot extraction (value, source_unit, target_unit) via fuzzy matching
-- [ ] Graph path resolution using existing `ConversionGraph` BFS
-- [ ] Factor chain construction with correct orientation
-- [ ] Structured error responses for ambiguous/unknown units
-
-**Design:** `decompose` is deterministic (no LLM inference). It uses graph traversal to produce a valid `compute` input, shifting domain knowledge burden from the model to ucon's infrastructure.
-
-**Two-tool pattern:**
-```
-decompose("3 TB to GiB")  →  { factors: [...] }  →  compute(factors)
-```
-
-**Outcomes:**
-- SLMs can perform unit conversions without recalling conversion factors
-- Factor orientation errors eliminated (graph provides correct numerator/denominator)
-- Correct-or-rejected semantics: never returns plausible-but-wrong chains
-- Composable with `compute` for full audit trail
-
-**Scope limitations (v1):**
-- Single-conversion queries only (not compound queries)
-- Known units only (custom units via `define_unit` supported)
-- No compound unit parsing ("m/s to km/h") in initial version
 
 ---
 
@@ -622,6 +608,7 @@ decompose("3 TB to GiB")  →  { factors: [...] }  →  compute(factors)
 
 | Feature | Notes |
 |---------|-------|
+| Decompose Tool | SLM enablement: deterministic `decompose` → `compute` pipeline |
 | Uncertainty correlation | Full covariance tracking |
 | Cython optimization | Performance parity with unyt |
 | Additional integrations | SQLAlchemy, msgpack, protobuf |
