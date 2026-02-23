@@ -246,6 +246,28 @@ class FormulaInfoResponse(BaseModel):
     parameters: dict[str, str | None]
 
 
+class FormulaResult(BaseModel):
+    """Result of calling a registered formula."""
+
+    formula: str
+    quantity: float
+    unit: str | None
+    dimension: str
+    uncertainty: float | None = None
+
+
+class FormulaError(BaseModel):
+    """Error from calling a formula."""
+
+    error: str
+    error_type: str  # "unknown_formula", "invalid_parameter", "dimension_mismatch", "missing_parameter"
+    formula: str | None = None
+    parameter: str | None = None
+    expected: str | None = None
+    got: str | None = None
+    hints: list[str] = []
+
+
 # -----------------------------------------------------------------------------
 # Tools
 # -----------------------------------------------------------------------------
