@@ -2,10 +2,13 @@
 
 Task-oriented guides for common use cases.
 
+## MCP Server
+
+- **[Overview](mcp-server/index.md)** - Setup and available tools
+- **[Registering Formulas](mcp-server/registering-formulas.md)** - Expose dimensionally-typed calculations to agents
+
 ## Integration Guides
 
-- **[MCP Server](mcp-server.md)** - Use ucon with AI agents via Model Context Protocol
-- **[Registering Formulas](registering-formulas.md)** - Expose dimensionally-typed calculations to AI agents
 - **[Pydantic Integration](pydantic-integration.md)** - Type-safe dimensional fields in Pydantic models
 - **[Config Safety](dimensional-safety-config.md)** - Dimensional safety for configuration files
 
