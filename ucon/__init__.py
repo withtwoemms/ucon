@@ -42,11 +42,13 @@ from ucon.basis import (
     Basis,
     BasisComponent,
     BasisGraph,
-    BasisTransform,
     LossyProjection,
     NoTransformPath,
     Vector as BasisVector,
 )
+# Note: ucon.basis.BasisTransform not exported here to avoid collision with
+# ucon.core.BasisTransform. Import from ucon.basis directly for new API.
+# This will be resolved in v0.9.0 when the old BasisTransform is removed.
 from ucon.core import (
     BasisTransform,
     DimConstraint,
