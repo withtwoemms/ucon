@@ -142,7 +142,7 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 | **0.10.x** | NumPy/Polars Integration | Planned |
 | **1.0.0** | API Stability | Planned |
 
-See full roadmap: [ROADMAP.md](./ROADMAP.md)
+See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROADMAP.md)
 
 ---
 
