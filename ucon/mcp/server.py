@@ -19,6 +19,7 @@ from ucon import Dimension, get_default_graph
 from ucon.core import Number, Scale, Unit, UnitProduct
 from ucon.graph import ConversionGraph, DimensionMismatch, ConversionNotFound, using_graph
 from ucon.maps import LinearMap
+from ucon.mcp.formulas import list_formulas as _list_formulas, get_formula
 from ucon.mcp.suggestions import (
     ConversionError,
     resolve_unit,
@@ -235,6 +236,14 @@ class ConversionDefinitionResult(BaseModel):
     dst: str
     factor: float
     message: str
+
+
+class FormulaInfoResponse(BaseModel):
+    """Metadata about a registered formula."""
+
+    name: str
+    description: str
+    parameters: dict[str, str | None]
 
 
 # -----------------------------------------------------------------------------
