@@ -858,6 +858,51 @@ def reset_session() -> SessionResult:
 
 
 # -----------------------------------------------------------------------------
+# Formula Discovery Tools
+# -----------------------------------------------------------------------------
+
+
+@mcp.tool()
+def list_formulas() -> list[FormulaInfoResponse]:
+    """
+    List all registered domain formulas with their dimensional constraints.
+
+    Returns formulas that have been registered via @register_formula decorator.
+    Each formula includes parameter names and their expected dimensions, enabling
+    pre-call validation of inputs.
+
+    Use this to discover available calculations and understand their dimensional
+    requirements before calling.
+
+    Returns:
+        List of formula metadata including name, description, and parameter dimensions.
+
+    Example response:
+        [
+            {
+                "name": "fib4",
+                "description": "FIB-4 liver fibrosis score",
+                "parameters": {
+                    "age": "time",
+                    "ast": "frequency",
+                    "alt": "frequency",
+                    "platelets": null
+                }
+            }
+        ]
+    """
+    formulas = _list_formulas()
+    return [
+        FormulaInfoResponse(
+            name=f.name,
+            description=f.description,
+            parameters=f.parameters,
+        )
+        for f in formulas
+    ]
+
+
+# -----------------------------------------------------------------------------
 # Entry Point
 # -----------------------------------------------------------------------------
 
