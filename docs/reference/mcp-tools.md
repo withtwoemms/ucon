@@ -371,6 +371,146 @@ None.
 
 ---
 
+## list_formulas
+
+List registered domain formulas with their dimensional constraints.
+
+### Parameters
+
+None.
+
+### Response Schema
+
+**Success: `list[FormulaInfoResponse]`**
+
+```json
+[
+  {
+    "name": "bmi",
+    "description": "Body Mass Index",
+    "parameters": {
+      "mass": "mass",
+      "height": "length"
+    }
+  }
+]
+```
+
+### Examples
+
+```python
+list_formulas()
+# → [{"name": "bmi", "description": "Body Mass Index", "parameters": {"mass": "mass", "height": "length"}}]
+```
+
+---
+
+## call_formula
+
+Invoke a registered formula with dimensionally-validated inputs.
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `name` | string | Yes | Formula name (from `list_formulas()`) |
+| `parameters` | dict[str, dict] | Yes | Parameter values (see format below) |
+
+**Parameter value format:**
+
+```json
+{
+  "mass": {"value": 70, "unit": "kg"},
+  "height": {"value": 1.75, "unit": "m"},
+  "factor": {"value": 2.5}
+}
+```
+
+- Use `{"value": ..., "unit": "..."}` for dimensioned quantities
+- Use `{"value": ...}` for dimensionless quantities
+
+### Response Schema
+
+**Success: `FormulaResult`**
+
+```json
+{
+  "formula": "bmi",
+  "quantity": 22.86,
+  "unit": "kg/m²",
+  "dimension": "derived(mass/length²)",
+  "uncertainty": null
+}
+```
+
+**Error: `FormulaError`**
+
+```json
+{
+  "error": "Missing required parameter: 'height'",
+  "error_type": "missing_parameter",
+  "formula": "bmi",
+  "parameter": "height",
+  "expected": "length",
+  "hints": ["Parameter 'height' expects dimension: length"]
+}
+```
+
+### Error Types
+
+| Error Type | Description |
+|------------|-------------|
+| `unknown_formula` | Formula name not found in registry |
+| `missing_parameter` | Required parameter not provided |
+| `invalid_parameter` | Parameter format incorrect or unit unknown |
+| `dimension_mismatch` | Parameter has wrong dimension |
+| `execution_error` | Formula raised an exception |
+
+### Examples
+
+```python
+# Call BMI formula
+call_formula(
+    name="bmi",
+    parameters={
+        "mass": {"value": 70, "unit": "kg"},
+        "height": {"value": 1.75, "unit": "m"}
+    }
+)
+# → {"formula": "bmi", "quantity": 22.86, "unit": "kg/m²", ...}
+
+# Dimensionless parameter
+call_formula(
+    name="scale_value",
+    parameters={
+        "x": {"value": 10, "unit": "m"},
+        "factor": {"value": 2.5}
+    }
+)
+# → {"formula": "scale_value", "quantity": 25.0, "unit": "m", ...}
+```
+
+### Registering Formulas
+
+Formulas are registered in Python code using `@register_formula`:
+
+```python
+from ucon import Number, Dimension, enforce_dimensions
+from ucon.mcp.formulas import register_formula
+
+@register_formula("bmi", description="Body Mass Index")
+@enforce_dimensions
+def bmi(
+    mass: Number[Dimension.mass],
+    height: Number[Dimension.length],
+) -> Number:
+    return mass / (height * height)
+```
+
+The `@enforce_dimensions` decorator enables runtime dimension checking. Parameter constraints are extracted automatically and exposed via `list_formulas()`.
+
+---
+
 ## Error Types
 
 All tools may return `ConversionError` with these error types:
