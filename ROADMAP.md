@@ -37,8 +37,13 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.5 | MCP Extension Tools | Complete |
 | v0.7.x | Schema-Level Dimension Constraints | Planned |
 | v0.7.x | Decompose Tool (SLM Enablement) | Planned |
-| v0.8.0 | String Parsing | Planned |
-| v0.9.0 | Constants + Logarithmic Units | Planned |
+| v0.8.0 | Basis Abstraction Core | Planned |
+| v0.8.1 | BasisGraph | Planned |
+| v0.8.2 | Dimension Integration | Planned |
+| v0.8.3 | ConversionGraph Integration | Planned |
+| v0.8.4 | Basis Context Scoping | Planned |
+| v0.8.5 | String Parsing | Planned |
+| v0.9.0 | Vector Migration + Constants | Planned |
 | v0.10.0 | Scientific Computing | Planned |
 | v1.0.0 | API Stability | Planned |
 
@@ -433,7 +438,96 @@ decompose("3 TB to GiB")  →  { factors: [...] }  →  compute(factors)
 
 ---
 
-## v0.8.0 — String Parsing
+## v0.8.0 — Basis Abstraction Core
+
+**Theme:** User-definable dimensional coordinate systems.
+
+**Design document:** `docs/internal/IMPLEMENTATION_PLAN_basis-abstraction.md`
+
+- [ ] `BasisComponent` class: atomic generator of a dimensional basis
+- [ ] `Basis` class: ordered collection of components with name/symbol indexing
+- [ ] `Vector` class: basis-aware exponent vector with named field access (`v.L`, `v.mana`)
+- [ ] Standard bases: `SI`, `CGS`, `CGS_ESU`, `Natural`
+- [ ] `BasisTransform` class: matrix-based transformation with exact `Fraction` arithmetic
+- [ ] `inverse()` method: Gaussian elimination for square transforms
+- [ ] `embedding()` method: canonical embedding for non-square projections
+- [ ] `LossyProjection` exception: fail-by-default when projecting to zero
+
+**Outcomes:**
+- Dimensional basis becomes user-definable, not hardcoded to SI
+- Foundation for CGS, CGS-ESU, natural units (c=ℏ=1), and custom domains
+- Exact matrix arithmetic prevents round-trip drift
+- New types introduced alongside existing (no breaking changes)
+
+---
+
+## v0.8.1 — BasisGraph
+
+**Theme:** Graph-based transform composition.
+
+- [ ] `BasisGraph` class: graph of basis transforms with path-finding
+- [ ] Transitive composition: SI→CGS + CGS→CGS-ESU = SI→CGS-ESU
+- [ ] `NoTransformPath` exception for disconnected bases
+- [ ] Cycle consistency validation
+- [ ] `get_transform(source, target)` with BFS and caching
+
+**Outcomes:**
+- Register N-1 edges for N bases instead of N² explicit transforms
+- Custom domains (game, finance) correctly isolated from SI
+- Separation of concerns: BasisGraph (type checking) vs ConversionGraph (numeric conversion)
+
+---
+
+## v0.8.2 — Dimension Integration
+
+**Theme:** Wire new Vector into Dimension.
+
+- [ ] `Dimension.vector` uses new basis-aware `Vector`
+- [ ] `Dimension.basis` property delegating to `vector.basis`
+- [ ] `Dimension.from_components(basis, length=1, mass=2)` factory
+- [ ] Backward-compatible construction for SI dimensions
+
+**Outcomes:**
+- Dimensions carry explicit basis reference
+- Foundation for cross-basis dimensional comparison
+
+---
+
+## v0.8.3 — ConversionGraph Integration
+
+**Theme:** Cross-basis conversion validation.
+
+- [ ] `ConversionGraph` accepts `BasisGraph` as constructor parameter
+- [ ] `add_edge()` validates cross-basis edges via `BasisGraph`
+- [ ] `convert()` validates dimensional compatibility via `BasisGraph`
+- [ ] `Unit.basis` property: `return self.dimension.vector.basis`
+- [ ] `Unit.is_compatible(other)` using `BasisGraph`
+
+**Outcomes:**
+- Cross-basis unit edges validated at registration time
+- Dimensional errors caught before numeric conversion attempted
+
+---
+
+## v0.8.4 — Basis Context Scoping
+
+**Theme:** Thread-safe basis isolation.
+
+- [ ] `_default_basis` ContextVar with SI fallback
+- [ ] `_basis_graph` ContextVar for graph scoping
+- [ ] `using_basis(basis)` context manager
+- [ ] `using_basis_graph(graph)` context manager
+- [ ] `get_default_basis()` accessor
+- [ ] `set_default_basis_graph()` initializer
+
+**Outcomes:**
+- Per-thread/task basis isolation (same pattern as `using_graph()`)
+- Injectable basis graphs for testing and multi-tenant scenarios
+- Dynamic cross-system conversion paths via context scoping
+
+---
+
+## v0.8.5 — String Parsing
 
 **Theme:** Ergonomic input.
 
@@ -450,18 +544,32 @@ decompose("3 TB to GiB")  →  { factors: [...] }  →  compute(factors)
 
 ---
 
-## v0.9.0 — Constants + Logarithmic Units
+## v0.9.0 — Vector Migration + Constants
 
-**Theme:** Physical completeness.
+**Theme:** Complete basis migration and physical completeness.
+
+### Breaking Change: Delete ucon.algebra
+
+- [ ] Move `Exponent` from `ucon/algebra.py` to `ucon/core.py`
+- [ ] Delete hardcoded 8-field `Vector` from `ucon/algebra.py`
+- [ ] Delete `ucon/algebra.py` entirely
+- [ ] Update all imports to use `Vector` from `ucon.basis`
+
+**Rationale:** `Vector` is now inseparable from `Basis` (carries `.basis` reference). `Exponent` belongs near its consumers in `ucon.core`. "algebra" as a module name doesn't communicate contents.
+
+### Physical Constants
 
 - [ ] Physical constants with uncertainties: `c`, `h`, `G`, `k_B`, `N_A`, etc.
+- [ ] Natural units basis (c=ℏ=1) using new Basis abstraction
 - [x] `LogMap`/`ExpMap` for logarithmic conversions (completed in v0.6.x)
 - [ ] Logarithmic units with reference levels: `decibel`, `bel`, `neper`
 - [ ] pH scale support
 - [ ] Currency dimension (with caveats about exchange rates)
 
 **Outcomes:**
+- Clean module structure: `ucon.basis`, `ucon.core`, `ucon.graph`
 - Physical constants with CODATA uncertainties
+- Natural units leverage custom basis infrastructure
 - Enables acoustics (dB), chemistry (pH), and signal processing domains
 - Reference-level infrastructure for dBm, dBV, dBSPL variants
 
