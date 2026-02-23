@@ -1,0 +1,55 @@
+/* Custom colors matching ucon.dev */
+:root {
+  /* Primary: ucon blue */
+  --md-primary-fg-color: #0066cc;
+  --md-primary-fg-color--light: #3388dd;
+  --md-primary-fg-color--dark: #004d99;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: #f0f4f8;
+
+  /* Accent: ucon cyan */
+  --md-accent-fg-color: #00a5b5;
+  --md-accent-fg-color--transparent: rgba(0, 165, 181, 0.1);
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: #f0f4f8;
+}
+
+/* Dark mode (slate scheme) overrides */
+[data-md-color-scheme="slate"] {
+  /* Background colors from ucon.dev */
+  --md-default-bg-color: #0a0f14;
+  --md-default-bg-color--light: #111920;
+  --md-default-bg-color--lighter: #1a2530;
+  --md-default-bg-color--lightest: #243040;
+
+  /* Code block backgrounds */
+  --md-code-bg-color: #111920;
+
+  /* Footer */
+  --md-footer-bg-color: #0a0f14;
+  --md-footer-bg-color--dark: #060a0e;
+
+  /* Text colors */
+  --md-default-fg-color: #f0f4f8;
+  --md-default-fg-color--light: #8899a6;
+  --md-default-fg-color--lighter: #6677889a;
+  --md-default-fg-color--lightest: #4455661a;
+
+  /* Typeset links */
+  --md-typeset-a-color: #00a5b5;
+}
+
+/* Light mode adjustments */
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #0066cc;
+}
+
+/* Header gradient accent (optional subtle touch) */
+.md-header {
+  background: linear-gradient(135deg, #0066cc 0%, #00a5b5 100%);
+}
+
+/* Tabs styling */
+.md-tabs {
+  background: linear-gradient(135deg, #004d99 0%, #008090 100%);
+}

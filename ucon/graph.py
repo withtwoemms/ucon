@@ -19,6 +19,7 @@ Functions
 - :func:`set_default_graph` — Replace the default graph.
 - :func:`reset_default_graph` — Reset to standard graph on next access.
 - :func:`using_graph` — Context manager for scoped graph override.
+- :func:`get_parsing_graph` — Get the graph for name resolution during parsing.
 """
 from __future__ import annotations
 
@@ -67,6 +68,7 @@ class ConversionGraph:
     - Direct edge lookup
     - BFS path composition for multi-hop conversions
     - Factorwise decomposition for UnitProduct conversions
+    - Graph-local unit name resolution (v0.7.3+)
     """
 
     # Edges between Units, partitioned by Dimension
@@ -77,6 +79,12 @@ class ConversionGraph:
 
     # Rebased units: original unit → RebasedUnit (for cross-basis edges)
     _rebased: dict[Unit, RebasedUnit] = field(default_factory=dict)
+
+    # Graph-local name resolution (case-insensitive keys)
+    _name_registry: dict[str, Unit] = field(default_factory=dict)
+
+    # Graph-local name resolution (case-sensitive keys for shorthands like 'm', 'L')
+    _name_registry_cs: dict[str, Unit] = field(default_factory=dict)
 
     # ------------- Edge Management -------------------------------------------
 
@@ -278,6 +286,120 @@ class ConversionGraph:
                         if not isinstance(dst, RebasedUnit):
                             result.append((original, dst))
         return result
+
+    # ------------- Name Resolution --------------------------------------------
+
+    def register_unit(self, unit: Unit) -> None:
+        """Register a unit for name resolution within this graph.
+
+        Populates both case-insensitive and case-sensitive registries
+        with the unit's name, shorthand, and aliases.
+
+        Parameters
+        ----------
+        unit : Unit
+            The unit to register.
+        """
+        # Register canonical name (case-insensitive)
+        self._name_registry[unit.name.lower()] = unit
+        self._name_registry_cs[unit.name] = unit
+
+        # Register shorthand (case-sensitive only — 'm' vs 'M' matters)
+        if unit.shorthand:
+            self._name_registry_cs[unit.shorthand] = unit
+
+        # Register aliases
+        for alias in (unit.aliases or ()):
+            if alias:
+                self._name_registry[alias.lower()] = unit
+                self._name_registry_cs[alias] = unit
+
+    def resolve_unit(self, name: str) -> tuple[Unit, Scale] | None:
+        """Resolve a unit string in graph-local registry.
+
+        Checks case-sensitive registry first (for shorthands like 'm', 'L'),
+        then falls back to case-insensitive lookup.
+
+        Parameters
+        ----------
+        name : str
+            The unit name or alias to resolve.
+
+        Returns
+        -------
+        tuple[Unit, Scale] | None
+            (unit, Scale.one) if found, None otherwise.
+            Caller should fall back to global registry if None.
+        """
+        # Case-sensitive first (preserves shorthand like 'm' vs 'M')
+        if name in self._name_registry_cs:
+            return self._name_registry_cs[name], Scale.one
+
+        # Case-insensitive fallback
+        if name.lower() in self._name_registry:
+            return self._name_registry[name.lower()], Scale.one
+
+        return None
+
+    def copy(self) -> 'ConversionGraph':
+        """Return a deep copy suitable for extension.
+
+        Creates independent copies of edge dictionaries and name registries.
+        The returned graph can be modified without affecting the original.
+
+        Returns
+        -------
+        ConversionGraph
+            A new graph with copied state.
+        """
+        import copy as copy_module
+
+        new = ConversionGraph()
+        new._unit_edges = copy_module.deepcopy(self._unit_edges)
+        new._product_edges = copy_module.deepcopy(self._product_edges)
+        new._rebased = dict(self._rebased)
+        new._name_registry = dict(self._name_registry)
+        new._name_registry_cs = dict(self._name_registry_cs)
+        return new
+
+    def with_package(self, package: 'UnitPackage') -> 'ConversionGraph':
+        """Return a new graph with this package's units and edges added.
+
+        Creates a copy of this graph and applies the package contents.
+        The original graph is not modified.
+
+        Parameters
+        ----------
+        package : UnitPackage
+            Package containing unit and edge definitions.
+
+        Returns
+        -------
+        ConversionGraph
+            New graph with package contents added.
+
+        Example
+        -------
+        >>> from ucon.packages import load_package
+        >>> aero = load_package("aerospace.ucon.toml")
+        >>> graph = get_default_graph().with_package(aero)
+        """
+        from ucon.packages import UnitPackage
+
+        new = self.copy()
+
+        # Materialize and register units first
+        for unit_def in package.units:
+            unit = unit_def.materialize()
+            new.register_unit(unit)
+
+        # Materialize and add edges (resolved within new graph context)
+        for edge_def in package.edges:
+            edge_def.materialize(new)
+
+        return new
+
+    # ------------- Internal Helpers ------------------------------------------
 
     def _ensure_dimension(self, dim: Dimension) -> None:
         if dim not in self._unit_edges:
@@ -622,6 +744,7 @@ class ConversionGraph:
 
 _default_graph: ConversionGraph | None = None
 _graph_context: ContextVar[ConversionGraph | None] = ContextVar("graph", default=None)
+_parsing_graph: ContextVar[ConversionGraph | None] = ContextVar("parsing_graph", default=None)
 
 
 def get_default_graph() -> ConversionGraph:
@@ -655,20 +778,50 @@ def reset_default_graph() -> None:
     _default_graph = None
 
 
+def get_parsing_graph() -> ConversionGraph | None:
+    """Get the graph to use for name resolution during parsing.
+
+    Returns the context-local parsing graph if set, otherwise None.
+    Used by _lookup_factor() to check graph-local registry first.
+
+    Returns
+    -------
+    ConversionGraph | None
+        The parsing graph, or None if not in a using_graph() context.
+    """
+    return _parsing_graph.get()
+
+
 @contextmanager
 def using_graph(graph: ConversionGraph):
     """Context manager for scoped graph override.
+
+    Sets both the conversion graph and parsing graph contexts,
+    so that name resolution and conversions both use the same graph.
 
     Usage::
 
         with using_graph(custom_graph):
             result = value.to(target)  # uses custom_graph
+            unit = get_unit_by_name("custom_unit")  # resolves in custom_graph
+
+    Parameters
+    ----------
+    graph : ConversionGraph
+        The graph to use within this context.
+
+    Yields
+    ------
+    ConversionGraph
+        The same graph passed in.
     """
-    token = _graph_context.set(graph)
+    token_graph = _graph_context.set(graph)
+    token_parsing = _parsing_graph.set(graph)
     try:
         yield graph
     finally:
-        _graph_context.reset(token)
+        _graph_context.reset(token_graph)
+        _parsing_graph.reset(token_parsing)
 
 
 def _build_standard_graph() -> ConversionGraph:
@@ -676,6 +829,12 @@ def _build_standard_graph() -> ConversionGraph:
     from ucon import units
 
     graph = ConversionGraph()
+
+    # Register all standard units for graph-local name resolution
+    for name in dir(units):
+        obj = getattr(units, name)
+        if isinstance(obj, Unit) and not isinstance(obj, RebasedUnit):
+            graph.register_unit(obj)
 
     # --- Length ---
     graph.add_edge(src=units.meter, dst=units.foot, map=LinearMap(3.28084))

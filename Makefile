@@ -29,6 +29,8 @@ help:
 	@echo "  ${CYAN}test-all${RESET}      - Run tests across all supported Python versions"
 	@echo "  ${CYAN}coverage${RESET}      - Generate coverage report"
 	@echo "  ${CYAN}build${RESET}         - Build source and wheel distributions"
+	@echo "  ${CYAN}docs${RESET}          - Build documentation (output in site/)"
+	@echo "  ${CYAN}docs-serve${RESET}    - Start documentation dev server"
 	@echo "  ${CYAN}venv${RESET}          - Create virtual environment"
 	@echo "  ${CYAN}clean${RESET}         - Remove build artifacts and caches"
 	@echo ""
@@ -79,12 +81,12 @@ test: ${DEPS_INSTALLED}
 ifeq ($(COVERAGE),true)
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage run --source=ucon --branch \
 		--omit="**/tests/*,**/site-packages/*.py,setup.py" \
-		-m unittest $(if $(TESTNAME),$(TESTNAME),discover --start-directory ${TESTDIR} --top-level-directory .)
+		-m pytest $(if $(TESTNAME),$(TESTNAME),${TESTDIR}) -q
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage report -m
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage xml
 else
-	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} -m unittest \
-		$(if $(TESTNAME),$(TESTNAME),discover --start-directory ${TESTDIR} --top-level-directory .)
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} -m pytest \
+		$(if $(TESTNAME),$(TESTNAME),${TESTDIR}) -q
 endif
 
 .PHONY: test-all
@@ -92,8 +94,7 @@ test-all: ${UV_INSTALLED}
 	@echo "${GREEN}Running tests across all supported Python versions...${RESET}"
 	@for pyver in $(SUPPORTED_PYTHONS); do \
 		echo "\n${CYAN}=== Python $$pyver ===${RESET}"; \
-		uv run --python $$pyver -m unittest discover \
-			--start-directory ${TESTDIR} --top-level-directory . \
+		uv run --python $$pyver -m pytest ${TESTDIR} -q \
 		|| echo "${YELLOW}Python $$pyver: FAILED or not available${RESET}"; \
 	done
 
@@ -104,6 +105,25 @@ coverage: ${DEPS_INSTALLED}
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage report -m
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage html
 	@echo "${CYAN}HTML report at htmlcov/index.html${RESET}"
+
+# --- Documentation ---
+DOCS_DEPS_INSTALLED := ${UV_VENV}/.docs-deps-installed
+
+${DOCS_DEPS_INSTALLED}: pyproject.toml | ${UV_VENV}
+	@echo "${GREEN}Installing docs dependencies...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv sync --python ${PYTHON} --extra docs
+	@touch ${DOCS_DEPS_INSTALLED}
+
+.PHONY: docs
+docs: ${DOCS_DEPS_INSTALLED}
+	@echo "${GREEN}Building documentation...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} mkdocs build
+	@echo "${CYAN}Documentation at site/${RESET}"
+
+.PHONY: docs-serve
+docs-serve: ${DOCS_DEPS_INSTALLED}
+	@echo "${GREEN}Starting documentation server...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} mkdocs serve
 
 # --- Building ---
 .PHONY: build
