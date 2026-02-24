@@ -5,8 +5,8 @@
 
 import pytest
 
-from ucon import Number, Dimension, enforce_dimensions
-from ucon.dimension import LENGTH, TIME, MASS, VELOCITY, FORCE, ENERGY, FREQUENCY
+from ucon import Number, enforce_dimensions
+from ucon.dimension import LENGTH, TIME, MASS, FREQUENCY
 from ucon.mcp.formulas import (
     FormulaInfo,
     register_formula,

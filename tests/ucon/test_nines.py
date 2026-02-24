@@ -9,13 +9,12 @@ Tests the 'nines' unit for SRE availability calculations,
 including conversions from fraction/percent and uncertainty propagation.
 """
 
-import math
 import unittest
 
 from ucon import units
-from ucon.core import Number, Dimension
+from ucon.core import Number
 from ucon.dimension import RATIO
-from ucon.graph import DimensionMismatch, ConversionNotFound
+from ucon.graph import DimensionMismatch
 
 
 class TestNinesUnit(unittest.TestCase):

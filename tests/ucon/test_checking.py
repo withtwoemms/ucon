@@ -6,8 +6,8 @@
 
 import unittest
 
-from ucon import Number, Dimension, units, enforce_dimensions, DimConstraint
-from ucon.dimension import LENGTH, TIME, MASS, VELOCITY, AREA
+from ucon import Number, units, enforce_dimensions, DimConstraint
+from ucon.dimension import LENGTH, TIME, MASS, VELOCITY
 
 
 class TestEnforceDimensions(unittest.TestCase):

@@ -14,7 +14,6 @@ Verifies that:
 import unittest
 
 from ucon import (
-    Dimension,
     Unit,
     get_default_graph,
     get_unit_by_name,

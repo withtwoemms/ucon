@@ -6,8 +6,7 @@
 from unittest import TestCase
 
 from ucon import units
-from ucon.core import Dimension
-from ucon.dimension import DENSITY, LENGTH, TIME, VELOCITY, NONE, MASS
+from ucon.dimension import DENSITY
 
 
 class TestUnits(TestCase):

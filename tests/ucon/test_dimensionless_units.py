@@ -13,9 +13,8 @@ import math
 import unittest
 
 from ucon import units
-from ucon.core import Dimension
 from ucon.dimension import ANGLE, NONE, SOLID_ANGLE, RATIO, LENGTH, ENERGY
-from ucon.graph import ConversionNotFound, DimensionMismatch
+from ucon.graph import DimensionMismatch
 
 
 class TestPseudoDimensionIsolation(unittest.TestCase):

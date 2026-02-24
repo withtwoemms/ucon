@@ -5,9 +5,9 @@
 import unittest
 
 from ucon import units
-from ucon.core import UnitProduct, UnitFactor, Dimension, Scale, Unit
+from ucon.core import UnitProduct, UnitFactor, Scale, Unit
 from ucon.dimension import (
-    AREA, VELOCITY, VOLUME, INFORMATION, NONE, TIME, LENGTH, RATIO,
+    AREA, VELOCITY, VOLUME, INFORMATION, NONE, TIME, LENGTH,
     ENERGY, VOLTAGE, MASS,
 )
 from ucon.quantity import Number, Ratio

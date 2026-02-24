@@ -10,17 +10,15 @@ and conversion paths that span dimensional bases.
 """
 
 import unittest
-from fractions import Fraction
 
 from ucon.core import (
     BasisTransform,
-    Dimension,
     RebasedUnit,
     Unit,
     UnitSystem,
 )
 from ucon.dimension import LENGTH, MASS, TIME
-from ucon.graph import ConversionGraph, DimensionMismatch
+from ucon.graph import ConversionGraph
 from ucon.maps import LinearMap
 from ucon import units
 
