@@ -655,8 +655,8 @@ class ConversionGraph:
         dst_by_vector: dict[Vector, tuple[UnitFactor, float, Dimension]] = {}
 
         for dim, (factor, exp) in src_by_dim.items():
-            # Effective vector = dimension's vector × exponent
-            effective_vec = dim.vector * exp
+            # Effective vector = dimension's vector raised to exponent
+            effective_vec = dim.vector ** exp
             if effective_vec in src_by_vector:
                 raise ConversionNotFound(
                     f"Multiple source factors with same effective dimensional vector: {effective_vec}"
@@ -664,8 +664,8 @@ class ConversionGraph:
             src_by_vector[effective_vec] = (factor, exp, dim)
 
         for dim, (factor, exp) in dst_by_dim.items():
-            # Effective vector = dimension's vector × exponent
-            effective_vec = dim.vector * exp
+            # Effective vector = dimension's vector raised to exponent
+            effective_vec = dim.vector ** exp
             if effective_vec in dst_by_vector:
                 raise ConversionNotFound(
                     f"Multiple destination factors with same effective dimensional vector: {effective_vec}"
@@ -685,8 +685,8 @@ class ConversionGraph:
 
             # Pseudo-dimensions (angle, solid_angle, ratio) are semantically isolated.
             # They share zero vectors but must NOT convert between each other.
-            src_is_pseudo = isinstance(src_dim.value, tuple)
-            dst_is_pseudo = isinstance(dst_dim.value, tuple)
+            src_is_pseudo = getattr(src_dim, 'is_pseudo', False)
+            dst_is_pseudo = getattr(dst_dim, 'is_pseudo', False)
             if src_is_pseudo or dst_is_pseudo:
                 if src_dim != dst_dim:
                     raise ConversionNotFound(

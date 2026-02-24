@@ -16,6 +16,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
 from ucon import Dimension, get_default_graph
+from ucon.dimension import all_dimensions
 from ucon.core import Number, Scale, Unit, UnitProduct
 from ucon.units import get_unit_by_name
 from ucon.graph import ConversionGraph, DimensionMismatch, ConversionNotFound, using_graph
@@ -376,7 +377,7 @@ def list_units(dimension: str | None = None) -> list[UnitInfo] | ConversionError
 
     # Validate dimension filter if provided
     if dimension:
-        known_dimensions = [d.name for d in Dimension]
+        known_dimensions = [d.name for d in all_dimensions()]
         if dimension not in known_dimensions:
             return build_unknown_dimension_error(dimension)
 
@@ -736,7 +737,7 @@ def list_dimensions() -> list[str]:
     Returns:
         List of dimension names.
     """
-    return sorted([d.name for d in Dimension])
+    return sorted([d.name for d in all_dimensions()])
 
 
 # -----------------------------------------------------------------------------
@@ -776,7 +777,7 @@ def define_unit(
     aliases = aliases or []
 
     # Validate dimension
-    known_dimensions = [d.name for d in Dimension]
+    known_dimensions = [d.name for d in all_dimensions()]
     if dimension not in known_dimensions:
         return build_unknown_dimension_error(dimension)
 

@@ -11,7 +11,7 @@ defines the algebra of physical dimensions, magnitude prefixes, and units.
 
 Classes
 -------
-- :class:`Dimension` — Enumerates physical dimensions with algebraic closure over *, /, and **
+- :class:`Dimension` — Physical dimensions with algebraic closure over *, /, and **
 - :class:`Scale` — Enumerates SI and binary magnitude prefixes with algebraic closure over *, /
   and with nearest-prefix lookup.
 - :class:`Unit` — Measurable quantity descriptor with algebraic closure over *, /.
@@ -32,7 +32,62 @@ if sys.version_info >= (3, 9):
 else:
     from typing_extensions import Annotated
 
-from ucon.algebra import Exponent, Vector
+from ucon.algebra import Exponent, Vector as LegacyVector
+
+# Re-export Vector from algebra for backward compatibility
+Vector = LegacyVector
+from ucon.dimension import (
+    Dimension,
+    resolve as _resolve_dimension,
+    NONE,
+    TIME,
+    LENGTH,
+    MASS,
+    CURRENT,
+    TEMPERATURE,
+    LUMINOUS_INTENSITY,
+    AMOUNT_OF_SUBSTANCE,
+    INFORMATION,
+    ANGLE,
+    SOLID_ANGLE,
+    RATIO,
+    COUNT,
+    VELOCITY,
+    ACCELERATION,
+    FORCE,
+    ENERGY,
+    POWER,
+    MOMENTUM,
+    ANGULAR_MOMENTUM,
+    AREA,
+    VOLUME,
+    DENSITY,
+    PRESSURE,
+    FREQUENCY,
+    DYNAMIC_VISCOSITY,
+    KINEMATIC_VISCOSITY,
+    GRAVITATION,
+    CHARGE,
+    VOLTAGE,
+    RESISTANCE,
+    RESISTIVITY,
+    CONDUCTANCE,
+    CONDUCTIVITY,
+    CAPACITANCE,
+    INDUCTANCE,
+    MAGNETIC_FLUX,
+    MAGNETIC_FLUX_DENSITY,
+    MAGNETIC_PERMEABILITY,
+    PERMITTIVITY,
+    ELECTRIC_FIELD_STRENGTH,
+    ENTROPY,
+    SPECIFIC_HEAT_CAPACITY,
+    THERMAL_CONDUCTIVITY,
+    ILLUMINANCE,
+    CATALYTIC_ACTIVITY,
+    MOLAR_MASS,
+    MOLAR_VOLUME,
+)
 
 
 # --------------------------------------------------------------------------------------
@@ -50,245 +105,65 @@ class NonInvertibleTransform(Exception):
 
 
 # --------------------------------------------------------------------------------------
-# Dimension
+# Dimension Compatibility Layer
 # --------------------------------------------------------------------------------------
+# The Dimension class has been moved to ucon.dimension as a dataclass.
+# For backward compatibility, dimension constants are also available as attributes
+# on the Dimension class (e.g., Dimension.length, Dimension.mass).
 
-class Dimension(Enum):
-    """
-    Represents a **physical dimension** defined by a :class:`Vector`.
-    Algebra over multiplication/division & exponentiation, with dynamic resolution.
+# Add lowercase attribute access to the Dimension class for backward compatibility
+# This allows Dimension.length, Dimension.mass, etc. to continue working.
+Dimension.none = NONE
+Dimension.time = TIME
+Dimension.length = LENGTH
+Dimension.mass = MASS
+Dimension.current = CURRENT
+Dimension.temperature = TEMPERATURE
+Dimension.luminous_intensity = LUMINOUS_INTENSITY
+Dimension.amount_of_substance = AMOUNT_OF_SUBSTANCE
+Dimension.information = INFORMATION
+Dimension.angle = ANGLE
+Dimension.solid_angle = SOLID_ANGLE
+Dimension.ratio = RATIO
+Dimension.count = COUNT
+Dimension.velocity = VELOCITY
+Dimension.acceleration = ACCELERATION
+Dimension.force = FORCE
+Dimension.energy = ENERGY
+Dimension.power = POWER
+Dimension.momentum = MOMENTUM
+Dimension.angular_momentum = ANGULAR_MOMENTUM
+Dimension.area = AREA
+Dimension.volume = VOLUME
+Dimension.density = DENSITY
+Dimension.pressure = PRESSURE
+Dimension.frequency = FREQUENCY
+Dimension.dynamic_viscosity = DYNAMIC_VISCOSITY
+Dimension.kinematic_viscosity = KINEMATIC_VISCOSITY
+Dimension.gravitation = GRAVITATION
+Dimension.charge = CHARGE
+Dimension.voltage = VOLTAGE
+Dimension.resistance = RESISTANCE
+Dimension.resistivity = RESISTIVITY
+Dimension.conductance = CONDUCTANCE
+Dimension.conductivity = CONDUCTIVITY
+Dimension.capacitance = CAPACITANCE
+Dimension.inductance = INDUCTANCE
+Dimension.magnetic_flux = MAGNETIC_FLUX
+Dimension.magnetic_flux_density = MAGNETIC_FLUX_DENSITY
+Dimension.magnetic_permeability = MAGNETIC_PERMEABILITY
+Dimension.permittivity = PERMITTIVITY
+Dimension.electric_field_strength = ELECTRIC_FIELD_STRENGTH
+Dimension.entropy = ENTROPY
+Dimension.specific_heat_capacity = SPECIFIC_HEAT_CAPACITY
+Dimension.thermal_conductivity = THERMAL_CONDUCTIVITY
+Dimension.illuminance = ILLUMINANCE
+Dimension.catalytic_activity = CATALYTIC_ACTIVITY
+Dimension.molar_mass = MOLAR_MASS
+Dimension.molar_volume = MOLAR_VOLUME
 
-    Pseudo-dimensions (angle, solid_angle, ratio) share the zero vector but are
-    semantically isolated via unique enum values. They use tuple values (Vector, tag)
-    to prevent Python's Enum from treating them as aliases of `none`.
-    """
-    none = Vector()
-
-    # -- BASIS ---------------------------------------
-    time                = Vector(1, 0, 0, 0, 0, 0, 0, 0)
-    length              = Vector(0, 1, 0, 0, 0, 0, 0, 0)
-    mass                = Vector(0, 0, 1, 0, 0, 0, 0, 0)
-    current             = Vector(0, 0, 0, 1, 0, 0, 0, 0)
-    temperature         = Vector(0, 0, 0, 0, 1, 0, 0, 0)
-    luminous_intensity  = Vector(0, 0, 0, 0, 0, 1, 0, 0)
-    amount_of_substance = Vector(0, 0, 0, 0, 0, 0, 1, 0)
-    information         = Vector(0, 0, 0, 0, 0, 0, 0, 1)
-    # ------------------------------------------------
-
-    # -- PSEUDO-DIMENSIONS (zero vector, distinct values via tuple) --
-    angle       = (Vector(), "angle")        # radian, degree, etc.
-    solid_angle = (Vector(), "solid_angle")  # steradian, square_degree
-    ratio       = (Vector(), "ratio")        # percent, ppm, etc.
-    count       = (Vector(), "count")        # discrete items: each, dose, tablet
-    # ----------------------------------------------------------------
-
-    acceleration = Vector(-2, 1, 0, 0, 0, 0, 0, 0)
-    angular_momentum = Vector(-1, 2, 1, 0, 0, 0, 0, 0)
-    area = Vector(0, 2, 0, 0, 0, 0, 0, 0)
-    capacitance = Vector(4, -2, -1, 2, 0, 0, 0, 0)
-    catalytic_activity = Vector(-1, 0, 0, 0, 0, 0, 1, 0)  # mol/s (katal)
-    charge = Vector(1, 0, 0, 1, 0, 0, 0, 0)
-    conductance = Vector(3, -2, -1, 2, 0, 0, 0, 0)
-    conductivity = Vector(3, -3, -1, 2, 0, 0, 0, 0)
-    density = Vector(0, -3, 1, 0, 0, 0, 0, 0)
-    electric_field_strength = Vector(-3, 1, 1, -1, 0, 0, 0, 0)
-    energy = Vector(-2, 2, 1, 0, 0, 0, 0, 0)
-    entropy = Vector(-2, 2, 1, 0, -1, 0, 0, 0)
-    force = Vector(-2, 1, 1, 0, 0, 0, 0, 0)
-    frequency = Vector(-1, 0, 0, 0, 0, 0, 0, 0)
-    gravitation = Vector(-2, 3, -1, 0, 0, 0, 0, 0)
-    illuminance = Vector(0, -2, 0, 0, 0, 1, 0, 0)
-    inductance = Vector(-2, 2, 1, -2, 0, 0, 0, 0)
-    magnetic_flux = Vector(-2, 2, 1, -1, 0, 0, 0, 0)
-    magnetic_flux_density = Vector(-2, 0, 1, -1, 0, 0, 0, 0)
-    magnetic_permeability = Vector(-2, 1, 1, -2, 0, 0, 0, 0)
-    molar_mass = Vector(0, 0, 1, 0, 0, 0, -1, 0)
-    molar_volume = Vector(0, 3, 0, 0, 0, 0, -1, 0)
-    momentum = Vector(-1, 1, 1, 0, 0, 0, 0, 0)
-    permittivity = Vector(4, -3, -1, 2, 0, 0, 0, 0)
-    power = Vector(-3, 2, 1, 0, 0, 0, 0, 0)
-    pressure = Vector(-2, -1, 1, 0, 0, 0, 0, 0)
-    dynamic_viscosity = Vector(-1, -1, 1, 0, 0, 0, 0, 0)    # M·L⁻¹·T⁻¹ (Pa·s)
-    kinematic_viscosity = Vector(-1, 2, 0, 0, 0, 0, 0, 0)   # L²·T⁻¹ (m²/s)
-    resistance = Vector(-3, 2, 1, -2, 0, 0, 0, 0)
-    resistivity = Vector(-3, 3, 1, -2, 0, 0, 0, 0)
-    specific_heat_capacity = Vector(-2, 2, 0, 0, -1, 0, 0, 0)
-    thermal_conductivity = Vector(-3, 1, 1, 0, -1, 0, 0, 0)
-    velocity = Vector(-1, 1, 0, 0, 0, 0, 0, 0)
-    voltage = Vector(-3, 2, 1, -1, 0, 0, 0, 0)
-    volume = Vector(0, 3, 0, 0, 0, 0, 0, 0)
-
-    @property
-    def vector(self) -> 'Vector':
-        """Return the dimensional Vector, handling both regular and pseudo-dimensions."""
-        if isinstance(self.value, tuple):
-            vector, _ = self.value  # discard the tag
-            return vector
-        return self.value
-
-    @classmethod
-    def _resolve(cls, vector: 'Vector') -> 'Dimension':
-        # Zero vector always resolves to none, never to pseudo-dimensions.
-        # This ensures algebraic operations like length/length yield none.
-        if vector == Vector():
-            return cls.none
-        for dim in cls:
-            if dim.vector == vector:
-                return dim
-        dyn = object.__new__(cls)
-        dyn._name_ = f"derived({_vector_to_dim_expr(vector)})"
-        dyn._value_ = vector
-        return dyn
-
-    def __truediv__(self, dimension: 'Dimension') -> 'Dimension':
-        if not isinstance(dimension, Dimension):
-            raise TypeError(f"Cannot divide Dimension by non-Dimension type: {type(dimension)}")
-        return self._resolve(self.vector - dimension.vector)
-
-    def __mul__(self, dimension: 'Dimension') -> 'Dimension':
-        if not isinstance(dimension, Dimension):
-            raise TypeError(f"Cannot multiply Dimension by non-Dimension type: {type(dimension)}")
-        return self._resolve(self.vector + dimension.vector)
-
-    def __pow__(self, power: Union[int, float]) -> 'Dimension':
-        if power == 1:
-            return self
-        if power == 0:
-            return Dimension.none
-        new_vector = self.vector * power
-        return self._resolve(new_vector)
-
-    def __eq__(self, dimension) -> bool:
-        if not isinstance(dimension, Dimension):
-            raise TypeError(f"Cannot compare Dimension with non-Dimension type: {type(dimension)}")
-        # For pseudo-dimensions (tuple values), compare by identity
-        if isinstance(self.value, tuple) or isinstance(dimension.value, tuple):
-            return self is dimension
-        # For regular dimensions, compare by vector
-        return self.vector == dimension.vector
-
-    def __hash__(self) -> int:
-        # Use the raw value for hashing (tuples and Vectors hash differently)
-        return hash(self.value)
-
-    def __bool__(self):
-        return False if self is Dimension.none else True
-
-    # -- Base dimension introspection --
-
-    @staticmethod
-    def basis() -> tuple['Dimension', ...]:
-        """The 8 SI base dimensions."""
-        return (
-            Dimension.time, Dimension.length, Dimension.mass, Dimension.current,
-            Dimension.temperature, Dimension.luminous_intensity,
-            Dimension.amount_of_substance, Dimension.information,
-        )
-
-    def is_base(self) -> bool:
-        """
-        Return True if this is a base (non-derived) dimension.
-
-        Base dimensions are the 8 SI base dimensions. Pseudo-dimensions
-        (angle, solid_angle, ratio) return False as they have zero vectors.
-        """
-        return self in Dimension.basis()
-
-    def base_expansion(self) -> dict['Dimension', 'Fraction']:
-        """
-        Return this dimension as a product of base dimensions.
-
-        Base dimensions return {self: 1}.
-        Derived dimensions return their expansion:
-          - volume → {length: 3}
-          - energy → {mass: 1, length: 2, time: -2}
-          - power → {mass: 1, length: 2, time: -3}
-
-        Pseudo-dimensions (angle, solid_angle, ratio) return empty dict.
-        """
-        from fractions import Fraction
-
-        # Pseudo-dimensions have zero vector
-        if isinstance(self.value, tuple):
-            return {}
-
-        # Base dimensions return themselves
-        if self.is_base():
-            return {self: Fraction(1)}
-
-        # Derived dimensions: decompose from vector
-        result: dict[Dimension, Fraction] = {}
-        vec = self.vector
-
-        # Map vector attributes to base dimensions
-        attr_to_dim = [
-            ('T', Dimension.time),
-            ('L', Dimension.length),
-            ('M', Dimension.mass),
-            ('I', Dimension.current),
-            ('Θ', Dimension.temperature),
-            ('J', Dimension.luminous_intensity),
-            ('N', Dimension.amount_of_substance),
-            ('B', Dimension.information),
-        ]
-
-        for attr, base_dim in attr_to_dim:
-            exp = getattr(vec, attr)
-            if exp != 0:
-                result[base_dim] = Fraction(exp).limit_denominator(1000)
-
-        return result
-
-
-def _vector_to_dim_expr(v: 'Vector') -> str:
-    """Render a Vector as a human-readable dimensional expression.
-
-    Positive exponents go in the numerator, negative in the denominator.
-    Exponent 1 is implicit. Integer fractions render as ints.
-
-    Examples:
-        Vector(T=-2, L=1, M=1) → "length·mass/time^2"
-        Vector(L=3, T=-1)      → "length^3/time"
-        Vector()               → "dimensionless"
-    """
-    # Map vector field names to dimension names using basis dimensions
-    field_to_dim = {
-        'T': Dimension.time.name,
-        'L': Dimension.length.name,
-        'M': Dimension.mass.name,
-        'I': Dimension.current.name,
-        'Θ': Dimension.temperature.name,
-        'J': Dimension.luminous_intensity.name,
-        'N': Dimension.amount_of_substance.name,
-        'B': Dimension.information.name,
-    }
-
-    numerator = []
-    denominator = []
-
-    for fld in fields(v):
-        exp = getattr(v, fld.name)
-        if exp == 0:
-            continue
-
-        name = field_to_dim.get(fld.name, fld.name)
-        exp_val = int(exp) if exp.denominator == 1 else float(exp)
-        abs_exp = abs(exp_val)
-
-        token = name if abs_exp == 1 else f"{name}^{abs_exp}"
-
-        if exp > 0:
-            numerator.append(token)
-        else:
-            denominator.append(token)
-
-    if not numerator and not denominator:
-        return "dimensionless"
-
-    num_str = "·".join(numerator) if numerator else "1"
-    if denominator:
-        return f"{num_str}/{'·'.join(denominator)}"
-    return num_str
+# Add _resolve as a classmethod for backward compatibility
+Dimension._resolve = classmethod(lambda cls, v: _resolve_dimension(v))
 
 
 # --------------------------------------------------------------------------------------
@@ -782,29 +657,54 @@ class BasisTransform:
 
         return self._build_vector(result)
 
-    def _get_component(self, vector: Vector, dim: Dimension) -> 'Fraction':
+    def _get_component(self, vector, dim: Dimension) -> 'Fraction':
         """Extract the component of a vector corresponding to a dimension."""
         from fractions import Fraction
+        from ucon.basis import Vector as BasisVector
 
         dim_vector = dim.value
         if isinstance(dim_vector, tuple):
             dim_vector = dim_vector[0]
 
+        # Handle ucon.basis.Vector (new type)
+        if isinstance(vector, BasisVector):
+            # Find which component is non-zero in the dimension's vector
+            for i, exp in enumerate(dim_vector.components):
+                if exp == Fraction(1):
+                    return vector.components[i]
+            return Fraction(0)
+
+        # Handle ucon.algebra.Vector (legacy type)
         # Find which component is non-zero in the dimension's vector
-        for attr, val in [('T', dim_vector.T), ('L', dim_vector.L),
-                          ('M', dim_vector.M), ('I', dim_vector.I),
-                          ('Θ', dim_vector.Θ), ('J', dim_vector.J),
-                          ('N', dim_vector.N), ('B', dim_vector.B)]:
+        for attr in ['T', 'L', 'M', 'I', 'Θ', 'J', 'N', 'B']:
+            val = getattr(dim_vector, attr, Fraction(0))
             if val == Fraction(1):
                 return getattr(vector, attr)
 
         # For compound dimensions, return the dot product
         return Fraction(0)
 
-    def _build_vector(self, dim_values: dict) -> Vector:
+    def _build_vector(self, dim_values: dict):
         """Build a Vector from dimension -> value mapping."""
         from fractions import Fraction
+        from ucon.basis import Vector as BasisVector
 
+        # Check if any dimension uses the new basis.Vector
+        first_dim = next(iter(dim_values.keys()), None) if dim_values else None
+        if first_dim and isinstance(first_dim.value, BasisVector):
+            # Build a ucon.basis.Vector
+            basis = first_dim.value.basis
+            components = [Fraction(0)] * len(basis)
+
+            for dim, val in dim_values.items():
+                dim_vector = dim.value
+                for i, exp in enumerate(dim_vector.components):
+                    if exp != Fraction(0):
+                        components[i] = components[i] + val * exp
+
+            return BasisVector(basis, tuple(components))
+
+        # Build a legacy ucon.algebra.Vector
         kwargs = {'T': Fraction(0), 'L': Fraction(0), 'M': Fraction(0),
                   'I': Fraction(0), 'Θ': Fraction(0), 'J': Fraction(0),
                   'N': Fraction(0), 'B': Fraction(0)}
@@ -815,27 +715,18 @@ class BasisTransform:
                 dim_vector = dim_vector[0]
 
             # Apply the value to the appropriate component
-            for attr, basis_val in [('T', dim_vector.T), ('L', dim_vector.L),
-                                    ('M', dim_vector.M), ('I', dim_vector.I),
-                                    ('Θ', dim_vector.Θ), ('J', dim_vector.J),
-                                    ('N', dim_vector.N), ('B', dim_vector.B)]:
+            for attr in ['T', 'L', 'M', 'I', 'Θ', 'J', 'N', 'B']:
+                basis_val = getattr(dim_vector, attr, Fraction(0))
                 if basis_val != Fraction(0):
                     kwargs[attr] = kwargs[attr] + val * basis_val
 
-        return Vector(**kwargs)
+        return LegacyVector(**kwargs)
 
     def validate_edge(self, src_unit: 'Unit', dst_unit: 'Unit') -> bool:
         """Check if src transforms to dst's dimension."""
-        src_dim_vector = src_unit.dimension.value
-        if isinstance(src_dim_vector, tuple):
-            src_dim_vector = src_dim_vector[0]
-
+        src_dim_vector = src_unit.dimension.vector
         transformed = self.transform(src_dim_vector)
-
-        dst_dim_vector = dst_unit.dimension.value
-        if isinstance(dst_dim_vector, tuple):
-            dst_dim_vector = dst_dim_vector[0]
-
+        dst_dim_vector = dst_unit.dimension.vector
         return transformed == dst_dim_vector
 
     @property

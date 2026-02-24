@@ -483,9 +483,12 @@ class TestConversionGraphFactorwiseErrors(unittest.TestCase):
         rad_prod = UnitProduct.from_unit(units.radian)
         pct_prod = UnitProduct.from_unit(units.percent)
 
-        with self.assertRaises(ConversionNotFound) as ctx:
+        # Pseudo-dimensions are semantically distinct, so conversion raises DimensionMismatch
+        with self.assertRaises(DimensionMismatch) as ctx:
             self.graph.convert(src=rad_prod, dst=pct_prod)
-        self.assertIn("pseudo-dimension", str(ctx.exception).lower())
+        # The error should show the distinct pseudo-dimension names
+        self.assertIn("angle", str(ctx.exception))
+        self.assertIn("ratio", str(ctx.exception))
 
     def test_factor_structure_mismatch_after_vector_grouping(self):
         """Test error when factor structures don't align after vector grouping."""

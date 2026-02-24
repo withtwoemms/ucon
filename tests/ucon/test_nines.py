@@ -223,9 +223,9 @@ class TestNinesDimensionMismatch(unittest.TestCase):
 
     def test_nines_to_angle_raises(self):
         # Even though both are "dimensionless", pseudo-dimensions isolate them
-        # ConversionNotFound is raised because no path exists between ratio and angle
+        # DimensionMismatch is raised because ratio and angle are distinct dimensions
         n = Number(5, unit=units.nines)
-        with self.assertRaises(ConversionNotFound):
+        with self.assertRaises(DimensionMismatch):
             n.to(units.radian)
 
 

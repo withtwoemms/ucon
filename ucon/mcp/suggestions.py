@@ -501,9 +501,9 @@ def build_unknown_dimension_error(bad_dimension: str) -> ConversionError:
     ConversionError
         Structured error with similar dimension suggestions.
     """
-    from ucon import Dimension
+    from ucon.dimension import all_dimensions
 
-    known = [d.name for d in Dimension]
+    known = [d.name for d in all_dimensions()]
     matches = get_close_matches(bad_dimension.lower(), [k.lower() for k in known], n=3, cutoff=0.6)
 
     # Map back to proper case

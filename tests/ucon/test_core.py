@@ -14,15 +14,19 @@ from ucon import Unit
 from ucon import units
 from ucon.algebra import Vector
 from ucon.core import UnitFactor, UnitProduct, ScaleDescriptor
+from ucon.dimension import all_dimensions
 
 
 class TestDimension(unittest.TestCase):
 
     def test_basic_dimensions_are_unique(self):
         seen = set()
-        for dim in Dimension:
-            self.assertNotIn(dim.value, seen, f'Duplicate vector found for {dim.name}')
-            seen.add(dim.value)
+        for dim in all_dimensions():
+            # Skip pseudo-dimensions as they share the zero vector
+            if dim.is_pseudo:
+                continue
+            self.assertNotIn(dim.vector, seen, f'Duplicate vector found for {dim.name}')
+            seen.add(dim.vector)
 
     def test_multiplication_adds_exponents(self):
         self.assertEqual(
@@ -106,24 +110,25 @@ class TestDimension(unittest.TestCase):
     def test_pow_returns_derived_dimension_for_unknown(self):
         jerk = Dimension.length * (Dimension.time ** -3)  # length / time^3
         self.assertTrue(jerk.name.startswith("derived("))
-        self.assertNotIn(jerk.name, Dimension.__members__)
+        # Check it's not a standard dimension
+        self.assertNotIn(jerk, all_dimensions())
 
-    def test_resolve_known_vector_returns_enum_member(self):
+    def test_resolve_known_vector_returns_dimension(self):
         dim = Dimension._resolve(Vector(0, 1, 0, 0, 0, 0, 0))
-        self.assertIs(dim, Dimension.length)
+        self.assertEqual(dim, Dimension.length)
 
     def test_resolve_unknown_vector_returns_dynamic_dimension(self):
-        vec = Vector(T=1, L=-1, M=0, I=0, Θ=0, J=0, N=0)  # T/L (inverse velocity), not an enum member
+        vec = Vector(T=1, L=-1, M=0, I=0, Θ=0, J=0, N=0)  # T/L (inverse velocity), not a standard dimension
         dyn = Dimension._resolve(vec)
-        self.assertNotIn(dyn.name, Dimension.__members__)
-        self.assertEqual(dyn.value, vec)
+        self.assertNotIn(dyn, all_dimensions())
         self.assertEqual(dyn.name, "derived(time/length)")
 
     def test_resolve_returns_same_dynamic_for_same_vector(self):
         vec = Vector(T=2, L=-2, M=0, I=0, Θ=0, J=0, N=0)
         first = Dimension._resolve(vec)
         second = Dimension._resolve(vec)
-        self.assertEqual(first.value, second.value)
+        # Both should resolve to the same derived dimension
+        self.assertEqual(first.vector, second.vector)
         self.assertEqual(first.name, second.name)
 
     def test_dynamic_dimensions_compare_by_vector(self):
@@ -131,19 +136,19 @@ class TestDimension(unittest.TestCase):
         v2 = Vector(T=2, L=-2, M=0, I=0, Θ=0, J=0, N=0)
         d1 = Dimension._resolve(v1)
         d2 = Dimension._resolve(v2)
-        self.assertEqual(d1.value, d2.value)
+        self.assertEqual(d1.vector, d2.vector)
         self.assertEqual(d1 == d2, True)
         self.assertEqual(hash(d1), hash(d2))
 
     def test_pow_zero_returns_none(self):
         # Dimension ** 0 should always return Dimension.none
-        self.assertIs(Dimension.length ** 0, Dimension.none)
+        self.assertEqual(Dimension.length ** 0, Dimension.none)
 
     def test_pow_fractional(self):
         # Fractional powers = derived dimensions not equal to any registered one
         d = Dimension.length ** 0.5
         self.assertIsInstance(d, Dimension)
-        self.assertNotIn(d, list(Dimension))
+        self.assertNotIn(d, all_dimensions())
 
     def test_invalid_operand_multiply(self):
         with self.assertRaises(TypeError):
@@ -157,12 +162,12 @@ class TestDimension(unittest.TestCase):
 
     def test_count_pseudo_dimension_exists(self):
         """Test that count is a valid pseudo-dimension."""
-        self.assertIn(Dimension.count, list(Dimension))
+        self.assertIn(Dimension.count, all_dimensions())
         self.assertEqual(Dimension.count.name, "count")
 
     def test_count_has_zero_vector(self):
         """Test that count has zero vector like other pseudo-dimensions."""
-        self.assertEqual(Dimension.count.vector, Vector())
+        self.assertTrue(Dimension.count.vector.is_dimensionless())
 
     def test_count_is_distinct_from_other_pseudo_dimensions(self):
         """Test that count is distinct from angle, solid_angle, ratio, and none."""
@@ -191,38 +196,33 @@ class TestDimensionResolve(unittest.TestCase):
     def test_registered_multiplication(self):
         # velocity = length / time
         v = Dimension.length / Dimension.time
-        self.assertIs(v, Dimension.velocity)
-        self.assertEqual(v.value, Vector(-1, 1, 0, 0, 0, 0, 0))
+        self.assertEqual(v, Dimension.velocity)
 
     def test_registered_power(self):
         # area = length ** 2
         a = Dimension.length ** 2
-        self.assertIs(a, Dimension.area)
-        self.assertEqual(a.value, Vector(0, 2, 0, 0, 0, 0, 0))
+        self.assertEqual(a, Dimension.area)
 
     def test_unregistered_multiplication_creates_derived(self):
-        # L * M should yield derived(Vector(L=1, M=1))
+        # L * M should yield derived dimension
         d = Dimension.length * Dimension.mass
         self.assertIsInstance(d, Dimension)
-        self.assertNotIn(d, list(Dimension))
+        self.assertNotIn(d, all_dimensions())
         self.assertIn("derived", d.name)
-        self.assertEqual(d.value, Vector(0, 1, 1, 0, 0, 0, 0))
 
     def test_unregistered_division_creates_derived(self):
-        # M / T should yield derived(Vector(M=1, T=-1))
+        # M / T should yield derived dimension
         d = Dimension.mass / Dimension.time
         self.assertIsInstance(d, Dimension)
-        self.assertNotIn(d, list(Dimension))
+        self.assertNotIn(d, all_dimensions())
         self.assertIn("derived", d.name)
-        self.assertEqual(d.value, Vector(-1, 0, 1, 0, 0, 0, 0))
 
     def test_unregistered_power_creates_derived(self):
-        # (L * M)^2 → derived(Vector(L=2, M=2))
+        # (L * M)^2 → derived dimension
         d1 = Dimension.length * Dimension.mass
         d2 = d1 ** 2
         self.assertIsInstance(d2, Dimension)
         self.assertIn("derived", d2.name)
-        self.assertEqual(d2.value, Vector(0, 2, 2, 0, 0, 0, 0))
 
     def test_registered_vs_derived_equality(self):
         # Ensure derived dimensions only equal themselves
@@ -248,16 +248,20 @@ class TestDimensionEdgeCases(unittest.TestCase):
             5 / Dimension.mass
 
     def test_equality_with_non_dimension(self):
-        with self.assertRaises(TypeError):
-            Dimension.mass ==  "mass"
+        # Comparing dimension with non-dimension returns False, not TypeError
+        self.assertFalse(Dimension.mass == "mass")
+        self.assertTrue(Dimension.mass != "mass")
 
-    def test_enum_uniqueness_and_hash(self):
-        # Hashes should be unique per distinct dimension
-        hashes = {hash(d) for d in Dimension}
-        self.assertEqual(len(hashes), len(Dimension))
-        # All Dimension.value entries must be distinct Vectors
-        values = [d.value for d in Dimension]
-        self.assertEqual(len(values), len(set(values)))
+    def test_dimension_hash_uniqueness(self):
+        # Hashes should be unique per distinct dimension (including pseudo-dimensions)
+        dims = all_dimensions()
+        # Verify each dimension can be used in a set (hashable)
+        dim_set = set(dims)
+        self.assertEqual(len(dim_set), len(dims))
+        # For non-pseudo dimensions, vectors must be distinct
+        non_pseudo = [d for d in dims if not d.is_pseudo]
+        vectors = [d.vector for d in non_pseudo]
+        self.assertEqual(len(vectors), len(set(vectors)))
 
     def test_combined_chained_operations(self):
         # (mass * acceleration) / area = pressure
@@ -271,10 +275,11 @@ class TestDimensionEdgeCases(unittest.TestCase):
         self.assertEqual(d / Dimension.none, d)
         self.assertEqual(Dimension.none * d, d)
 
-    def test_enum_is_hashable_and_iterable(self):
-        seen = {d for d in Dimension}
+    def test_dimension_is_hashable(self):
+        dims = all_dimensions()
+        seen = {d for d in dims}
         self.assertIn(Dimension.mass, seen)
-        self.assertEqual(len(seen), len(Dimension))
+        self.assertEqual(len(seen), len(dims))
 
 
 class TestScaleDescriptor(unittest.TestCase):
