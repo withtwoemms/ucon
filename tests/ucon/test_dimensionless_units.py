@@ -13,7 +13,8 @@ import math
 import unittest
 
 from ucon import units
-from ucon.core import Dimension, Vector
+from ucon.core import Dimension
+from ucon.dimension import ANGLE, NONE, SOLID_ANGLE, RATIO, LENGTH, ENERGY
 from ucon.graph import ConversionNotFound, DimensionMismatch
 
 
@@ -21,61 +22,61 @@ class TestPseudoDimensionIsolation(unittest.TestCase):
     """Test that pseudo-dimensions are semantically isolated."""
 
     def test_angle_not_equal_to_none(self):
-        self.assertNotEqual(Dimension.angle, Dimension.none)
+        self.assertNotEqual(ANGLE, NONE)
 
     def test_solid_angle_not_equal_to_none(self):
-        self.assertNotEqual(Dimension.solid_angle, Dimension.none)
+        self.assertNotEqual(SOLID_ANGLE, NONE)
 
     def test_ratio_not_equal_to_none(self):
-        self.assertNotEqual(Dimension.ratio, Dimension.none)
+        self.assertNotEqual(RATIO, NONE)
 
     def test_angle_not_equal_to_solid_angle(self):
-        self.assertNotEqual(Dimension.angle, Dimension.solid_angle)
+        self.assertNotEqual(ANGLE, SOLID_ANGLE)
 
     def test_angle_not_equal_to_ratio(self):
-        self.assertNotEqual(Dimension.angle, Dimension.ratio)
+        self.assertNotEqual(ANGLE, RATIO)
 
     def test_solid_angle_not_equal_to_ratio(self):
-        self.assertNotEqual(Dimension.solid_angle, Dimension.ratio)
+        self.assertNotEqual(SOLID_ANGLE, RATIO)
 
     def test_angle_equal_to_itself(self):
-        self.assertEqual(Dimension.angle, Dimension.angle)
+        self.assertEqual(ANGLE, ANGLE)
 
     def test_none_equal_to_itself(self):
-        self.assertEqual(Dimension.none, Dimension.none)
+        self.assertEqual(NONE, NONE)
 
     def test_all_pseudo_dimensions_have_zero_vector(self):
         # All pseudo-dimensions have dimensionless vectors
-        self.assertTrue(Dimension.none.vector.is_dimensionless())
-        self.assertTrue(Dimension.angle.vector.is_dimensionless())
-        self.assertTrue(Dimension.solid_angle.vector.is_dimensionless())
-        self.assertTrue(Dimension.ratio.vector.is_dimensionless())
+        self.assertTrue(NONE.vector.is_dimensionless())
+        self.assertTrue(ANGLE.vector.is_dimensionless())
+        self.assertTrue(SOLID_ANGLE.vector.is_dimensionless())
+        self.assertTrue(RATIO.vector.is_dimensionless())
 
 
 class TestPseudoDimensionHashing(unittest.TestCase):
     """Test that pseudo-dimensions can coexist in sets and dicts."""
 
     def test_all_pseudo_dimensions_in_set(self):
-        dims = {Dimension.none, Dimension.angle, Dimension.solid_angle, Dimension.ratio}
+        dims = {NONE, ANGLE, SOLID_ANGLE, RATIO}
         self.assertEqual(len(dims), 4)
 
     def test_all_pseudo_dimensions_as_dict_keys(self):
         d = {
-            Dimension.none: "none",
-            Dimension.angle: "angle",
-            Dimension.solid_angle: "solid_angle",
-            Dimension.ratio: "ratio",
+            NONE: "none",
+            ANGLE: "angle",
+            SOLID_ANGLE: "solid_angle",
+            RATIO: "ratio",
         }
         self.assertEqual(len(d), 4)
-        self.assertEqual(d[Dimension.angle], "angle")
-        self.assertEqual(d[Dimension.ratio], "ratio")
+        self.assertEqual(d[ANGLE], "angle")
+        self.assertEqual(d[RATIO], "ratio")
 
     def test_distinct_hashes(self):
         hashes = {
-            hash(Dimension.none),
-            hash(Dimension.angle),
-            hash(Dimension.solid_angle),
-            hash(Dimension.ratio),
+            hash(NONE),
+            hash(ANGLE),
+            hash(SOLID_ANGLE),
+            hash(RATIO),
         }
         self.assertEqual(len(hashes), 4)
 
@@ -84,41 +85,41 @@ class TestAlgebraicResolution(unittest.TestCase):
     """Test that algebraic operations resolve to none, not pseudo-dimensions."""
 
     def test_length_divided_by_length_is_none(self):
-        result = Dimension.length / Dimension.length
-        self.assertEqual(result, Dimension.none)
-        self.assertIs(result, Dimension.none)
+        result = LENGTH / LENGTH
+        self.assertEqual(result, NONE)
+        self.assertIs(result, NONE)
 
     def test_energy_divided_by_energy_is_none(self):
-        result = Dimension.energy / Dimension.energy
-        self.assertEqual(result, Dimension.none)
-        self.assertIs(result, Dimension.none)
+        result = ENERGY / ENERGY
+        self.assertEqual(result, NONE)
+        self.assertIs(result, NONE)
 
     def test_angle_times_length_is_length(self):
         # Since angle has zero vector, angle * length = length
-        result = Dimension.angle * Dimension.length
-        self.assertEqual(result, Dimension.length)
+        result = ANGLE * LENGTH
+        self.assertEqual(result, LENGTH)
 
 
 class TestUnitDimensions(unittest.TestCase):
     """Test that units have correct dimensions."""
 
     def test_radian_is_angle(self):
-        self.assertEqual(units.radian.dimension, Dimension.angle)
+        self.assertEqual(units.radian.dimension, ANGLE)
 
     def test_degree_is_angle(self):
-        self.assertEqual(units.degree.dimension, Dimension.angle)
+        self.assertEqual(units.degree.dimension, ANGLE)
 
     def test_steradian_is_solid_angle(self):
-        self.assertEqual(units.steradian.dimension, Dimension.solid_angle)
+        self.assertEqual(units.steradian.dimension, SOLID_ANGLE)
 
     def test_square_degree_is_solid_angle(self):
-        self.assertEqual(units.square_degree.dimension, Dimension.solid_angle)
+        self.assertEqual(units.square_degree.dimension, SOLID_ANGLE)
 
     def test_percent_is_ratio(self):
-        self.assertEqual(units.percent.dimension, Dimension.ratio)
+        self.assertEqual(units.percent.dimension, RATIO)
 
     def test_ppm_is_ratio(self):
-        self.assertEqual(units.ppm.dimension, Dimension.ratio)
+        self.assertEqual(units.ppm.dimension, RATIO)
 
 
 class TestAngleConversions(unittest.TestCase):

@@ -16,6 +16,9 @@ import unittest
 
 from ucon import units, Scale
 from ucon.core import Unit, UnitProduct, UnitFactor
+from ucon.dimension import (
+    LENGTH, MASS, TIME, VOLUME, VELOCITY, ACCELERATION, FORCE, FREQUENCY, DENSITY,
+)
 from ucon.units import get_unit_by_name, UnknownUnitError
 
 
@@ -299,7 +302,7 @@ class TestPriorityAliases(unittest.TestCase):
         from ucon.core import Dimension
         result = get_unit_by_name("min")
         self.assertEqual(result, units.minute)
-        self.assertEqual(result.dimension, Dimension.time)
+        self.assertEqual(result.dimension, TIME)
 
     def test_min_in_composite(self):
         """'min' should work correctly in composite units."""
@@ -307,7 +310,7 @@ class TestPriorityAliases(unittest.TestCase):
         self.assertIsInstance(result, UnitProduct)
         # Volume / time dimension
         from ucon.core import Dimension
-        expected_dim = Dimension.volume / Dimension.time
+        expected_dim = VOLUME / TIME
         self.assertEqual(result.dimension, expected_dim)
 
     def test_mL_per_min_conversion(self):
@@ -341,7 +344,7 @@ class TestPriorityScaledAliases(unittest.TestCase):
         from ucon.core import Dimension
         result = get_unit_by_name("mcg")
         self.assertIsInstance(result, UnitProduct)
-        self.assertEqual(result.dimension, Dimension.mass)
+        self.assertEqual(result.dimension, MASS)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_mcg_to_mg(self):
@@ -363,7 +366,7 @@ class TestPriorityScaledAliases(unittest.TestCase):
         result = get_unit_by_name("mcg/mL")
         self.assertIsInstance(result, UnitProduct)
         from ucon.core import Dimension
-        self.assertEqual(result.dimension, Dimension.density)
+        self.assertEqual(result.dimension, DENSITY)
 
     def test_mcg_per_kg_per_min(self):
         """'mcg/kg/min' style dosing units (requires chained division support)."""
@@ -376,7 +379,7 @@ class TestPriorityScaledAliases(unittest.TestCase):
         from ucon.core import Dimension
         result = get_unit_by_name("cc")
         self.assertIsInstance(result, UnitProduct)
-        self.assertEqual(result.dimension, Dimension.volume)
+        self.assertEqual(result.dimension, VOLUME)
         self.assertAlmostEqual(result.fold_scale(), 0.001, places=10)
 
     def test_cc_to_mL(self):
@@ -466,7 +469,7 @@ class TestRecursiveDescentParser(unittest.TestCase):
         from ucon.core import Dimension
         result = get_unit_by_name("m/s²")
         self.assertIsInstance(result, UnitProduct)
-        self.assertEqual(result.dimension, Dimension.acceleration)
+        self.assertEqual(result.dimension, ACCELERATION)
 
     def test_acceleration_ascii_caret(self):
         """GIVEN m/s^2 THEN returns UnitProduct identical to m/s²."""
@@ -479,21 +482,21 @@ class TestRecursiveDescentParser(unittest.TestCase):
         from ucon.core import Dimension
         result = get_unit_by_name("s⁻¹")
         self.assertIsInstance(result, UnitProduct)
-        self.assertEqual(result.dimension, Dimension.frequency)
+        self.assertEqual(result.dimension, FREQUENCY)
 
     def test_force_mixed_notation(self):
         """GIVEN kg*m/s^2 THEN returns UnitProduct with dimension force."""
         from ucon.core import Dimension
         result = get_unit_by_name("kg*m/s^2")
         self.assertIsInstance(result, UnitProduct)
-        self.assertEqual(result.dimension, Dimension.force)
+        self.assertEqual(result.dimension, FORCE)
 
     def test_force_nested_parentheses(self):
         """GIVEN (kg*m)/(s^2) THEN returns UnitProduct with dimension force."""
         from ucon.core import Dimension
         result = get_unit_by_name("(kg*m)/(s^2)")
         self.assertIsInstance(result, UnitProduct)
-        self.assertEqual(result.dimension, Dimension.force)
+        self.assertEqual(result.dimension, FORCE)
 
     def test_nested_equals_flat(self):
         """Nested parentheses should give same result as flat expression."""

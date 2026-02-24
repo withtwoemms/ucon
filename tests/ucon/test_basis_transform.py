@@ -19,6 +19,7 @@ from ucon.core import (
     Unit,
     UnitSystem,
 )
+from ucon.dimension import LENGTH, MASS, TIME
 from ucon import units
 
 
@@ -29,17 +30,17 @@ class TestBasisTransformConstruction(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
+                LENGTH: units.meter,
+                MASS: units.kilogram,
+                TIME: units.second,
             }
         )
         self.custom = UnitSystem(
             name="Custom",
             bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
+                LENGTH: units.foot,
+                MASS: units.pound,
+                TIME: units.second,
             }
         )
 
@@ -47,8 +48,8 @@ class TestBasisTransformConstruction(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((1,),),
         )
         self.assertEqual(bt.src, self.custom)
@@ -58,8 +59,8 @@ class TestBasisTransformConstruction(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=((1, 0), (0, 1)),
         )
         self.assertIsInstance(bt.matrix[0][0], Fraction)
@@ -70,8 +71,8 @@ class TestBasisTransformConstruction(unittest.TestCase):
             BasisTransform(
                 src=self.custom,
                 dst=self.si,
-                src_dimensions=(Dimension.length,),
-                dst_dimensions=(Dimension.length, Dimension.mass),  # 2 dims
+                src_dimensions=(LENGTH,),
+                dst_dimensions=(LENGTH, MASS),  # 2 dims
                 matrix=((1,),),  # only 1 row
             )
         self.assertIn("row", str(ctx.exception).lower())
@@ -81,8 +82,8 @@ class TestBasisTransformConstruction(unittest.TestCase):
             BasisTransform(
                 src=self.custom,
                 dst=self.si,
-                src_dimensions=(Dimension.length, Dimension.mass),  # 2 dims
-                dst_dimensions=(Dimension.length,),
+                src_dimensions=(LENGTH, MASS),  # 2 dims
+                dst_dimensions=(LENGTH,),
                 matrix=((1,),),  # only 1 column
             )
         self.assertIn("column", str(ctx.exception).lower())
@@ -95,17 +96,17 @@ class TestBasisTransformSquareMatrix(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
+                LENGTH: units.meter,
+                MASS: units.kilogram,
+                TIME: units.second,
             }
         )
         self.custom = UnitSystem(
             name="Custom",
             bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
+                LENGTH: units.foot,
+                MASS: units.pound,
+                TIME: units.second,
             }
         )
 
@@ -113,8 +114,8 @@ class TestBasisTransformSquareMatrix(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((1,),),
         )
         self.assertTrue(bt.is_square)
@@ -124,8 +125,8 @@ class TestBasisTransformSquareMatrix(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=((1, 0), (0, 1)),
         )
         self.assertTrue(bt.is_square)
@@ -135,8 +136,8 @@ class TestBasisTransformSquareMatrix(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=((1, 2), (2, 4)),  # Rows are linearly dependent
         )
         self.assertTrue(bt.is_square)
@@ -146,8 +147,8 @@ class TestBasisTransformSquareMatrix(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass, Dimension.time),
-            dst_dimensions=(Dimension.length, Dimension.mass, Dimension.time),
+            src_dimensions=(LENGTH, MASS, TIME),
+            dst_dimensions=(LENGTH, MASS, TIME),
             matrix=(
                 (1, 0, 0),
                 (0, 1, 0),
@@ -161,8 +162,8 @@ class TestBasisTransformSquareMatrix(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=((2, 3), (1, 4)),  # det = 2*4 - 3*1 = 5
         )
         # Access internal _determinant method for testing
@@ -176,17 +177,17 @@ class TestBasisTransformInverse(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
+                LENGTH: units.meter,
+                MASS: units.kilogram,
+                TIME: units.second,
             }
         )
         self.custom = UnitSystem(
             name="Custom",
             bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
+                LENGTH: units.foot,
+                MASS: units.pound,
+                TIME: units.second,
             }
         )
 
@@ -194,8 +195,8 @@ class TestBasisTransformInverse(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((2,),),  # scale by 2
         )
         inv = bt.inverse()
@@ -207,8 +208,8 @@ class TestBasisTransformInverse(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=((1, 0), (0, 1)),
         )
         inv = bt.inverse()
@@ -218,8 +219,8 @@ class TestBasisTransformInverse(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=((2, 1), (1, 1)),  # det = 2*1 - 1*1 = 1
         )
         inv = bt.inverse()
@@ -230,8 +231,8 @@ class TestBasisTransformInverse(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=((1, 2), (2, 4)),  # Singular
         )
         with self.assertRaises(NonInvertibleTransform):
@@ -245,16 +246,16 @@ class TestBasisTransformNonSquare(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
+                LENGTH: units.meter,
+                MASS: units.kilogram,
+                TIME: units.second,
             }
         )
         self.reduced = UnitSystem(
             name="Reduced",
             bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
+                LENGTH: units.meter,
+                MASS: units.kilogram,
             }
         )
 
@@ -262,8 +263,8 @@ class TestBasisTransformNonSquare(unittest.TestCase):
         bt = BasisTransform(
             src=self.si,
             dst=self.reduced,
-            src_dimensions=(Dimension.length, Dimension.mass, Dimension.time),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS, TIME),
+            dst_dimensions=(LENGTH, MASS),
             matrix=(
                 (1, 0, 0),
                 (0, 1, 0),
@@ -276,8 +277,8 @@ class TestBasisTransformNonSquare(unittest.TestCase):
         bt = BasisTransform(
             src=self.si,
             dst=self.reduced,
-            src_dimensions=(Dimension.length, Dimension.mass, Dimension.time),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS, TIME),
+            dst_dimensions=(LENGTH, MASS),
             matrix=(
                 (1, 0, 0),
                 (0, 1, 0),
@@ -294,17 +295,17 @@ class TestBasisTransformTransform(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
+                LENGTH: units.meter,
+                MASS: units.kilogram,
+                TIME: units.second,
             }
         )
         self.custom = UnitSystem(
             name="Custom",
             bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
+                LENGTH: units.foot,
+                MASS: units.pound,
+                TIME: units.second,
             }
         )
 
@@ -312,24 +313,24 @@ class TestBasisTransformTransform(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((1,),),
         )
         # Transform the length dimension vector
-        src_vector = Dimension.length.value
+        src_vector = LENGTH.value
         result = bt.transform(src_vector)
-        self.assertEqual(result, Dimension.length.value)
+        self.assertEqual(result, LENGTH.value)
 
     def test_scaling_transform_vector(self):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((2,),),
         )
-        src_vector = Dimension.length.vector
+        src_vector = LENGTH.vector
         result = bt.transform(src_vector)
         # Length component should be doubled
         # Access via index (1 = length in SI basis: T, L, M, I, Θ, J, N, B)
@@ -340,15 +341,15 @@ class TestBasisTransformTransform(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=(
                 (1, 0),
                 (1, 1),  # dst_mass = src_length + src_mass
             ),
         )
         # Input: pure length (L=1, M=0)
-        src_vector = Dimension.length.vector
+        src_vector = LENGTH.vector
         result = bt.transform(src_vector)
         self.assertEqual(result["length"], Fraction(1))
         self.assertEqual(result["mass"], Fraction(1))  # Contribution from length
@@ -361,17 +362,17 @@ class TestBasisTransformValidateEdge(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
+                LENGTH: units.meter,
+                MASS: units.kilogram,
+                TIME: units.second,
             }
         )
         self.custom = UnitSystem(
             name="Custom",
             bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
+                LENGTH: units.foot,
+                MASS: units.pound,
+                TIME: units.second,
             }
         )
 
@@ -379,8 +380,8 @@ class TestBasisTransformValidateEdge(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((1,),),
         )
         # foot (length) -> meter (length) should be valid
@@ -390,8 +391,8 @@ class TestBasisTransformValidateEdge(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((1,),),
         )
         # foot (length) -> kilogram (mass) should be invalid
@@ -405,17 +406,17 @@ class TestBasisTransformFractionArithmetic(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
+                LENGTH: units.meter,
+                MASS: units.kilogram,
+                TIME: units.second,
             }
         )
         self.custom = UnitSystem(
             name="Custom",
             bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
+                LENGTH: units.foot,
+                MASS: units.pound,
+                TIME: units.second,
             }
         )
 
@@ -423,8 +424,8 @@ class TestBasisTransformFractionArithmetic(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=(
                 (Fraction(1, 3), Fraction(2, 3)),
                 (Fraction(1, 2), Fraction(1, 2)),
@@ -437,8 +438,8 @@ class TestBasisTransformFractionArithmetic(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
+            src_dimensions=(LENGTH, MASS),
+            dst_dimensions=(LENGTH, MASS),
             matrix=((3, 0), (0, 2)),
         )
         inv = bt.inverse()
@@ -450,8 +451,8 @@ class TestBasisTransformFractionArithmetic(unittest.TestCase):
         bt = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((Fraction(1, 3),),),
         )
         inv = bt.inverse()
@@ -468,17 +469,17 @@ class TestBasisTransformHashEquality(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
+                LENGTH: units.meter,
+                MASS: units.kilogram,
+                TIME: units.second,
             }
         )
         self.custom = UnitSystem(
             name="Custom",
             bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
+                LENGTH: units.foot,
+                MASS: units.pound,
+                TIME: units.second,
             }
         )
 
@@ -486,15 +487,15 @@ class TestBasisTransformHashEquality(unittest.TestCase):
         bt1 = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((1,),),
         )
         bt2 = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((1,),),
         )
         self.assertEqual(bt1, bt2)
@@ -503,15 +504,15 @@ class TestBasisTransformHashEquality(unittest.TestCase):
         bt1 = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((1,),),
         )
         bt2 = BasisTransform(
             src=self.custom,
             dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
+            src_dimensions=(LENGTH,),
+            dst_dimensions=(LENGTH,),
             matrix=((1,),),
         )
         self.assertEqual(hash(bt1), hash(bt2))

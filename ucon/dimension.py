@@ -54,14 +54,13 @@ def _register(dim: "Dimension") -> "Dimension":
     return dim
 
 
-def resolve(vector) -> "Dimension":
+def resolve(vector: Vector) -> "Dimension":
     """Resolve a vector to a named dimension, or create a derived dimension.
 
     Parameters
     ----------
-    vector : Vector or ucon.algebra.Vector
-        The dimensional exponent vector to resolve. Accepts both the new
-        ucon.basis.Vector and the legacy ucon.algebra.Vector.
+    vector : Vector
+        The dimensional exponent vector to resolve.
 
     Returns
     -------
@@ -78,19 +77,6 @@ def resolve(vector) -> "Dimension":
     >>> resolve(v)
     Dimension(velocity)
     """
-    # Handle legacy ucon.algebra.Vector by converting to basis.Vector
-    if not hasattr(vector, 'basis'):
-        # This is a legacy ucon.algebra.Vector - convert to basis.Vector
-        from ucon.algebra import Vector as LegacyVector
-        if isinstance(vector, LegacyVector):
-            # Extract components in canonical order: T, L, M, I, Θ, J, N, B
-            components = (
-                Fraction(vector.T), Fraction(vector.L), Fraction(vector.M),
-                Fraction(vector.I), Fraction(vector.Θ), Fraction(vector.J),
-                Fraction(vector.N), Fraction(vector.B) if hasattr(vector, 'B') else Fraction(0),
-            )
-            vector = Vector(SI, components)
-
     key = (vector.basis, vector.components)
     if key in _REGISTRY:
         return _REGISTRY[key]

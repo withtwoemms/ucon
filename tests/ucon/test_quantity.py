@@ -6,6 +6,10 @@ import unittest
 
 from ucon import units
 from ucon.core import UnitProduct, UnitFactor, Dimension, Scale, Unit
+from ucon.dimension import (
+    AREA, VELOCITY, VOLUME, INFORMATION, NONE, TIME, LENGTH, RATIO,
+    ENERGY, VOLTAGE, MASS,
+)
 from ucon.quantity import Number, Ratio
 
 
@@ -118,7 +122,7 @@ class TestNumberEdgeCases(unittest.TestCase):
 
         result = n1 * n2
 
-        assert result.unit.dimension == Dimension.area
+        assert result.unit.dimension == AREA
         # scale stays on unit expression, not folded into numeric
         assert "km" in result.unit.shorthand or "m" in result.unit.shorthand
 
@@ -186,7 +190,7 @@ class TestNumberEdgeCases(unittest.TestCase):
         n2 = Number(unit=units.second, quantity=3)
         result = n1 * n2
         self.assertEqual(result.quantity, 6)
-        self.assertEqual(result.unit.dimension, Dimension.energy * Dimension.time)
+        self.assertEqual(result.unit.dimension, ENERGY * TIME)
 
     def test_division_combines_units_scales_and_quantities(self):
         """Division creates composite unit with preserved scales."""
@@ -203,7 +207,7 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertAlmostEqual(result.quantity, 500)
 
         # --- dimension check ---
-        self.assertEqual(cu.dimension, Dimension.velocity)
+        self.assertEqual(cu.dimension, VELOCITY)
 
         # --- symbolic shorthand ---
         self.assertEqual(cu.shorthand, "km/s")
@@ -226,7 +230,7 @@ class TestNumberEdgeCases(unittest.TestCase):
         self.assertTrue(r == Number())
 
     def test_repr_includes_scale_and_unit(self):
-        kV = Scale.kilo * Unit(name='volt', dimension=Dimension.voltage, aliases=('V',))
+        kV = Scale.kilo * Unit(name='volt', dimension=VOLTAGE, aliases=('V',))
         n = Number(unit=kV, quantity=5)
         rep = repr(n)
         self.assertIn("kV", rep)
@@ -263,7 +267,7 @@ class TestRatio(unittest.TestCase):
         self.assertEqual(self.one_half * self.three_halves, self.three_fourths)
 
     def test___mul__(self):
-        mL = Scale.milli * Unit(name='liter', dimension=Dimension.volume, aliases=('L',))
+        mL = Scale.milli * Unit(name='liter', dimension=VOLUME, aliases=('L',))
         n1 = Number(unit=units.gram, quantity=3.119)
         n2 = Number(unit=mL)
         bromine_density = Ratio(n1, n2)
@@ -272,7 +276,7 @@ class TestRatio(unittest.TestCase):
         two_milliliters_bromine = Number(unit=mL, quantity=2)
         ratio = two_milliliters_bromine.as_ratio() * bromine_density
         answer = ratio.evaluate()
-        self.assertEqual(answer.unit.dimension, Dimension.mass)
+        self.assertEqual(answer.unit.dimension, MASS)
         self.assertEqual(answer.value, 6.238) # Grams
 
     def test___truediv__(self):
@@ -283,12 +287,12 @@ class TestRatio(unittest.TestCase):
 
         # How many Wh from 20 kJ?
         twenty_kilojoules = Number(
-            unit=Scale.kilo * Unit(name='joule', dimension=Dimension.energy, aliases=('J',)),
+            unit=Scale.kilo * Unit(name='joule', dimension=ENERGY, aliases=('J',)),
             quantity=20
         )
         ratio = twenty_kilojoules.as_ratio() / seconds_per_hour
         answer = ratio.evaluate()
-        self.assertEqual(answer.unit.dimension, Dimension.energy)
+        self.assertEqual(answer.unit.dimension, ENERGY)
         # When the ConversionGraph is implemented, conversion to watt-hours will be possible.
         self.assertEqual(round(answer.value, 5), 0.00556)  # kilowatt * hours
 
@@ -323,14 +327,14 @@ class TestRatioEdgeCases(unittest.TestCase):
         r = Ratio(Number(unit=units.meter), Number(unit=units.second))
         result = r.evaluate()
         self.assertIsInstance(result, Number)
-        self.assertEqual(result.unit.dimension, Dimension.velocity)
+        self.assertEqual(result.unit.dimension, VELOCITY)
 
     def test_multiplication_between_compatible_ratios(self):
         r1 = Ratio(Number(unit=units.meter), Number(unit=units.second))
         r2 = Ratio(Number(unit=units.second), Number(unit=units.meter))
         product = r1 * r2
         self.assertIsInstance(product, Ratio)
-        self.assertEqual(product.evaluate().unit.dimension, Dimension.none)
+        self.assertEqual(product.evaluate().unit.dimension, NONE)
 
     def test_multiplication_with_incompatible_units_fallback(self):
         r1 = Ratio(Number(unit=units.meter), Number(unit=units.ampere))
@@ -378,7 +382,7 @@ class TestRatioExponentScaling(unittest.TestCase):
         ratio = Ratio(units.gram(500), kg(1))
         result = ratio.evaluate()
         self.assertAlmostEqual(result.quantity, 0.5, places=10)
-        self.assertEqual(result.unit.dimension, Dimension.none)
+        self.assertEqual(result.unit.dimension, NONE)
 
     def test_evaluate_matches_number_truediv(self):
         """Ratio.evaluate() should match Number.__truediv__ for dimensionless."""
@@ -400,7 +404,7 @@ class TestRatioExponentScaling(unittest.TestCase):
         ratio = Ratio(kibigram(1), kg(1))
         result = ratio.evaluate()
         self.assertAlmostEqual(result.quantity, 1.024, places=10)
-        self.assertEqual(result.unit.dimension, Dimension.none)
+        self.assertEqual(result.unit.dimension, NONE)
 
     def test_evaluate_dimensionful_preserves_scales(self):
         """Non-cancelling units should preserve symbolic scales."""
@@ -409,7 +413,7 @@ class TestRatioExponentScaling(unittest.TestCase):
         ratio = Ratio(km(100), units.hour(2))
         result = ratio.evaluate()
         self.assertAlmostEqual(result.quantity, 50.0, places=10)
-        self.assertEqual(result.unit.dimension, Dimension.velocity)
+        self.assertEqual(result.unit.dimension, VELOCITY)
         self.assertIn("km", result.unit.shorthand)
 
     def test_evaluate_complex_composition(self):
@@ -441,7 +445,7 @@ class TestCallableUnits(unittest.TestCase):
         result = velocity(10)
         self.assertIsInstance(result, Number)
         self.assertEqual(result.quantity, 10)
-        self.assertEqual(result.unit.dimension, Dimension.velocity)
+        self.assertEqual(result.unit.dimension, VELOCITY)
 
     def test_scaled_unit_callable_returns_number(self):
         km = Scale.kilo * units.meter
@@ -560,21 +564,21 @@ class TestNumberSimplify(unittest.TestCase):
 
 
 class TestInformationDimension(unittest.TestCase):
-    """Tests for Dimension.information and information units (bit, byte)."""
+    """Tests for INFORMATION and information units (bit, byte)."""
 
     def test_dimension_information_exists(self):
-        """Dimension.information should be a valid dimension."""
-        self.assertEqual(Dimension.information.name, 'information')
-        self.assertNotEqual(Dimension.information, Dimension.none)
+        """INFORMATION should be a valid dimension."""
+        self.assertEqual(INFORMATION.name, 'information')
+        self.assertNotEqual(INFORMATION, NONE)
 
     def test_bit_unit_exists(self):
-        """units.bit should have Dimension.information."""
-        self.assertEqual(units.bit.dimension, Dimension.information)
+        """units.bit should have INFORMATION."""
+        self.assertEqual(units.bit.dimension, INFORMATION)
         self.assertIn('b', units.bit.aliases)
 
     def test_byte_unit_exists(self):
-        """units.byte should have Dimension.information."""
-        self.assertEqual(units.byte.dimension, Dimension.information)
+        """units.byte should have INFORMATION."""
+        self.assertEqual(units.byte.dimension, INFORMATION)
         self.assertIn('B', units.byte.aliases)
 
     def test_byte_to_bit_conversion(self):
@@ -604,12 +608,12 @@ class TestInformationDimension(unittest.TestCase):
     def test_data_rate_dimension(self):
         """bytes/second should have information/time dimension."""
         data_rate = units.byte / units.second
-        expected_dim = Dimension.information / Dimension.time
+        expected_dim = INFORMATION / TIME
         self.assertEqual(data_rate.dimension, expected_dim)
 
     def test_information_orthogonal_to_physical(self):
         """Information dimension should be orthogonal to physical dimensions."""
         # byte * meter should have both information and length
         composite = units.byte * units.meter
-        self.assertNotEqual(composite.dimension, Dimension.information)
-        self.assertNotEqual(composite.dimension, Dimension.length)
+        self.assertNotEqual(composite.dimension, INFORMATION)
+        self.assertNotEqual(composite.dimension, LENGTH)

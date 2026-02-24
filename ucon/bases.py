@@ -45,9 +45,7 @@ SI = Basis(
 """The International System of Units.
 
 8 base dimensions in canonical order: time, length, mass, current, temperature,
-luminous_intensity, amount_of_substance, and information.
-
-Note: The order matches the legacy ucon.algebra.Vector convention (T, L, M, I, Θ, J, N, B).
+luminous_intensity, amount_of_substance, and information (T, L, M, I, Θ, J, N, B).
 """
 
 CGS = Basis(

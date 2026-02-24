@@ -12,9 +12,19 @@ from ucon import Scale
 from ucon import Dimension
 from ucon import Unit
 from ucon import units
-from ucon.algebra import Vector
+from ucon.basis import Vector
 from ucon.core import UnitFactor, UnitProduct, ScaleDescriptor
-from ucon.dimension import all_dimensions
+from ucon.dimension import (
+    all_dimensions,
+    resolve,
+    SI,
+    NONE, TIME, LENGTH, MASS, CURRENT, TEMPERATURE,
+    LUMINOUS_INTENSITY, AMOUNT_OF_SUBSTANCE, INFORMATION,
+    ANGLE, SOLID_ANGLE, RATIO, COUNT,
+    VELOCITY, ACCELERATION, FORCE, ENERGY, POWER,
+    AREA, VOLUME, DENSITY, PRESSURE, FREQUENCY, CHARGE,
+)
+from fractions import Fraction
 
 
 class TestDimension(unittest.TestCase):
@@ -30,42 +40,42 @@ class TestDimension(unittest.TestCase):
 
     def test_multiplication_adds_exponents(self):
         self.assertEqual(
-            Dimension.mass * Dimension.acceleration,
-            Dimension.force,
+            MASS * ACCELERATION,
+            FORCE,
         )
         self.assertEqual(
-            Dimension.length * Dimension.length,
-            Dimension.area,
+            LENGTH * LENGTH,
+            AREA,
         )
         self.assertEqual(
-            Dimension.length * Dimension.length * Dimension.length,
-            Dimension.volume,
+            LENGTH * LENGTH * LENGTH,
+            VOLUME,
         )
 
     def test_division_subtracts_exponents(self):
         self.assertEqual(
-            Dimension.length / Dimension.time,
-            Dimension.velocity,
+            LENGTH / TIME,
+            VELOCITY,
         )
         self.assertEqual(
-            Dimension.force / Dimension.area,
-            Dimension.pressure,
+            FORCE / AREA,
+            PRESSURE,
         )
 
     # def test_none_dimension_behaves_neutrally(self):
-    #     base = Dimension.mass
-    #     self.assertEqual(base * Dimension.none, base)
-    #     self.assertEqual(base / Dimension.none, base)
-    #     self.assertEqual(Dimension.none * base, base)
+    #     base = MASS
+    #     self.assertEqual(base * NONE, base)
+    #     self.assertEqual(base / NONE, base)
+    #     self.assertEqual(NONE * base, base)
     #     with self.assertRaises(ValueError) as exc:
-    #         Dimension.none / base
+    #         NONE / base
     #     assert type(exc.exception) == ValueError
     #     assert str(exc.exception).endswith('is not a valid Dimension')
 
     def test_hash_and_equality_consistency(self):
-        d1 = Dimension.mass
-        d2 = Dimension.mass
-        d3 = Dimension.length
+        d1 = MASS
+        d2 = MASS
+        d3 = LENGTH
         self.assertEqual(d1, d2)
         self.assertNotEqual(d1, d3)
         self.assertEqual(hash(d1), hash(d2))
@@ -74,117 +84,123 @@ class TestDimension(unittest.TestCase):
     def test_composite_quantities_examples(self):
         # Energy = Force * Length
         self.assertEqual(
-            Dimension.force * Dimension.length,
-            Dimension.energy,
+            FORCE * LENGTH,
+            ENERGY,
         )
         # Power = Energy / Time
         self.assertEqual(
-            Dimension.energy / Dimension.time,
-            Dimension.power,
+            ENERGY / TIME,
+            POWER,
         )
         # Pressure = Force / Area
         self.assertEqual(
-            Dimension.force / Dimension.area,
-            Dimension.pressure,
+            FORCE / AREA,
+            PRESSURE,
         )
         # Charge = Current * Time
         self.assertEqual(
-            Dimension.current * Dimension.time,
-            Dimension.charge,
+            CURRENT * TIME,
+            CHARGE,
         )
 
     def test_vector_equality_reflects_dimension_equality(self):
-        self.assertEqual(Dimension.mass.value, Dimension.mass.value)
-        self.assertNotEqual(Dimension.mass.value, Dimension.time.value)
-        self.assertEqual(Dimension.mass, Dimension.mass)
-        self.assertNotEqual(Dimension.mass, Dimension.time)
+        self.assertEqual(MASS.value, MASS.value)
+        self.assertNotEqual(MASS.value, TIME.value)
+        self.assertEqual(MASS, MASS)
+        self.assertNotEqual(MASS, TIME)
 
     def test_pow_identity_and_zero(self):
-        self.assertIs(Dimension.length ** 1, Dimension.length)
-        self.assertIs(Dimension.mass ** 0, Dimension.none)
+        self.assertIs(LENGTH ** 1, LENGTH)
+        self.assertIs(MASS ** 0, NONE)
 
     def test_pow_known_results(self):
-        self.assertEqual(Dimension.length ** 2, Dimension.area)
-        self.assertEqual(Dimension.time ** -1, Dimension.frequency)
+        self.assertEqual(LENGTH ** 2, AREA)
+        self.assertEqual(TIME ** -1, FREQUENCY)
 
     def test_pow_returns_derived_dimension_for_unknown(self):
-        jerk = Dimension.length * (Dimension.time ** -3)  # length / time^3
+        jerk = LENGTH * (TIME ** -3)  # length / time^3
         self.assertTrue(jerk.name.startswith("derived("))
         # Check it's not a standard dimension
         self.assertNotIn(jerk, all_dimensions())
 
     def test_resolve_known_vector_returns_dimension(self):
-        dim = Dimension._resolve(Vector(0, 1, 0, 0, 0, 0, 0))
-        self.assertEqual(dim, Dimension.length)
+        # Vector: (T, L, M, I, Θ, J, N, B) - L=1 for LENGTH
+        vec = Vector(SI, tuple(Fraction(x) for x in (0, 1, 0, 0, 0, 0, 0, 0)))
+        dim = resolve(vec)
+        self.assertEqual(dim, LENGTH)
 
     def test_resolve_unknown_vector_returns_dynamic_dimension(self):
-        vec = Vector(T=1, L=-1, M=0, I=0, Θ=0, J=0, N=0)  # T/L (inverse velocity), not a standard dimension
-        dyn = Dimension._resolve(vec)
+        # T/L (inverse velocity), not a standard dimension
+        # Vector: (T, L, M, I, Θ, J, N, B) - T=1, L=-1
+        vec = Vector(SI, tuple(Fraction(x) for x in (1, -1, 0, 0, 0, 0, 0, 0)))
+        dyn = resolve(vec)
         self.assertNotIn(dyn, all_dimensions())
         self.assertEqual(dyn.name, "derived(time/length)")
 
     def test_resolve_returns_same_dynamic_for_same_vector(self):
-        vec = Vector(T=2, L=-2, M=0, I=0, Θ=0, J=0, N=0)
-        first = Dimension._resolve(vec)
-        second = Dimension._resolve(vec)
+        # Vector: (T, L, M, I, Θ, J, N, B) - T=2, L=-2
+        vec = Vector(SI, tuple(Fraction(x) for x in (2, -2, 0, 0, 0, 0, 0, 0)))
+        first = resolve(vec)
+        second = resolve(vec)
         # Both should resolve to the same derived dimension
         self.assertEqual(first.vector, second.vector)
         self.assertEqual(first.name, second.name)
 
     def test_dynamic_dimensions_compare_by_vector(self):
-        v1 = Vector(T=2, L=-2, M=0, I=0, Θ=0, J=0, N=0)
-        v2 = Vector(T=2, L=-2, M=0, I=0, Θ=0, J=0, N=0)
-        d1 = Dimension._resolve(v1)
-        d2 = Dimension._resolve(v2)
+        # Vector: (T, L, M, I, Θ, J, N, B) - T=2, L=-2
+        v1 = Vector(SI, tuple(Fraction(x) for x in (2, -2, 0, 0, 0, 0, 0, 0)))
+        v2 = Vector(SI, tuple(Fraction(x) for x in (2, -2, 0, 0, 0, 0, 0, 0)))
+        d1 = resolve(v1)
+        d2 = resolve(v2)
         self.assertEqual(d1.vector, d2.vector)
         self.assertEqual(d1 == d2, True)
         self.assertEqual(hash(d1), hash(d2))
 
     def test_pow_zero_returns_none(self):
-        # Dimension ** 0 should always return Dimension.none
-        self.assertEqual(Dimension.length ** 0, Dimension.none)
+        # Dimension ** 0 should always return NONE
+        self.assertEqual(LENGTH ** 0, NONE)
 
     def test_pow_fractional(self):
         # Fractional powers = derived dimensions not equal to any registered one
-        d = Dimension.length ** 0.5
+        d = LENGTH ** 0.5
         self.assertIsInstance(d, Dimension)
         self.assertNotIn(d, all_dimensions())
 
     def test_invalid_operand_multiply(self):
         with self.assertRaises(TypeError):
-            Dimension.length * 10
+            LENGTH * 10
 
     def test_invalid_operand_divide(self):
         with self.assertRaises(TypeError):
-            Dimension.time / "bad"
+            TIME / "bad"
 
     # -- Pseudo-dimension tests ------------------------------------------
 
     def test_count_pseudo_dimension_exists(self):
         """Test that count is a valid pseudo-dimension."""
-        self.assertIn(Dimension.count, all_dimensions())
-        self.assertEqual(Dimension.count.name, "count")
+        self.assertIn(COUNT, all_dimensions())
+        self.assertEqual(COUNT.name, "count")
 
     def test_count_has_zero_vector(self):
         """Test that count has zero vector like other pseudo-dimensions."""
-        self.assertTrue(Dimension.count.vector.is_dimensionless())
+        self.assertTrue(COUNT.vector.is_dimensionless())
 
     def test_count_is_distinct_from_other_pseudo_dimensions(self):
         """Test that count is distinct from angle, solid_angle, ratio, and none."""
-        self.assertNotEqual(Dimension.count, Dimension.none)
-        self.assertNotEqual(Dimension.count, Dimension.angle)
-        self.assertNotEqual(Dimension.count, Dimension.solid_angle)
-        self.assertNotEqual(Dimension.count, Dimension.ratio)
+        self.assertNotEqual(COUNT, NONE)
+        self.assertNotEqual(COUNT, ANGLE)
+        self.assertNotEqual(COUNT, SOLID_ANGLE)
+        self.assertNotEqual(COUNT, RATIO)
 
     def test_pseudo_dimensions_compare_by_identity(self):
         """Test that pseudo-dimensions with same vector are distinct."""
         # All have zero vector but should not be equal
         zero_vector_dims = [
-            Dimension.none,
-            Dimension.angle,
-            Dimension.solid_angle,
-            Dimension.ratio,
-            Dimension.count,
+            NONE,
+            ANGLE,
+            SOLID_ANGLE,
+            RATIO,
+            COUNT,
         ]
         for i, d1 in enumerate(zero_vector_dims):
             for d2 in zero_vector_dims[i+1:]:
@@ -195,62 +211,63 @@ class TestDimensionResolve(unittest.TestCase):
 
     def test_registered_multiplication(self):
         # velocity = length / time
-        v = Dimension.length / Dimension.time
-        self.assertEqual(v, Dimension.velocity)
+        v = LENGTH / TIME
+        self.assertEqual(v, VELOCITY)
 
     def test_registered_power(self):
         # area = length ** 2
-        a = Dimension.length ** 2
-        self.assertEqual(a, Dimension.area)
+        a = LENGTH ** 2
+        self.assertEqual(a, AREA)
 
     def test_unregistered_multiplication_creates_derived(self):
         # L * M should yield derived dimension
-        d = Dimension.length * Dimension.mass
+        d = LENGTH * MASS
         self.assertIsInstance(d, Dimension)
         self.assertNotIn(d, all_dimensions())
         self.assertIn("derived", d.name)
 
     def test_unregistered_division_creates_derived(self):
         # M / T should yield derived dimension
-        d = Dimension.mass / Dimension.time
+        d = MASS / TIME
         self.assertIsInstance(d, Dimension)
         self.assertNotIn(d, all_dimensions())
         self.assertIn("derived", d.name)
 
     def test_unregistered_power_creates_derived(self):
         # (L * M)^2 → derived dimension
-        d1 = Dimension.length * Dimension.mass
+        d1 = LENGTH * MASS
         d2 = d1 ** 2
         self.assertIsInstance(d2, Dimension)
         self.assertIn("derived", d2.name)
 
     def test_registered_vs_derived_equality(self):
         # Ensure derived dimensions only equal themselves
-        derived = Dimension.length * Dimension.mass
-        again = Dimension._resolve(Vector(0, 1, 1, 0, 0, 0, 0))
+        derived = LENGTH * MASS
+        # Vector: (T, L, M, I, Θ, J, N, B) - L=1, M=1
+        again = resolve(Vector(SI, tuple(Fraction(x) for x in (0, 1, 1, 0, 0, 0, 0, 0))))
         self.assertEqual(derived, again)
-        self.assertNotEqual(derived, Dimension.length)
-        self.assertNotEqual(derived, Dimension.mass)
+        self.assertNotEqual(derived, LENGTH)
+        self.assertNotEqual(derived, MASS)
 
 
 class TestDimensionEdgeCases(unittest.TestCase):
 
     def test_invalid_multiplication_type(self):
         with self.assertRaises(TypeError):
-            Dimension.length * 5
+            LENGTH * 5
         with self.assertRaises(TypeError):
-            "mass" * Dimension.time
+            "mass" * TIME
 
     def test_invalid_division_type(self):
         with self.assertRaises(TypeError):
-            Dimension.time / "length"
+            TIME / "length"
         with self.assertRaises(TypeError):
-            5 / Dimension.mass
+            5 / MASS
 
     def test_equality_with_non_dimension(self):
         # Comparing dimension with non-dimension returns False, not TypeError
-        self.assertFalse(Dimension.mass == "mass")
-        self.assertTrue(Dimension.mass != "mass")
+        self.assertFalse(MASS == "mass")
+        self.assertTrue(MASS != "mass")
 
     def test_dimension_hash_uniqueness(self):
         # Hashes should be unique per distinct dimension (including pseudo-dimensions)
@@ -265,20 +282,20 @@ class TestDimensionEdgeCases(unittest.TestCase):
 
     def test_combined_chained_operations(self):
         # (mass * acceleration) / area = pressure
-        result = (Dimension.mass * Dimension.acceleration) / Dimension.area
-        self.assertEqual(result, Dimension.pressure)
+        result = (MASS * ACCELERATION) / AREA
+        self.assertEqual(result, PRESSURE)
 
     def test_dimension_round_trip_equality(self):
         # Multiplying and dividing by the same dimension returns self
-        d = Dimension.energy
-        self.assertEqual((d * Dimension.none) / Dimension.none, d)
-        self.assertEqual(d / Dimension.none, d)
-        self.assertEqual(Dimension.none * d, d)
+        d = ENERGY
+        self.assertEqual((d * NONE) / NONE, d)
+        self.assertEqual(d / NONE, d)
+        self.assertEqual(NONE * d, d)
 
     def test_dimension_is_hashable(self):
         dims = all_dimensions()
         seen = {d for d in dims}
-        self.assertIn(Dimension.mass, seen)
+        self.assertIn(MASS, seen)
         self.assertEqual(len(seen), len(dims))
 
 
@@ -373,7 +390,7 @@ class TestScaleMultiplicationAdditional(unittest.TestCase):
         """Scale * Unit returns a UnitProduct with the scaled unit."""
         kilometer = Scale.kilo * units.meter
         self.assertIsInstance(kilometer, UnitProduct)
-        self.assertEqual(kilometer.dimension, Dimension.length)
+        self.assertEqual(kilometer.dimension, LENGTH)
         self.assertEqual(kilometer.shorthand, "km")
         self.assertAlmostEqual(kilometer.fold_scale(), 1000.0, places=10)
 
@@ -487,25 +504,25 @@ class TestUnit(unittest.TestCase):
     unit_name = 'second'
     unit_type = 'time'
     unit_aliases = ('seconds', 'secs', 's', 'S')
-    unit = Unit(name=unit_name, dimension=Dimension.time, aliases=unit_aliases)
+    unit = Unit(name=unit_name, dimension=TIME, aliases=unit_aliases)
 
     def test___repr__(self):
         self.assertEqual(f'<Unit {self.unit_aliases[0]}>', str(self.unit))
 
     def test_unit_repr_has_dimension_when_no_shorthand(self):
-        u = Unit(name="", dimension=Dimension.force)
+        u = Unit(name="", dimension=FORCE)
         r = repr(u)
         self.assertIn("force", r)
         self.assertTrue(r.startswith("<Unit"))
 
     def test_unit_equality_alias_normalization(self):
         # ('',) should normalize to () under _norm
-        u1 = Unit(name="x", dimension=Dimension.length, aliases=("",))
-        u2 = Unit(name="x", dimension=Dimension.length)
+        u1 = Unit(name="x", dimension=LENGTH, aliases=("",))
+        u2 = Unit(name="x", dimension=LENGTH)
         self.assertEqual(u1, u2)
 
     def test_unit_invalid_eq_type(self):
-        self.assertFalse(Unit(name="meter", dimension=Dimension.length, aliases=("m",)) == "meter")
+        self.assertFalse(Unit(name="meter", dimension=LENGTH, aliases=("m",)) == "meter")
 
 
 class TestEachUnit(unittest.TestCase):
@@ -514,7 +531,7 @@ class TestEachUnit(unittest.TestCase):
     def test_each_unit_exists(self):
         """Test that each unit is defined."""
         self.assertEqual(units.each.name, "each")
-        self.assertEqual(units.each.dimension, Dimension.count)
+        self.assertEqual(units.each.dimension, COUNT)
 
     def test_each_shorthand(self):
         """Test that each has 'ea' as shorthand."""
@@ -531,7 +548,7 @@ class TestEachUnit(unittest.TestCase):
         mg = UnitFactor(unit=units.gram, scale=Scale.milli)
         ea = UnitFactor(unit=units.each, scale=Scale.one)
         product = UnitProduct({mg: 1, ea: -1})
-        self.assertEqual(product.dimension, Dimension.mass)
+        self.assertEqual(product.dimension, MASS)
 
     def test_mg_per_each_renders_with_ea(self):
         """Test that mg/ea renders with 'ea' in shorthand."""
@@ -544,7 +561,7 @@ class TestEachUnit(unittest.TestCase):
         """Test that Number can be created with each unit."""
         n = Number(quantity=5, unit=units.each)
         self.assertEqual(n.quantity, 5)
-        self.assertEqual(n.unit.dimension, Dimension.count)
+        self.assertEqual(n.unit.dimension, COUNT)
 
 
 class TestUnitProduct(unittest.TestCase):
@@ -612,14 +629,14 @@ class TestUnitEdgeCases(unittest.TestCase):
 
     def test_default_unit_is_dimensionless(self):
         u = Unit()
-        self.assertEqual(u.dimension, Dimension.none)
+        self.assertEqual(u.dimension, NONE)
         self.assertEqual(u.name, '')
         self.assertEqual(u.aliases, ())
         self.assertEqual(u.shorthand, '')
         self.assertEqual(repr(u), '<Unit>')
 
     def test_unit_with_aliases_and_name(self):
-        u = Unit(name='meter', dimension=Dimension.length, aliases=('m', 'M'))
+        u = Unit(name='meter', dimension=LENGTH, aliases=('m', 'M'))
         self.assertEqual(u.shorthand, 'm')
         self.assertIn('m', u.aliases)
         self.assertIn('M', u.aliases)
@@ -628,52 +645,52 @@ class TestUnitEdgeCases(unittest.TestCase):
         self.assertIn('<Unit m>', repr(u))
 
     def test_hash_and_equality_consistency(self):
-        u1 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-        u2 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-        u3 = Unit(name='second', dimension=Dimension.time, aliases=('s',))
+        u1 = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+        u2 = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+        u3 = Unit(name='second', dimension=TIME, aliases=('s',))
         self.assertEqual(u1, u2)
         self.assertEqual(hash(u1), hash(u2))
         self.assertNotEqual(u1, u3)
         self.assertNotEqual(hash(u1), hash(u3))
 
     def test_units_with_same_name_but_different_dimension_not_equal(self):
-        u1 = Unit(name='amp', dimension=Dimension.current)
-        u2 = Unit(name='amp', dimension=Dimension.time)
+        u1 = Unit(name='amp', dimension=CURRENT)
+        u2 = Unit(name='amp', dimension=TIME)
         self.assertNotEqual(u1, u2)
 
     # --- arithmetic behavior ----------------------------------------------
 
     def test_multiplication_produces_composite_unit(self):
-        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-        s = Unit(name='second', dimension=Dimension.time, aliases=('s',))
+        m = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+        s = Unit(name='second', dimension=TIME, aliases=('s',))
         v = m / s
         self.assertIsInstance(v, UnitProduct)
-        self.assertEqual(v.dimension, Dimension.velocity)
+        self.assertEqual(v.dimension, VELOCITY)
         self.assertIn('/', repr(v))
 
     def test_division_with_dimensionless_denominator_returns_self(self):
-        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-        none = Unit(name='none', dimension=Dimension.none)
+        m = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+        none = Unit(name='none', dimension=NONE)
         result = m / none
         self.assertEqual(result, m)
 
     def test_division_of_identical_units_returns_dimensionless(self):
-        m1 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-        m2 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
+        m1 = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+        m2 = Unit(name='meter', dimension=LENGTH, aliases=('m',))
         result = m1 / m2
-        self.assertEqual(result.dimension, Dimension.none)
+        self.assertEqual(result.dimension, NONE)
         self.assertEqual(result.name, '')
 
     def test_multiplying_with_dimensionless_returns_self(self):
-        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-        none = Unit(name='none', dimension=Dimension.none)
+        m = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+        none = Unit(name='none', dimension=NONE)
         result = m * none
-        self.assertEqual(result.dimension, Dimension.length)
+        self.assertEqual(result.dimension, LENGTH)
         self.assertEqual('m', result.shorthand)
 
     def test_invalid_dimension_combinations_raise_value_error(self):
-        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-        c = Unit(name='coulomb', dimension=Dimension.charge, aliases=('C',))
+        m = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+        c = Unit(name='coulomb', dimension=CHARGE, aliases=('C',))
         # The result of combination gives CompositeUnit
         self.assertIsInstance(m / c, UnitProduct)
         self.assertIsInstance(m * c, UnitProduct)
@@ -681,24 +698,24 @@ class TestUnitEdgeCases(unittest.TestCase):
     # --- equality, hashing, immutability ----------------------------------
 
     def test_equality_with_non_unit(self):
-        self.assertFalse(Unit(name='meter', dimension=Dimension.length, aliases=('m',)) == 'meter')
+        self.assertFalse(Unit(name='meter', dimension=LENGTH, aliases=('m',)) == 'meter')
 
     def test_hash_stability_in_collections(self):
-        m1 = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
+        m1 = Unit(name='meter', dimension=LENGTH, aliases=('m',))
         s = set([m1])
-        self.assertIn(Unit(name='meter', dimension=Dimension.length, aliases=('m',)), s)
+        self.assertIn(Unit(name='meter', dimension=LENGTH, aliases=('m',)), s)
 
     def test_operations_do_not_mutate_operands(self):
-        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-        s = Unit(name='second', dimension=Dimension.time, aliases=('s',))
+        m = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+        s = Unit(name='second', dimension=TIME, aliases=('s',))
         _ = m / s
-        self.assertEqual(m.dimension, Dimension.length)
-        self.assertEqual(s.dimension, Dimension.time)
+        self.assertEqual(m.dimension, LENGTH)
+        self.assertEqual(s.dimension, TIME)
 
     # --- operator edge cases ----------------------------------------------
 
     def test_repr_contains_dimension_name_even_without_name(self):
-        u = Unit(dimension=Dimension.force)
+        u = Unit(dimension=FORCE)
         self.assertIn('force', repr(u))
 
 
@@ -789,7 +806,7 @@ class TestUnitAlgebra(unittest.TestCase):
         result = m * velocity
         self.assertIsInstance(result, UnitProduct)
         # m * (m/s) = m²/s
-        self.assertEqual(result.dimension, Dimension.area / Dimension.time)
+        self.assertEqual(result.dimension, AREA / TIME)
 
     def test_unit_mul_non_unit_returns_not_implemented(self):
         result = units.meter.__mul__("not a unit")
@@ -803,19 +820,19 @@ class TestUnitAlgebra(unittest.TestCase):
         m = units.meter
         result = m ** 2
         self.assertIsInstance(result, UnitProduct)
-        self.assertEqual(result.dimension, Dimension.area)
+        self.assertEqual(result.dimension, AREA)
 
     def test_unit_pow_3(self):
         m = units.meter
         result = m ** 3
-        self.assertEqual(result.dimension, Dimension.volume)
+        self.assertEqual(result.dimension, VOLUME)
 
 
 class TestUnitFactorCoverage(unittest.TestCase):
 
     def test_shorthand_name_fallback(self):
         # UnitFactor where unit has no aliases but has a name
-        u = Unit(name='gram', dimension=Dimension.mass)
+        u = Unit(name='gram', dimension=MASS)
         fu = UnitFactor(unit=u, scale=Scale.milli)
         self.assertEqual(fu.shorthand, 'mgram')
 
@@ -837,7 +854,7 @@ class TestUnitProductAlgebra(unittest.TestCase):
         result = velocity * time_sq
         self.assertIsInstance(result, UnitProduct)
         # (m/s) * s² = m·s
-        self.assertEqual(result.dimension, Dimension.length * Dimension.time)
+        self.assertEqual(result.dimension, LENGTH * TIME)
 
     def test_mul_unitproduct_by_scale_returns_not_implemented(self):
         velocity = UnitProduct({units.meter: 1, units.second: -1})
@@ -855,7 +872,7 @@ class TestUnitProductAlgebra(unittest.TestCase):
         result = acceleration / velocity
         self.assertIsInstance(result, UnitProduct)
         # (m/s²) / (m/s) = 1/s
-        self.assertEqual(result.dimension, Dimension.frequency)
+        self.assertEqual(result.dimension, FREQUENCY)
 
     def test_rmul_unit_times_unitproduct(self):
         velocity = UnitProduct({units.meter: 1, units.second: -1})

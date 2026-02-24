@@ -32,10 +32,6 @@ if sys.version_info >= (3, 9):
 else:
     from typing_extensions import Annotated
 
-from ucon.algebra import Exponent, Vector as LegacyVector
-
-# Re-export Vector from algebra for backward compatibility
-Vector = LegacyVector
 from ucon.dimension import (
     Dimension,
     resolve as _resolve_dimension,
@@ -105,65 +101,112 @@ class NonInvertibleTransform(Exception):
 
 
 # --------------------------------------------------------------------------------------
-# Dimension Compatibility Layer
+# Exponent
 # --------------------------------------------------------------------------------------
-# The Dimension class has been moved to ucon.dimension as a dataclass.
-# For backward compatibility, dimension constants are also available as attributes
-# on the Dimension class (e.g., Dimension.length, Dimension.mass).
 
-# Add lowercase attribute access to the Dimension class for backward compatibility
-# This allows Dimension.length, Dimension.mass, etc. to continue working.
-Dimension.none = NONE
-Dimension.time = TIME
-Dimension.length = LENGTH
-Dimension.mass = MASS
-Dimension.current = CURRENT
-Dimension.temperature = TEMPERATURE
-Dimension.luminous_intensity = LUMINOUS_INTENSITY
-Dimension.amount_of_substance = AMOUNT_OF_SUBSTANCE
-Dimension.information = INFORMATION
-Dimension.angle = ANGLE
-Dimension.solid_angle = SOLID_ANGLE
-Dimension.ratio = RATIO
-Dimension.count = COUNT
-Dimension.velocity = VELOCITY
-Dimension.acceleration = ACCELERATION
-Dimension.force = FORCE
-Dimension.energy = ENERGY
-Dimension.power = POWER
-Dimension.momentum = MOMENTUM
-Dimension.angular_momentum = ANGULAR_MOMENTUM
-Dimension.area = AREA
-Dimension.volume = VOLUME
-Dimension.density = DENSITY
-Dimension.pressure = PRESSURE
-Dimension.frequency = FREQUENCY
-Dimension.dynamic_viscosity = DYNAMIC_VISCOSITY
-Dimension.kinematic_viscosity = KINEMATIC_VISCOSITY
-Dimension.gravitation = GRAVITATION
-Dimension.charge = CHARGE
-Dimension.voltage = VOLTAGE
-Dimension.resistance = RESISTANCE
-Dimension.resistivity = RESISTIVITY
-Dimension.conductance = CONDUCTANCE
-Dimension.conductivity = CONDUCTIVITY
-Dimension.capacitance = CAPACITANCE
-Dimension.inductance = INDUCTANCE
-Dimension.magnetic_flux = MAGNETIC_FLUX
-Dimension.magnetic_flux_density = MAGNETIC_FLUX_DENSITY
-Dimension.magnetic_permeability = MAGNETIC_PERMEABILITY
-Dimension.permittivity = PERMITTIVITY
-Dimension.electric_field_strength = ELECTRIC_FIELD_STRENGTH
-Dimension.entropy = ENTROPY
-Dimension.specific_heat_capacity = SPECIFIC_HEAT_CAPACITY
-Dimension.thermal_conductivity = THERMAL_CONDUCTIVITY
-Dimension.illuminance = ILLUMINANCE
-Dimension.catalytic_activity = CATALYTIC_ACTIVITY
-Dimension.molar_mass = MOLAR_MASS
-Dimension.molar_volume = MOLAR_VOLUME
+@total_ordering
+class Exponent:
+    """
+    Represents a **base–exponent pair** (e.g., 10³ or 2¹⁰).
 
-# Add _resolve as a classmethod for backward compatibility
-Dimension._resolve = classmethod(lambda cls, v: _resolve_dimension(v))
+    Provides comparison and division semantics used internally to represent
+    magnitude prefixes (e.g., kilo, mega, micro).
+    """
+    bases = {2: math.log2, 10: math.log10}
+
+    __slots__ = ("base", "power")
+
+    def __init__(self, base: int, power: Union[int, float]):
+        if base not in self.bases.keys():
+            raise ValueError(f'Only the following bases are supported: {reduce(lambda a,b: f"{a}, {b}", self.bases.keys())}')
+        self.base = base
+        self.power = power
+
+    @property
+    def evaluated(self) -> float:
+        """Return the numeric value of base ** power."""
+        return self.base ** self.power
+
+    def parts(self) -> Tuple[int, Union[int, float]]:
+        """Return (base, power) tuple, used for Scale lookups."""
+        return self.base, self.power
+
+    def __eq__(self, other: 'Exponent'):
+        if not isinstance(other, Exponent):
+            raise TypeError(f'Cannot compare Exponent to non-Exponent type: {type(other)}')
+        return self.evaluated == other.evaluated
+
+    def __lt__(self, other: 'Exponent'):
+        if not isinstance(other, Exponent):
+            return NotImplemented
+        return self.evaluated < other.evaluated
+
+    def __hash__(self):
+        # Hash by rounded numeric equivalence to maintain cross-base consistency
+        return hash(round(self.evaluated, 15))
+
+    # ---------- Arithmetic Semantics ----------
+
+    def __truediv__(self, other: 'Exponent'):
+        """
+        Divide two Exponents.
+        - If bases match, returns a relative Exponent.
+        - If bases differ, returns a numeric ratio (float).
+        """
+        if not isinstance(other, Exponent):
+            return NotImplemented
+        if self.base == other.base:
+            return Exponent(self.base, self.power - other.power)
+        return self.evaluated / other.evaluated
+
+    def __mul__(self, other: 'Exponent'):
+        if not isinstance(other, Exponent):
+            return NotImplemented
+        if self.base == other.base:
+            return Exponent(self.base, self.power + other.power)
+        return float(self.evaluated * other.evaluated)
+
+    def __pow__(self, exponent: Union[int, float]) -> "Exponent":
+        """
+        Raise this Exponent to a numeric power.
+
+        Example:
+            Exponent(10, 3) ** 2
+            # → Exponent(base=10, power=6)
+        """
+        return Exponent(self.base, self.power * exponent)
+
+    # ---------- Conversion Utilities ----------
+
+    def to_base(self, new_base: int) -> "Exponent":
+        """
+        Convert this Exponent to another base representation.
+
+        Example:
+            Exponent(2, 10).to_base(10)
+            # → Exponent(base=10, power=3.010299956639812)
+        """
+        if new_base not in self.bases:
+            supported = ", ".join(map(str, self.bases))
+            raise ValueError(f"Unsupported base {new_base!r}. Supported bases: {supported}")
+        new_power = self.bases[new_base](self.evaluated)
+        return Exponent(new_base, new_power)
+
+    # ---------- Numeric Interop ----------
+
+    def __float__(self) -> float:
+        return float(self.evaluated)
+
+    def __int__(self) -> int:
+        return int(self.evaluated)
+
+    # ---------- Representation ----------
+
+    def __repr__(self) -> str:
+        return f"Exponent(base={self.base}, power={self.power})"
+
+    def __str__(self) -> str:
+        return f"{self.base}^{self.power}"
 
 
 # --------------------------------------------------------------------------------------
@@ -352,7 +395,7 @@ class Unit:
         Optional shorthand symbols (e.g., ("m", "M")).
     """
     name: str = ""
-    dimension: Dimension = field(default=Dimension.none)
+    dimension: Dimension = field(default=NONE)
     aliases: tuple[str, ...] = ()
 
     # ----------------- symbolic helpers -----------------
@@ -370,7 +413,7 @@ class Unit:
 
         Note: Scale prefixes are handled by UnitFactor.shorthand, not here.
         """
-        if self.dimension == Dimension.none:
+        if self.dimension == NONE:
             return ""
         base = (self.aliases[0] if self.aliases else self.name) or ""
         return base.strip()
@@ -413,7 +456,7 @@ class Unit:
             return Unit()  # dimensionless (matches units.none)
 
         # dividing by dimensionless → no change
-        if other.dimension == Dimension.none:
+        if other.dimension == NONE:
             return self
 
         # general case: form composite (self^1 * other^-1)
@@ -455,7 +498,7 @@ class Unit:
         """
         if self.shorthand:
             return f"<Unit {self.shorthand}>"
-        if self.dimension == Dimension.none:
+        if self.dimension == NONE:
             return "<Unit>"
         return f"<Unit | {self.dimension.name}>"
 
@@ -512,12 +555,12 @@ class UnitSystem:
     >>> si = UnitSystem(
     ...     name="SI",
     ...     bases={
-    ...         Dimension.length: meter,
-    ...         Dimension.mass: kilogram,
-    ...         Dimension.time: second,
+    ...         LENGTH: meter,
+    ...         MASS: kilogram,
+    ...         TIME: second,
     ...     }
     ... )
-    >>> si.base_for(Dimension.length)
+    >>> si.base_for(LENGTH)
     <Unit m>
     """
     name: str
@@ -662,26 +705,11 @@ class BasisTransform:
         from fractions import Fraction
         from ucon.basis import Vector as BasisVector
 
-        dim_vector = dim.value
-        if isinstance(dim_vector, tuple):
-            dim_vector = dim_vector[0]
-
-        # Handle ucon.basis.Vector (new type)
-        if isinstance(vector, BasisVector):
-            # Find which component is non-zero in the dimension's vector
-            for i, exp in enumerate(dim_vector.components):
-                if exp == Fraction(1):
-                    return vector.components[i]
-            return Fraction(0)
-
-        # Handle ucon.algebra.Vector (legacy type)
+        dim_vector = dim.vector
         # Find which component is non-zero in the dimension's vector
-        for attr in ['T', 'L', 'M', 'I', 'Θ', 'J', 'N', 'B']:
-            val = getattr(dim_vector, attr, Fraction(0))
-            if val == Fraction(1):
-                return getattr(vector, attr)
-
-        # For compound dimensions, return the dot product
+        for i, exp in enumerate(dim_vector.components):
+            if exp == Fraction(1):
+                return vector.components[i]
         return Fraction(0)
 
     def _build_vector(self, dim_values: dict):
@@ -689,38 +717,20 @@ class BasisTransform:
         from fractions import Fraction
         from ucon.basis import Vector as BasisVector
 
-        # Check if any dimension uses the new basis.Vector
         first_dim = next(iter(dim_values.keys()), None) if dim_values else None
-        if first_dim and isinstance(first_dim.value, BasisVector):
-            # Build a ucon.basis.Vector
-            basis = first_dim.value.basis
-            components = [Fraction(0)] * len(basis)
+        if not first_dim:
+            return None
 
-            for dim, val in dim_values.items():
-                dim_vector = dim.value
-                for i, exp in enumerate(dim_vector.components):
-                    if exp != Fraction(0):
-                        components[i] = components[i] + val * exp
-
-            return BasisVector(basis, tuple(components))
-
-        # Build a legacy ucon.algebra.Vector
-        kwargs = {'T': Fraction(0), 'L': Fraction(0), 'M': Fraction(0),
-                  'I': Fraction(0), 'Θ': Fraction(0), 'J': Fraction(0),
-                  'N': Fraction(0), 'B': Fraction(0)}
+        basis = first_dim.vector.basis
+        components = [Fraction(0)] * len(basis)
 
         for dim, val in dim_values.items():
-            dim_vector = dim.value
-            if isinstance(dim_vector, tuple):
-                dim_vector = dim_vector[0]
+            dim_vector = dim.vector
+            for i, exp in enumerate(dim_vector.components):
+                if exp != Fraction(0):
+                    components[i] = components[i] + val * exp
 
-            # Apply the value to the appropriate component
-            for attr in ['T', 'L', 'M', 'I', 'Θ', 'J', 'N', 'B']:
-                basis_val = getattr(dim_vector, attr, Fraction(0))
-                if basis_val != Fraction(0):
-                    kwargs[attr] = kwargs[attr] + val * basis_val
-
-        return LegacyVector(**kwargs)
+        return BasisVector(basis, tuple(components))
 
     def validate_edge(self, src_unit: 'Unit', dst_unit: 'Unit') -> bool:
         """Check if src transforms to dst's dimension."""
@@ -975,7 +985,7 @@ class UnitProduct:
     - Nested UnitProduct instances are flattened.
     - Identical UnitFactors (same underlying unit and same scale) merge exponents.
     - Units with net exponent ~0 are dropped.
-    - Dimensionless units (Dimension.none) are dropped.
+    - Dimensionless units (NONE) are dropped.
     - Scaled variants of the same base unit (e.g. L and mL) are grouped by
       (name, dimension, aliases) and their exponents combined; if the net exponent
       is ~0, the whole group is cancelled.
@@ -1046,7 +1056,7 @@ class UnitProduct:
         for fu, exp in merged.items():
             if abs(exp) < 1e-12:
                 continue
-            if fu.dimension == Dimension.none:
+            if fu.dimension == NONE:
                 continue
             simplified[fu] = exp
 
@@ -1123,7 +1133,7 @@ class UnitProduct:
         self.dimension = reduce(
             lambda acc, item: acc * (item[0].dimension ** item[1]),
             self.factors.items(),
-            Dimension.none,
+            NONE,
         )
 
     # ------------- Rendering -------------------------------------------------
@@ -1135,7 +1145,7 @@ class UnitProduct:
         both Unit and UnitFactor, since UnitFactor exposes dimension,
         shorthand, name, and aliases.
         """
-        if unit.dimension == Dimension.none:
+        if unit.dimension == NONE:
             return
         part = getattr(unit, "shorthand", "") or getattr(unit, "name", "") or ""
         if not part:
@@ -1379,7 +1389,7 @@ Quantifiable = Union['Number', 'Ratio']
 class DimConstraint:
     """Annotation marker: constrains a Number to a specific Dimension.
 
-    Used with typing.Annotated to enable Number[Dimension.time] syntax.
+    Used with typing.Annotated to enable Number[TIME] syntax.
     The decorator @enforce_dimensions introspects this marker at runtime.
     """
 

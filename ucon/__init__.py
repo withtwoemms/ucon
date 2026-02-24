@@ -37,7 +37,7 @@ Design Philosophy
   data-driven framework that is generalizable to arbitrary unit systems.
 """
 from ucon import units
-from ucon.algebra import Exponent
+from ucon.core import Exponent
 from ucon.basis import (
     Basis,
     BasisComponent,

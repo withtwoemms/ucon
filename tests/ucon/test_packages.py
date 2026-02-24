@@ -27,6 +27,7 @@ from ucon import (
     UnitDef,
     UnitPackage,
 )
+from ucon.dimension import MASS, LENGTH
 from ucon.graph import ConversionGraph
 from ucon.units import UnknownUnitError
 
@@ -51,7 +52,7 @@ class TestUnitDef(unittest.TestCase):
         unit = unit_def.materialize()
 
         self.assertEqual(unit.name, 'slug')
-        self.assertEqual(unit.dimension, Dimension.mass)
+        self.assertEqual(unit.dimension, MASS)
         self.assertEqual(unit.aliases, ('slug',))
 
     def test_unit_def_invalid_dimension(self):

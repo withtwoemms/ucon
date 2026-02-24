@@ -29,7 +29,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Union
 
-from ucon.algebra import Vector
+from ucon.basis import Vector
 from ucon.core import (
     BasisTransform,
     Dimension,

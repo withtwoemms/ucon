@@ -2,106 +2,17 @@
 # Licensed under the Apache License, Version 2.0
 # See the LICENSE file for details.
 
+"""
+Tests for Exponent class.
+
+Note: Legacy Vector tests have been removed. Vector is now in ucon.basis
+and has a different API. See tests/ucon/test_basis.py for Vector tests.
+"""
+
 import math
 from unittest import TestCase
 
-from ucon.algebra import Exponent, Vector
-
-
-class TestVector(TestCase):
-
-    def test_vector_iteration_and_length(self):
-        v = Vector(1, 0, 0, 0, 0, 0, 0, 0)
-        self.assertEqual(tuple(v), (1, 0, 0, 0, 0, 0, 0, 0))
-        self.assertEqual(len(v), 8)  # 7 SI + 1 information
-
-    def test_vector_addition(self):
-        v1 = Vector(1, 0, 0, 0, 0, 0, 0, 0)
-        v2 = Vector(0, 2, 0, 0, 0, 0, 0, 0)
-        result = v1 + v2
-        self.assertEqual(result, Vector(1, 2, 0, 0, 0, 0, 0, 0))
-
-    def test_vector_subtraction(self):
-        v1 = Vector(2, 1, 0, 0, 0, 0, 0, 0)
-        v2 = Vector(1, 1, 0, 0, 0, 0, 0, 0)
-        self.assertEqual(v1 - v2, Vector(1, 0, 0, 0, 0, 0, 0, 0))
-
-    def test_vector_scalar_multiplication_by_integer(self):
-        v = Vector(1, -2, 0, 0, 0, 0, 3, 0)
-        scaled = v * 2
-        self.assertEqual(scaled, Vector(2, -4, 0, 0, 0, 0, 6, 0))
-        self.assertEqual(v, Vector(1, -2, 0, 0, 0, 0, 3, 0))  # original unchanged
-
-    def test_vector_scalar_multiplication_by_float(self):
-        v = Vector(0, 1, 0, 0, 0, 0, 0, 0)
-        scaled = v * 0.5
-        self.assertEqual(scaled, Vector(0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
-
-    def test_vector_scalar_multiplication_by_zero(self):
-        v = Vector(1, 2, 3, 4, 5, 6, 7, 8)
-        zeroed = v * 0
-        self.assertEqual(zeroed, Vector(0, 0, 0, 0, 0, 0, 0, 0))
-
-    def test_vector_equality_and_hash(self):
-        v1 = Vector(1, 0, 0, 0, 0, 0, 0, 0)
-        v2 = Vector(1, 0, 0, 0, 0, 0, 0, 0)
-        v3 = Vector(0, 1, 0, 0, 0, 0, 0, 0)
-        self.assertTrue(v1 == v2)
-        self.assertFalse(v1 == v3)
-        self.assertEqual(hash(v1), hash(v2))
-        self.assertNotEqual(hash(v1), hash(v3))
-
-
-class TestVectorEdgeCases(TestCase):
-
-    def test_zero_vector_equality_and_additivity(self):
-        zero = Vector()
-        self.assertEqual(zero, Vector(0, 0, 0, 0, 0, 0, 0, 0))
-        # Adding or subtracting zero should yield same vector
-        v = Vector(1, 2, 3, 4, 5, 6, 7, 8)
-        self.assertEqual(v + zero, v)
-        self.assertEqual(v - zero, v)
-
-    def test_vector_with_negative_exponents(self):
-        v1 = Vector(1, -2, 3, 0, 0, 0, 0, 0)
-        v2 = Vector(-1, 2, -3, 0, 0, 0, 0, 0)
-        result = v1 + v2
-        self.assertEqual(result, Vector(0, 0, 0, 0, 0, 0, 0, 0))
-        self.assertEqual(v1 - v1, Vector())  # perfect cancellation
-
-    def test_vector_equality_with_non_vector(self):
-        v = Vector()
-        # Non-Vector comparisons return NotImplemented, which Python
-        # resolves to False (not equal) rather than raising an error
-        self.assertFalse(v == "not a vector")
-        self.assertFalse(v == None)
-
-    def test_hash_consistency_for_equal_vectors(self):
-        v1 = Vector(1, 0, 0, 0, 0, 0, 0, 0)
-        v2 = Vector(1, 0, 0, 0, 0, 0, 0, 0)
-        self.assertEqual(hash(v1), hash(v2))
-        self.assertEqual(len({v1, v2}), 1)
-
-    def test_iter_length_order_consistency(self):
-        v = Vector(1, 2, 3, 4, 5, 6, 7, 8)
-        components = list(v)
-        self.assertEqual(len(components), len(v))
-        # Ensure order of iteration is fixed (T→L→M→I→Θ→J→N→B)
-        self.assertEqual(components, [1, 2, 3, 4, 5, 6, 7, 8])
-
-    def test_vector_arithmetic_does_not_mutate_operands(self):
-        v1 = Vector(1, 0, 0, 0, 0, 0, 0, 0)
-        v2 = Vector(0, 1, 0, 0, 0, 0, 0, 0)
-        _ = v1 + v2
-        self.assertEqual(v1, Vector(1, 0, 0, 0, 0, 0, 0, 0))
-        self.assertEqual(v2, Vector(0, 1, 0, 0, 0, 0, 0, 0))
-
-    def test_invalid_addition_type_raises(self):
-        v = Vector(1, 0, 0, 0, 0, 0, 0, 0)
-        with self.assertRaises(TypeError):
-            _ = v + "length"
-        with self.assertRaises(TypeError):
-            _ = v - 5
+from ucon.core import Exponent
 
 
 class TestExponent(TestCase):

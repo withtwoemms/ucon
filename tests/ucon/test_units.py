@@ -7,6 +7,7 @@ from unittest import TestCase
 
 from ucon import units
 from ucon.core import Dimension
+from ucon.dimension import DENSITY, LENGTH, TIME, VELOCITY, NONE, MASS
 
 
 class TestUnits(TestCase):
@@ -22,4 +23,4 @@ class TestUnits(TestCase):
 
         composite_unit = units.gram / units.liter
         self.assertEqual("g/L", composite_unit.shorthand)
-        self.assertEqual(Dimension.density, composite_unit.dimension)
+        self.assertEqual(DENSITY, composite_unit.dimension)
