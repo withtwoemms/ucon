@@ -37,8 +37,8 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.5 | MCP Extension Tools | Complete |
 | v0.7.6 | docs.ucon.dev | Complete |
 | v0.7.7 | Schema-Level Dimension Constraints | Complete |
-| v0.8.0 | Basis Abstraction Core | Planned |
-| v0.8.1 | BasisGraph | Planned |
+| v0.8.0 | Basis Abstraction Core | Complete |
+| v0.8.1 | BasisGraph + Standard Bases | Complete |
 | v0.8.2 | Dimension Integration | Planned |
 | v0.8.3 | ConversionGraph Integration | Planned |
 | v0.8.4 | Basis Context Scoping | Planned |
@@ -49,7 +49,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 
 ---
 
-## Current Version: **v0.6.0** (complete)
+## Current Version: **v0.8.0** (complete)
 
 Building on v0.5.x baseline:
 - `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`, `UnitSystem`, `BasisTransform`, `RebasedUnit`)
@@ -428,20 +428,19 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.8.0 — Basis Abstraction Core
+## v0.8.0 — Basis Abstraction Core (complete)
 
 **Theme:** User-definable dimensional coordinate systems.
 
 **Design document:** `docs/internal/IMPLEMENTATION_PLAN_basis-abstraction.md`
 
-- [ ] `BasisComponent` class: atomic generator of a dimensional basis
-- [ ] `Basis` class: ordered collection of components with name/symbol indexing
-- [ ] `Vector` class: basis-aware exponent vector with named field access (`v.L`, `v.mana`)
-- [ ] Standard bases: `SI`, `CGS`, `CGS_ESU`, `Natural`
-- [ ] `BasisTransform` class: matrix-based transformation with exact `Fraction` arithmetic
-- [ ] `inverse()` method: Gaussian elimination for square transforms
-- [ ] `embedding()` method: canonical embedding for non-square projections
-- [ ] `LossyProjection` exception: fail-by-default when projecting to zero
+- [x] `BasisComponent` class: atomic generator of a dimensional basis
+- [x] `Basis` class: ordered collection of components with name/symbol indexing
+- [x] `Vector` class: basis-aware exponent vector with named field access (`v["L"]`, `v["mana"]`)
+- [x] `BasisTransform` class: matrix-based transformation with exact `Fraction` arithmetic
+- [x] `inverse()` method: Gaussian elimination for square transforms
+- [x] `embedding()` method: canonical embedding for non-square projections
+- [x] `LossyProjection` exception: fail-by-default when projecting to zero
 
 **Outcomes:**
 - Dimensional basis becomes user-definable, not hardcoded to SI
@@ -451,15 +450,18 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.8.1 — BasisGraph
+## v0.8.1 — BasisGraph + Standard Bases (complete)
 
-**Theme:** Graph-based transform composition.
+**Theme:** Graph-based transform composition and standard bases.
 
-- [ ] `BasisGraph` class: graph of basis transforms with path-finding
-- [ ] Transitive composition: SI→CGS + CGS→CGS-ESU = SI→CGS-ESU
-- [ ] `NoTransformPath` exception for disconnected bases
-- [ ] Cycle consistency validation
-- [ ] `get_transform(source, target)` with BFS and caching
+- [x] `BasisGraph` class: graph of basis transforms with path-finding
+- [x] Transitive composition: SI→CGS + CGS→CGS-ESU = SI→CGS-ESU
+- [x] `NoTransformPath` exception for disconnected bases
+- [x] `get_transform(source, target)` with BFS and caching
+- [x] `reachable_from()` and `are_connected()` introspection
+- [x] `with_transform()` copy-on-extend pattern
+- [x] Standard bases: `SI`, `CGS`, `CGS_ESU` in `ucon.bases`
+- [x] Standard transforms: `SI_TO_CGS`, `SI_TO_CGS_ESU`, `CGS_TO_SI`
 
 **Outcomes:**
 - Register N-1 edges for N bases instead of N² explicit transforms
