@@ -134,7 +134,7 @@ CGS-ESU and will raise LossyProjection if non-zero.
 
 
 # -----------------------------------------------------------------------------
-# Embedding transforms (CGS/CGS-ESU back to SI)
+# Embedding transforms (reverse mappings where valid)
 # -----------------------------------------------------------------------------
 
 CGS_TO_SI = SI_TO_CGS.embedding()
@@ -144,10 +144,7 @@ Maps CGS dimensions back to SI with zeros for components that were
 dropped in the projection (current, temperature, amount, luminosity, angle).
 """
 
-CGS_ESU_TO_SI = SI_TO_CGS_ESU.embedding()
-"""Embedding from CGS-ESU back to SI.
-
-Maps CGS-ESU dimensions back to SI. Note that charge (Q) in CGS-ESU
-does not have a direct representation in SI (where charge = current * time),
-so this embedding maps Q to zero.
-"""
+# Note: CGS_ESU_TO_SI cannot be created via embedding() because SI_TO_CGS_ESU
+# is not a clean projection — current (I) maps to a complex derived dimension
+# L^(3/2) M^(1/2) T^(-2), not a simple 1:1 mapping. Users needing CGS-ESU -> SI
+# conversion should construct the transform manually based on their use case.

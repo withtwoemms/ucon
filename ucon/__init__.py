@@ -50,7 +50,6 @@ from ucon.basis import (
 from ucon.bases import (
     CGS,
     CGS_ESU,
-    CGS_ESU_TO_SI,
     CGS_TO_SI,
     SI,
     SI_TO_CGS,
@@ -95,7 +94,6 @@ __all__ = [
     'CGS_ESU',
     'SI',
     # Standard transforms
-    'CGS_ESU_TO_SI',
     'CGS_TO_SI',
     'SI_TO_CGS',
     'SI_TO_CGS_ESU',
