@@ -12,18 +12,24 @@ backed by Vector exponents. This replaces the previous Enum-based approach
 with a more flexible system that supports:
 
 - Algebraic operations (multiplication, division, exponentiation)
-- Named dimensions (LENGTH, MASS, etc.) as module constants
+- Named dimensions via attribute access (Dimension.length, Dimension.mass)
+- Module constants (LENGTH, MASS, etc.) for static imports
 - Derived dimensions created dynamically from algebraic expressions
 - Pseudo-dimensions (ANGLE, RATIO, COUNT) that are semantically isolated
 - Basis-aware transformations for cross-system dimensional analysis
 
 Example
 -------
->>> from ucon.dimension import LENGTH, TIME, VELOCITY
->>> LENGTH / TIME == VELOCITY
+>>> from ucon import Dimension
+>>> Dimension.length / Dimension.time == Dimension.velocity
 True
->>> LENGTH ** 2
+>>> Dimension.length ** 2
 Dimension(area)
+
+# Module constants also available:
+>>> from ucon.dimension import LENGTH, TIME
+>>> LENGTH / TIME
+Dimension(velocity)
 """
 
 from __future__ import annotations
@@ -135,9 +141,42 @@ def _vector_to_dim_expr(v: Vector) -> str:
 # Dimension Dataclass
 # -----------------------------------------------------------------------------
 
+# Registry for Dimension.length style attribute access
+_DIMENSION_ATTRS: dict[str, "Dimension"] = {}
+
+
+def _register_attr(dim: "Dimension") -> "Dimension":
+    """Register a dimension for attribute access via Dimension.name."""
+    if dim.name:
+        _DIMENSION_ATTRS[dim.name] = dim
+    return dim
+
+
+class _DimensionMeta(type):
+    """Metaclass providing Dimension.length style attribute access.
+
+    This allows both:
+    - `from ucon.dimension import LENGTH` (module constant)
+    - `Dimension.length` (attribute access, discoverable via IDE)
+    """
+
+    def __getattr__(cls, name: str) -> "Dimension":
+        if name.startswith("_"):
+            raise AttributeError(f"type object 'Dimension' has no attribute {name!r}")
+        if name in _DIMENSION_ATTRS:
+            return _DIMENSION_ATTRS[name]
+        raise AttributeError(
+            f"type object 'Dimension' has no attribute {name!r}. "
+            f"Available dimensions: {', '.join(sorted(_DIMENSION_ATTRS.keys()))}"
+        )
+
+    def __dir__(cls) -> list[str]:
+        # Include dimension names in dir() for IDE discoverability
+        return list(super().__dir__()) + list(_DIMENSION_ATTRS.keys())
+
 
 @dataclass(frozen=True)
-class Dimension:
+class Dimension(metaclass=_DimensionMeta):
     """A physical dimension represented by an exponent vector over a basis.
 
     Parameters
@@ -512,7 +551,9 @@ def _dim(name: str, *components: int | Fraction, symbol: str | None = None) -> D
     """Create and register a standard dimension."""
     vec = _vec(*components)
     dim = Dimension(vector=vec, name=name, symbol=symbol)
-    return _register(dim)
+    _register(dim)
+    _register_attr(dim)
+    return dim
 
 
 # Dimensionless (NONE)
@@ -529,10 +570,10 @@ AMOUNT_OF_SUBSTANCE = _dim("amount_of_substance", 0, 0, 0, 0, 0, 0, 1, 0, symbol
 INFORMATION = _dim("information", 0, 0, 0, 0, 0, 0, 0, 1, symbol="B")
 
 # 4 Pseudo-dimensions
-ANGLE = Dimension.pseudo("angle", name="angle", symbol="θ")
-SOLID_ANGLE = Dimension.pseudo("solid_angle", name="solid_angle", symbol="Ω")
-RATIO = Dimension.pseudo("ratio", name="ratio")
-COUNT = Dimension.pseudo("count", name="count")
+ANGLE = _register_attr(Dimension.pseudo("angle", name="angle", symbol="θ"))
+SOLID_ANGLE = _register_attr(Dimension.pseudo("solid_angle", name="solid_angle", symbol="Ω"))
+RATIO = _register_attr(Dimension.pseudo("ratio", name="ratio"))
+COUNT = _register_attr(Dimension.pseudo("count", name="count"))
 
 # Derived dimensions
 # Mechanics
