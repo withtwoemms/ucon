@@ -273,3 +273,493 @@ class Vector:
 
     def __hash__(self) -> int:
         return hash((self.basis, self.components))
+
+
+# -----------------------------------------------------------------------------
+# Exceptions
+# -----------------------------------------------------------------------------
+
+
+class LossyProjection(Exception):
+    """Raised when a basis transform would discard dimensional information.
+
+    This occurs when a source component has a non-zero exponent but maps
+    entirely to zeros in the target basis (e.g., SI current -> CGS).
+    """
+
+    def __init__(
+        self,
+        component: BasisComponent,
+        source: Basis,
+        target: Basis,
+    ) -> None:
+        self.component = component
+        self.source = source
+        self.target = target
+        super().__init__(
+            f"Cannot transform {source.name} -> {target.name}: "
+            f"component '{component.name}' has no representation in {target.name}.\n\n"
+            f"Suggestions:\n"
+            f"  - Use a richer target basis that includes '{component.name}'\n"
+            f"  - For same-basis unit conversion, use graph.convert() directly\n"
+            f"  - To proceed with loss: transform(v, allow_projection=True)"
+        )
+
+
+class NoTransformPath(Exception):
+    """Raised when no path exists between two bases in a BasisGraph."""
+
+    def __init__(self, source: Basis, target: Basis) -> None:
+        self.source = source
+        self.target = target
+        super().__init__(
+            f"No transform path from '{source.name}' to '{target.name}'. "
+            f"These are isolated dimensional systems."
+        )
+
+
+# -----------------------------------------------------------------------------
+# BasisTransform
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BasisTransform:
+    """Linear map between dimensional bases.
+
+    Represents how each component of the source basis expresses in terms of
+    the target basis components via matrix multiplication.
+
+    Args:
+        source: The source basis.
+        target: The target basis.
+        matrix: Transformation matrix as tuple of tuples. Shape is
+            (len(source), len(target)). Entry [i][j] is the coefficient
+            of target component j when transforming source component i.
+
+    Raises:
+        ValueError: If matrix dimensions don't match basis dimensions.
+
+    Examples:
+        >>> # Identity transform
+        >>> identity = BasisTransform.identity(some_basis)
+        >>> identity.is_identity()
+        True
+
+        >>> # SI current in CGS-ESU: I -> L^(3/2) M^(1/2) T^(-2)
+        >>> transform = BasisTransform(SI, CGS_ESU, matrix)
+        >>> esu_dim = transform(si_current_vector)
+    """
+
+    source: Basis
+    target: Basis
+    matrix: tuple[tuple[Fraction, ...], ...]
+
+    def __post_init__(self) -> None:
+        if len(self.matrix) != len(self.source):
+            raise ValueError(
+                f"Matrix has {len(self.matrix)} rows but source basis "
+                f"'{self.source.name}' has {len(self.source)} components"
+            )
+        for i, row in enumerate(self.matrix):
+            if len(row) != len(self.target):
+                raise ValueError(
+                    f"Matrix row {i} has {len(row)} columns but target basis "
+                    f"'{self.target.name}' has {len(self.target)} components"
+                )
+
+    def __call__(self, vector: Vector, *, allow_projection: bool = False) -> Vector:
+        """Transform a vector from source basis to target basis.
+
+        Args:
+            vector: The vector to transform (must be in source basis).
+            allow_projection: If False (default), raise LossyProjection when
+                a non-zero component would be discarded. If True, silently
+                project (drop) unrepresentable components.
+
+        Returns:
+            A new Vector in the target basis.
+
+        Raises:
+            ValueError: If vector is not in the source basis.
+            LossyProjection: If allow_projection=False and a non-zero
+                component maps entirely to zeros in the target basis.
+        """
+        if vector.basis != self.source:
+            raise ValueError(
+                f"Vector is in basis '{vector.basis.name}' but transform "
+                f"expects basis '{self.source.name}'"
+            )
+
+        # Check for lossy projection (unless explicitly allowed)
+        if not allow_projection:
+            for i, src_exp in enumerate(vector.components):
+                if src_exp != 0:
+                    # Does this component have ANY representation in target?
+                    if all(self.matrix[i][j] == 0 for j in range(len(self.target))):
+                        raise LossyProjection(
+                            self.source[i],
+                            self.source,
+                            self.target,
+                        )
+
+        # Matrix-vector multiplication
+        result = [Fraction(0)] * len(self.target)
+        for i, src_exp in enumerate(vector.components):
+            for j, transform_coeff in enumerate(self.matrix[i]):
+                result[j] += src_exp * transform_coeff
+
+        return Vector(self.target, tuple(result))
+
+    def inverse(self) -> "BasisTransform":
+        """Return the inverse transform (target -> source).
+
+        Uses Gaussian elimination with partial pivoting over Fraction
+        for exact arithmetic.
+
+        Returns:
+            A new BasisTransform from target to source.
+
+        Raises:
+            ValueError: If the matrix is not square or is singular.
+        """
+        n = len(self.source)
+        m = len(self.target)
+
+        if n != m:
+            raise ValueError(
+                f"Cannot invert non-square transform: "
+                f"{self.source.name} ({n}) -> {self.target.name} ({m}). "
+                f"Use embedding() for non-square transforms."
+            )
+
+        # Augment matrix with identity: [A | I]
+        aug: list[list[Fraction]] = [
+            [self.matrix[i][j] for j in range(n)]
+            + [Fraction(1) if i == j else Fraction(0) for j in range(n)]
+            for i in range(n)
+        ]
+
+        # Forward elimination with partial pivoting
+        for col in range(n):
+            # Find pivot (largest absolute value in column)
+            max_row = col
+            for row in range(col + 1, n):
+                if abs(aug[row][col]) > abs(aug[max_row][col]):
+                    max_row = row
+            aug[col], aug[max_row] = aug[max_row], aug[col]
+
+            if aug[col][col] == 0:
+                raise ValueError(
+                    f"Singular matrix: {self.source.name} -> {self.target.name} "
+                    f"is not invertible"
+                )
+
+            # Eliminate below pivot
+            for row in range(col + 1, n):
+                factor = aug[row][col] / aug[col][col]
+                for j in range(col, 2 * n):
+                    aug[row][j] -= factor * aug[col][j]
+
+        # Back substitution
+        for col in range(n - 1, -1, -1):
+            # Normalize pivot row
+            pivot = aug[col][col]
+            aug[col] = [x / pivot for x in aug[col]]
+
+            # Eliminate above pivot
+            for row in range(col):
+                factor = aug[row][col]
+                for j in range(2 * n):
+                    aug[row][j] -= factor * aug[col][j]
+
+        # Extract inverse from right half of augmented matrix
+        inv_matrix = tuple(
+            tuple(aug[i][n + j] for j in range(n)) for i in range(n)
+        )
+
+        return BasisTransform(self.target, self.source, inv_matrix)
+
+    def embedding(self) -> "BasisTransform":
+        """Return the canonical embedding (target -> source).
+
+        For a projection A -> B, the embedding B -> A maps each B component
+        back to its source A component, with zeros for unmapped A components.
+
+        Only valid for clean projections where each target component maps
+        from exactly one source component with coefficient 1.
+
+        Returns:
+            A new BasisTransform from target to source.
+
+        Raises:
+            ValueError: If the transform is not a clean projection.
+        """
+        n_src = len(self.source)
+        n_tgt = len(self.target)
+
+        inv_matrix: list[list[Fraction]] = [
+            [Fraction(0)] * n_src for _ in range(n_tgt)
+        ]
+
+        for i in range(n_src):
+            # Find which target component(s) this source maps to
+            non_zero = [
+                (j, self.matrix[i][j])
+                for j in range(n_tgt)
+                if self.matrix[i][j] != 0
+            ]
+
+            if len(non_zero) == 1 and non_zero[0][1] == 1:
+                # Clean 1-to-1 mapping: source[i] -> target[j]
+                j = non_zero[0][0]
+                inv_matrix[j][i] = Fraction(1)
+            elif len(non_zero) == 0:
+                # Source component is dropped (projected out)
+                pass
+            else:
+                raise ValueError(
+                    f"Cannot create embedding: {self.source.name} -> {self.target.name} "
+                    f"is not a clean projection (component {i} has complex mapping)"
+                )
+
+        return BasisTransform(
+            self.target,
+            self.source,
+            tuple(tuple(row) for row in inv_matrix),
+        )
+
+    def __matmul__(self, other: "BasisTransform") -> "BasisTransform":
+        """Compose transforms: (self @ other)(v) = self(other(v)).
+
+        Args:
+            other: Transform to apply first.
+
+        Returns:
+            A composed transform from other.source to self.target.
+
+        Raises:
+            ValueError: If other.target != self.source.
+        """
+        if other.target != self.source:
+            raise ValueError(
+                f"Cannot compose: {other.source.name} -> {other.target.name} "
+                f"with {self.source.name} -> {self.target.name} "
+                f"(intermediate bases don't match)"
+            )
+
+        # Matrix multiplication: C = self.matrix @ other.matrix
+        new_matrix: list[list[Fraction]] = []
+        for i in range(len(other.source)):
+            row: list[Fraction] = []
+            for j in range(len(self.target)):
+                val = Fraction(0)
+                for k in range(len(self.source)):
+                    val += other.matrix[i][k] * self.matrix[k][j]
+                row.append(val)
+            new_matrix.append(tuple(row))
+
+        return BasisTransform(other.source, self.target, tuple(new_matrix))
+
+    @classmethod
+    def identity(cls, basis: Basis) -> "BasisTransform":
+        """Return the identity transform for a basis.
+
+        Args:
+            basis: The basis for the identity transform.
+
+        Returns:
+            An identity transform where source == target == basis.
+        """
+        n = len(basis)
+        matrix = tuple(
+            tuple(Fraction(1) if i == j else Fraction(0) for j in range(n))
+            for i in range(n)
+        )
+        return cls(basis, basis, matrix)
+
+    def is_identity(self) -> bool:
+        """Check if this transform is the identity.
+
+        Returns:
+            True if source == target and matrix is identity matrix.
+        """
+        if self.source != self.target:
+            return False
+        for i, row in enumerate(self.matrix):
+            for j, val in enumerate(row):
+                expected = Fraction(1) if i == j else Fraction(0)
+                if val != expected:
+                    return False
+        return True
+
+
+# -----------------------------------------------------------------------------
+# BasisGraph
+# -----------------------------------------------------------------------------
+
+
+class BasisGraph:
+    """Graph of basis transforms with path-finding and composition.
+
+    Nodes are Basis objects (dimensional coordinate systems).
+    Edges are BasisTransform objects.
+    Path-finding composes transforms transitively.
+
+    Examples:
+        >>> graph = BasisGraph()
+        >>> graph.add_transform(SI_TO_CGS)
+        >>> graph.add_transform(CGS_TO_CGS_ESU)
+        >>> # Transitive composition: SI -> CGS -> CGS-ESU
+        >>> transform = graph.get_transform(SI, CGS_ESU)
+    """
+
+    def __init__(self) -> None:
+        self._edges: dict[Basis, dict[Basis, BasisTransform]] = {}
+        self._cache: dict[tuple[Basis, Basis], BasisTransform] = {}
+
+    def add_transform(self, transform: BasisTransform) -> None:
+        """Register a transform. Does NOT auto-register inverse.
+
+        Args:
+            transform: The transform to register.
+        """
+        if transform.source not in self._edges:
+            self._edges[transform.source] = {}
+        self._edges[transform.source][transform.target] = transform
+        self._cache.clear()  # Invalidate composed transforms
+
+    def add_transform_pair(
+        self,
+        forward: BasisTransform,
+        reverse: BasisTransform,
+    ) -> None:
+        """Register bidirectional transforms (e.g., projection + embedding).
+
+        Args:
+            forward: Transform A -> B.
+            reverse: Transform B -> A.
+        """
+        self.add_transform(forward)
+        self.add_transform(reverse)
+
+    def get_transform(self, source: Basis, target: Basis) -> BasisTransform:
+        """Find or compose a transform between bases.
+
+        Args:
+            source: The source basis.
+            target: The target basis.
+
+        Returns:
+            A BasisTransform from source to target.
+
+        Raises:
+            NoTransformPath: If no path exists between the bases.
+        """
+        if source == target:
+            return BasisTransform.identity(source)
+
+        cache_key = (source, target)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        path = self._find_path(source, target)
+        if path is None:
+            raise NoTransformPath(source, target)
+
+        composed = self._compose_path(path)
+        self._cache[cache_key] = composed
+        return composed
+
+    def _find_path(
+        self,
+        source: Basis,
+        target: Basis,
+    ) -> list[BasisTransform] | None:
+        """BFS to find shortest transform path."""
+        from collections import deque
+
+        if source not in self._edges:
+            return None
+
+        queue: deque[tuple[Basis, list[BasisTransform]]] = deque([(source, [])])
+        visited: set[Basis] = {source}
+
+        while queue:
+            current, path = queue.popleft()
+            if current not in self._edges:
+                continue
+
+            for next_basis, transform in self._edges[current].items():
+                if next_basis == target:
+                    return path + [transform]
+                if next_basis not in visited:
+                    visited.add(next_basis)
+                    queue.append((next_basis, path + [transform]))
+
+        return None
+
+    def _compose_path(self, path: list[BasisTransform]) -> BasisTransform:
+        """Compose transforms along path via matrix multiplication."""
+        result = path[0]
+        for transform in path[1:]:
+            result = transform @ result
+        return result
+
+    def are_connected(self, a: Basis, b: Basis) -> bool:
+        """Check if two bases can interoperate.
+
+        Args:
+            a: First basis.
+            b: Second basis.
+
+        Returns:
+            True if a path exists between the bases.
+        """
+        if a == b:
+            return True
+        return self._find_path(a, b) is not None
+
+    def reachable_from(self, basis: Basis) -> set[Basis]:
+        """Return all bases reachable from the given basis.
+
+        Args:
+            basis: The starting basis.
+
+        Returns:
+            Set of all bases reachable via transforms.
+        """
+        reachable: set[Basis] = {basis}
+        frontier: list[Basis] = [basis]
+
+        while frontier:
+            current = frontier.pop()
+            if current not in self._edges:
+                continue
+            for next_basis in self._edges[current]:
+                if next_basis not in reachable:
+                    reachable.add(next_basis)
+                    frontier.append(next_basis)
+
+        return reachable
+
+    def with_transform(self, transform: BasisTransform) -> "BasisGraph":
+        """Return a new graph with an additional transform (copy-on-extend).
+
+        Args:
+            transform: The transform to add.
+
+        Returns:
+            A new BasisGraph with the additional transform.
+        """
+        new_graph = BasisGraph()
+        # Deep copy edges
+        for src, targets in self._edges.items():
+            new_graph._edges[src] = dict(targets)
+        new_graph.add_transform(transform)
+        return new_graph
+
+    def __repr__(self) -> str:
+        edge_count = sum(len(targets) for targets in self._edges.values())
+        basis_count = len(self._edges)
+        return f"BasisGraph({basis_count} bases, {edge_count} transforms)"

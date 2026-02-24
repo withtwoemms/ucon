@@ -38,7 +38,26 @@ Design Philosophy
 """
 from ucon import units
 from ucon.algebra import Exponent
-from ucon.basis import Basis, BasisComponent, Vector as BasisVector
+from ucon.basis import (
+    Basis,
+    BasisComponent,
+    BasisGraph,
+    BasisTransform as NewBasisTransform,
+    LossyProjection,
+    NoTransformPath,
+    Vector as BasisVector,
+)
+from ucon.bases import (
+    CGS,
+    CGS_ESU,
+    CGS_TO_SI,
+    SI,
+    SI_TO_CGS,
+    SI_TO_CGS_ESU,
+)
+# Note: ucon.basis.BasisTransform not exported here to avoid collision with
+# ucon.core.BasisTransform. Import from ucon.basis directly for new API.
+# This will be resolved in v0.9.0 when the old BasisTransform is removed.
 from ucon.core import (
     BasisTransform,
     DimConstraint,
@@ -61,10 +80,24 @@ from ucon.units import UnknownUnitError, get_unit_by_name
 
 
 __all__ = [
+    # Basis abstractions
     'Basis',
     'BasisComponent',
+    'BasisGraph',
     'BasisTransform',
     'BasisVector',
+    'LossyProjection',
+    'NewBasisTransform',
+    'NoTransformPath',
+    # Standard bases
+    'CGS',
+    'CGS_ESU',
+    'SI',
+    # Standard transforms
+    'CGS_TO_SI',
+    'SI_TO_CGS',
+    'SI_TO_CGS_ESU',
+    # Core types
     'DimConstraint',
     'Dimension',
     'DimensionNotCovered',
@@ -73,8 +106,6 @@ __all__ = [
     'NonInvertibleTransform',
     'Number',
     'PackageLoadError',
-    'enforce_dimensions',
-    'load_package',
     'Ratio',
     'RebasedUnit',
     'Scale',
@@ -85,10 +116,14 @@ __all__ = [
     'UnitProduct',
     'UnitSystem',
     'UnknownUnitError',
+    # Functions
+    'enforce_dimensions',
     'get_default_graph',
     'get_parsing_graph',
     'get_unit_by_name',
+    'load_package',
     'set_default_graph',
-    'units',
     'using_graph',
+    # Submodules
+    'units',
 ]
