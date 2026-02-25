@@ -790,3 +790,74 @@ class BasisGraph:
         edge_count = sum(len(targets) for targets in self._edges.values())
         basis_count = len(self._edges)
         return f"BasisGraph({basis_count} bases, {edge_count} transforms)"
+
+
+# -----------------------------------------------------------------------------
+# Basis Context Scoping (v0.8.4)
+# -----------------------------------------------------------------------------
+
+from contextvars import ContextVar
+from contextlib import contextmanager
+
+_default_basis: ContextVar[Basis | None] = ContextVar("basis", default=None)
+_basis_graph_context: ContextVar[BasisGraph | None] = ContextVar("basis_graph", default=None)
+_default_basis_graph: BasisGraph | None = None
+
+
+def _build_standard_basis_graph() -> BasisGraph:
+    """Build standard basis graph with SI/CGS/CGS-ESU transforms."""
+    from ucon.bases import SI_TO_CGS, SI_TO_CGS_ESU, CGS_TO_SI
+    graph = BasisGraph()
+    graph.add_transform(SI_TO_CGS)
+    graph.add_transform(SI_TO_CGS_ESU)
+    graph.add_transform(CGS_TO_SI)
+    return graph
+
+
+def get_default_basis() -> Basis:
+    """Get current default basis (context-local or SI fallback)."""
+    from ucon.bases import SI
+    return _default_basis.get() or SI
+
+
+def get_basis_graph() -> BasisGraph:
+    """Get current basis graph (context-local or module default)."""
+    global _default_basis_graph
+    ctx_graph = _basis_graph_context.get()
+    if ctx_graph is not None:
+        return ctx_graph
+    if _default_basis_graph is None:
+        _default_basis_graph = _build_standard_basis_graph()
+    return _default_basis_graph
+
+
+def set_default_basis_graph(graph: BasisGraph) -> None:
+    """Replace module-level default basis graph."""
+    global _default_basis_graph
+    _default_basis_graph = graph
+
+
+def reset_default_basis_graph() -> None:
+    """Reset to standard basis graph on next access."""
+    global _default_basis_graph
+    _default_basis_graph = None
+
+
+@contextmanager
+def using_basis(basis: Basis):
+    """Context manager for scoped basis override."""
+    token = _default_basis.set(basis)
+    try:
+        yield basis
+    finally:
+        _default_basis.reset(token)
+
+
+@contextmanager
+def using_basis_graph(graph: BasisGraph | None):
+    """Context manager for scoped basis graph override."""
+    token = _basis_graph_context.set(graph)
+    try:
+        yield graph
+    finally:
+        _basis_graph_context.reset(token)
