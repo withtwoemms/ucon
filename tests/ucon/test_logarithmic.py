@@ -232,9 +232,8 @@ class TestLogarithmicConversions:
 class TestpHConversions:
     """Test pH conversions.
 
-    Note: Direct mol/L -> pH conversion requires cross-dimensional support
-    since pH is dimensionless (RATIO) but mol/L has dimension amount_of_substance/volume.
-    These tests verify pH unit existence and manual LogMap usage.
+    pH has concentration dimension (amount_of_substance/volume), consistent with
+    how dBm has POWER dimension. This enables direct mol/L <-> pH conversions.
     """
 
     def test_ph_unit_can_be_created(self):
@@ -243,22 +242,36 @@ class TestpHConversions:
         assert ph.quantity == 7.0
         assert ph.unit == units.pH
 
-    def test_ph_via_logmap_manually(self):
-        """pH conversion works via LogMap directly"""
-        # Manual conversion: pH = -log10([H+])
-        h_concentration = 1e-7  # mol/L
-        ph_value = LogMap(scale=-1, base=10, reference=1.0)(h_concentration)
-        assert ph_value == pytest.approx(7.0)
+    def test_concentration_to_ph(self):
+        """1e-7 mol/L = pH 7 (neutral)"""
+        conc = (units.mole / units.liter)(1e-7)
+        ph = conc.to(units.pH)
+        assert ph.quantity == pytest.approx(7.0)
 
-    def test_acidic_ph_via_logmap(self):
-        """Acidic pH via LogMap: 1e-3 mol/L = pH 3"""
-        ph_value = LogMap(scale=-1, base=10, reference=1.0)(1e-3)
-        assert ph_value == pytest.approx(3.0)
+    def test_ph_to_concentration(self):
+        """pH 7 = 1e-7 mol/L"""
+        ph = units.pH(7.0)
+        conc = ph.to(units.mole / units.liter)
+        assert conc.quantity == pytest.approx(1e-7)
 
-    def test_basic_ph_via_logmap(self):
-        """Basic pH via LogMap: 1e-11 mol/L = pH 11"""
-        ph_value = LogMap(scale=-1, base=10, reference=1.0)(1e-11)
-        assert ph_value == pytest.approx(11.0)
+    def test_acidic_concentration_to_ph(self):
+        """1e-3 mol/L = pH 3 (acidic)"""
+        conc = (units.mole / units.liter)(1e-3)
+        ph = conc.to(units.pH)
+        assert ph.quantity == pytest.approx(3.0)
+
+    def test_basic_concentration_to_ph(self):
+        """1e-11 mol/L = pH 11 (basic)"""
+        conc = (units.mole / units.liter)(1e-11)
+        ph = conc.to(units.pH)
+        assert ph.quantity == pytest.approx(11.0)
+
+    def test_ph_roundtrip(self):
+        """mol/L -> pH -> mol/L should preserve value"""
+        original = (units.mole / units.liter)(3.16e-5)
+        ph = original.to(units.pH)
+        back = ph.to(units.mole / units.liter)
+        assert back.quantity == pytest.approx(3.16e-5, rel=1e-6)
 
 
 class TestLogarithmicRoundTrips:
@@ -284,11 +297,3 @@ class TestLogarithmicRoundTrips:
         dbspl = original.to(units.decibel_spl)
         back = dbspl.to(units.pascal)
         assert back.quantity == pytest.approx(0.1)
-
-    def test_ph_roundtrip_via_logmap(self):
-        """LogMap roundtrip for pH-style conversion"""
-        original_concentration = 3.16e-5  # mol/L
-        ph_map = LogMap(scale=-1, base=10, reference=1.0)
-        ph_value = ph_map(original_concentration)
-        back = ph_map.inverse()(ph_value)
-        assert back == pytest.approx(original_concentration, rel=1e-6)

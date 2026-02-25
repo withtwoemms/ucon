@@ -212,7 +212,11 @@ decibel_spl = Unit(
 )
 
 # pH (chemistry) - logarithmic measure of hydrogen ion concentration
-pH = Unit(name='pH', dimension=RATIO, aliases=())
+# pH has concentration dimension (amount_of_substance/volume), consistent with
+# how dBm has POWER dimension, dBV has VOLTAGE dimension, etc.
+# This enables mol/L <-> pH conversions via the ConversionGraph.
+_CONCENTRATION = AMOUNT_OF_SUBSTANCE / VOLUME
+pH = Unit(name='pH', dimension=_CONCENTRATION, aliases=())
 # ----------------------------------------------------------------------
 
 

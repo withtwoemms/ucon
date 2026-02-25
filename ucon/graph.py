@@ -978,9 +978,12 @@ def _build_standard_graph() -> ConversionGraph:
     # dBSPL: 20·log₁₀(P / 20 µPa), reference = 20e-6 Pa (amplitude-like for pressure)
     graph.add_edge(src=units.pascal, dst=units.decibel_spl, map=LogMap(scale=20, base=10, reference=20e-6))
 
-    # Note: pH conversion (mol/L → pH) requires cross-dimensional support
-    # since pH is dimensionless but mol/L has dimension amount_of_substance/volume.
-    # This will be addressed in a future version with cross-dimensional logarithmic edges.
-    # For now, pH can be created directly via units.pH(7.0).
+    # pH: -log₁₀([H⁺] / 1 mol/L)
+    # pH has concentration dimension (same as mol/L), enabling direct conversion.
+    graph.add_edge(
+        src=units.mole / units.liter,
+        dst=units.pH,
+        map=LogMap(scale=-1, base=10, reference=1.0),
+    )
 
     return graph
