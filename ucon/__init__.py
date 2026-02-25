@@ -44,6 +44,8 @@ from ucon.basis import (
     BasisComponent,
     BasisGraph,
     BasisTransform,
+    ConstantAwareBasisTransform,
+    ConstantBinding,
     LossyProjection,
     NoTransformPath,
     Vector as BasisVector,
@@ -58,9 +60,12 @@ from ucon.bases import (
     CGS,
     CGS_ESU,
     CGS_TO_SI,
+    NATURAL,
+    NATURAL_TO_SI,
     SI,
     SI_TO_CGS,
     SI_TO_CGS_ESU,
+    SI_TO_NATURAL,
 )
 from ucon.core import (
     DimConstraint,
@@ -93,6 +98,8 @@ __all__ = [
     'BasisGraph',
     'BasisTransform',
     'BasisVector',
+    'ConstantAwareBasisTransform',
+    'ConstantBinding',
     'LossyProjection',
     'NoTransformPath',
     # Basis context scoping
@@ -105,11 +112,14 @@ __all__ = [
     # Standard bases
     'CGS',
     'CGS_ESU',
+    'NATURAL',
     'SI',
     # Standard transforms
     'CGS_TO_SI',
+    'NATURAL_TO_SI',
     'SI_TO_CGS',
     'SI_TO_CGS_ESU',
+    'SI_TO_NATURAL',
     # Core types
     'Constant',
     'DimConstraint',
