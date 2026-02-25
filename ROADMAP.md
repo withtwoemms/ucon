@@ -43,15 +43,18 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.8.3 | ConversionGraph Integration | Complete |
 | v0.8.4 | Basis Context Scoping | Complete |
 | v0.8.5 | String Parsing | Complete |
-| v0.9.0 | Physical Constants | Planned |
+| v0.9.0 | Physical Constants | Complete |
+| v0.9.1 | Logarithmic Units | Planned |
+| v0.9.2 | MCP Constants Tools | Planned |
+| v0.9.3 | Natural Units | Planned |
 | v0.10.0 | Scientific Computing | Planned |
 | v1.0.0 | API Stability | Planned |
 
 ---
 
-## Current Version: **v0.8.5** (complete)
+## Current Version: **v0.9.0** (complete)
 
-Building on v0.8.4 baseline:
+Building on v0.8.5 baseline:
 - `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`)
 - `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`; standard transforms)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
@@ -71,6 +74,7 @@ Building on v0.8.4 baseline:
 - Auto-generated `dimension.pyi` stubs for IDE code completion
 - Basis context scoping: `using_basis()`, `using_basis_graph()`, `get_default_basis()`
 - Quantity string parsing: `parse("1.234 ± 0.005 m")` → `Number` with uncertainty
+- Physical constants: `Constant` class with CODATA 2022 values and uncertainty propagation
 
 ---
 
@@ -568,31 +572,68 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.9.0 — Physical Constants
+## v0.9.0 — Physical Constants (Complete)
 
-**Theme:** Physical completeness and logarithmic units.
+**Theme:** CODATA physical constants with uncertainty propagation.
 
-### Physical Constants
-
-- [ ] Physical constants with uncertainties: `c`, `h`, `G`, `k_B`, `N_A`, etc.
-- [ ] Natural units basis (c=ℏ=1) using new Basis abstraction
-- [ ] CODATA 2022 values with documented uncertainties
-
-### Logarithmic Units
-
-- [x] `LogMap`/`ExpMap` for logarithmic conversions (completed in v0.6.x)
-- [ ] Logarithmic units with reference levels: `decibel`, `bel`, `neper`
-- [ ] Reference-level infrastructure for dBm, dBV, dBSPL variants
-- [ ] pH scale support
-
-### Additional Dimensions
-
-- [ ] Currency dimension (with caveats about exchange rates)
+- [x] `Constant` dataclass with symbol, name, value, unit, uncertainty, source
+- [x] SI defining constants (exact): `c`, `h`, `e`, `k_B`, `N_A`, `K_cd`, `ΔνCs`
+- [x] Derived constants (exact): `ℏ`, `R`, `σ`
+- [x] Measured constants: `G`, `α`, `m_e`, `m_p`, `m_n`, `ε₀`, `μ₀`
+- [x] Unicode and ASCII aliases
+- [x] Arithmetic operators return `Number` with uncertainty propagation
+- [x] `constants` module exported from `ucon`
 
 **Outcomes:**
-- Physical constants with CODATA uncertainties
+- Physical constants with CODATA 2022 uncertainties
+- E=mc², E=hν formulas work naturally
+- Measured constant uncertainty propagates through calculations
+
+---
+
+## v0.9.1 — Logarithmic Units
+
+**Theme:** Decibels, nepers, and pH scale.
+
+- [x] `LogMap`/`ExpMap` for logarithmic conversions (completed in v0.6.x)
+- [ ] `decibel`, `bel`, `neper` units
+- [ ] Reference-level infrastructure for dBm, dBV, dBW, dBSPL variants
+- [ ] `pH` unit with concentration ↔ pH conversion
+- [ ] Uncertainty propagation through logarithmic conversions (via `LogMap.derivative()`)
+
+**Outcomes:**
+- Acoustics (dB), chemistry (pH), and signal processing domains enabled
+- Reference-level variants (dBm = dB relative to 1 mW) supported
+
+---
+
+## v0.9.2 — MCP Constants Tools
+
+**Theme:** AI agent access to physical constants.
+
+- [ ] `list_constants(category)` MCP tool
+- [ ] `define_constant(symbol, value, unit, uncertainty)` MCP tool
+- [ ] Session constants usable in `compute()` tool
+- [ ] Constant uncertainty propagates through calculations
+
+**Outcomes:**
+- AI agents can discover and use physical constants
+- Custom constants for domain-specific calculations
+
+---
+
+## v0.9.3 — Natural Units
+
+**Theme:** Custom dimensional bases where c=ℏ=1.
+
+- [ ] `ConstantAwareBasisTransform` with `inverse()` for non-square transforms
+- [ ] `NATURAL` basis with single energy dimension
+- [ ] SI ↔ NATURAL transform using constant bindings
+- [ ] Documentation and examples
+
+**Outcomes:**
 - Natural units leverage custom basis infrastructure
-- Enables acoustics (dB), chemistry (pH), and signal processing domains
+- Foundation for particle physics and quantum field theory domains
 
 ---
 
