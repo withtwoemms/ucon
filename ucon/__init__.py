@@ -36,7 +36,8 @@ Design Philosophy
 - **Unified Conversion Model** — all conversions are expressed through one
   data-driven framework that is generalizable to arbitrary unit systems.
 """
-from ucon import units
+from ucon import constants, units
+from ucon.constants import Constant
 from ucon.core import Exponent
 from ucon.basis import (
     Basis,
@@ -110,6 +111,7 @@ __all__ = [
     'SI_TO_CGS',
     'SI_TO_CGS_ESU',
     # Core types
+    'Constant',
     'DimConstraint',
     'Dimension',
     'DimensionNotCovered',
@@ -139,5 +141,6 @@ __all__ = [
     'set_default_graph',
     'using_graph',
     # Submodules
+    'constants',
     'units',
 ]
