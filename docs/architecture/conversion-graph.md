@@ -58,6 +58,18 @@ _rebased: dict[Unit, RebasedUnit]
 # Original unit → unit rebased into destination's dimension partition
 ```
 
+### BasisGraph Reference
+
+For cross-basis validation, ConversionGraph can hold a reference to a `BasisGraph`:
+
+```python
+_basis_graph: BasisGraph | None
+
+# When set, validates that cross-basis edges connect compatible bases
+```
+
+See [Dual-Graph Architecture](dual-graph-architecture.md) for how these two graphs interact.
+
 ---
 
 ## BFS Path Finding
@@ -166,12 +178,42 @@ graph.add_edge(src=units.btu / units.hour, dst=units.watt, map=LinearMap(0.29307
 
 ### 5. Cross-Basis Conversion
 
-For units from different dimensional systems:
+For units from different dimensional bases (e.g., SI → CGS-ESU):
 
 ```python
-# RebasedUnit connects original to destination partition
-rebased = RebasedUnit(original=src, rebased_dimension=dst.dimension, ...)
-# Then BFS within the destination partition
+graph.add_edge(
+    src=units.ampere,           # SI basis
+    dst=statampere,             # CGS-ESU basis
+    map=LinearMap(2.998e9),
+    basis_transform=SI_TO_CGS_ESU,  # validates dimensional compatibility
+)
+```
+
+The `basis_transform` parameter triggers cross-basis handling:
+
+1. **Validate** — `SI_TO_CGS_ESU(ampere.dimension.vector) == statampere.dimension.vector`
+2. **Create RebasedUnit** — wraps `ampere` in the CGS-ESU dimension partition
+3. **Store edge** — `RebasedUnit(ampere) ↔ statampere`
+
+```mermaid
+graph LR
+    subgraph SI
+        ampere
+    end
+    subgraph CGS-ESU
+        rebased["RebasedUnit(ampere)"]
+        statampere
+    end
+    ampere -.->|basis_transform| rebased
+    rebased -->|"×2.998e9"| statampere
+```
+
+When `_basis_graph` is set, `convert()` also validates that bases are connected before searching:
+
+```python
+if self._basis_graph is not None:
+    if not self._basis_graph.are_connected(src.basis, dst.basis):
+        raise NoTransformPath(src.basis, dst.basis)
 ```
 
 ---
@@ -263,6 +305,42 @@ if self._has_direct_unit_edge(src=dst, dst=src):
 
 This catches contradictory conversion factors during graph construction.
 
+### Cross-Basis Edge with BasisTransform
+
+For edges between units in different bases, pass `basis_transform`:
+
+```python
+from ucon.bases import SI_TO_CGS_ESU
+
+graph.add_edge(
+    src=units.ampere,
+    dst=statampere,
+    map=LinearMap(2.998e9),
+    basis_transform=SI_TO_CGS_ESU,
+)
+```
+
+The transform is used to:
+
+1. **Validate** that the source dimension maps to the destination dimension
+2. **Create a RebasedUnit** linking the source into the destination's partition
+3. **Store the transform** for introspection via `list_transforms()`
+
+### Bulk Cross-Basis Registration
+
+Use `connect_systems()` to register multiple cross-basis edges:
+
+```python
+graph.connect_systems(
+    basis_transform=SI_TO_CGS,
+    edges={
+        (units.meter, centimeter_cgs): LinearMap(100),
+        (units.gram, gram_cgs): LinearMap(1),
+        (units.second, second_cgs): LinearMap(1),
+    },
+)
+```
+
 ---
 
 ## No Caching (Currently)
@@ -297,6 +375,51 @@ with using_graph(custom_graph):
 ```
 
 This enables domain-specific units without polluting the global namespace.
+
+---
+
+## Unit Compatibility
+
+### Unit.basis Property
+
+Each unit exposes its dimensional basis:
+
+```python
+>>> units.meter.basis
+Basis('SI', ['T', 'L', 'M', 'I', 'Θ', 'J', 'N', 'B'])
+
+>>> statampere.basis
+Basis('CGS-ESU', ['L', 'M', 'T', 'Q'])
+```
+
+### Unit.is_compatible()
+
+Check if two units can be converted:
+
+```python
+def is_compatible(self, other: Unit, basis_graph: BasisGraph | None = None) -> bool:
+    """
+    Returns True if:
+    1. Same dimension (same basis), OR
+    2. Bases are connected via basis_graph (cross-basis)
+    """
+```
+
+**Examples:**
+
+```python
+# Same dimension — always compatible
+units.meter.is_compatible(units.foot)  # True
+
+# Different dimensions — incompatible
+units.meter.is_compatible(units.second)  # False
+
+# Cross-basis — depends on BasisGraph connectivity
+from ucon.bases import SI_TO_CGS_ESU
+bg = BasisGraph().with_transform(SI_TO_CGS_ESU)
+
+units.ampere.is_compatible(statampere, basis_graph=bg)  # True
+```
 
 ---
 
