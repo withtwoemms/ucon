@@ -350,9 +350,165 @@ convert(value=1, from_unit="slug", to_unit="lb")
 
 ---
 
+## list_constants
+
+List available physical constants, optionally filtered by category.
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `category` | string | No | Filter by category: `"exact"`, `"derived"`, `"measured"`, `"session"`, `"all"` |
+
+### Response Schema
+
+**Success: `list[ConstantInfo]`**
+
+```json
+[
+  {
+    "symbol": "c",
+    "name": "speed of light in vacuum",
+    "value": 299792458,
+    "unit": "m/s",
+    "dimension": "velocity",
+    "uncertainty": null,
+    "is_exact": true,
+    "source": "CODATA 2022",
+    "category": "exact"
+  },
+  {
+    "symbol": "G",
+    "name": "Newtonian constant of gravitation",
+    "value": 6.6743e-11,
+    "unit": "m³/(kg·s²)",
+    "dimension": "gravitation",
+    "uncertainty": 1.5e-15,
+    "is_exact": false,
+    "source": "CODATA 2022",
+    "category": "measured"
+  }
+]
+```
+
+**Error: `ConstantError`**
+
+```json
+{
+  "error": "Unknown category: 'invalid'",
+  "error_type": "invalid_input",
+  "parameter": "category",
+  "hints": ["Valid categories: exact, derived, measured, session, all"]
+}
+```
+
+### Categories
+
+| Category | Description | Count |
+|----------|-------------|-------|
+| `exact` | SI defining constants (2019 redefinition) | 7 |
+| `derived` | Derived from exact constants | 3 |
+| `measured` | Experimentally measured (with uncertainty) | 7 |
+| `session` | User-defined via `define_constant()` | varies |
+
+### Examples
+
+```python
+# List all constants
+list_constants()
+# → [{"symbol": "c", ...}, {"symbol": "h", ...}, ...]
+
+# Filter by category
+list_constants(category="exact")
+# → [{"symbol": "c", ...}, {"symbol": "h", ...}, ...] (7 exact constants)
+
+# Session constants only
+list_constants(category="session")
+# → [] (empty until define_constant() is called)
+```
+
+---
+
+## define_constant
+
+Define a custom constant for the current session.
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `symbol` | string | Yes | Short symbol (e.g., `"vₛ"`, `"Eg"`) |
+| `name` | string | Yes | Full descriptive name |
+| `value` | float | Yes | Numeric value in given units |
+| `unit` | string | Yes | Unit string (e.g., `"m/s"`, `"J"`) |
+| `uncertainty` | float | No | Standard uncertainty (None for exact) |
+| `source` | string | No | Data source reference |
+
+### Response Schema
+
+**Success: `ConstantDefinitionResult`**
+
+```json
+{
+  "success": true,
+  "symbol": "vₛ",
+  "name": "speed of sound in dry air at 20°C",
+  "unit": "m/s",
+  "uncertainty": null,
+  "message": "Constant 'vₛ' registered for session."
+}
+```
+
+**Error: `ConstantError`**
+
+```json
+{
+  "error": "Symbol 'c' is already defined as 'speed of light in vacuum'",
+  "error_type": "duplicate_symbol",
+  "parameter": "symbol",
+  "hints": ["Use a different symbol or use the built-in constant"]
+}
+```
+
+### Error Types
+
+| Error Type | Description |
+|------------|-------------|
+| `duplicate_symbol` | Symbol exists in built-in or session constants |
+| `invalid_unit` | Unit string cannot be parsed |
+| `invalid_value` | Value is NaN, Inf, or non-numeric |
+
+### Examples
+
+```python
+# Define speed of sound
+define_constant(
+    symbol="vₛ",
+    name="speed of sound in dry air at 20°C",
+    value=343,
+    unit="m/s"
+)
+
+# Define with uncertainty
+define_constant(
+    symbol="g_local",
+    name="local gravitational acceleration",
+    value=9.81,
+    unit="m/s^2",
+    uncertainty=0.01,
+    source="measured on site"
+)
+
+# Now visible in session constants
+list_constants(category="session")
+# → [{"symbol": "vₛ", ...}, {"symbol": "g_local", ...}]
+```
+
+---
+
 ## reset_session
 
-Clear all custom units and conversions.
+Clear all custom units, conversions, and constants.
 
 ### Parameters
 
@@ -365,7 +521,7 @@ None.
 ```json
 {
   "success": true,
-  "message": "Session reset. All custom units and conversions cleared."
+  "message": "Session reset. All custom units, conversions, and constants cleared."
 }
 ```
 

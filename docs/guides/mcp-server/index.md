@@ -141,9 +141,40 @@ define_conversion(src="slug", dst="kg", factor=14.5939)
 # → {"success": true, "message": "Conversion edge 'slug' → 'kg' added..."}
 ```
 
+### `list_constants`
+
+List available physical constants, optionally filtered by category.
+
+```python
+list_constants()
+# → [{"symbol": "c", "name": "speed of light in vacuum", "value": 299792458, ...}, ...]
+
+list_constants(category="exact")
+# → [7 SI defining constants]
+
+list_constants(category="session")
+# → [user-defined constants]
+```
+
+Categories: `"exact"` (7), `"derived"` (3), `"measured"` (7), `"session"` (user-defined).
+
+### `define_constant`
+
+Register a custom constant for the session.
+
+```python
+define_constant(
+    symbol="vₛ",
+    name="speed of sound in dry air at 20°C",
+    value=343,
+    unit="m/s"
+)
+# → {"success": true, "symbol": "vₛ", ...}
+```
+
 ### `reset_session`
 
-Clear custom units and conversions.
+Clear custom units, conversions, and constants.
 
 ```python
 reset_session()

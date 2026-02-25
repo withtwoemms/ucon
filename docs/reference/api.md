@@ -310,6 +310,120 @@ Dimension.energy ** 0.5                # sqrt(energy)
 
 ---
 
+## Constant
+
+Physical constants with CODATA 2022 uncertainties.
+
+```python
+from ucon import constants
+from ucon.constants import Constant, c, h, G
+```
+
+### Built-in Constants
+
+**SI Defining Constants (exact):**
+
+| Constant | Symbol | Value | Unit |
+|----------|--------|-------|------|
+| `speed_of_light` | c | 299792458 | m/s |
+| `planck_constant` | h | 6.62607015e-34 | J·s |
+| `elementary_charge` | e | 1.602176634e-19 | C |
+| `boltzmann_constant` | k_B | 1.380649e-23 | J/K |
+| `avogadro_constant` | N_A | 6.02214076e23 | 1/mol |
+| `luminous_efficacy` | K_cd | 683 | lm/W |
+| `hyperfine_transition_frequency` | ΔνCs | 9192631770 | Hz |
+
+**Derived Constants (exact):**
+
+| Constant | Symbol | Derivation |
+|----------|--------|------------|
+| `reduced_planck_constant` | ℏ | h / 2π |
+| `molar_gas_constant` | R | k_B × N_A |
+| `stefan_boltzmann_constant` | σ | (derived) |
+
+**Measured Constants (with uncertainty):**
+
+| Constant | Symbol | Uncertainty |
+|----------|--------|-------------|
+| `gravitational_constant` | G | 1.5e-15 |
+| `fine_structure_constant` | α | 1.1e-12 |
+| `electron_mass` | m_e | 2.8e-40 |
+| `proton_mass` | m_p | 5.1e-37 |
+| `neutron_mass` | m_n | 9.5e-37 |
+| `vacuum_permittivity` | ε₀ | 1.3e-21 |
+| `vacuum_permeability` | μ₀ | 1.9e-16 |
+
+### Usage
+
+```python
+from ucon import constants, units
+
+# Access by name
+c = constants.speed_of_light
+c.value        # 299792458
+c.unit         # m/s
+c.is_exact     # True
+c.category     # "exact"
+
+# Access by symbol (Unicode or ASCII)
+constants.c    # speed_of_light
+constants.h    # planck_constant
+constants.G    # gravitational_constant
+constants.hbar # reduced_planck_constant (ASCII)
+constants.ℏ    # reduced_planck_constant (Unicode)
+
+# Arithmetic with constants (returns Number)
+mass = units.kilogram(1)
+energy = mass * c ** 2  # E = mc²
+energy.quantity  # ~8.99e16
+energy.dimension # energy
+
+# Measured constants propagate uncertainty
+F = G * mass * mass / units.meter(1) ** 2
+F.uncertainty is not None  # True
+```
+
+### Enumeration
+
+```python
+from ucon.constants import all_constants, get_constant_by_symbol
+
+# List all constants
+for const in all_constants():
+    print(f"{const.symbol}: {const.name}")
+
+# Lookup by symbol
+c = get_constant_by_symbol("c")     # speed_of_light
+h = get_constant_by_symbol("hbar")  # reduced_planck_constant
+```
+
+### Constant Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `symbol` | str | Standard symbol (e.g., "c", "h") |
+| `name` | str | Full name (e.g., "speed of light in vacuum") |
+| `value` | float | Numeric value in SI units |
+| `unit` | Unit \| UnitProduct | SI unit of the constant |
+| `uncertainty` | float \| None | Standard uncertainty (None if exact) |
+| `source` | str | Data source (default: "CODATA 2022") |
+| `category` | str | "exact", "derived", "measured", or "session" |
+| `is_exact` | bool | True if uncertainty is None |
+| `dimension` | Dimension | Physical dimension |
+
+### Methods
+
+#### `as_number()`
+
+Convert to a Number for calculations.
+
+```python
+c_num = c.as_number()
+type(c_num)  # Number
+```
+
+---
+
 ## ConversionGraph
 
 Registry of conversion edges between units.

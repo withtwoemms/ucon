@@ -45,16 +45,16 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.8.5 | String Parsing | Complete |
 | v0.9.0 | Physical Constants | Complete |
 | v0.9.1 | Logarithmic Units | Complete |
-| v0.9.2 | MCP Constants Tools | Planned |
+| v0.9.2 | MCP Constants Tools | Complete |
 | v0.9.3 | Natural Units | Planned |
 | v0.10.0 | Scientific Computing | Planned |
 | v1.0.0 | API Stability | Planned |
 
 ---
 
-## Current Version: **v0.9.0** (complete)
+## Current Version: **v0.9.2** (complete)
 
-Building on v0.8.5 baseline:
+Building on v0.9.1 baseline:
 - `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`)
 - `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`; standard transforms)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
@@ -75,6 +75,8 @@ Building on v0.8.5 baseline:
 - Basis context scoping: `using_basis()`, `using_basis_graph()`, `get_default_basis()`
 - Quantity string parsing: `parse("1.234 ± 0.005 m")` → `Number` with uncertainty
 - Physical constants: `Constant` class with CODATA 2022 values and uncertainty propagation
+- Logarithmic units: pH with concentration dimension, dBm, dBW, dBV, dBSPL
+- MCP constants tools: `list_constants()`, `define_constant()` for AI agent access
 
 ---
 
@@ -608,18 +610,21 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.9.2 — MCP Constants Tools
+## v0.9.2 — MCP Constants Tools (Complete)
 
 **Theme:** AI agent access to physical constants.
 
-- [ ] `list_constants(category)` MCP tool
-- [ ] `define_constant(symbol, value, unit, uncertainty)` MCP tool
-- [ ] Session constants usable in `compute()` tool
-- [ ] Constant uncertainty propagates through calculations
+- [x] `list_constants(category)` MCP tool
+- [x] `define_constant(symbol, value, unit, uncertainty)` MCP tool
+- [x] Session constants infrastructure (`_session_constants` ContextVar)
+- [x] `all_constants()` function to enumerate built-in constants
+- [x] `get_constant_by_symbol()` function for constant lookup
+- [x] `Constant.category` field for filtering
 
 **Outcomes:**
 - AI agents can discover and use physical constants
 - Custom constants for domain-specific calculations
+- Session constants persist until `reset_session()` is called
 
 ---
 
