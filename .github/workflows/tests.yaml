@@ -77,12 +77,31 @@ jobs:
           uv sync --extra docs
           uv run mkdocs build --strict
 
+  changelog:
+    name: CHANGELOG
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check CHANGELOG updated
+        run: |
+          if ! git diff --name-only origin/main...HEAD | grep -q '^CHANGELOG.md$'; then
+            echo "::error::Please add a CHANGELOG entry under [Unreleased]"
+            exit 1
+          fi
+          echo "CHANGELOG.md was updated"
+
   # Single status check for branch protection
   ci:
     name: CI
     runs-on: ubuntu-latest
     timeout-minutes: 1
-    needs: [run_tests, docs]
+    needs: [run_tests, docs, changelog]
     if: always()
     steps:
       - name: Check all jobs passed
@@ -93,6 +112,11 @@ jobs:
           fi
           if [[ "${{ needs.docs.result }}" != "success" ]]; then
             echo "Docs build failed"
+            exit 1
+          fi
+          # changelog is skipped on push to main, only required for PRs
+          if [[ "${{ needs.changelog.result }}" != "success" && "${{ needs.changelog.result }}" != "skipped" ]]; then
+            echo "CHANGELOG check failed"
             exit 1
           fi
           echo "All checks passed"
