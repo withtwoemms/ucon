@@ -70,6 +70,7 @@ nav:
     - architecture/index.md
     - Design Principles: architecture/design-principles.md
     - ConversionGraph: architecture/conversion-graph.md
+    - Dual-Graph Architecture: architecture/dual-graph-architecture.md
     - Suggestions & Recovery: architecture/suggestions-and-recovery.md
     - Comparison with Pint: architecture/comparison-with-pint.md
 
@@ -106,6 +107,8 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - toc:
       permalink: true
+
+copyright: "&copy; 2020-2026 The Radiativity Company"
 
 extra:
   social:
