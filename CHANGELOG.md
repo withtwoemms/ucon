@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- pH unit with concentration dimension for mol/L ↔ pH conversions (#204)
+  - `(units.mole / units.liter)(1e-7).to(units.pH)` returns `<7.0 pH>`
+  - `units.pH(7.0).to(units.mole / units.liter)` returns `<1e-07 mol/L>`
+  - Follows established pattern: pH has concentration dimension (like dBm has POWER)
+
 ## [0.9.0] - 2026-02-25
 
 ### Added
