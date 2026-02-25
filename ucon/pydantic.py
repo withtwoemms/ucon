@@ -33,6 +33,7 @@ Requires Pydantic v2. Install with::
 
 """
 
+import sys
 from typing import Annotated, Any, Generic, Optional, TypeVar
 
 try:
@@ -224,10 +225,13 @@ class _NumberType:
                 f"Number[...] requires a Dimension, got {type(dimension).__name__}"
             )
         # Build the Annotated type with base annotation + extra validators
-        # Use __class_getitem__ directly for Python 3.10 compatibility
-        # (unpacking in Annotated[...] requires Python 3.11+)
-        annotations = tuple([_NumberPydanticAnnotation(dimension)] + list(cls._extra_validators))
-        return Annotated.__class_getitem__((_Number,) + annotations)
+        annotations = [_NumberPydanticAnnotation(dimension)] + list(cls._extra_validators)
+        if sys.version_info >= (3, 11):
+            # Python 3.11+ supports unpacking in Annotated[...]
+            return Annotated[_Number, *annotations]
+        else:
+            # Python 3.9-3.10: use __class_getitem__ directly
+            return Annotated.__class_getitem__((_Number,) + tuple(annotations))
 
     @classmethod
     def __get_pydantic_core_schema__(
