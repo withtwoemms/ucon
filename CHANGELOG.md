@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-02-25
+
+### Added
+
+- `Constant` class for physical constants with CODATA uncertainties
+- SI defining constants (exact): `c`, `h`, `e`, `k_B`, `N_A`, `K_cd`, `ΔνCs`
+- Derived constants (exact): `ℏ` (hbar), `R` (molar gas), `σ` (Stefan-Boltzmann)
+- Measured constants: `G`, `α`, `m_e`, `m_p`, `m_n`, `ε₀`, `μ₀`
+- Unicode aliases: `c`, `h`, `ℏ`, `k_B`, `N_A`, `G`, `α`, `ε₀`, `μ₀`, `mₑ`, `mₚ`, `mₙ`
+- ASCII aliases: `hbar`, `alpha`, `epsilon_0`, `mu_0`, `m_e`, `m_p`, `m_n`
+- `Constant` arithmetic returns `Number` with uncertainty propagation
+- `constants` module exported from `ucon`
+
 ## [0.8.5] - 2026-02-25
 
 ### Added
@@ -361,7 +374,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.8.5...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.0...HEAD
+[0.9.0]: https://github.com/withtwoemms/ucon/compare/0.8.5...0.9.0
 [0.8.5]: https://github.com/withtwoemms/ucon/compare/0.8.4...0.8.5
 [0.8.4]: https://github.com/withtwoemms/ucon/compare/0.8.3...0.8.4
 [0.8.3]: https://github.com/withtwoemms/ucon/compare/0.8.2...0.8.3
