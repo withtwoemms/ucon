@@ -13,12 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - MCP tools for physical constants (#204)
   - `list_constants(category)` lists available constants filtered by category
-    - Categories: `"exact"`, `"derived"`, `"measured"`, `"session"`, `"all"`
+    - Categories: `"exact"` (7), `"derived"` (3), `"measured"` (7), `"session"`, `"all"`
   - `define_constant(symbol, name, value, unit, uncertainty, source)` creates session constants
   - Session constants persist until `reset_session()` is called
 - `all_constants()` function to enumerate built-in constants
 - `get_constant_by_symbol()` function for constant lookup by symbol or alias
 - `Constant.category` field classifying constants as `"exact"`, `"derived"`, `"measured"`, or `"session"`
+- MCP tools reference documentation for constants in `docs/reference/mcp-tools.md`
+- Physical constants section in API reference `docs/reference/api.md`
+
+### Changed
+
+- `reset_session()` now clears session constants in addition to custom units and conversions
 
 ## [0.9.1] - 2026-02-25
 
