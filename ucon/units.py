@@ -273,31 +273,17 @@ _PRIORITY_ALIASES: set = {'min'}
 _PRIORITY_SCALED_ALIASES: Dict[str, Tuple[Unit, Scale]] = {}
 
 # Scale prefix mapping (shorthand -> Scale)
-# Sorted by length descending for greedy matching
+# Derived from Scale enum's ScaleDescriptor.shorthand, plus input-only aliases
 _SCALE_PREFIXES: Dict[str, Scale] = {
-    # Binary (IEC) - must come before single-char metric
-    'Gi': Scale.gibi,
-    'Mi': Scale.mebi,
-    'Ki': Scale.kibi,
-    # Metric (decimal) - multi-char first
-    'da': Scale.deca,
-    # Single-char metric
-    'P': Scale.peta,
-    'T': Scale.tera,
-    'G': Scale.giga,
-    'M': Scale.mega,
-    'k': Scale.kilo,
-    'h': Scale.hecto,
-    'd': Scale.deci,
-    'c': Scale.centi,
-    'm': Scale.milli,
-    'u': Scale.micro,  # ASCII alternative
-    'μ': Scale.micro,  # Unicode micro sign
-    'µ': Scale.micro,  # Unicode mu (common substitute)
-    'n': Scale.nano,
-    'p': Scale.pico,
-    'f': Scale.femto,
+    s.shorthand: s for s in Scale if s.shorthand
 }
+
+# Additional input aliases not in canonical ScaleDescriptor.shorthand
+_SCALE_PREFIXES.update({
+    'u': Scale.micro,  # ASCII alternative for µ
+    'μ': Scale.micro,  # Unicode MICRO SIGN (U+00B5)
+    # Note: Scale.micro.shorthand is 'µ' (GREEK SMALL LETTER MU, U+03BC)
+})
 
 # Sorted by length descending for greedy prefix matching
 _SCALE_PREFIXES_SORTED = sorted(_SCALE_PREFIXES.keys(), key=len, reverse=True)
