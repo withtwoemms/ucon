@@ -118,6 +118,28 @@ units.watt       # power
 | `shorthand` | str | Primary symbol |
 | `aliases` | tuple[str] | Alternative symbols |
 | `dimension` | Dimension | Physical dimension |
+| `basis` | Basis | Dimensional basis (e.g., SI, CGS) |
+
+### Methods
+
+#### `is_compatible(other, basis_graph=None)`
+
+Check if conversion to another unit is possible.
+
+```python
+# Same dimension — always compatible
+units.meter.is_compatible(units.foot)  # True
+
+# Different dimensions — incompatible
+units.meter.is_compatible(units.second)  # False
+
+# Cross-basis — requires BasisGraph
+from ucon.basis import BasisGraph
+from ucon.bases import SI_TO_CGS_ESU
+
+bg = BasisGraph().with_transform(SI_TO_CGS_ESU)
+units.ampere.is_compatible(statampere, basis_graph=bg)  # True
+```
 
 ### Creating Custom Units
 
@@ -260,12 +282,49 @@ graph.register_unit(custom_unit)
 graph.add_edge(
     src=units.foot,
     dst=units.meter,
-    map_=LinearMap(0.3048)
+    map=LinearMap(0.3048)
 )
 
 # Convert
 result = graph.convert(units.foot, units.meter)
 result(12)  # 3.6576
+```
+
+### Cross-Basis Edges
+
+For units in different dimensional bases, use `basis_transform`:
+
+```python
+from ucon.bases import SI_TO_CGS_ESU
+
+graph.add_edge(
+    src=units.ampere,
+    dst=statampere,
+    map=LinearMap(2.998e9),
+    basis_transform=SI_TO_CGS_ESU,
+)
+```
+
+Bulk registration with `connect_systems()`:
+
+```python
+graph.connect_systems(
+    basis_transform=SI_TO_CGS,
+    edges={
+        (units.meter, centimeter_cgs): LinearMap(100),
+        (units.gram, gram_cgs): LinearMap(1),
+    },
+)
+```
+
+### Introspection
+
+```python
+# List rebased units (cross-basis bridges)
+graph.list_rebased_units()  # {ampere: RebasedUnit(...)}
+
+# List registered transforms
+graph.list_transforms()  # [SI_TO_CGS_ESU, ...]
 ```
 
 ### Context Manager
@@ -355,6 +414,10 @@ from ucon.graph import (
     DimensionMismatch,
     CyclicInconsistency,
 )
+from ucon.basis import (
+    NoTransformPath,
+    LossyProjection,
+)
 from ucon.units import UnknownUnitError
 ```
 
@@ -363,4 +426,54 @@ from ucon.units import UnknownUnitError
 | `ConversionNotFound` | No path between units in graph |
 | `DimensionMismatch` | Operation on incompatible dimensions |
 | `CyclicInconsistency` | Adding edge creates inconsistent cycle |
+| `NoTransformPath` | No BasisTransform connects the two bases |
+| `LossyProjection` | Dimension cannot be represented in target basis |
 | `UnknownUnitError` | Unit string cannot be parsed |
+
+---
+
+## Basis System
+
+For cross-basis conversions (e.g., SI ↔ CGS).
+
+```python
+from ucon.basis import Basis, BasisGraph, BasisTransform
+from ucon.bases import SI, CGS, CGS_ESU, SI_TO_CGS, SI_TO_CGS_ESU
+```
+
+### Standard Bases
+
+| Basis | Components | Description |
+|-------|------------|-------------|
+| `SI` | T, L, M, I, Θ, J, N, B | International System (8 dimensions) |
+| `CGS` | L, M, T | Centimetre-gram-second (mechanical) |
+| `CGS_ESU` | L, M, T, Q | CGS electrostatic (charge is fundamental) |
+
+### BasisGraph
+
+Track connectivity between bases:
+
+```python
+from ucon.basis import BasisGraph
+from ucon.bases import SI_TO_CGS_ESU
+
+bg = BasisGraph()
+bg = bg.with_transform(SI_TO_CGS_ESU)
+
+bg.are_connected(SI, CGS_ESU)  # True
+```
+
+### BasisTransform
+
+Matrix mapping dimension vectors between bases:
+
+```python
+from ucon.bases import SI_TO_CGS_ESU
+
+# Transform a dimension vector
+si_current = units.ampere.dimension.vector
+cgs_current = SI_TO_CGS_ESU(si_current)
+# Result: L^(3/2) M^(1/2) T^(-2) in CGS-ESU
+```
+
+See [Dual-Graph Architecture](../architecture/dual-graph-architecture.md) for details.
