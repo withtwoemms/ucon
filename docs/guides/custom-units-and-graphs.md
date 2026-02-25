@@ -67,6 +67,53 @@ Pass the graph directly to conversion methods:
 result = slug(1).to(kilogram, graph=graph)
 ```
 
+## Using Custom Bases
+
+For CGS or other non-SI workflows, use `using_basis` to set the default basis for dimension creation.
+
+### Context Manager
+
+```python
+from ucon import using_basis, CGS, Dimension
+
+with using_basis(CGS):
+    # Dimensions created here use CGS basis by default
+    velocity = Dimension.from_components(L=1, T=-1, name="velocity")
+    velocity.basis  # CGS
+
+    # Pseudo-dimensions also respect context
+    angle = Dimension.pseudo("angle")
+    angle.basis  # CGS
+```
+
+### Nested Contexts
+
+Contexts can be nested; inner contexts restore to outer on exit:
+
+```python
+from ucon import using_basis, SI, CGS
+
+with using_basis(CGS):
+    # CGS is default here
+    with using_basis(SI):
+        # SI is default here
+        pass
+    # Back to CGS
+```
+
+### Explicit Basis Parameter
+
+Explicit `basis=` argument always wins over context:
+
+```python
+from ucon import using_basis, CGS, SI, Dimension
+
+with using_basis(CGS):
+    # Explicit basis overrides context
+    si_dim = Dimension.from_components(SI, L=1, name="length")
+    si_dim.basis  # SI (not CGS)
+```
+
 ## Building Domain-Specific Graphs
 
 For a specialized domain, create a dedicated graph:

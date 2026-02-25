@@ -477,3 +477,88 @@ cgs_current = SI_TO_CGS_ESU(si_current)
 ```
 
 See [Dual-Graph Architecture](../architecture/dual-graph-architecture.md) for details.
+
+### Basis Context Scoping
+
+Thread-safe basis isolation via ContextVars.
+
+```python
+from ucon import (
+    get_default_basis,
+    get_basis_graph,
+    set_default_basis_graph,
+    reset_default_basis_graph,
+    using_basis,
+    using_basis_graph,
+)
+```
+
+#### `get_default_basis()`
+
+Returns the current default basis (context-local or SI fallback).
+
+```python
+from ucon import get_default_basis, SI
+
+get_default_basis()  # SI (when no context set)
+```
+
+#### `using_basis(basis)`
+
+Context manager for scoped basis override.
+
+```python
+from ucon import using_basis, CGS, Dimension
+
+with using_basis(CGS):
+    # Dimensions created here use CGS basis
+    dim = Dimension.from_components(L=1, T=-1)
+    dim.basis  # CGS
+```
+
+#### `get_basis_graph()`
+
+Returns the current BasisGraph (context-local or module default).
+
+```python
+from ucon import get_basis_graph, SI, CGS
+
+graph = get_basis_graph()
+graph.are_connected(SI, CGS)  # True (standard graph has SI/CGS transforms)
+```
+
+#### `using_basis_graph(graph)`
+
+Context manager for scoped BasisGraph override.
+
+```python
+from ucon import using_basis_graph, BasisGraph
+
+custom_graph = BasisGraph()
+with using_basis_graph(custom_graph):
+    get_basis_graph() is custom_graph  # True
+```
+
+#### `set_default_basis_graph(graph)` / `reset_default_basis_graph()`
+
+Module-level control over the default BasisGraph.
+
+```python
+from ucon import set_default_basis_graph, reset_default_basis_graph, BasisGraph
+
+# Replace module default
+custom = BasisGraph()
+set_default_basis_graph(custom)
+
+# Restore standard graph (lazy rebuild on next access)
+reset_default_basis_graph()
+```
+
+| Function | Purpose |
+|----------|---------|
+| `get_default_basis()` | Get context-local basis or SI |
+| `using_basis(basis)` | Scoped basis override |
+| `get_basis_graph()` | Get context-local or default BasisGraph |
+| `using_basis_graph(graph)` | Scoped BasisGraph override |
+| `set_default_basis_graph(graph)` | Replace module default |
+| `reset_default_basis_graph()` | Restore standard graph |

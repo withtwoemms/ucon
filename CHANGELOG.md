@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-02-25
+
+### Added
+
+- `using_basis()` context manager for thread-safe scoped basis override
+- `using_basis_graph()` context manager for thread-safe scoped BasisGraph override
+- `get_default_basis()` accessor returning context-local basis or SI fallback
+- `get_basis_graph()` accessor returning context-local or standard BasisGraph
+- `set_default_basis_graph()` for module-level BasisGraph replacement
+- `reset_default_basis_graph()` to restore standard BasisGraph on next access
+- `Dimension.from_components()` and `Dimension.pseudo()` now respect context basis
+
+## [0.8.3] - 2026-02-25
+
 ### Added
 
 - Auto-generated `dimension.pyi` stubs for IDE code completion (`make stubs`)
@@ -331,7 +345,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.8.2...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.8.4...HEAD
+[0.8.4]: https://github.com/withtwoemms/ucon/compare/0.8.3...0.8.4
+[0.8.3]: https://github.com/withtwoemms/ucon/compare/0.8.2...0.8.3
 [0.8.2]: https://github.com/withtwoemms/ucon/compare/0.8.1...0.8.2
 [0.8.1]: https://github.com/withtwoemms/ucon/compare/0.8.0...0.8.1
 [0.8.0]: https://github.com/withtwoemms/ucon/compare/0.7.7...0.8.0

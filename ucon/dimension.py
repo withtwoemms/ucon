@@ -238,7 +238,8 @@ class Dimension(metaclass=_DimensionMeta):
         True
         """
         if basis is None:
-            basis = SI
+            from ucon.basis import get_default_basis
+            basis = get_default_basis()
 
         # Build component tuple
         exponents = []
@@ -291,7 +292,8 @@ class Dimension(metaclass=_DimensionMeta):
         False
         """
         if basis is None:
-            basis = SI
+            from ucon.basis import get_default_basis
+            basis = get_default_basis()
         if name is None:
             name = tag
 

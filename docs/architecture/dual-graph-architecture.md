@@ -296,3 +296,55 @@ print(result(1))  # 2.998e9
 | When used | Edge addition, compatibility checks | Path finding, conversion execution |
 
 The dual-graph architecture cleanly separates *what can be converted* (BasisGraph) from *how to convert it* (ConversionGraph), enabling robust cross-basis unit handling while maintaining single-basis simplicity for common cases.
+
+---
+
+## Context Scoping (v0.8.4+)
+
+Both the default `Basis` and `BasisGraph` support thread-safe context scoping via `ContextVar`.
+
+### Why Context Scoping?
+
+Different parts of an application may need different defaults:
+
+- A CGS physics simulation vs. SI engineering calculations
+- Test isolation without global state pollution
+- Async tasks with independent basis configurations
+
+### API
+
+```python
+from ucon import (
+    using_basis,
+    using_basis_graph,
+    get_default_basis,
+    get_basis_graph,
+)
+
+# Scoped basis override
+with using_basis(CGS):
+    dim = Dimension.from_components(L=1)  # Uses CGS
+    get_default_basis()  # CGS
+
+# Scoped BasisGraph override
+custom_graph = BasisGraph()
+with using_basis_graph(custom_graph):
+    get_basis_graph() is custom_graph  # True
+```
+
+### Relationship to `using_graph()`
+
+| Context Manager | Scope | Affects |
+|-----------------|-------|---------|
+| `using_graph()` | ConversionGraph | Unit conversions, name resolution |
+| `using_basis()` | Default Basis | Dimension creation defaults |
+| `using_basis_graph()` | BasisGraph | Cross-basis validation |
+
+These are independent — you can combine them as needed:
+
+```python
+with using_graph(aerospace_graph):
+    with using_basis(CGS):
+        # Aerospace units, CGS dimensions
+        pass
+```
