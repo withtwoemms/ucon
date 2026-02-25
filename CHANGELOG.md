@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- CI: merge gate job, concurrency control, dependency caching, docs build check
+- CI: CHANGELOG entry required for all PRs
+- CHANGELOG with full version history
+- Automated GitHub Releases from CHANGELOG on tag push
+
 ## [0.8.2] - 2026-02-24
 
 ### Added
