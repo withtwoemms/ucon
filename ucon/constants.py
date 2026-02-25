@@ -58,6 +58,8 @@ class Constant:
         Standard uncertainty. None indicates exact (by definition).
     source : str
         Data source (default: "CODATA 2022").
+    category : str
+        Category: "exact", "derived", "measured", or "session".
 
     Examples
     --------
@@ -75,6 +77,7 @@ class Constant:
     unit: Union['Unit', 'UnitProduct']
     uncertainty: Union[float, None]
     source: str = "CODATA 2022"
+    category: str = "measured"
 
     def as_number(self) -> 'Number':
         """Return as Number for calculations."""
@@ -160,6 +163,7 @@ def _build_constants():
         value=9192631770,
         unit=units.hertz,
         uncertainty=None,
+        category="exact",
     )
 
     speed_of_light = Constant(
@@ -168,6 +172,7 @@ def _build_constants():
         value=299792458,
         unit=units.meter / units.second,
         uncertainty=None,
+        category="exact",
     )
 
     planck_constant = Constant(
@@ -176,6 +181,7 @@ def _build_constants():
         value=6.62607015e-34,
         unit=units.joule * units.second,
         uncertainty=None,
+        category="exact",
     )
 
     elementary_charge = Constant(
@@ -184,6 +190,7 @@ def _build_constants():
         value=1.602176634e-19,
         unit=units.coulomb,
         uncertainty=None,
+        category="exact",
     )
 
     boltzmann_constant = Constant(
@@ -192,6 +199,7 @@ def _build_constants():
         value=1.380649e-23,
         unit=units.joule / units.kelvin,
         uncertainty=None,
+        category="exact",
     )
 
     avogadro_constant = Constant(
@@ -200,6 +208,7 @@ def _build_constants():
         value=6.02214076e23,
         unit=units.none / units.mole,
         uncertainty=None,
+        category="exact",
     )
 
     luminous_efficacy = Constant(
@@ -208,6 +217,7 @@ def _build_constants():
         value=683,
         unit=units.lumen / units.watt,
         uncertainty=None,
+        category="exact",
     )
 
     # -------------------------------------------------------------------------
@@ -221,6 +231,7 @@ def _build_constants():
         value=6.62607015e-34 / (2 * math.pi),
         unit=units.joule * units.second,
         uncertainty=None,
+        category="derived",
     )
 
     molar_gas_constant = Constant(
@@ -229,6 +240,7 @@ def _build_constants():
         value=8.314462618,
         unit=units.joule / (units.mole * units.kelvin),
         uncertainty=None,
+        category="derived",
     )
 
     stefan_boltzmann_constant = Constant(
@@ -237,6 +249,7 @@ def _build_constants():
         value=5.670374419e-8,
         unit=units.watt / (units.meter ** 2 * units.kelvin ** 4),
         uncertainty=None,
+        category="derived",
     )
 
     # -------------------------------------------------------------------------
@@ -249,6 +262,7 @@ def _build_constants():
         value=6.67430e-11,
         unit=units.meter ** 3 / (units.kilogram * units.second ** 2),
         uncertainty=0.00015e-11,
+        category="measured",
     )
 
     fine_structure_constant = Constant(
@@ -257,6 +271,7 @@ def _build_constants():
         value=7.2973525693e-3,
         unit=units.none,
         uncertainty=0.0000000011e-3,
+        category="measured",
     )
 
     electron_mass = Constant(
@@ -265,6 +280,7 @@ def _build_constants():
         value=9.1093837015e-31,
         unit=units.kilogram,
         uncertainty=0.0000000028e-31,
+        category="measured",
     )
 
     proton_mass = Constant(
@@ -273,6 +289,7 @@ def _build_constants():
         value=1.67262192369e-27,
         unit=units.kilogram,
         uncertainty=0.00000000051e-27,
+        category="measured",
     )
 
     neutron_mass = Constant(
@@ -281,6 +298,7 @@ def _build_constants():
         value=1.67492749804e-27,
         unit=units.kilogram,
         uncertainty=0.00000000095e-27,
+        category="measured",
     )
 
     vacuum_permittivity = Constant(
@@ -289,6 +307,7 @@ def _build_constants():
         value=8.8541878128e-12,
         unit=units.farad / units.meter,
         uncertainty=0.0000000013e-12,
+        category="measured",
     )
 
     vacuum_permeability = Constant(
@@ -297,6 +316,7 @@ def _build_constants():
         value=1.25663706212e-6,
         unit=units.henry / units.meter,
         uncertainty=0.00000000019e-6,
+        category="measured",
     )
 
     return {
@@ -333,6 +353,97 @@ def _get_constants() -> dict:
     if not _constants_cache:
         _constants_cache = _build_constants()
     return _constants_cache
+
+
+def all_constants() -> list[Constant]:
+    """Return all built-in constants.
+
+    Returns
+    -------
+    list[Constant]
+        All 17 CODATA physical constants.
+
+    Examples
+    --------
+    >>> from ucon.constants import all_constants
+    >>> constants = all_constants()
+    >>> len(constants)
+    17
+    >>> [c.symbol for c in constants if c.category == "exact"]
+    ['ΔνCs', 'c', 'h', 'e', 'k', 'NA', 'Kcd']
+    """
+    return list(_get_constants().values())
+
+
+def get_constant_by_symbol(symbol: str) -> Constant | None:
+    """Look up a constant by symbol or alias.
+
+    Parameters
+    ----------
+    symbol : str
+        Symbol to look up (e.g., "c", "h", "G", "hbar", "ℏ").
+
+    Returns
+    -------
+    Constant | None
+        The matching constant, or None if not found.
+
+    Examples
+    --------
+    >>> from ucon.constants import get_constant_by_symbol
+    >>> c = get_constant_by_symbol("c")
+    >>> c.name
+    'speed of light in vacuum'
+    >>> get_constant_by_symbol("hbar").symbol
+    'ℏ'
+    """
+    constants = _get_constants()
+
+    # Direct symbol match
+    for const in constants.values():
+        if const.symbol == symbol:
+            return const
+
+    # Unicode aliases
+    _unicode_aliases = {
+        'c': 'speed_of_light',
+        'h': 'planck_constant',
+        'ℏ': 'reduced_planck_constant',
+        'e': 'elementary_charge',
+        'k_B': 'boltzmann_constant',
+        'k': 'boltzmann_constant',
+        'N_A': 'avogadro_constant',
+        'NA': 'avogadro_constant',
+        'G': 'gravitational_constant',
+        'α': 'fine_structure_constant',
+        'ε₀': 'vacuum_permittivity',
+        'μ₀': 'vacuum_permeability',
+        'mₑ': 'electron_mass',
+        'mₚ': 'proton_mass',
+        'mₙ': 'neutron_mass',
+        'σ': 'stefan_boltzmann_constant',
+        'R': 'molar_gas_constant',
+        'Kcd': 'luminous_efficacy',
+        'ΔνCs': 'hyperfine_transition_frequency',
+    }
+
+    # ASCII aliases
+    _ascii_aliases = {
+        'hbar': 'reduced_planck_constant',
+        'alpha': 'fine_structure_constant',
+        'epsilon_0': 'vacuum_permittivity',
+        'mu_0': 'vacuum_permeability',
+        'm_e': 'electron_mass',
+        'm_p': 'proton_mass',
+        'm_n': 'neutron_mass',
+    }
+
+    if symbol in _unicode_aliases:
+        return constants[_unicode_aliases[symbol]]
+    if symbol in _ascii_aliases:
+        return constants[_ascii_aliases[symbol]]
+
+    return None
 
 
 def __getattr__(name: str):
@@ -383,6 +494,9 @@ def __getattr__(name: str):
 
 __all__ = [
     'Constant',
+    # Enumeration functions
+    'all_constants',
+    'get_constant_by_symbol',
     # SI defining constants (exact)
     'hyperfine_transition_frequency',
     'speed_of_light',
