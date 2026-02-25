@@ -49,9 +49,9 @@ ucon is a dimensional analysis library for engineers building systems where unit
 
 ---
 
-## Current Version: **v0.8.2** (complete)
+## Current Version: **v0.8.3** (in progress)
 
-Building on v0.8.1 baseline:
+Building on v0.8.2 baseline:
 - `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`)
 - `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`; standard transforms)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
@@ -68,6 +68,7 @@ Building on v0.8.1 baseline:
 - `Dimension` now uses basis-aware `Vector` with explicit basis reference
 - Pydantic v2 integration with JSON serialization
 - Unit string parsing: `get_unit_by_name("kg*m/s^2")`
+- Auto-generated `dimension.pyi` stubs for IDE code completion
 
 ---
 
@@ -496,23 +497,28 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 **Theme:** Cross-basis conversion validation and BasisTransform unification.
 
+### Developer Experience
+
+- [x] Auto-generated `dimension.pyi` stubs for IDE code completion (`make stubs`)
+
 ### BasisGraph Integration
 
-- [ ] `ConversionGraph` accepts `BasisGraph` as constructor parameter
-- [ ] `add_edge()` validates cross-basis edges via `BasisGraph`
+- [x] `ConversionGraph` accepts `BasisGraph` as constructor parameter
+- [x] `add_edge()` validates cross-basis edges via `BasisGraph`
 - [ ] `convert()` validates dimensional compatibility via `BasisGraph`
-- [ ] `Unit.basis` property: `return self.dimension.vector.basis`
+- [x] `Unit.basis` property: `return self.dimension.vector.basis`
 - [ ] `Unit.is_compatible(other)` using `BasisGraph`
 
 ### BasisTransform Cleanup
 
-- [ ] Update `RebasedUnit` to use `ucon.basis.BasisTransform`
-- [ ] Update `ConversionGraph` cross-basis methods to use new `BasisTransform`
-- [ ] Delete old `BasisTransform` from `ucon/core.py`
-- [ ] Remove `NewBasisTransform` alias from `ucon/__init__.py`
-- [ ] Export only `BasisTransform` from `ucon.basis`
+- [x] Update `RebasedUnit` to use `ucon.basis.BasisTransform`
+- [x] Update `ConversionGraph` cross-basis methods to use new `BasisTransform`
+- [x] Delete old `BasisTransform` from `ucon/core.py`
+- [x] Remove `NewBasisTransform` alias from `ucon/__init__.py`
+- [x] Export only `BasisTransform` from `ucon.basis`
 
 **Outcomes:**
+- IDE code completion works for `Dimension.length`, `Dimension.velocity`, etc.
 - Cross-basis unit edges validated at registration time
 - Dimensional errors caught before numeric conversion attempted
 - Single unified `BasisTransform` implementation
