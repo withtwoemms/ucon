@@ -166,6 +166,13 @@ make test                        # Run tests
 make test-all                    # Run tests across all Python versions
 ```
 
+When modifying `ucon/dimension.py` (adding/removing dimensions), regenerate the type stubs:
+
+```bash
+make stubs                       # Regenerate ucon/dimension.pyi
+make check-stubs                 # Verify stubs are current (used in CI)
+```
+
 All pull requests must include a [CHANGELOG.md](https://github.com/withtwoemms/ucon/blob/main/CHANGELOG.md) entry under the `[Unreleased]` section:
 
 ```markdown
