@@ -151,15 +151,27 @@ class AffineMap(Map):
 @dataclass(frozen=True)
 class LogMap(Map):
     """
-    Logarithmic map: ``y = scale * log_base(x) + offset``
+    Logarithmic map: ``y = scale * log_base(x / reference) + offset``
+
+    Parameters
+    ----------
+    scale : float
+        Multiplier for logarithm (10 for dB power, 20 for dB amplitude)
+    base : float
+        Logarithm base (10 for dB, e for neper)
+    reference : float
+        Reference value; x/reference is the argument to log.
+        Default 1.0 means pure ratio (no reference level).
+    offset : float
+        Added after logarithm (rarely used)
 
     Examples::
 
-        LogMap()                  # log₁₀(x)
-        LogMap(scale=10)          # 10·log₁₀(x) — decibels (power)
-        LogMap(scale=20)          # 20·log₁₀(x) — decibels (amplitude)
-        LogMap(scale=-1)          # -log₁₀(x)   — pH-style
-        LogMap(base=math.e)       # ln(x)       — neper
+        LogMap()                           # log₁₀(x) — pure ratio
+        LogMap(scale=10)                   # 10·log₁₀(x) — bel×10 (dB power)
+        LogMap(scale=10, reference=0.001)  # 10·log₁₀(x/1mW) — dBm
+        LogMap(scale=-1)                   # -log₁₀(x) — pH-style
+        LogMap(base=math.e)                # ln(x) — neper
 
     For transforms like nines ``(-log₁₀(1-x))``, compose with AffineMap::
 
@@ -168,12 +180,13 @@ class LogMap(Map):
 
     scale: float = 1.0
     base: float = 10.0
+    reference: float = 1.0
     offset: float = 0.0
 
     def __call__(self, x: float) -> float:
         if x <= 0:
             raise ValueError(f"Logarithm argument must be positive, got {x}")
-        return self.scale * math.log(x, self.base) + self.offset
+        return self.scale * math.log(x / self.reference, self.base) + self.offset
 
     @property
     def invertible(self) -> bool:
@@ -186,6 +199,7 @@ class LogMap(Map):
         return ExpMap(
             scale=1.0 / self.scale,
             base=self.base,
+            reference=self.reference,
             offset=-self.offset / self.scale,
         )
 
@@ -202,7 +216,7 @@ class LogMap(Map):
         raise ValueError("LogMap only supports exp=1 or exp=-1")
 
     def derivative(self, x: float) -> float:
-        """Derivative: d/dx[scale * log_base(x) + offset] = scale / (x * ln(base))"""
+        """Derivative: d/dx[scale * log_base(x/ref)] = scale / (x * ln(base))"""
         if x <= 0:
             raise ValueError(f"Derivative undefined for x={x}")
         return self.scale / (x * math.log(self.base))
@@ -214,18 +228,30 @@ class LogMap(Map):
 @dataclass(frozen=True)
 class ExpMap(Map):
     """
-    Exponential map: ``y = base^(scale * x + offset)``
+    Exponential map: ``y = reference * base^(scale * x + offset)``
 
     This is the inverse of :class:`LogMap`. Typically obtained via
     ``LogMap.inverse()`` rather than constructed directly.
+
+    Parameters
+    ----------
+    scale : float
+        Multiplier for the exponent.
+    base : float
+        Base of the exponential (10 for dB, e for neper).
+    reference : float
+        Multiplier for the result. Default 1.0 for pure ratio.
+    offset : float
+        Added to exponent before evaluation.
     """
 
     scale: float = 1.0
     base: float = 10.0
+    reference: float = 1.0
     offset: float = 0.0
 
     def __call__(self, x: float) -> float:
-        return self.base ** (self.scale * x + self.offset)
+        return self.reference * self.base ** (self.scale * x + self.offset)
 
     @property
     def invertible(self) -> bool:
@@ -238,6 +264,7 @@ class ExpMap(Map):
         return LogMap(
             scale=1.0 / self.scale,
             base=self.base,
+            reference=self.reference,
             offset=-self.offset / self.scale,
         )
 
@@ -254,7 +281,7 @@ class ExpMap(Map):
         raise ValueError("ExpMap only supports exp=1 or exp=-1")
 
     def derivative(self, x: float) -> float:
-        """Derivative: d/dx[base^(scale*x + offset)] = ln(base) * scale * base^(scale*x + offset)"""
+        """Derivative: d/dx[ref * base^(scale*x + offset)] = ln(base) * scale * ref * base^(scale*x + offset)"""
         return math.log(self.base) * self.scale * self(x)
 
     def is_identity(self, tol: float = 1e-9) -> bool:

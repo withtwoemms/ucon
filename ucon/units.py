@@ -182,6 +182,40 @@ nines = Unit(name='nines', dimension=RATIO, aliases=('9s',))
 # ----------------------------------------------------------------------
 
 
+# -- Logarithmic Units (v0.9.1) ----------------------------------------
+# Base logarithmic units (dimensionless ratio)
+# Note: 'B' alias omitted for bel to avoid conflict with byte ('B')
+bel = Unit(name='bel', dimension=RATIO, aliases=())
+decibel = Unit(name='decibel', dimension=RATIO, aliases=('dB',))
+neper = Unit(name='neper', dimension=RATIO, aliases=('Np',))
+
+# Reference-level variants (carry dimension of the reference)
+decibel_milliwatt = Unit(
+    name='decibel_milliwatt',
+    dimension=POWER,
+    aliases=('dBm',),
+)
+decibel_watt = Unit(
+    name='decibel_watt',
+    dimension=POWER,
+    aliases=('dBW',),
+)
+decibel_volt = Unit(
+    name='decibel_volt',
+    dimension=VOLTAGE,
+    aliases=('dBV',),
+)
+decibel_spl = Unit(
+    name='decibel_spl',
+    dimension=PRESSURE,
+    aliases=('dBSPL', 'dB_SPL'),
+)
+
+# pH (chemistry) - logarithmic measure of hydrogen ion concentration
+pH = Unit(name='pH', dimension=RATIO, aliases=())
+# ----------------------------------------------------------------------
+
+
 # -- Count Units -------------------------------------------------------
 each = Unit(name='each', dimension=COUNT, aliases=('ea', 'item', 'ct'))
 # ----------------------------------------------------------------------
