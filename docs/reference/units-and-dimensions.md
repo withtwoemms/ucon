@@ -210,6 +210,92 @@ These share a zero-vector but are semantically distinct.
 
 ---
 
+## Logarithmic Units
+
+Units that use logarithmic scales for representing ratios or absolute values relative to a reference.
+
+### Pure Ratio (Dimensionless)
+
+These express power or amplitude ratios without a fixed reference level.
+
+| Unit | Shorthand | Aliases | Formula | Notes |
+|------|-----------|---------|---------|-------|
+| bel | - | - | log₁₀(ratio) | Rarely used directly |
+| decibel | dB | dB | 10·log₁₀(ratio) | 1 bel = 10 dB |
+| neper | Np | Np | ln(ratio) | Natural log scale |
+
+```python
+from ucon import units
+
+# Power ratio to decibels
+ratio = units.fraction(100)
+db = ratio.to(units.decibel)  # <20.0 dB>
+
+# Amplitude ratio to nepers
+import math
+ratio = units.fraction(math.e ** 2)
+np = ratio.to(units.neper)  # <2.0 Np>
+```
+
+### Reference-Level Units
+
+These express absolute values on a logarithmic scale relative to a defined reference.
+
+| Unit | Shorthand | Dimension | Reference | Formula |
+|------|-----------|-----------|-----------|---------|
+| decibel_milliwatt | dBm | power | 1 mW | 10·log₁₀(P / 1 mW) |
+| decibel_watt | dBW | power | 1 W | 10·log₁₀(P / 1 W) |
+| decibel_volt | dBV | voltage | 1 V | 20·log₁₀(V / 1 V) |
+| decibel_spl | dBSPL | pressure | 20 µPa | 20·log₁₀(P / 20 µPa) |
+
+```python
+from ucon import units
+
+# Power to dBm
+power = units.watt(1.0)
+dbm = power.to(units.decibel_milliwatt)  # <30.0 dBm>
+
+# dBm back to watts
+dbm = units.decibel_milliwatt(0.0)
+power = dbm.to(units.watt)  # <0.001 W> (1 mW)
+
+# Voltage to dBV
+voltage = units.volt(10.0)
+dbv = voltage.to(units.decibel_volt)  # <20.0 dBV>
+
+# Sound pressure to dBSPL
+pressure = units.pascal(1.0)
+dbspl = pressure.to(units.decibel_spl)  # <~94 dBSPL>
+```
+
+### Chemistry
+
+| Unit | Shorthand | Dimension | Reference | Formula |
+|------|-----------|-----------|-----------|---------|
+| pH | pH | concentration | 1 mol/L | -log₁₀([H⁺] / 1 mol/L) |
+
+pH measures hydrogen ion concentration on a logarithmic scale. It has concentration dimension (`amount_of_substance / volume`), enabling direct conversion with mol/L.
+
+```python
+from ucon import units
+
+# Concentration to pH
+mol_per_liter = units.mole / units.liter
+conc = mol_per_liter(1e-7)
+ph = conc.to(units.pH)  # <7.0 pH> (neutral)
+
+# pH to concentration
+ph = units.pH(4.0)
+conc = ph.to(mol_per_liter)  # <1e-4 mol/L> (acidic)
+
+# Common pH values
+mol_per_liter(1e-1).to(units.pH)   # <1.0 pH>  (strong acid)
+mol_per_liter(1e-7).to(units.pH)   # <7.0 pH>  (neutral)
+mol_per_liter(1e-14).to(units.pH)  # <14.0 pH> (strong base)
+```
+
+---
+
 ## Priority Aliases
 
 Some aliases take precedence to prevent ambiguous parses:
