@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-02-25
+
+### Added
+
+- MCP tools for physical constants (#204)
+  - `list_constants(category)` lists available constants filtered by category
+    - Categories: `"exact"`, `"derived"`, `"measured"`, `"session"`, `"all"`
+  - `define_constant(symbol, name, value, unit, uncertainty, source)` creates session constants
+  - Session constants persist until `reset_session()` is called
+- `all_constants()` function to enumerate built-in constants
+- `get_constant_by_symbol()` function for constant lookup by symbol or alias
+- `Constant.category` field classifying constants as `"exact"`, `"derived"`, `"measured"`, or `"session"`
+
 ## [0.9.1] - 2026-02-25
 
 ### Added
@@ -385,7 +398,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.1...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.2...HEAD
+[0.9.2]: https://github.com/withtwoemms/ucon/compare/0.9.1...0.9.2
 [0.9.1]: https://github.com/withtwoemms/ucon/compare/0.9.0...0.9.1
 [0.9.0]: https://github.com/withtwoemms/ucon/compare/0.8.5...0.9.0
 [0.8.5]: https://github.com/withtwoemms/ucon/compare/0.8.4...0.8.5
