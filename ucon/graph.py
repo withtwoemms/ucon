@@ -507,6 +507,17 @@ class ConversionGraph:
 
         # Check for dimension mismatch
         if src.dimension != dst.dimension:
+            # If BasisGraph is available, check if cross-basis conversion is possible
+            if self._basis_graph is not None:
+                src_basis = src.dimension.vector.basis
+                dst_basis = dst.dimension.vector.basis
+                if src_basis != dst_basis and self._basis_graph.are_connected(src_basis, dst_basis):
+                    # Bases are connected but no rebased path found above
+                    raise ConversionNotFound(
+                        f"No conversion path from {src} to {dst}. "
+                        f"Bases {src_basis.name} and {dst_basis.name} are connected, "
+                        f"but no rebased unit edge has been registered."
+                    )
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
 
         # Direct edge?

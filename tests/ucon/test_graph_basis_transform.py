@@ -149,5 +149,60 @@ class TestGraphListTransforms(unittest.TestCase):
         self.assertEqual(len(transforms), 2)
 
 
+class TestUnitIsCompatible(unittest.TestCase):
+    """Test Unit.is_compatible() method."""
+
+    def test_same_dimension_always_compatible(self):
+        # meter and foot have same dimension (length)
+        self.assertTrue(units.meter.is_compatible(units.foot))
+        self.assertTrue(units.foot.is_compatible(units.meter))
+
+    def test_different_dimension_incompatible_without_graph(self):
+        # meter (length) and second (time) are incompatible
+        self.assertFalse(units.meter.is_compatible(units.second))
+        self.assertFalse(units.second.is_compatible(units.meter))
+
+    def test_different_dimension_same_basis_incompatible_with_graph(self):
+        # Even with BasisGraph, different dimensions in same basis are incompatible
+        from ucon.basis import BasisGraph
+        bg = BasisGraph()
+        self.assertFalse(units.meter.is_compatible(units.second, basis_graph=bg))
+
+    def test_cross_basis_compatible_when_connected(self):
+        # Create two connected bases
+        from ucon.basis import BasisGraph, BasisTransform
+        from ucon.bases import SI, CGS, SI_TO_CGS
+
+        bg = BasisGraph()
+        bg = bg.with_transform(SI_TO_CGS)
+
+        # Create units in different bases
+        cgs_length = Dimension.from_components(CGS, length=1, name="cgs_length")
+        cgs_unit = Unit(name="centimeter_cgs", dimension=cgs_length)
+
+        # SI meter should be compatible with CGS unit via BasisGraph
+        self.assertTrue(units.meter.is_compatible(cgs_unit, basis_graph=bg))
+
+
+class TestConvertBasisGraphValidation(unittest.TestCase):
+    """Test convert() dimensional validation via BasisGraph."""
+
+    def test_dimension_mismatch_without_basis_graph(self):
+        from ucon.graph import DimensionMismatch
+        graph = ConversionGraph()
+        with self.assertRaises(DimensionMismatch):
+            graph.convert(src=units.meter, dst=units.second)
+
+    def test_dimension_mismatch_with_basis_graph_same_basis(self):
+        from ucon.graph import DimensionMismatch
+        from ucon.basis import BasisGraph
+        bg = BasisGraph()
+        graph = ConversionGraph()
+        graph._basis_graph = bg
+        # Same basis, different dimensions - still a mismatch
+        with self.assertRaises(DimensionMismatch):
+            graph.convert(src=units.meter, dst=units.second)
+
+
 if __name__ == "__main__":
     unittest.main()

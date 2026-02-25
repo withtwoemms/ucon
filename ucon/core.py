@@ -25,12 +25,15 @@ from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from dataclasses import dataclass, field
 import sys
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple, Union, TYPE_CHECKING
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
 else:
     from typing_extensions import Annotated
+
+if TYPE_CHECKING:
+    from ucon.basis import BasisGraph
 
 from ucon.dimension import Dimension, NONE
 
@@ -367,6 +370,59 @@ class Unit:
         """The dimensional basis this unit belongs to."""
         from ucon.basis import Basis
         return self.dimension.vector.basis
+
+    def is_compatible(
+        self,
+        other: 'Unit',
+        basis_graph: 'BasisGraph | None' = None,
+    ) -> bool:
+        """Check if this unit is compatible with another for conversion.
+
+        Two units are compatible if:
+        1. They have the same dimension, OR
+        2. Their bases are connected via the BasisGraph (cross-basis conversion)
+
+        Parameters
+        ----------
+        other : Unit
+            The other unit to check compatibility with.
+        basis_graph : BasisGraph, optional
+            The basis graph to use for cross-basis compatibility checks.
+            If None, only same-dimension compatibility is checked.
+
+        Returns
+        -------
+        bool
+            True if the units can be converted between each other.
+
+        Examples
+        --------
+        >>> from ucon import units, BasisGraph
+        >>> units.meter.is_compatible(units.foot)
+        True
+        >>> units.meter.is_compatible(units.second)
+        False
+        """
+        from ucon.basis import BasisGraph
+
+        # Same dimension is always compatible
+        if self.dimension == other.dimension:
+            return True
+
+        # Without a BasisGraph, different dimensions are incompatible
+        if basis_graph is None:
+            return False
+
+        # Check if bases are connected via BasisGraph
+        src_basis = self.basis
+        dst_basis = other.basis
+
+        if src_basis == dst_basis:
+            # Same basis but different dimensions - incompatible
+            return False
+
+        # Cross-basis: check if bases are connected
+        return basis_graph.are_connected(src_basis, dst_basis)
 
     # ----------------- algebra -----------------
 
