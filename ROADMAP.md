@@ -44,7 +44,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.8.4 | Basis Context Scoping | Complete |
 | v0.8.5 | String Parsing | Complete |
 | v0.9.0 | Physical Constants | Complete |
-| v0.9.1 | Logarithmic Units | Planned |
+| v0.9.1 | Logarithmic Units | Complete |
 | v0.9.2 | MCP Constants Tools | Planned |
 | v0.9.3 | Natural Units | Planned |
 | v0.10.0 | Scientific Computing | Planned |
@@ -591,19 +591,20 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.9.1 — Logarithmic Units
+## v0.9.1 — Logarithmic Units (Complete)
 
 **Theme:** Decibels, nepers, and pH scale.
 
 - [x] `LogMap`/`ExpMap` for logarithmic conversions (completed in v0.6.x)
-- [ ] `decibel`, `bel`, `neper` units
-- [ ] Reference-level infrastructure for dBm, dBV, dBW, dBSPL variants
-- [ ] `pH` unit with concentration ↔ pH conversion
-- [ ] Uncertainty propagation through logarithmic conversions (via `LogMap.derivative()`)
+- [x] `decibel`, `bel`, `neper` units (completed in v0.9.0)
+- [x] Reference-level infrastructure for dBm, dBV, dBW, dBSPL variants (completed in v0.9.0)
+- [x] `pH` unit with concentration ↔ pH conversion
+- [x] Uncertainty propagation through logarithmic conversions (via `LogMap.derivative()`)
 
 **Outcomes:**
 - Acoustics (dB), chemistry (pH), and signal processing domains enabled
 - Reference-level variants (dBm = dB relative to 1 mW) supported
+- pH conversion uses concentration dimension for dimensional consistency
 
 ---
 
