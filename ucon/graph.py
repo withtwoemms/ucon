@@ -29,9 +29,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Union
 
-from ucon.basis import Vector
+from ucon.basis import BasisGraph, BasisTransform, NoTransformPath, Vector
 from ucon.core import (
-    BasisTransform,
     Dimension,
     RebasedUnit,
     Unit,
@@ -69,6 +68,7 @@ class ConversionGraph:
     - BFS path composition for multi-hop conversions
     - Factorwise decomposition for UnitProduct conversions
     - Graph-local unit name resolution (v0.7.3+)
+    - Optional BasisGraph for cross-basis validation (v0.8.3+)
     """
 
     # Edges between Units, partitioned by Dimension
@@ -85,6 +85,9 @@ class ConversionGraph:
 
     # Graph-local name resolution (case-sensitive keys for shorthands like 'm', 'L')
     _name_registry_cs: dict[str, Unit] = field(default_factory=dict)
+
+    # Optional BasisGraph for cross-basis dimensional validation
+    _basis_graph: BasisGraph | None = field(default=None)
 
     # ------------- Edge Management -------------------------------------------
 
@@ -117,7 +120,20 @@ class ConversionGraph:
             If src and dst have different dimensions (and no basis_transform).
         CyclicInconsistency
             If the reverse edge exists and round-trip is not identity.
+        NoTransformPath
+            If basis_graph is set and no path exists between src/dst bases.
         """
+        # If basis_graph is set, validate cross-basis compatibility
+        if self._basis_graph is not None and basis_transform is None:
+            src_basis = getattr(getattr(src, 'dimension', None), 'vector', None)
+            dst_basis = getattr(getattr(dst, 'dimension', None), 'vector', None)
+            if src_basis is not None and dst_basis is not None:
+                src_basis = src_basis.basis
+                dst_basis = dst_basis.basis
+                if src_basis != dst_basis:
+                    if not self._basis_graph.are_connected(src_basis, dst_basis):
+                        raise NoTransformPath(src_basis, dst_basis)
+
         # Cross-basis edge with BasisTransform
         if basis_transform is not None:
             if isinstance(src, Unit) and not isinstance(src, UnitProduct):
@@ -193,9 +209,11 @@ class ConversionGraph:
         then stores the edge from the rebased unit to dst.
         """
         # Validate that the transform maps src to dst's dimension
-        if not basis_transform.validate_edge(src, dst):
+        src_vector = src.dimension.vector
+        transformed = basis_transform(src_vector)
+        if transformed != dst.dimension.vector:
             raise DimensionMismatch(
-                f"Transform {basis_transform.src.name} -> {basis_transform.dst.name} "
+                f"Transform {basis_transform.source.name} -> {basis_transform.target.name} "
                 f"does not map {src.name} to {dst.name}'s dimension"
             )
 
@@ -360,6 +378,7 @@ class ConversionGraph:
         new._rebased = dict(self._rebased)
         new._name_registry = dict(self._name_registry)
         new._name_registry_cs = dict(self._name_registry_cs)
+        new._basis_graph = self._basis_graph  # BasisGraph is immutable, share reference
         return new
 
     def with_package(self, package: 'UnitPackage') -> 'ConversionGraph':
@@ -488,6 +507,17 @@ class ConversionGraph:
 
         # Check for dimension mismatch
         if src.dimension != dst.dimension:
+            # If BasisGraph is available, check if cross-basis conversion is possible
+            if self._basis_graph is not None:
+                src_basis = src.dimension.vector.basis
+                dst_basis = dst.dimension.vector.basis
+                if src_basis != dst_basis and self._basis_graph.are_connected(src_basis, dst_basis):
+                    # Bases are connected but no rebased path found above
+                    raise ConversionNotFound(
+                        f"No conversion path from {src} to {dst}. "
+                        f"Bases {src_basis.name} and {dst_basis.name} are connected, "
+                        f"but no rebased unit edge has been registered."
+                    )
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
 
         # Direct edge?

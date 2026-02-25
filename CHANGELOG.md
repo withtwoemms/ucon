@@ -9,11 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Auto-generated `dimension.pyi` stubs for IDE code completion (`make stubs`)
+- `Unit.is_compatible(other, basis_graph)` method for checking conversion compatibility
+- `convert()` validates dimensional compatibility via `BasisGraph`
 - CI: merge gate job, concurrency control, dependency caching, docs build check
 - CI: CHANGELOG entry required for all PRs
 - CHANGELOG with full version history
 - Automated GitHub Releases from CHANGELOG on tag push
 - Tests for Pydantic dimension constraints and constrained_number factory
+
+### Changed
+
+- `RebasedUnit` now uses `ucon.basis.BasisTransform` (unified implementation)
+- Removed old `BasisTransform` from `ucon/core.py`
+- Removed `NewBasisTransform` alias from exports
 
 ## [0.8.2] - 2026-02-24
 

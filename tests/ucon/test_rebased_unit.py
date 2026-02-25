@@ -10,42 +10,20 @@ provenance while exposing the rebased dimension.
 """
 
 import unittest
+from fractions import Fraction
 
-from ucon.core import (
-    BasisTransform,
-    RebasedUnit,
-    UnitSystem,
-)
+from ucon.basis import Basis, BasisComponent, BasisTransform
+from ucon.core import RebasedUnit
 from ucon import Dimension, units
+from ucon.bases import SI
 
 
 class TestRebasedUnitConstruction(unittest.TestCase):
     """Test RebasedUnit construction."""
 
     def setUp(self):
-        self.si = UnitSystem(
-            name="SI",
-            bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
-            }
-        )
-        self.custom = UnitSystem(
-            name="Custom",
-            bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
-            }
-        )
-        self.bt = BasisTransform(
-            src=self.custom,
-            dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
-            matrix=((1,),),
-        )
+        # Create a simple identity transform within SI basis
+        self.bt = BasisTransform.identity(SI)
 
     def test_valid_construction(self):
         rebased = RebasedUnit(
@@ -78,29 +56,7 @@ class TestRebasedUnitEquality(unittest.TestCase):
     """Test RebasedUnit equality and hashing."""
 
     def setUp(self):
-        self.si = UnitSystem(
-            name="SI",
-            bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
-            }
-        )
-        self.custom = UnitSystem(
-            name="Custom",
-            bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
-            }
-        )
-        self.bt = BasisTransform(
-            src=self.custom,
-            dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
-            matrix=((1,),),
-        )
+        self.bt = BasisTransform.identity(SI)
 
     def test_equal_rebased_units(self):
         r1 = RebasedUnit(
@@ -147,25 +103,7 @@ class TestRebasedUnitImmutability(unittest.TestCase):
     """Test that RebasedUnit is immutable."""
 
     def setUp(self):
-        self.si = UnitSystem(
-            name="SI",
-            bases={
-                Dimension.length: units.meter,
-            }
-        )
-        self.custom = UnitSystem(
-            name="Custom",
-            bases={
-                Dimension.length: units.foot,
-            }
-        )
-        self.bt = BasisTransform(
-            src=self.custom,
-            dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
-            matrix=((1,),),
-        )
+        self.bt = BasisTransform.identity(SI)
 
     def test_frozen_dataclass(self):
         rebased = RebasedUnit(

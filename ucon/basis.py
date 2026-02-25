@@ -368,6 +368,33 @@ class BasisTransform:
                     f"'{self.target.name}' has {len(self.target)} components"
                 )
 
+    def __repr__(self) -> str:
+        return f"BasisTransform({self.source.name} -> {self.target.name})"
+
+    def __str__(self) -> str:
+        """Human-readable string with matrix visualization."""
+        lines = [f"BasisTransform: {self.source.name} -> {self.target.name}"]
+
+        # Header row with target component symbols
+        target_syms = [c.symbol for c in self.target]
+        header = "       " + "  ".join(f"{s:>5}" for s in target_syms)
+        lines.append(header)
+
+        # Each row: source component symbol + coefficients
+        for i, row in enumerate(self.matrix):
+            src_sym = self.source[i].symbol
+            coeffs = []
+            for frac in row:
+                if frac == 0:
+                    coeffs.append("    .")
+                elif frac.denominator == 1:
+                    coeffs.append(f"{frac.numerator:>5}")
+                else:
+                    coeffs.append(f"{frac.numerator}/{frac.denominator}".rjust(5))
+            lines.append(f"  {src_sym:>3}  " + "  ".join(coeffs))
+
+        return "\n".join(lines)
+
     def __call__(self, vector: Vector, *, allow_projection: bool = False) -> Vector:
         """Transform a vector from source basis to target basis.
 

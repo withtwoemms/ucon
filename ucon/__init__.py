@@ -42,7 +42,7 @@ from ucon.basis import (
     Basis,
     BasisComponent,
     BasisGraph,
-    BasisTransform as NewBasisTransform,
+    BasisTransform,
     LossyProjection,
     NoTransformPath,
     Vector as BasisVector,
@@ -55,14 +55,9 @@ from ucon.bases import (
     SI_TO_CGS,
     SI_TO_CGS_ESU,
 )
-# Note: ucon.basis.BasisTransform not exported here to avoid collision with
-# ucon.core.BasisTransform. Import from ucon.basis directly for new API.
-# This will be resolved in v0.9.0 when the old BasisTransform is removed.
 from ucon.core import (
-    BasisTransform,
     DimConstraint,
     DimensionNotCovered,
-    NonInvertibleTransform,
     RebasedUnit,
     Scale,
     Unit,
@@ -91,7 +86,6 @@ __all__ = [
     'BasisTransform',
     'BasisVector',
     'LossyProjection',
-    'NewBasisTransform',
     'NoTransformPath',
     # Standard bases
     'CGS',
@@ -107,7 +101,6 @@ __all__ = [
     'DimensionNotCovered',
     'EdgeDef',
     'Exponent',
-    'NonInvertibleTransform',
     'Number',
     'PackageLoadError',
     'Ratio',
