@@ -505,9 +505,9 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 - [x] `ConversionGraph` accepts `BasisGraph` as constructor parameter
 - [x] `add_edge()` validates cross-basis edges via `BasisGraph`
-- [ ] `convert()` validates dimensional compatibility via `BasisGraph`
+- [x] `convert()` validates dimensional compatibility via `BasisGraph`
 - [x] `Unit.basis` property: `return self.dimension.vector.basis`
-- [ ] `Unit.is_compatible(other)` using `BasisGraph`
+- [x] `Unit.is_compatible(other)` using `BasisGraph`
 
 ### BasisTransform Cleanup
 
