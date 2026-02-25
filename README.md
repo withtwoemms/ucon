@@ -127,6 +127,7 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 
 ## Features
 
+- **Physical constants** — CODATA 2022 values with uncertainty propagation (`E = m * c**2`)
 - **String parsing** — `parse("9.81 m/s^2")` with uncertainty support (`1.234 ± 0.005 m`)
 - **Dimensional algebra** — Units combine through multiplication/division with automatic dimension tracking
 - **Scale prefixes** — Full SI (kilo, milli, micro, etc.) and binary (kibi, mebi) prefix support
@@ -148,7 +149,7 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 | **0.6.x** | Pydantic + MCP Server | Complete |
 | **0.7.x** | Compute Tool + Extension API | Complete |
 | **0.8.x** | Basis Abstraction + String Parsing | Complete |
-| **0.9.x** | Constants + Logarithmic Units | Planned |
+| **0.9.x** | Constants + Logarithmic Units | In Progress |
 | **0.10.x** | NumPy/Polars Integration | Planned |
 | **1.0.0** | API Stability | Planned |
 
