@@ -163,8 +163,20 @@ See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROA
 make venv                        # Create virtual environment
 source .ucon-3.12/bin/activate   # Activate
 make test                        # Run tests
-make test-all                    # Run tests across all python versions
+make test-all                    # Run tests across all Python versions
 ```
+
+All pull requests must include a [CHANGELOG.md](https://github.com/withtwoemms/ucon/blob/main/CHANGELOG.md) entry under the `[Unreleased]` section:
+
+```markdown
+## [Unreleased]
+
+### Added
+
+- Your new feature description (#PR_NUMBER)
+```
+
+Use the appropriate category: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, or `Security`.
 
 ---
 
