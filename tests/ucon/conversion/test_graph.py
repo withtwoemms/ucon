@@ -4,9 +4,8 @@
 
 import unittest
 
-from ucon import units
+from ucon import Dimension, units
 from ucon.core import Scale, Unit, UnitFactor, UnitProduct
-from ucon.dimension import LENGTH, TIME, TEMPERATURE
 from ucon.graph import (
     ConversionGraph,
     DimensionMismatch,
@@ -25,8 +24,8 @@ class TestConversionGraphEdgeManagement(unittest.TestCase):
     def setUp(self):
         self.graph = ConversionGraph()
         self.meter = units.meter
-        self.foot = Unit(name='foot', dimension=LENGTH, aliases=('ft',))
-        self.inch = Unit(name='inch', dimension=LENGTH, aliases=('in',))
+        self.foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
+        self.inch = Unit(name='inch', dimension=Dimension.length, aliases=('in',))
         self.gram = units.gram
 
     def test_add_and_retrieve_edge(self):
@@ -55,9 +54,9 @@ class TestConversionGraphUnitConversion(unittest.TestCase):
     def setUp(self):
         self.graph = ConversionGraph()
         self.meter = units.meter
-        self.foot = Unit(name='foot', dimension=LENGTH, aliases=('ft',))
-        self.inch = Unit(name='inch', dimension=LENGTH, aliases=('in',))
-        self.yard = Unit(name='yard', dimension=LENGTH, aliases=('yd',))
+        self.foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
+        self.inch = Unit(name='inch', dimension=Dimension.length, aliases=('in',))
+        self.yard = Unit(name='yard', dimension=Dimension.length, aliases=('yd',))
 
     def test_identity_conversion(self):
         m = self.graph.convert(src=self.meter, dst=self.meter)
@@ -82,7 +81,7 @@ class TestConversionGraphUnitConversion(unittest.TestCase):
         self.assertAlmostEqual(m(1), 1.0936, places=3)
 
     def test_no_path_raises(self):
-        mile = Unit(name='mile', dimension=LENGTH, aliases=('mi',))
+        mile = Unit(name='mile', dimension=Dimension.length, aliases=('mi',))
         with self.assertRaises(ConversionNotFound):
             self.graph.convert(src=self.meter, dst=mile)
 
@@ -97,8 +96,8 @@ class TestConversionGraphProductConversion(unittest.TestCase):
         self.graph = ConversionGraph()
         self.meter = units.meter
         self.second = units.second
-        self.mile = Unit(name='mile', dimension=LENGTH, aliases=('mi',))
-        self.hour = Unit(name='hour', dimension=TIME, aliases=('h',))
+        self.mile = Unit(name='mile', dimension=Dimension.length, aliases=('mi',))
+        self.hour = Unit(name='hour', dimension=Dimension.time, aliases=('h',))
 
         # Register unit conversions
         self.graph.add_edge(src=self.meter, dst=self.mile, map=LinearMap(0.000621371))
@@ -159,9 +158,9 @@ class TestConversionGraphTemperature(unittest.TestCase):
 
     def setUp(self):
         self.graph = ConversionGraph()
-        self.celsius = Unit(name='celsius', dimension=TEMPERATURE, aliases=('°C',))
-        self.kelvin = Unit(name='kelvin', dimension=TEMPERATURE, aliases=('K',))
-        self.fahrenheit = Unit(name='fahrenheit', dimension=TEMPERATURE, aliases=('°F',))
+        self.celsius = Unit(name='celsius', dimension=Dimension.temperature, aliases=('°C',))
+        self.kelvin = Unit(name='kelvin', dimension=Dimension.temperature, aliases=('K',))
+        self.fahrenheit = Unit(name='fahrenheit', dimension=Dimension.temperature, aliases=('°F',))
 
     def test_celsius_to_kelvin(self):
         self.graph.add_edge(src=self.celsius, dst=self.kelvin, map=AffineMap(1, 273.15))
@@ -246,7 +245,7 @@ class TestConversionGraphFactorwiseEdgeCases(unittest.TestCase):
         self.graph = ConversionGraph()
         self.meter = units.meter
         self.second = units.second
-        self.foot = Unit(name='foot', dimension=LENGTH, aliases=('ft',))
+        self.foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
 
     def test_factorwise_exponent_mismatch(self):
         """Test that exponent mismatch raises ConversionNotFound."""
@@ -292,16 +291,16 @@ class TestConversionGraphBFSEdgeCases(unittest.TestCase):
 
     def test_no_edges_for_dimension(self):
         """Test ConversionNotFound when dimension has no edges at all."""
-        custom_unit1 = Unit(name='custom1', dimension=LENGTH)
-        custom_unit2 = Unit(name='custom2', dimension=LENGTH)
+        custom_unit1 = Unit(name='custom1', dimension=Dimension.length)
+        custom_unit2 = Unit(name='custom2', dimension=Dimension.length)
         with self.assertRaises(ConversionNotFound):
             self.graph.convert(src=custom_unit1, dst=custom_unit2)
 
     def test_source_has_no_outgoing_edges(self):
         """Test when source exists in graph but has no path to target."""
-        a = Unit(name='a', dimension=LENGTH)
-        b = Unit(name='b', dimension=LENGTH)
-        c = Unit(name='c', dimension=LENGTH)
+        a = Unit(name='a', dimension=Dimension.length)
+        b = Unit(name='b', dimension=Dimension.length)
+        c = Unit(name='c', dimension=Dimension.length)
         # Only add a→b, no connection to c
         self.graph.add_edge(src=a, dst=b, map=LinearMap(2.0))
         with self.assertRaises(ConversionNotFound):
@@ -309,10 +308,10 @@ class TestConversionGraphBFSEdgeCases(unittest.TestCase):
 
     def test_disconnected_subgraphs(self):
         """Test when units are in same dimension but disconnected subgraphs."""
-        a = Unit(name='a', dimension=LENGTH)
-        b = Unit(name='b', dimension=LENGTH)
-        c = Unit(name='c', dimension=LENGTH)
-        d = Unit(name='d', dimension=LENGTH)
+        a = Unit(name='a', dimension=Dimension.length)
+        b = Unit(name='b', dimension=Dimension.length)
+        c = Unit(name='c', dimension=Dimension.length)
+        d = Unit(name='d', dimension=Dimension.length)
         # Subgraph 1: a ↔ b
         self.graph.add_edge(src=a, dst=b, map=LinearMap(2.0))
         # Subgraph 2: c ↔ d
@@ -444,7 +443,7 @@ class TestConversionGraphProductEdgePaths(unittest.TestCase):
     def test_bfs_product_direct_edge(self):
         """Test _bfs_product_path with direct product edge."""
         meter = units.meter
-        foot = Unit(name='foot', dimension=LENGTH, aliases=('ft',))
+        foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
 
         m_prod = UnitProduct.from_unit(meter)
         ft_prod = UnitProduct.from_unit(foot)
@@ -512,7 +511,7 @@ class TestConversionGraphAmbiguousDecomposition(unittest.TestCase):
 
         # Two different length units in same product
         meter = units.meter
-        foot = Unit(name='foot', dimension=LENGTH, aliases=('ft',))
+        foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
 
         # m * ft - both length, ambiguous
         ambiguous = UnitProduct({

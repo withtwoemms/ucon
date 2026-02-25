@@ -12,9 +12,8 @@ can be serialized and deserialized via pickle.
 import pickle
 import unittest
 
-from ucon import Number, Scale, units
-from ucon.core import Unit, UnitProduct, UnitFactor, Dimension
-from ucon.dimension import LENGTH, MASS, TIME, TEMPERATURE, CURRENT, VELOCITY, FORCE
+from ucon import Dimension, Number, Scale, units
+from ucon.core import UnitFactor
 
 
 class TestPickleNumber(unittest.TestCase):
@@ -89,7 +88,7 @@ class TestPickleUnit(unittest.TestCase):
         """Test that pickled unit preserves dimension."""
         pickled = pickle.dumps(units.meter)
         restored = pickle.loads(pickled)
-        self.assertEqual(restored.dimension, LENGTH)
+        self.assertEqual(restored.dimension, Dimension.length)
 
     def test_unit_preserves_aliases(self):
         """Test that pickled unit preserves aliases."""
@@ -127,7 +126,7 @@ class TestPickleUnitProduct(unittest.TestCase):
         velocity = units.meter / units.second
         pickled = pickle.dumps(velocity)
         restored = pickle.loads(pickled)
-        self.assertEqual(restored.dimension, VELOCITY)
+        self.assertEqual(restored.dimension, Dimension.velocity)
 
     def test_product_preserves_scale(self):
         """Test that pickled UnitProduct preserves scale factor."""
@@ -186,8 +185,8 @@ class TestPickleDimension(unittest.TestCase):
 
     def test_dimension_values(self):
         """Test pickle of various Dimension values."""
-        for dim in [LENGTH, MASS, TIME,
-                    VELOCITY, FORCE]:
+        for dim in [Dimension.length, Dimension.mass, Dimension.time,
+                    Dimension.velocity, Dimension.force]:
             with self.subTest(dim=dim.name):
                 pickled = pickle.dumps(dim)
                 restored = pickle.loads(pickled)

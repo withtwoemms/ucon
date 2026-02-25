@@ -17,10 +17,9 @@ from ucon.core import (
     Unit,
     UnitSystem,
 )
-from ucon.dimension import LENGTH, MASS, TIME
 from ucon.graph import ConversionGraph
 from ucon.maps import LinearMap
-from ucon import units
+from ucon import Dimension, units
 
 
 class TestGraphAddEdgeWithBasisTransform(unittest.TestCase):
@@ -30,25 +29,25 @@ class TestGraphAddEdgeWithBasisTransform(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                LENGTH: units.meter,
-                MASS: units.kilogram,
-                TIME: units.second,
+                Dimension.length: units.meter,
+                Dimension.mass: units.kilogram,
+                Dimension.time: units.second,
             }
         )
         self.imperial = UnitSystem(
             name="Imperial",
             bases={
-                LENGTH: units.foot,
-                MASS: units.pound,
-                TIME: units.second,
+                Dimension.length: units.foot,
+                Dimension.mass: units.pound,
+                Dimension.time: units.second,
             }
         )
         # Simple 1:1 transform for length
         self.bt = BasisTransform(
             src=self.imperial,
             dst=self.si,
-            src_dimensions=(LENGTH,),
-            dst_dimensions=(LENGTH,),
+            src_dimensions=(Dimension.length,),
+            dst_dimensions=(Dimension.length,),
             matrix=((1,),),
         )
         self.graph = ConversionGraph()
@@ -66,10 +65,10 @@ class TestGraphAddEdgeWithBasisTransform(unittest.TestCase):
         rebased = self.graph._rebased[units.foot]
         self.assertIsInstance(rebased, RebasedUnit)
         self.assertEqual(rebased.original, units.foot)
-        self.assertEqual(rebased.rebased_dimension, LENGTH)
+        self.assertEqual(rebased.rebased_dimension, Dimension.length)
 
     def test_add_edge_without_basis_transform_requires_same_dimension(self):
-        # foot and meter both have LENGTH, so this should work
+        # foot and meter both have Dimension.length, so this should work
         self.graph.add_edge(
             src=units.foot,
             dst=units.meter,
@@ -86,24 +85,24 @@ class TestGraphConvertWithBasisTransform(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                LENGTH: units.meter,
-                MASS: units.kilogram,
-                TIME: units.second,
+                Dimension.length: units.meter,
+                Dimension.mass: units.kilogram,
+                Dimension.time: units.second,
             }
         )
         self.imperial = UnitSystem(
             name="Imperial",
             bases={
-                LENGTH: units.foot,
-                MASS: units.pound,
-                TIME: units.second,
+                Dimension.length: units.foot,
+                Dimension.mass: units.pound,
+                Dimension.time: units.second,
             }
         )
         self.bt = BasisTransform(
             src=self.imperial,
             dst=self.si,
-            src_dimensions=(LENGTH,),
-            dst_dimensions=(LENGTH,),
+            src_dimensions=(Dimension.length,),
+            dst_dimensions=(Dimension.length,),
             matrix=((1,),),
         )
         self.graph = ConversionGraph()
@@ -135,24 +134,24 @@ class TestGraphConnectSystems(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                LENGTH: units.meter,
-                MASS: units.kilogram,
-                TIME: units.second,
+                Dimension.length: units.meter,
+                Dimension.mass: units.kilogram,
+                Dimension.time: units.second,
             }
         )
         self.imperial = UnitSystem(
             name="Imperial",
             bases={
-                LENGTH: units.foot,
-                MASS: units.pound,
-                TIME: units.second,
+                Dimension.length: units.foot,
+                Dimension.mass: units.pound,
+                Dimension.time: units.second,
             }
         )
         self.bt = BasisTransform(
             src=self.imperial,
             dst=self.si,
-            src_dimensions=(LENGTH, MASS),
-            dst_dimensions=(LENGTH, MASS),
+            src_dimensions=(Dimension.length, Dimension.mass),
+            dst_dimensions=(Dimension.length, Dimension.mass),
             matrix=((1, 0), (0, 1)),
         )
         self.graph = ConversionGraph()
@@ -180,20 +179,20 @@ class TestGraphListTransforms(unittest.TestCase):
         self.si = UnitSystem(
             name="SI",
             bases={
-                LENGTH: units.meter,
+                Dimension.length: units.meter,
             }
         )
         self.imperial = UnitSystem(
             name="Imperial",
             bases={
-                LENGTH: units.foot,
+                Dimension.length: units.foot,
             }
         )
         self.bt = BasisTransform(
             src=self.imperial,
             dst=self.si,
-            src_dimensions=(LENGTH,),
-            dst_dimensions=(LENGTH,),
+            src_dimensions=(Dimension.length,),
+            dst_dimensions=(Dimension.length,),
             matrix=((1,),),
         )
         self.graph = ConversionGraph()
@@ -224,28 +223,28 @@ class TestGraphListTransforms(unittest.TestCase):
         # Add another transform
         custom = UnitSystem(
             name="Custom",
-            bases={MASS: units.pound}
+            bases={Dimension.mass: units.pound}
         )
         bt2 = BasisTransform(
             src=custom,
             dst=self.si,
-            src_dimensions=(MASS,),
-            dst_dimensions=(MASS,),
+            src_dimensions=(Dimension.mass,),
+            dst_dimensions=(Dimension.mass,),
             matrix=((1,),),
         )
         # Need to add a mass base to SI for this test
         si_with_mass = UnitSystem(
             name="SI",
             bases={
-                LENGTH: units.meter,
-                MASS: units.kilogram,
+                Dimension.length: units.meter,
+                Dimension.mass: units.kilogram,
             }
         )
         bt2 = BasisTransform(
             src=custom,
             dst=si_with_mass,
-            src_dimensions=(MASS,),
-            dst_dimensions=(MASS,),
+            src_dimensions=(Dimension.mass,),
+            dst_dimensions=(Dimension.mass,),
             matrix=((1,),),
         )
         self.graph.add_edge(

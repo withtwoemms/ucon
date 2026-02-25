@@ -16,6 +16,7 @@ from pathlib import Path
 
 from tests.ucon import EXAMPLE_UNIT_EXTENSIONS_PATH
 from ucon import (
+    Dimension,
     get_default_graph,
     get_unit_by_name,
     load_package,
@@ -25,7 +26,6 @@ from ucon import (
     UnitDef,
     UnitPackage,
 )
-from ucon.dimension import MASS
 from ucon.graph import ConversionGraph
 
 
@@ -49,7 +49,7 @@ class TestUnitDef(unittest.TestCase):
         unit = unit_def.materialize()
 
         self.assertEqual(unit.name, 'slug')
-        self.assertEqual(unit.dimension, MASS)
+        self.assertEqual(unit.dimension, Dimension.mass)
         self.assertEqual(unit.aliases, ('slug',))
 
     def test_unit_def_invalid_dimension(self):

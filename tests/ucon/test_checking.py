@@ -6,8 +6,7 @@
 
 import unittest
 
-from ucon import Number, units, enforce_dimensions, DimConstraint
-from ucon.dimension import LENGTH, TIME, MASS, VELOCITY
+from ucon import Dimension, Number, units, enforce_dimensions, DimConstraint
 
 
 class TestEnforceDimensions(unittest.TestCase):
@@ -15,7 +14,7 @@ class TestEnforceDimensions(unittest.TestCase):
 
     def test_valid_dimensions_pass(self):
         @enforce_dimensions
-        def speed(distance: Number[LENGTH], time: Number[TIME]) -> Number:
+        def speed(distance: Number[Dimension.length], time: Number[Dimension.time]) -> Number:
             return distance / time
 
         result = speed(units.meter(100), units.second(10))
@@ -23,7 +22,7 @@ class TestEnforceDimensions(unittest.TestCase):
 
     def test_wrong_dimension_raises_value_error(self):
         @enforce_dimensions
-        def speed(distance: Number[LENGTH], time: Number[TIME]) -> Number:
+        def speed(distance: Number[Dimension.length], time: Number[Dimension.time]) -> Number:
             return distance / time
 
         with self.assertRaises(ValueError) as ctx:
@@ -35,7 +34,7 @@ class TestEnforceDimensions(unittest.TestCase):
 
     def test_non_number_raises_type_error(self):
         @enforce_dimensions
-        def speed(distance: Number[LENGTH], time: Number[TIME]) -> Number:
+        def speed(distance: Number[Dimension.length], time: Number[Dimension.time]) -> Number:
             return distance / time
 
         with self.assertRaises(TypeError) as ctx:
@@ -47,7 +46,7 @@ class TestEnforceDimensions(unittest.TestCase):
 
     def test_unconstrained_param_accepts_any_dimension(self):
         @enforce_dimensions
-        def mixed(x: Number[TIME], y: Number) -> Number:
+        def mixed(x: Number[Dimension.time], y: Number) -> Number:
             return x
 
         # y is unconstrained — any dimension OK
@@ -59,7 +58,7 @@ class TestEnforceDimensions(unittest.TestCase):
 
     def test_optional_none_skipped(self):
         @enforce_dimensions
-        def optional(x: Number[TIME], y: Number[MASS] = None):
+        def optional(x: Number[Dimension.time], y: Number[Dimension.mass] = None):
             return x
 
         # y defaults to None, should not raise
@@ -78,7 +77,7 @@ class TestEnforceDimensions(unittest.TestCase):
 
     def test_composite_dimension(self):
         @enforce_dimensions
-        def momentum(mass: Number[MASS], velocity: Number[VELOCITY]):
+        def momentum(mass: Number[Dimension.mass], velocity: Number[Dimension.velocity]):
             return mass * velocity
 
         # m/s is velocity dimension
@@ -88,7 +87,7 @@ class TestEnforceDimensions(unittest.TestCase):
 
     def test_wrong_composite_dimension_raises(self):
         @enforce_dimensions
-        def momentum(mass: Number[MASS], velocity: Number[VELOCITY]):
+        def momentum(mass: Number[Dimension.mass], velocity: Number[Dimension.velocity]):
             return mass * velocity
 
         # Passing length instead of velocity
@@ -101,7 +100,7 @@ class TestEnforceDimensions(unittest.TestCase):
 
     def test_positional_and_keyword_args(self):
         @enforce_dimensions
-        def speed(distance: Number[LENGTH], time: Number[TIME]) -> Number:
+        def speed(distance: Number[Dimension.length], time: Number[Dimension.time]) -> Number:
             return distance / time
 
         # Positional
@@ -118,7 +117,7 @@ class TestEnforceDimensions(unittest.TestCase):
 
     def test_preserves_function_metadata(self):
         @enforce_dimensions
-        def documented(x: Number[LENGTH]) -> Number:
+        def documented(x: Number[Dimension.length]) -> Number:
             """This is the docstring."""
             return x
 
@@ -128,7 +127,7 @@ class TestEnforceDimensions(unittest.TestCase):
     def test_derived_dimension_in_error_message(self):
         # Create a derived dimension that doesn't match a named one
         @enforce_dimensions
-        def needs_velocity(v: Number[VELOCITY]):
+        def needs_velocity(v: Number[Dimension.velocity]):
             return v
 
         # Pass volume/time which is a different derived dimension
@@ -149,22 +148,22 @@ class TestDimConstraint(unittest.TestCase):
     """Tests for the DimConstraint marker class."""
 
     def test_equality(self):
-        c1 = DimConstraint(TIME)
-        c2 = DimConstraint(TIME)
-        c3 = DimConstraint(MASS)
+        c1 = DimConstraint(Dimension.time)
+        c2 = DimConstraint(Dimension.time)
+        c3 = DimConstraint(Dimension.mass)
 
         self.assertEqual(c1, c2)
         self.assertNotEqual(c1, c3)
 
     def test_hash(self):
-        c1 = DimConstraint(TIME)
-        c2 = DimConstraint(TIME)
+        c1 = DimConstraint(Dimension.time)
+        c2 = DimConstraint(Dimension.time)
 
         self.assertEqual(hash(c1), hash(c2))
         self.assertIn(c1, {c2})
 
     def test_repr(self):
-        c = DimConstraint(TIME)
+        c = DimConstraint(Dimension.time)
         self.assertEqual(repr(c), "DimConstraint(time)")
 
 

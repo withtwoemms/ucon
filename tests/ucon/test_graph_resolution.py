@@ -19,7 +19,7 @@ from ucon import (
     get_unit_by_name,
     using_graph,
 )
-from ucon.dimension import LENGTH, MASS, TIME
+from ucon import Dimension
 from ucon.graph import ConversionGraph, get_parsing_graph
 from ucon.units import UnknownUnitError
 
@@ -30,7 +30,7 @@ class TestGraphLocalResolution(unittest.TestCase):
     def test_register_unit_basic(self):
         """register_unit() adds unit to graph's name registry."""
         graph = ConversionGraph()
-        custom = Unit(name='slug', dimension=MASS, aliases=('slug',))
+        custom = Unit(name='slug', dimension=Dimension.mass, aliases=('slug',))
 
         graph.register_unit(custom)
 
@@ -43,7 +43,7 @@ class TestGraphLocalResolution(unittest.TestCase):
         graph = ConversionGraph()
         custom = Unit(
             name='nautical_mile',
-            dimension=LENGTH,
+            dimension=Dimension.length,
             aliases=('nmi', 'NM'),
         )
 
@@ -60,7 +60,7 @@ class TestGraphLocalResolution(unittest.TestCase):
     def test_resolve_unit_case_sensitive_first(self):
         """resolve_unit() checks case-sensitive registry first."""
         graph = ConversionGraph()
-        custom = Unit(name='MyUnit', dimension=LENGTH, aliases=('MU',))
+        custom = Unit(name='MyUnit', dimension=Dimension.length, aliases=('MU',))
 
         graph.register_unit(custom)
 
@@ -72,7 +72,7 @@ class TestGraphLocalResolution(unittest.TestCase):
     def test_resolve_unit_case_insensitive_fallback(self):
         """resolve_unit() falls back to case-insensitive lookup."""
         graph = ConversionGraph()
-        custom = Unit(name='slug', dimension=MASS, aliases=('slug',))
+        custom = Unit(name='slug', dimension=Dimension.mass, aliases=('slug',))
 
         graph.register_unit(custom)
 
@@ -89,7 +89,7 @@ class TestGraphLocalResolution(unittest.TestCase):
 
     def test_using_graph_scopes_parsing(self):
         """using_graph() makes graph-local units resolvable via get_unit_by_name()."""
-        custom = Unit(name='slug', dimension=MASS, aliases=('slug',))
+        custom = Unit(name='slug', dimension=Dimension.mass, aliases=('slug',))
         graph = get_default_graph().copy()
         graph.register_unit(custom)
 
@@ -108,7 +108,7 @@ class TestGraphLocalResolution(unittest.TestCase):
 
     def test_graph_isolation(self):
         """Units registered on one graph are not visible in another."""
-        custom = Unit(name='smoot', dimension=LENGTH, aliases=('smoot',))
+        custom = Unit(name='smoot', dimension=Dimension.length, aliases=('smoot',))
 
         graph_a = ConversionGraph()
         graph_b = ConversionGraph()
@@ -133,18 +133,18 @@ class TestGraphLocalResolution(unittest.TestCase):
     def test_graph_local_takes_precedence(self):
         """Graph-local unit takes precedence over global registry."""
         # Create a custom 'meter' (obviously you wouldn't do this in practice)
-        custom_meter = Unit(name='meter', dimension=TIME)  # Wrong dimension!
+        custom_meter = Unit(name='meter', dimension=Dimension.time)  # Wrong dimension!
         graph = ConversionGraph()
         graph.register_unit(custom_meter)
 
         with using_graph(graph):
             resolved = get_unit_by_name('meter')
             # Should get the graph-local custom_meter, not the global one
-            self.assertEqual(resolved.dimension, TIME)
+            self.assertEqual(resolved.dimension, Dimension.time)
 
     def test_copy_preserves_name_registry(self):
         """graph.copy() preserves name registries."""
-        custom = Unit(name='slug', dimension=MASS, aliases=('slug',))
+        custom = Unit(name='slug', dimension=Dimension.mass, aliases=('slug',))
         original = ConversionGraph()
         original.register_unit(custom)
 
@@ -160,7 +160,7 @@ class TestGraphLocalResolution(unittest.TestCase):
         copied = original.copy()
 
         # Add unit to copy only
-        custom = Unit(name='slug', dimension=MASS, aliases=('slug',))
+        custom = Unit(name='slug', dimension=Dimension.mass, aliases=('slug',))
         copied.register_unit(custom)
 
         # Original should NOT have the unit
@@ -196,8 +196,8 @@ class TestGraphLocalResolution(unittest.TestCase):
         outer_graph = ConversionGraph()
         inner_graph = ConversionGraph()
 
-        outer_unit = Unit(name='outer_unit', dimension=MASS)
-        inner_unit = Unit(name='inner_unit', dimension=LENGTH)
+        outer_unit = Unit(name='outer_unit', dimension=Dimension.mass)
+        inner_unit = Unit(name='inner_unit', dimension=Dimension.length)
 
         outer_graph.register_unit(outer_unit)
         inner_graph.register_unit(inner_unit)

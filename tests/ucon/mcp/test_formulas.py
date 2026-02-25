@@ -5,8 +5,7 @@
 
 import pytest
 
-from ucon import Number, enforce_dimensions
-from ucon.dimension import LENGTH, TIME, MASS, FREQUENCY
+from ucon import Dimension, Number, enforce_dimensions
 from ucon.mcp.formulas import (
     FormulaInfo,
     register_formula,
@@ -35,7 +34,7 @@ class TestExtractDimensionConstraints:
 
     def test_extracts_single_constraint(self):
         @enforce_dimensions
-        def measure(length: Number[LENGTH]) -> Number:
+        def measure(length: Number[Dimension.length]) -> Number:
             return length
 
         constraints = extract_dimension_constraints(measure)
@@ -44,8 +43,8 @@ class TestExtractDimensionConstraints:
     def test_extracts_multiple_constraints(self):
         @enforce_dimensions
         def speed(
-            distance: Number[LENGTH],
-            time: Number[TIME],
+            distance: Number[Dimension.length],
+            time: Number[Dimension.time],
         ) -> Number:
             return distance / time
 
@@ -55,7 +54,7 @@ class TestExtractDimensionConstraints:
     def test_unconstrained_params_are_none(self):
         @enforce_dimensions
         def mixed(
-            mass: Number[MASS],
+            mass: Number[Dimension.mass],
             factor: Number,  # No dimension constraint
         ) -> Number:
             return mass * factor
@@ -65,7 +64,7 @@ class TestExtractDimensionConstraints:
 
     def test_handles_unwrapped_function(self):
         """Works on functions without @enforce_dimensions."""
-        def bare(distance: Number[LENGTH]) -> Number:
+        def bare(distance: Number[Dimension.length]) -> Number:
             return distance
 
         constraints = extract_dimension_constraints(bare)
@@ -81,8 +80,8 @@ class TestExtractDimensionConstraints:
     def test_excludes_return_annotation(self):
         @enforce_dimensions
         def with_return(
-            time: Number[TIME],
-        ) -> Number[TIME]:
+            time: Number[Dimension.time],
+        ) -> Number[Dimension.time]:
             return time
 
         constraints = extract_dimension_constraints(with_return)
@@ -101,7 +100,7 @@ class TestRegisterFormula:
     def test_registers_formula(self):
         @register_formula("test_formula", description="A test formula")
         @enforce_dimensions
-        def test_fn(x: Number[LENGTH]) -> Number:
+        def test_fn(x: Number[Dimension.length]) -> Number:
             return x
 
         info = get_formula("test_formula")
@@ -217,8 +216,8 @@ class TestFormulaIntegration:
         @register_formula("bmi", description="Body Mass Index")
         @enforce_dimensions
         def bmi(
-            mass: Number[MASS],
-            height: Number[LENGTH],
+            mass: Number[Dimension.mass],
+            height: Number[Dimension.length],
         ) -> Number:
             return mass / (height * height)
 
@@ -230,9 +229,9 @@ class TestFormulaIntegration:
         @register_formula("dosage", description="Calculate medication dosage")
         @enforce_dimensions
         def dosage(
-            patient_mass: Number[MASS],
+            patient_mass: Number[Dimension.mass],
             dose_per_kg: Number,  # Unconstrained (could be mg/kg)
-            frequency: Number[FREQUENCY],
+            frequency: Number[Dimension.frequency],
         ) -> Number:
             return patient_mass * dose_per_kg * frequency
 
@@ -265,7 +264,7 @@ class TestCallFormula:
 
         @register_formula("needs_params")
         @enforce_dimensions
-        def needs_params(x: Number[LENGTH]) -> Number:
+        def needs_params(x: Number[Dimension.length]) -> Number:
             return x
 
         result = call_formula("needs_params", {})
@@ -314,7 +313,7 @@ class TestCallFormula:
 
         @register_formula("length_only")
         @enforce_dimensions
-        def length_only(x: Number[LENGTH]) -> Number:
+        def length_only(x: Number[Dimension.length]) -> Number:
             return x
 
         # Pass mass instead of length
@@ -327,7 +326,7 @@ class TestCallFormula:
 
         @register_formula("double_length")
         @enforce_dimensions
-        def double_length(x: Number[LENGTH]) -> Number:
+        def double_length(x: Number[Dimension.length]) -> Number:
             return x * Number(2)
 
         result = call_formula("double_length", {"x": {"value": 5, "unit": "m"}})
@@ -357,8 +356,8 @@ class TestCallFormula:
         @register_formula("velocity")
         @enforce_dimensions
         def velocity(
-            distance: Number[LENGTH],
-            time: Number[TIME]
+            distance: Number[Dimension.length],
+            time: Number[Dimension.time]
         ) -> Number:
             return distance / time
 

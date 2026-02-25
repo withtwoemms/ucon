@@ -11,9 +11,8 @@ including conversions from fraction/percent and uncertainty propagation.
 
 import unittest
 
-from ucon import units
+from ucon import Dimension, units
 from ucon.core import Number
-from ucon.dimension import RATIO
 from ucon.graph import DimensionMismatch
 
 
@@ -24,7 +23,7 @@ class TestNinesUnit(unittest.TestCase):
         self.assertIsNotNone(units.nines)
 
     def test_nines_dimension(self):
-        self.assertEqual(units.nines.dimension, RATIO)
+        self.assertEqual(units.nines.dimension, Dimension.ratio)
 
     def test_nines_name(self):
         self.assertEqual(units.nines.name, 'nines')
@@ -40,7 +39,7 @@ class TestFractionUnit(unittest.TestCase):
         self.assertIsNotNone(units.fraction)
 
     def test_fraction_dimension(self):
-        self.assertEqual(units.fraction.dimension, RATIO)
+        self.assertEqual(units.fraction.dimension, Dimension.ratio)
 
     def test_fraction_name(self):
         self.assertEqual(units.fraction.name, 'fraction')

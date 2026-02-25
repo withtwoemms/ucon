@@ -23,7 +23,7 @@ from fractions import Fraction
 import math
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 import sys
 from typing import Dict, Tuple, Union
 
@@ -32,58 +32,7 @@ if sys.version_info >= (3, 9):
 else:
     from typing_extensions import Annotated
 
-from ucon.dimension import (
-    Dimension,
-    resolve as _resolve_dimension,
-    NONE,
-    TIME,
-    LENGTH,
-    MASS,
-    CURRENT,
-    TEMPERATURE,
-    LUMINOUS_INTENSITY,
-    AMOUNT_OF_SUBSTANCE,
-    INFORMATION,
-    ANGLE,
-    SOLID_ANGLE,
-    RATIO,
-    COUNT,
-    VELOCITY,
-    ACCELERATION,
-    FORCE,
-    ENERGY,
-    POWER,
-    MOMENTUM,
-    ANGULAR_MOMENTUM,
-    AREA,
-    VOLUME,
-    DENSITY,
-    PRESSURE,
-    FREQUENCY,
-    DYNAMIC_VISCOSITY,
-    KINEMATIC_VISCOSITY,
-    GRAVITATION,
-    CHARGE,
-    VOLTAGE,
-    RESISTANCE,
-    RESISTIVITY,
-    CONDUCTANCE,
-    CONDUCTIVITY,
-    CAPACITANCE,
-    INDUCTANCE,
-    MAGNETIC_FLUX,
-    MAGNETIC_FLUX_DENSITY,
-    MAGNETIC_PERMEABILITY,
-    PERMITTIVITY,
-    ELECTRIC_FIELD_STRENGTH,
-    ENTROPY,
-    SPECIFIC_HEAT_CAPACITY,
-    THERMAL_CONDUCTIVITY,
-    ILLUMINANCE,
-    CATALYTIC_ACTIVITY,
-    MOLAR_MASS,
-    MOLAR_VOLUME,
-)
+from ucon.dimension import Dimension, NONE
 
 
 # --------------------------------------------------------------------------------------

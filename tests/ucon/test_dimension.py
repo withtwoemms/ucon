@@ -8,37 +8,7 @@ Tests for the new Dimension dataclass in ucon.dimension.
 import unittest
 from fractions import Fraction
 
-from ucon.dimension import (
-    Dimension,
-    resolve,
-    basis,
-    SI,
-    NONE,
-    TIME,
-    LENGTH,
-    MASS,
-    CURRENT,
-    TEMPERATURE,
-    LUMINOUS_INTENSITY,
-    AMOUNT_OF_SUBSTANCE,
-    INFORMATION,
-    ANGLE,
-    SOLID_ANGLE,
-    RATIO,
-    COUNT,
-    VELOCITY,
-    ACCELERATION,
-    FORCE,
-    ENERGY,
-    POWER,
-    AREA,
-    VOLUME,
-    DENSITY,
-    PRESSURE,
-    FREQUENCY,
-    CHARGE,
-    VOLTAGE,
-)
+from ucon.dimension import Dimension, resolve, basis, SI
 from ucon.basis import Vector
 
 
@@ -48,19 +18,19 @@ class TestDimensionConstruction(unittest.TestCase):
     def test_from_components_basic(self):
         """Test creating dimension from named components."""
         velocity = Dimension.from_components(L=1, T=-1, name="velocity")
-        self.assertEqual(velocity, VELOCITY)
+        self.assertEqual(velocity, Dimension.velocity)
 
     def test_from_components_using_symbols(self):
         """Test creating dimension using symbol names."""
         # Using symbol names instead of full names
         dim = Dimension.from_components(L=1, name="length_test")
-        self.assertEqual(dim.vector, LENGTH.vector)
+        self.assertEqual(dim.vector, Dimension.length.vector)
 
     def test_from_components_derived(self):
         """Test creating complex derived dimension."""
         # Force = M*L/T^2
         force = Dimension.from_components(M=1, L=1, T=-2, name="force")
-        self.assertEqual(force, FORCE)
+        self.assertEqual(force, Dimension.force)
 
     def test_pseudo_dimension(self):
         """Test creating pseudo-dimension."""
@@ -71,16 +41,16 @@ class TestDimensionConstruction(unittest.TestCase):
 
     def test_pseudo_dimensions_are_distinct(self):
         """Test that pseudo-dimensions with different tags are not equal."""
-        self.assertNotEqual(ANGLE, RATIO)
-        self.assertNotEqual(ANGLE, COUNT)
-        self.assertNotEqual(RATIO, SOLID_ANGLE)
+        self.assertNotEqual(Dimension.angle, Dimension.ratio)
+        self.assertNotEqual(Dimension.angle, Dimension.count)
+        self.assertNotEqual(Dimension.ratio, Dimension.solid_angle)
 
     def test_pseudo_dimensions_not_equal_to_none(self):
-        """Test that pseudo-dimensions are not equal to NONE."""
-        self.assertNotEqual(ANGLE, NONE)
-        self.assertNotEqual(RATIO, NONE)
-        self.assertNotEqual(COUNT, NONE)
-        self.assertNotEqual(SOLID_ANGLE, NONE)
+        """Test that pseudo-dimensions are not equal to Dimension.none."""
+        self.assertNotEqual(Dimension.angle, Dimension.none)
+        self.assertNotEqual(Dimension.ratio, Dimension.none)
+        self.assertNotEqual(Dimension.count, Dimension.none)
+        self.assertNotEqual(Dimension.solid_angle, Dimension.none)
 
 
 class TestDimensionAlgebra(unittest.TestCase):
@@ -88,78 +58,78 @@ class TestDimensionAlgebra(unittest.TestCase):
 
     def test_multiplication_creates_derived_dimension(self):
         """Test that multiplication produces correct derived dimensions."""
-        self.assertEqual(MASS * ACCELERATION, FORCE)
-        self.assertEqual(LENGTH * LENGTH, AREA)
-        self.assertEqual(LENGTH * LENGTH * LENGTH, VOLUME)
+        self.assertEqual(Dimension.mass * Dimension.acceleration, Dimension.force)
+        self.assertEqual(Dimension.length * Dimension.length, Dimension.area)
+        self.assertEqual(Dimension.length * Dimension.length * Dimension.length, Dimension.volume)
 
     def test_division_creates_derived_dimension(self):
         """Test that division produces correct derived dimensions."""
-        self.assertEqual(LENGTH / TIME, VELOCITY)
-        self.assertEqual(FORCE / AREA, PRESSURE)
-        self.assertEqual(ENERGY / TIME, POWER)
+        self.assertEqual(Dimension.length / Dimension.time, Dimension.velocity)
+        self.assertEqual(Dimension.force / Dimension.area, Dimension.pressure)
+        self.assertEqual(Dimension.energy / Dimension.time, Dimension.power)
 
     def test_power_creates_derived_dimension(self):
         """Test that exponentiation produces correct derived dimensions."""
-        self.assertEqual(LENGTH ** 2, AREA)
-        self.assertEqual(LENGTH ** 3, VOLUME)
-        self.assertEqual(TIME ** -1, FREQUENCY)
+        self.assertEqual(Dimension.length ** 2, Dimension.area)
+        self.assertEqual(Dimension.length ** 3, Dimension.volume)
+        self.assertEqual(Dimension.time ** -1, Dimension.frequency)
 
     def test_power_zero_returns_none(self):
-        """Test that power of 0 returns NONE."""
-        self.assertEqual(LENGTH ** 0, NONE)
-        self.assertEqual(MASS ** 0, NONE)
+        """Test that power of 0 returns Dimension.none."""
+        self.assertEqual(Dimension.length ** 0, Dimension.none)
+        self.assertEqual(Dimension.mass ** 0, Dimension.none)
 
     def test_power_one_returns_same(self):
         """Test that power of 1 returns the same dimension."""
-        self.assertIs(LENGTH ** 1, LENGTH)
-        self.assertIs(MASS ** 1, MASS)
+        self.assertIs(Dimension.length ** 1, Dimension.length)
+        self.assertIs(Dimension.mass ** 1, Dimension.mass)
 
     def test_fractional_power(self):
         """Test fractional exponents create derived dimensions."""
-        sqrt_length = LENGTH ** Fraction(1, 2)
+        sqrt_length = Dimension.length ** Fraction(1, 2)
         self.assertIsInstance(sqrt_length, Dimension)
-        self.assertNotEqual(sqrt_length, LENGTH)
+        self.assertNotEqual(sqrt_length, Dimension.length)
 
     def test_composite_expression(self):
         """Test complex composite expressions."""
         # Energy = Force * Length = (M*L/T^2) * L = M*L^2/T^2
-        energy_via_force = FORCE * LENGTH
-        self.assertEqual(energy_via_force, ENERGY)
+        energy_via_force = Dimension.force * Dimension.length
+        self.assertEqual(energy_via_force, Dimension.energy)
 
         # Power = Energy / Time
-        power_via_energy = ENERGY / TIME
-        self.assertEqual(power_via_energy, POWER)
+        power_via_energy = Dimension.energy / Dimension.time
+        self.assertEqual(power_via_energy, Dimension.power)
 
     def test_charge_equals_current_times_time(self):
         """Test that Charge = Current * Time."""
-        self.assertEqual(CURRENT * TIME, CHARGE)
+        self.assertEqual(Dimension.current * Dimension.time, Dimension.charge)
 
     def test_pseudo_dimension_acts_as_identity_in_multiplication(self):
         """Test that pseudo-dimensions act as identity when multiplied with regular dimensions."""
-        # ANGLE * LENGTH = LENGTH (pseudo-dimension has zero vector)
-        self.assertEqual(ANGLE * LENGTH, LENGTH)
-        self.assertEqual(LENGTH * ANGLE, LENGTH)
+        # Dimension.angle * Dimension.length = Dimension.length (pseudo-dimension has zero vector)
+        self.assertEqual(Dimension.angle * Dimension.length, Dimension.length)
+        self.assertEqual(Dimension.length * Dimension.angle, Dimension.length)
 
     def test_pseudo_dimension_acts_as_identity_in_division(self):
         """Test that pseudo-dimensions act as identity when divided."""
-        # LENGTH / ANGLE = LENGTH (pseudo-dimension has zero vector)
-        self.assertEqual(LENGTH / ANGLE, LENGTH)
+        # Dimension.length / Dimension.angle = Dimension.length (pseudo-dimension has zero vector)
+        self.assertEqual(Dimension.length / Dimension.angle, Dimension.length)
 
     def test_pseudo_dimension_invariant_under_exponentiation(self):
         """Test that pseudo-dimensions are invariant under exponentiation."""
-        # ANGLE ** 2 = ANGLE (pseudo-dimensions preserve identity)
-        self.assertEqual(ANGLE ** 2, ANGLE)
-        self.assertEqual(COUNT ** -1, COUNT)
+        # Dimension.angle ** 2 = Dimension.angle (pseudo-dimensions preserve identity)
+        self.assertEqual(Dimension.angle ** 2, Dimension.angle)
+        self.assertEqual(Dimension.count ** -1, Dimension.count)
 
     def test_different_pseudo_dimensions_cannot_multiply(self):
         """Test that different pseudo-dimensions cannot be combined."""
         with self.assertRaises(TypeError):
-            ANGLE * RATIO
+            Dimension.angle * Dimension.ratio
 
     def test_different_pseudo_dimensions_cannot_divide(self):
         """Test that different pseudo-dimensions cannot be divided."""
         with self.assertRaises(TypeError):
-            ANGLE / RATIO
+            Dimension.angle / Dimension.ratio
 
 
 class TestDimensionEquality(unittest.TestCase):
@@ -167,32 +137,32 @@ class TestDimensionEquality(unittest.TestCase):
 
     def test_same_dimension_equals(self):
         """Test that same dimensions are equal."""
-        self.assertEqual(LENGTH, LENGTH)
-        self.assertEqual(VELOCITY, VELOCITY)
+        self.assertEqual(Dimension.length, Dimension.length)
+        self.assertEqual(Dimension.velocity, Dimension.velocity)
 
     def test_different_dimensions_not_equal(self):
         """Test that different dimensions are not equal."""
-        self.assertNotEqual(LENGTH, MASS)
-        self.assertNotEqual(VELOCITY, ACCELERATION)
+        self.assertNotEqual(Dimension.length, Dimension.mass)
+        self.assertNotEqual(Dimension.velocity, Dimension.acceleration)
 
     def test_hash_consistency(self):
         """Test that equal dimensions have equal hashes."""
-        d1 = LENGTH
-        d2 = LENGTH
+        d1 = Dimension.length
+        d2 = Dimension.length
         self.assertEqual(hash(d1), hash(d2))
 
     def test_derived_same_vector_equals(self):
         """Test that dimensions with same vector are equal."""
-        vel1 = LENGTH / TIME
-        vel2 = LENGTH / TIME
+        vel1 = Dimension.length / Dimension.time
+        vel2 = Dimension.length / Dimension.time
         self.assertEqual(vel1, vel2)
         self.assertEqual(hash(vel1), hash(vel2))
 
     def test_dynamic_dimension_equality(self):
         """Test dynamic dimensions with same vector are equal."""
         # Create a dimension not in the registry
-        jerk = LENGTH * TIME ** -3
-        jerk2 = LENGTH / TIME ** 3
+        jerk = Dimension.length * Dimension.time ** -3
+        jerk2 = Dimension.length / Dimension.time ** 3
         self.assertEqual(jerk, jerk2)
 
 
@@ -200,24 +170,24 @@ class TestDimensionBool(unittest.TestCase):
     """Test dimension boolean behavior."""
 
     def test_none_is_falsy(self):
-        """Test that NONE is falsy."""
-        self.assertFalse(NONE)
+        """Test that Dimension.none is falsy."""
+        self.assertFalse(Dimension.none)
 
     def test_base_dimensions_are_truthy(self):
         """Test that base dimensions are truthy."""
-        self.assertTrue(LENGTH)
-        self.assertTrue(MASS)
-        self.assertTrue(TIME)
+        self.assertTrue(Dimension.length)
+        self.assertTrue(Dimension.mass)
+        self.assertTrue(Dimension.time)
 
     def test_derived_dimensions_are_truthy(self):
         """Test that derived dimensions are truthy."""
-        self.assertTrue(VELOCITY)
-        self.assertTrue(FORCE)
+        self.assertTrue(Dimension.velocity)
+        self.assertTrue(Dimension.force)
 
     def test_pseudo_dimensions_are_truthy(self):
         """Test that pseudo-dimensions are truthy."""
-        self.assertTrue(ANGLE)
-        self.assertTrue(RATIO)
+        self.assertTrue(Dimension.angle)
+        self.assertTrue(Dimension.ratio)
 
 
 class TestDimensionIntrospection(unittest.TestCase):
@@ -225,73 +195,73 @@ class TestDimensionIntrospection(unittest.TestCase):
 
     def test_is_base_for_base_dimensions(self):
         """Test is_base returns True for base dimensions."""
-        self.assertTrue(LENGTH.is_base())
-        self.assertTrue(MASS.is_base())
-        self.assertTrue(TIME.is_base())
-        self.assertTrue(CURRENT.is_base())
-        self.assertTrue(TEMPERATURE.is_base())
-        self.assertTrue(LUMINOUS_INTENSITY.is_base())
-        self.assertTrue(AMOUNT_OF_SUBSTANCE.is_base())
-        self.assertTrue(INFORMATION.is_base())
+        self.assertTrue(Dimension.length.is_base())
+        self.assertTrue(Dimension.mass.is_base())
+        self.assertTrue(Dimension.time.is_base())
+        self.assertTrue(Dimension.current.is_base())
+        self.assertTrue(Dimension.temperature.is_base())
+        self.assertTrue(Dimension.luminous_intensity.is_base())
+        self.assertTrue(Dimension.amount_of_substance.is_base())
+        self.assertTrue(Dimension.information.is_base())
 
     def test_is_base_for_derived_dimensions(self):
         """Test is_base returns False for derived dimensions."""
-        self.assertFalse(VELOCITY.is_base())
-        self.assertFalse(FORCE.is_base())
-        self.assertFalse(ENERGY.is_base())
-        self.assertFalse(AREA.is_base())
+        self.assertFalse(Dimension.velocity.is_base())
+        self.assertFalse(Dimension.force.is_base())
+        self.assertFalse(Dimension.energy.is_base())
+        self.assertFalse(Dimension.area.is_base())
 
     def test_is_pseudo(self):
         """Test is_pseudo property."""
-        self.assertTrue(ANGLE.is_pseudo)
-        self.assertTrue(RATIO.is_pseudo)
-        self.assertTrue(COUNT.is_pseudo)
-        self.assertTrue(SOLID_ANGLE.is_pseudo)
-        self.assertFalse(LENGTH.is_pseudo)
-        self.assertFalse(NONE.is_pseudo)
+        self.assertTrue(Dimension.angle.is_pseudo)
+        self.assertTrue(Dimension.ratio.is_pseudo)
+        self.assertTrue(Dimension.count.is_pseudo)
+        self.assertTrue(Dimension.solid_angle.is_pseudo)
+        self.assertFalse(Dimension.length.is_pseudo)
+        self.assertFalse(Dimension.none.is_pseudo)
 
     def test_is_dimensionless(self):
         """Test is_dimensionless property."""
-        self.assertTrue(NONE.is_dimensionless)
-        self.assertTrue(ANGLE.is_dimensionless)  # Pseudo-dimensions have zero vector
-        self.assertFalse(LENGTH.is_dimensionless)
-        self.assertFalse(VELOCITY.is_dimensionless)
+        self.assertTrue(Dimension.none.is_dimensionless)
+        self.assertTrue(Dimension.angle.is_dimensionless)  # Pseudo-dimensions have zero vector
+        self.assertFalse(Dimension.length.is_dimensionless)
+        self.assertFalse(Dimension.velocity.is_dimensionless)
 
     def test_base_expansion_base_dimensions(self):
         """Test base_expansion for base dimensions."""
-        exp = LENGTH.base_expansion()
-        self.assertEqual(exp, {LENGTH: Fraction(1)})
+        exp = Dimension.length.base_expansion()
+        self.assertEqual(exp, {Dimension.length: Fraction(1)})
 
-        exp = MASS.base_expansion()
-        self.assertEqual(exp, {MASS: Fraction(1)})
+        exp = Dimension.mass.base_expansion()
+        self.assertEqual(exp, {Dimension.mass: Fraction(1)})
 
     def test_base_expansion_derived_dimensions(self):
         """Test base_expansion for derived dimensions."""
-        exp = VELOCITY.base_expansion()
-        self.assertEqual(exp, {TIME: Fraction(-1), LENGTH: Fraction(1)})
+        exp = Dimension.velocity.base_expansion()
+        self.assertEqual(exp, {Dimension.time: Fraction(-1), Dimension.length: Fraction(1)})
 
-        exp = FORCE.base_expansion()
+        exp = Dimension.force.base_expansion()
         self.assertEqual(
-            exp, {TIME: Fraction(-2), LENGTH: Fraction(1), MASS: Fraction(1)}
+            exp, {Dimension.time: Fraction(-2), Dimension.length: Fraction(1), Dimension.mass: Fraction(1)}
         )
 
     def test_base_expansion_pseudo_dimensions(self):
         """Test base_expansion for pseudo-dimensions."""
-        exp = ANGLE.base_expansion()
+        exp = Dimension.angle.base_expansion()
         self.assertEqual(exp, {})
 
     def test_basis_function(self):
         """Test the basis() function returns all 8 base dimensions."""
         b = basis()
         self.assertEqual(len(b), 8)
-        self.assertIn(TIME, b)
-        self.assertIn(LENGTH, b)
-        self.assertIn(MASS, b)
-        self.assertIn(CURRENT, b)
-        self.assertIn(TEMPERATURE, b)
-        self.assertIn(LUMINOUS_INTENSITY, b)
-        self.assertIn(AMOUNT_OF_SUBSTANCE, b)
-        self.assertIn(INFORMATION, b)
+        self.assertIn(Dimension.time, b)
+        self.assertIn(Dimension.length, b)
+        self.assertIn(Dimension.mass, b)
+        self.assertIn(Dimension.current, b)
+        self.assertIn(Dimension.temperature, b)
+        self.assertIn(Dimension.luminous_intensity, b)
+        self.assertIn(Dimension.amount_of_substance, b)
+        self.assertIn(Dimension.information, b)
 
 
 class TestResolve(unittest.TestCase):
@@ -304,7 +274,7 @@ class TestResolve(unittest.TestCase):
                  Fraction(0), Fraction(0), Fraction(0), Fraction(0))
         )
         dim = resolve(vec)
-        self.assertEqual(dim, LENGTH)
+        self.assertEqual(dim, Dimension.length)
 
     def test_resolve_velocity_vector(self):
         """Test resolving velocity vector."""
@@ -313,7 +283,7 @@ class TestResolve(unittest.TestCase):
                  Fraction(0), Fraction(0), Fraction(0), Fraction(0))
         )
         dim = resolve(vec)
-        self.assertEqual(dim, VELOCITY)
+        self.assertEqual(dim, Dimension.velocity)
 
     def test_resolve_unknown_vector_creates_derived(self):
         """Test resolving unknown vector creates derived dimension."""
@@ -326,10 +296,10 @@ class TestResolve(unittest.TestCase):
         self.assertIn("derived", dim.name)
 
     def test_resolve_zero_vector_returns_none(self):
-        """Test resolving zero vector returns NONE."""
+        """Test resolving zero vector returns Dimension.none."""
         vec = SI.zero_vector()
         dim = resolve(vec)
-        self.assertEqual(dim, NONE)
+        self.assertEqual(dim, Dimension.none)
 
 
 class TestDimensionRepr(unittest.TestCase):
@@ -337,12 +307,12 @@ class TestDimensionRepr(unittest.TestCase):
 
     def test_repr_named_dimension(self):
         """Test repr for named dimensions."""
-        self.assertEqual(repr(LENGTH), "Dimension(length)")
-        self.assertEqual(repr(VELOCITY), "Dimension(velocity)")
+        self.assertEqual(repr(Dimension.length), "Dimension(length)")
+        self.assertEqual(repr(Dimension.velocity), "Dimension(velocity)")
 
     def test_repr_none(self):
-        """Test repr for NONE."""
-        self.assertEqual(repr(NONE), "Dimension(none)")
+        """Test repr for Dimension.none."""
+        self.assertEqual(repr(Dimension.none), "Dimension(none)")
 
 
 class TestDimensionRegistry(unittest.TestCase):
@@ -356,7 +326,7 @@ class TestDimensionRegistry(unittest.TestCase):
 
     def test_derived_dimensions_registered(self):
         """Test common derived dimensions are registered."""
-        derived = [VELOCITY, ACCELERATION, FORCE, ENERGY, POWER, AREA, VOLUME]
+        derived = [Dimension.velocity, Dimension.acceleration, Dimension.force, Dimension.energy, Dimension.power, Dimension.area, Dimension.volume]
         for dim in derived:
             resolved = resolve(dim.vector)
             self.assertEqual(resolved, dim)
@@ -367,19 +337,19 @@ class TestDimensionProperties(unittest.TestCase):
 
     def test_basis_property(self):
         """Test the basis property returns the correct basis."""
-        self.assertEqual(LENGTH.basis, SI)
-        self.assertEqual(VELOCITY.basis, SI)
+        self.assertEqual(Dimension.length.basis, SI)
+        self.assertEqual(Dimension.velocity.basis, SI)
 
     def test_name_property(self):
         """Test the name property."""
-        self.assertEqual(LENGTH.name, "length")
-        self.assertEqual(VELOCITY.name, "velocity")
+        self.assertEqual(Dimension.length.name, "length")
+        self.assertEqual(Dimension.velocity.name, "velocity")
 
     def test_symbol_property(self):
         """Test the symbol property."""
-        self.assertEqual(LENGTH.symbol, "L")
-        self.assertEqual(TIME.symbol, "T")
-        self.assertEqual(MASS.symbol, "M")
+        self.assertEqual(Dimension.length.symbol, "L")
+        self.assertEqual(Dimension.time.symbol, "T")
+        self.assertEqual(Dimension.mass.symbol, "M")
 
 
 if __name__ == "__main__":
