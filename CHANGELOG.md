@@ -11,7 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Auto-generated `dimension.pyi` stubs for IDE code completion (`make stubs`)
 - `Unit.is_compatible(other, basis_graph)` method for checking conversion compatibility
+- `Unit.basis` property exposing the unit's dimensional basis
 - `convert()` validates dimensional compatibility via `BasisGraph`
+- `ConversionGraph.connect_systems()` for bulk cross-basis edge registration
+- `ConversionGraph.list_rebased_units()` for introspection
+- Dual-Graph Architecture documentation (`docs/architecture/dual-graph-architecture.md`)
+- Cross-basis conversion guide in Custom Units & Graphs
+- Basis System section in API reference
 - CI: merge gate job, concurrency control, dependency caching, docs build check
 - CI: CHANGELOG entry required for all PRs
 - CHANGELOG with full version history
@@ -23,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RebasedUnit` now uses `ucon.basis.BasisTransform` (unified implementation)
 - Removed old `BasisTransform` from `ucon/core.py`
 - Removed `NewBasisTransform` alias from exports
+- Updated ConversionGraph internals documentation with BasisGraph integration
+- Updated API reference with cross-basis conversion methods
 
 ## [0.8.2] - 2026-02-24
 
