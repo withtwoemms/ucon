@@ -108,6 +108,8 @@ markdown_extensions:
   - toc:
       permalink: true
 
+copyright: "&copy; 2020-2026 The Radiativity Company"
+
 extra:
   social:
     - icon: fontawesome/brands/github

@@ -53,3 +53,31 @@
 .md-tabs {
   background: linear-gradient(135deg, #004d99 0%, #008090 100%);
 }
+
+/* Footer layout: "Made with MkDocs" left, copyright + GitHub right */
+.md-footer-meta__inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* Copyright container becomes a flex row */
+.md-copyright {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* The custom copyright text moves to the right */
+.md-copyright__highlight {
+  order: 2;
+  margin-left: auto;
+  margin-right: 1rem;
+}
+
+/* Social icons stay on the far right */
+.md-social {
+  flex-shrink: 0;
+}
