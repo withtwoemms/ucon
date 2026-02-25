@@ -23,6 +23,7 @@ Functions
 """
 from __future__ import annotations
 
+import math
 from collections import deque
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -959,5 +960,30 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.fraction, dst=units.basis_point, map=LinearMap(10000))
     # nines: -log₁₀(1 - availability) for SRE uptime (0.99999 → 5 nines)
     graph.add_edge(src=units.fraction, dst=units.nines, map=LogMap(scale=-1) @ AffineMap(a=-1, b=1))
+
+    # --- Logarithmic (v0.9.1) ---
+    # Pure ratio → logarithmic unit conversions
+    graph.add_edge(src=units.fraction, dst=units.bel, map=LogMap(scale=1, base=10))        # ratio → bel
+    graph.add_edge(src=units.fraction, dst=units.decibel, map=LogMap(scale=10, base=10))   # ratio → dB
+    graph.add_edge(src=units.fraction, dst=units.neper, map=LogMap(scale=1, base=math.e))  # ratio → Np
+    graph.add_edge(src=units.bel, dst=units.decibel, map=LinearMap(10))                    # 1 B = 10 dB
+
+    # Reference-level conversions (linear unit → dB variant)
+    # dBm: 10·log₁₀(P / 1 mW), reference = 1e-3 W
+    graph.add_edge(src=units.watt, dst=units.decibel_milliwatt, map=LogMap(scale=10, base=10, reference=1e-3))
+    # dBW: 10·log₁₀(P / 1 W), reference = 1 W
+    graph.add_edge(src=units.watt, dst=units.decibel_watt, map=LogMap(scale=10, base=10, reference=1.0))
+    # dBV: 20·log₁₀(V / 1 V), reference = 1 V (amplitude uses scale=20)
+    graph.add_edge(src=units.volt, dst=units.decibel_volt, map=LogMap(scale=20, base=10, reference=1.0))
+    # dBSPL: 20·log₁₀(P / 20 µPa), reference = 20e-6 Pa (amplitude-like for pressure)
+    graph.add_edge(src=units.pascal, dst=units.decibel_spl, map=LogMap(scale=20, base=10, reference=20e-6))
+
+    # pH: -log₁₀([H⁺] / 1 mol/L)
+    # pH has concentration dimension (same as mol/L), enabling direct conversion.
+    graph.add_edge(
+        src=units.mole / units.liter,
+        dst=units.pH,
+        map=LogMap(scale=-1, base=10, reference=1.0),
+    )
 
     return graph

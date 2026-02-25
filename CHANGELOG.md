@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-02-25
+
+### Added
+
+- pH unit with concentration dimension for mol/L ↔ pH conversions (#204)
+  - `(units.mole / units.liter)(1e-7).to(units.pH)` returns `<7.0 pH>`
+  - `units.pH(7.0).to(units.mole / units.liter)` returns `<1e-07 mol/L>`
+  - Follows established pattern: pH has concentration dimension (like dBm has POWER)
+- Logarithmic units documentation in `docs/reference/units-and-dimensions.md`
+- `examples/units/logarithmic.py` demonstration module
+
 ## [0.9.0] - 2026-02-25
 
 ### Added
@@ -374,7 +385,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.1...HEAD
+[0.9.1]: https://github.com/withtwoemms/ucon/compare/0.9.0...0.9.1
 [0.9.0]: https://github.com/withtwoemms/ucon/compare/0.8.5...0.9.0
 [0.8.5]: https://github.com/withtwoemms/ucon/compare/0.8.4...0.8.5
 [0.8.4]: https://github.com/withtwoemms/ucon/compare/0.8.3...0.8.4
