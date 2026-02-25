@@ -56,6 +56,15 @@ pip install ucon[mcp]       # MCP server for AI agents
 
 ## Quick Examples
 
+### Parse Quantities
+
+```python
+from ucon import parse
+
+velocity = parse("9.81 m/s^2")       # <9.81 m/s²>
+measurement = parse("1.234 ± 0.005 m")  # <1.234 ± 0.005 m>
+```
+
 ### Unit Conversion
 
 ```python
@@ -118,6 +127,7 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 
 ## Features
 
+- **String parsing** — `parse("9.81 m/s^2")` with uncertainty support (`1.234 ± 0.005 m`)
 - **Dimensional algebra** — Units combine through multiplication/division with automatic dimension tracking
 - **Scale prefixes** — Full SI (kilo, milli, micro, etc.) and binary (kibi, mebi) prefix support
 - **Uncertainty propagation** — Errors propagate through arithmetic and conversions
@@ -137,7 +147,7 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 | **0.5.x** | Dimensionless Units + Uncertainty | Complete |
 | **0.6.x** | Pydantic + MCP Server | Complete |
 | **0.7.x** | Compute Tool + Extension API | Complete |
-| **0.8.x** | String Parsing | Planned |
+| **0.8.x** | Basis Abstraction + String Parsing | Complete |
 | **0.9.x** | Constants + Logarithmic Units | Planned |
 | **0.10.x** | NumPy/Polars Integration | Planned |
 | **1.0.0** | API Stability | Planned |

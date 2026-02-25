@@ -40,18 +40,18 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.8.0 | Basis Abstraction Core | Complete |
 | v0.8.1 | BasisGraph + Standard Bases | Complete |
 | v0.8.2 | Dimension Integration | Complete |
-| v0.8.3 | ConversionGraph Integration | Planned |
-| v0.8.4 | Basis Context Scoping | Planned |
-| v0.8.5 | String Parsing | Planned |
+| v0.8.3 | ConversionGraph Integration | Complete |
+| v0.8.4 | Basis Context Scoping | Complete |
+| v0.8.5 | String Parsing | Complete |
 | v0.9.0 | Physical Constants | Planned |
 | v0.10.0 | Scientific Computing | Planned |
 | v1.0.0 | API Stability | Planned |
 
 ---
 
-## Current Version: **v0.8.3** (in progress)
+## Current Version: **v0.8.5** (complete)
 
-Building on v0.8.2 baseline:
+Building on v0.8.4 baseline:
 - `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`)
 - `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`; standard transforms)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
@@ -69,6 +69,8 @@ Building on v0.8.2 baseline:
 - Pydantic v2 integration with JSON serialization
 - Unit string parsing: `get_unit_by_name("kg*m/s^2")`
 - Auto-generated `dimension.pyi` stubs for IDE code completion
+- Basis context scoping: `using_basis()`, `using_basis_graph()`, `get_default_basis()`
+- Quantity string parsing: `parse("1.234 ± 0.005 m")` → `Number` with uncertainty
 
 ---
 
@@ -493,7 +495,7 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.8.3 — ConversionGraph Integration
+## v0.8.3 — ConversionGraph Integration (Complete)
 
 **Theme:** Cross-basis conversion validation and BasisTransform unification.
 
@@ -525,16 +527,18 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.8.4 — Basis Context Scoping
+## v0.8.4 — Basis Context Scoping (Complete)
 
 **Theme:** Thread-safe basis isolation.
 
-- [ ] `_default_basis` ContextVar with SI fallback
-- [ ] `_basis_graph` ContextVar for graph scoping
-- [ ] `using_basis(basis)` context manager
-- [ ] `using_basis_graph(graph)` context manager
-- [ ] `get_default_basis()` accessor
-- [ ] `set_default_basis_graph()` initializer
+- [x] `_default_basis` ContextVar with SI fallback
+- [x] `_basis_graph_context` ContextVar for graph scoping
+- [x] `using_basis(basis)` context manager
+- [x] `using_basis_graph(graph)` context manager
+- [x] `get_default_basis()` accessor
+- [x] `get_basis_graph()` accessor
+- [x] `set_default_basis_graph()` / `reset_default_basis_graph()` for module-level control
+- [x] `Dimension.from_components()` and `Dimension.pseudo()` respect context basis
 
 **Outcomes:**
 - Per-thread/task basis isolation (same pattern as `using_graph()`)
@@ -543,20 +547,24 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.8.5 — String Parsing
+## v0.8.5 — String Parsing (Complete)
 
 **Theme:** Ergonomic input.
 
-- [ ] `parse("60 mph")` → `Number` (quantity + unit parsing)
+- [x] `parse("60 mi/h")` → `Number` (quantity + unit parsing)
 - [x] `parse("kg * m / s^2")` → `UnitProduct` (completed in v0.6.0 via `get_unit_by_name()`)
 - [x] Alias resolution (`meters`, `metre`, `m` all work) (completed in v0.6.0)
-- [ ] Uncertainty parsing: `parse("1.234 ± 0.005 m")`
-- [ ] Revisit priority alias architecture (v0.6.x uses `_PRIORITY_ALIASES` / `_PRIORITY_SCALED_ALIASES` for `min`, `mcg`; consider "exact match first" or longest-match strategy if list grows)
+- [x] Uncertainty parsing: `parse("1.234 ± 0.005 m")` with `±` and `+/-` notation
+- [x] Parenthetical uncertainty: `parse("1.234(5) m")` (metrology convention)
+- [x] Scientific notation: `parse("1.5e3 m")`
+- [x] Dimensionless numbers: `parse("100")` returns `Number` with no unit
+- [x] Example: `examples/parsing/parse_quantities.py`
 
 **Outcomes:**
 - Human-friendly unit input for interactive and configuration use cases
 - Robust alias handling for international and domain-specific conventions
 - Complete round-trip: parse → compute → serialize
+- Uncertainty input matches common scientific notation conventions
 
 ---
 

@@ -4,6 +4,64 @@ Core Python API for ucon.
 
 ---
 
+## parse
+
+Parse human-readable quantity strings into Number objects.
+
+```python
+from ucon import parse
+```
+
+### Basic Usage
+
+```python
+# Simple quantities
+parse("60 mi/h")           # <60 mi/h>
+parse("9.81 m/s^2")        # <9.81 m/s²>
+parse("1.5 kg")            # <1.5 kg>
+
+# Pure numbers (dimensionless)
+parse("100")               # <100>
+parse("3.14159")           # <3.14159>
+
+# Scientific notation
+parse("1.5e3 m")           # <1500 m>
+parse("6.022e23")          # <6.022e23>
+
+# Negative values
+parse("-273.15 degC")      # <-273.15 °C>
+```
+
+### Uncertainty
+
+```python
+# Plus-minus notation
+parse("1.234 ± 0.005 m")   # <1.234 ± 0.005 m>
+parse("1.234 +/- 0.005 m") # ASCII alternative
+
+# Parenthetical (metrology convention)
+parse("1.234(5) m")        # means 1.234 ± 0.005
+parse("1.234(56) m")       # means 1.234 ± 0.056
+
+# Uncertainty with unit
+parse("1.234 m ± 0.005 m") # <1.234 ± 0.005 m>
+```
+
+### Error Handling
+
+```python
+# Unknown unit
+parse("60 foobar")         # raises UnknownUnitError
+
+# Invalid number
+parse("abc m")             # raises ValueError
+
+# Empty string
+parse("")                  # raises ValueError
+```
+
+---
+
 ## Number
 
 The primary type for representing dimensional quantities.

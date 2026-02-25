@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-02-25
+
+### Added
+
+- `parse()` function for parsing human-readable quantity strings into `Number` objects
+  - Basic quantities: `parse("60 mi/h")` returns `Number(60, mile/hour)`
+  - Scientific notation: `parse("1.5e3 m")` returns `Number(1500, meter)`
+  - Uncertainty with `±`: `parse("1.234 ± 0.005 m")` returns `Number` with uncertainty
+  - Uncertainty with `+/-`: `parse("1.234 +/- 0.005 m")` (ASCII alternative)
+  - Parenthetical uncertainty: `parse("1.234(5) m")` means `1.234 ± 0.005`
+  - Pure numbers: `parse("100")` returns dimensionless `Number`
+
+### Removed
+
+- `setup.py` (redundant; `pyproject.toml` is the single source of truth)
+
 ## [0.8.4] - 2026-02-25
 
 ### Added
@@ -345,7 +361,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.8.4...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.8.5...HEAD
+[0.8.5]: https://github.com/withtwoemms/ucon/compare/0.8.4...0.8.5
 [0.8.4]: https://github.com/withtwoemms/ucon/compare/0.8.3...0.8.4
 [0.8.3]: https://github.com/withtwoemms/ucon/compare/0.8.2...0.8.3
 [0.8.2]: https://github.com/withtwoemms/ucon/compare/0.8.1...0.8.2
