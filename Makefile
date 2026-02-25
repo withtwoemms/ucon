@@ -34,7 +34,7 @@ help:
 	@echo "  ${CYAN}venv${RESET}          - Create virtual environment"
 	@echo "  ${CYAN}clean${RESET}         - Remove build artifacts and caches"
 	@echo "  ${CYAN}stubs${RESET}         - Generate dimension.pyi type stubs"
-	@echo "  ${CYAN}check-stubs${RESET}   - Verify stubs are current (for CI)"
+	@echo "  ${CYAN}stubs-check${RESET}   - Verify stubs are current (for CI)"
 	@echo ""
 	@echo "${YELLOW}Variables:${RESET}\n"
 	@echo "  PYTHON=${PYTHON}		- Python version for test target"
@@ -159,7 +159,7 @@ stubs: ${DEPS_INSTALLED}
 	@echo "${CYAN}Wrote ucon/dimension.pyi${RESET}"
 
 .PHONY: check-stubs
-check-stubs: ${DEPS_INSTALLED}
+stubs-check: ${DEPS_INSTALLED}
 	@echo "${GREEN}Verifying dimension stubs are current...${RESET}"
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
 		python scripts/generate_dimension_stubs.py --check

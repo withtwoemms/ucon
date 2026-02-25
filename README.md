@@ -170,7 +170,7 @@ When modifying `ucon/dimension.py` (adding/removing dimensions), regenerate the 
 
 ```bash
 make stubs                       # Regenerate ucon/dimension.pyi
-make check-stubs                 # Verify stubs are current (used in CI)
+make stubs-check                 # Verify stubs are current (used in CI)
 ```
 
 All pull requests must include a [CHANGELOG.md](https://github.com/withtwoemms/ucon/blob/main/CHANGELOG.md) entry under the `[Unreleased]` section:
