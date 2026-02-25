@@ -47,6 +47,11 @@ _session_graph: ContextVar[ConversionGraph | None] = ContextVar(
 # Cache for inline graph compilation (keyed by hash of definitions)
 _inline_graph_cache: dict[str, ConversionGraph] = {}
 
+# Session-scoped constants for persistent custom definitions
+_session_constants: ContextVar[dict | None] = ContextVar(
+    '_session_constants', default=None
+)
+
 
 def _get_session_graph() -> ConversionGraph:
     """Get or create the session graph.
@@ -65,6 +70,35 @@ def _reset_session_graph() -> None:
     """Reset the session graph to a fresh copy of the default graph."""
     graph = get_default_graph().copy()
     _session_graph.set(graph)
+
+
+def _get_session_constants() -> dict:
+    """Get or create the session constants dict."""
+    from ucon.constants import Constant
+    constants = _session_constants.get()
+    if constants is None:
+        constants = {}
+        _session_constants.set(constants)
+    return constants
+
+
+def _reset_session_constants() -> None:
+    """Reset the session constants."""
+    _session_constants.set({})
+
+
+def _resolve_constant(symbol: str):
+    """Resolve a constant symbol from built-in or session constants."""
+    from ucon.constants import get_constant_by_symbol
+
+    # Try built-in first
+    const = get_constant_by_symbol(symbol)
+    if const is not None:
+        return const
+
+    # Try session constants
+    session = _get_session_constants()
+    return session.get(symbol)
 
 
 def _hash_definitions(
@@ -268,6 +302,65 @@ class FormulaError(BaseModel):
     expected: str | None = None
     got: str | None = None
     hints: list[str] = []
+
+
+class ConstantInfo(BaseModel):
+    """Information about a physical constant."""
+
+    symbol: str
+    name: str
+    value: float
+    unit: str | None
+    dimension: str
+    uncertainty: float | None
+    is_exact: bool
+    source: str
+    category: str  # "exact", "derived", "measured", "session"
+
+
+class ConstantDefinitionResult(BaseModel):
+    """Result of defining a custom constant."""
+
+    success: bool
+    symbol: str
+    name: str
+    unit: str
+    uncertainty: float | None
+    message: str
+
+
+class ConstantError(BaseModel):
+    """Error from constant operations."""
+
+    error: str
+    error_type: str  # "duplicate_symbol", "invalid_unit", "invalid_value", "unknown_constant", "invalid_input"
+    parameter: str | None = None
+    hints: list[str] = []
+
+
+def _constant_to_info(const, category: str | None = None) -> ConstantInfo:
+    """Convert a Constant to ConstantInfo for MCP response."""
+    unit_str = None
+    if hasattr(const.unit, 'shorthand'):
+        unit_str = const.unit.shorthand
+    elif hasattr(const.unit, 'name'):
+        unit_str = const.unit.name
+    else:
+        unit_str = str(const.unit)
+
+    dim_name = const.dimension.name if hasattr(const.dimension, 'name') else str(const.dimension)
+
+    return ConstantInfo(
+        symbol=const.symbol,
+        name=const.name,
+        value=const.value,
+        unit=unit_str,
+        dimension=dim_name,
+        uncertainty=const.uncertainty,
+        is_exact=const.is_exact,
+        source=const.source,
+        category=category or getattr(const, 'category', 'measured'),
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -746,6 +839,166 @@ def list_dimensions() -> list[str]:
 
 
 @mcp.tool()
+def list_constants(
+    category: str | None = None,
+) -> list[ConstantInfo] | ConstantError:
+    """
+    List available physical constants, optionally filtered by category.
+
+    Categories:
+    - "exact": SI defining constants (c, h, e, k_B, N_A, K_cd, ΔνCs)
+    - "derived": Constants derived from exact values (ℏ, R, σ)
+    - "measured": Constants with experimental uncertainty (G, α, m_e, etc.)
+    - "session": User-defined constants for this session
+    - "all" or None: Return all constants
+
+    Args:
+        category: Optional category filter.
+
+    Returns:
+        List of ConstantInfo objects describing available constants.
+        ConstantError if the category is invalid.
+    """
+    valid_categories = {"exact", "derived", "measured", "session", "all", None}
+    if category not in valid_categories:
+        return ConstantError(
+            error=f"Unknown category: '{category}'",
+            error_type="invalid_input",
+            parameter="category",
+            hints=["Valid categories: exact, derived, measured, session, all"],
+        )
+
+    from ucon.constants import all_constants
+
+    result = []
+
+    # Built-in constants
+    if category != "session":
+        for const in all_constants():
+            if category and category != "all" and const.category != category:
+                continue
+            result.append(_constant_to_info(const))
+
+    # Session constants
+    if category in (None, "all", "session"):
+        for const in _get_session_constants().values():
+            result.append(_constant_to_info(const, category="session"))
+
+    return sorted(result, key=lambda c: (c.category, c.symbol))
+
+
+@mcp.tool()
+def define_constant(
+    symbol: str,
+    name: str,
+    value: float,
+    unit: str,
+    uncertainty: float | None = None,
+    source: str = "user-defined",
+) -> ConstantDefinitionResult | ConstantError:
+    """
+    Define a custom constant for the current session.
+
+    The constant will be available for use in compute() and other tools
+    until reset_session() is called.
+
+    Args:
+        symbol: Short symbol for the constant (e.g., "vₛ", "Eg").
+        name: Full descriptive name.
+        value: Numeric value in the given units.
+        unit: Unit string (e.g., "m/s", "J", "kg*m/s^2").
+        uncertainty: Standard uncertainty (None for exact constants).
+        source: Data source reference.
+
+    Returns:
+        ConstantDefinitionResult on success.
+        ConstantError if the symbol is already defined or unit is invalid.
+
+    Example:
+        define_constant(
+            symbol="vₛ",
+            name="speed of sound in dry air at 20°C",
+            value=343,
+            unit="m/s"
+        )
+    """
+    import math
+    from ucon.constants import Constant, get_constant_by_symbol
+
+    # Check for duplicate symbol in built-in constants
+    existing = get_constant_by_symbol(symbol)
+    if existing is not None:
+        return ConstantError(
+            error=f"Symbol '{symbol}' is already defined as '{existing.name}'",
+            error_type="duplicate_symbol",
+            parameter="symbol",
+            hints=["Use a different symbol or use the built-in constant"],
+        )
+
+    # Check for duplicate in session constants
+    session_constants = _get_session_constants()
+    if symbol in session_constants:
+        return ConstantError(
+            error=f"Symbol '{symbol}' is already defined in this session",
+            error_type="duplicate_symbol",
+            parameter="symbol",
+            hints=["Use reset_session() to clear session constants"],
+        )
+
+    # Validate value
+    if not isinstance(value, (int, float)) or math.isnan(value) or math.isinf(value):
+        return ConstantError(
+            error=f"Invalid value: {value}",
+            error_type="invalid_value",
+            parameter="value",
+            hints=["Value must be a finite number"],
+        )
+
+    # Parse unit
+    parsed_unit, err = resolve_unit(unit, parameter="unit")
+    if err:
+        return ConstantError(
+            error=f"Invalid unit: '{unit}'",
+            error_type="invalid_unit",
+            parameter="unit",
+            hints=err.hints if hasattr(err, 'hints') else [],
+        )
+
+    # Validate uncertainty
+    if uncertainty is not None:
+        if not isinstance(uncertainty, (int, float)) or uncertainty < 0:
+            return ConstantError(
+                error=f"Invalid uncertainty: {uncertainty}",
+                error_type="invalid_value",
+                parameter="uncertainty",
+                hints=["Uncertainty must be a non-negative number or None"],
+            )
+
+    # Create constant
+    const = Constant(
+        symbol=symbol,
+        name=name,
+        value=float(value),
+        unit=parsed_unit,
+        uncertainty=uncertainty,
+        source=source,
+        category="session",
+    )
+
+    # Register in session
+    session_constants[symbol] = const
+
+    return ConstantDefinitionResult(
+        success=True,
+        symbol=symbol,
+        name=name,
+        unit=unit,
+        uncertainty=uncertainty,
+        message=f"Constant '{symbol}' registered for session.",
+    )
+
+
+@mcp.tool()
 def define_unit(
     name: str,
     dimension: str,
@@ -865,19 +1118,21 @@ def define_conversion(
 @mcp.tool()
 def reset_session() -> SessionResult:
     """
-    Reset the session graph, clearing all custom units and conversions.
+    Reset the session, clearing all custom units, conversions, and constants.
 
-    After reset, the session starts fresh with only the standard ucon units.
-    Any units defined via define_unit() and edges from define_conversion()
+    After reset, the session starts fresh with only the standard ucon units
+    and built-in physical constants. Any units defined via define_unit(),
+    edges from define_conversion(), and constants from define_constant()
     will be removed.
 
     Returns:
         SessionResult confirming the reset.
     """
     _reset_session_graph()
+    _reset_session_constants()
     return SessionResult(
         success=True,
-        message="Session reset. All custom units and conversions cleared.",
+        message="Session reset. All custom units, conversions, and constants cleared.",
     )
 
 
