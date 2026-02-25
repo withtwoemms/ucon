@@ -346,5 +346,156 @@ class TestPydanticValidationErrors(unittest.TestCase):
             Model(value="not a number")
 
 
+class TestPydanticDimensionConstraints(unittest.TestCase):
+    """Test dimension-constrained Number types."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from pydantic import BaseModel, ValidationError
+            from ucon.pydantic import Number
+            from ucon.core import Dimension
+            cls.BaseModel = BaseModel
+            cls.ValidationError = ValidationError
+            cls.Number = Number
+            cls.Dimension = Dimension
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("pydantic not installed")
+
+    def test_dimension_constraint_valid(self):
+        """Test Number[Dimension.xxx] accepts correct dimension."""
+        class Model(self.BaseModel):
+            length: self.Number[self.Dimension.length]
+
+        m = Model(length={"quantity": 5, "unit": "m"})
+        self.assertEqual(m.length.quantity, 5)
+
+    def test_dimension_constraint_invalid(self):
+        """Test Number[Dimension.xxx] rejects wrong dimension."""
+        class Model(self.BaseModel):
+            length: self.Number[self.Dimension.length]
+
+        with self.assertRaises(self.ValidationError) as ctx:
+            Model(length={"quantity": 5, "unit": "kg"})
+        self.assertIn("mass", str(ctx.exception))
+        self.assertIn("length", str(ctx.exception))
+
+    def test_dimension_constraint_multiple_fields(self):
+        """Test model with multiple dimension-constrained fields."""
+        class Vehicle(self.BaseModel):
+            mass: self.Number[self.Dimension.mass]
+            speed: self.Number[self.Dimension.velocity]
+
+        v = Vehicle(
+            mass={"quantity": 1500, "unit": "kg"},
+            speed={"quantity": 100, "unit": "m/s"},
+        )
+        self.assertEqual(v.mass.quantity, 1500)
+        self.assertEqual(v.speed.quantity, 100)
+
+    def test_dimension_constraint_wrong_type_raises(self):
+        """Test Number[non-Dimension] raises TypeError."""
+        with self.assertRaises(TypeError) as ctx:
+            class BadModel(self.BaseModel):
+                value: self.Number["not_a_dimension"]
+        self.assertIn("Dimension", str(ctx.exception))
+
+    def test_dimension_constraint_serialization(self):
+        """Test dimension-constrained Number serializes correctly."""
+        class Model(self.BaseModel):
+            length: self.Number[self.Dimension.length]
+
+        m = Model(length={"quantity": 5, "unit": "km"})
+        dumped = m.model_dump()
+        self.assertEqual(dumped["length"]["quantity"], 5.0)
+        self.assertEqual(dumped["length"]["unit"], "km")
+
+
+class TestPydanticConstrainedNumber(unittest.TestCase):
+    """Test constrained_number factory."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from pydantic import BaseModel, ValidationError
+            from pydantic.functional_validators import AfterValidator
+            from ucon.pydantic import Number, constrained_number
+            from ucon.core import Dimension
+            cls.BaseModel = BaseModel
+            cls.ValidationError = ValidationError
+            cls.Number = Number
+            cls.constrained_number = constrained_number
+            cls.AfterValidator = AfterValidator
+            cls.Dimension = Dimension
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("pydantic not installed")
+
+    def test_constrained_number_with_dimension(self):
+        """Test constrained_number with dimension constraint."""
+        def must_be_positive(n):
+            if n.quantity <= 0:
+                raise ValueError("must be positive")
+            return n
+
+        PositiveNumber = self.constrained_number(
+            self.AfterValidator(must_be_positive)
+        )
+
+        class Model(self.BaseModel):
+            length: PositiveNumber[self.Dimension.length]
+
+        # Valid: positive length
+        m = Model(length={"quantity": 5, "unit": "m"})
+        self.assertEqual(m.length.quantity, 5)
+
+        # Invalid: negative length
+        with self.assertRaises(self.ValidationError):
+            Model(length={"quantity": -5, "unit": "m"})
+
+        # Invalid: wrong dimension
+        with self.assertRaises(self.ValidationError):
+            Model(length={"quantity": 5, "unit": "kg"})
+
+
+class TestPydanticJsonSchema(unittest.TestCase):
+    """Test JSON schema generation."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from pydantic import BaseModel
+            from ucon.pydantic import Number
+            from ucon.core import Dimension
+            cls.BaseModel = BaseModel
+            cls.Number = Number
+            cls.Dimension = Dimension
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("pydantic not installed")
+
+    def test_json_schema_with_dimension(self):
+        """Test JSON schema includes dimension description."""
+        class Model(self.BaseModel):
+            length: self.Number[self.Dimension.length]
+
+        schema = Model.model_json_schema()
+        props = schema["properties"]["length"]
+        self.assertIn("length", props.get("description", ""))
+
+
 if __name__ == '__main__':
     unittest.main()
