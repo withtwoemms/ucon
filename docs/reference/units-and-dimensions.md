@@ -381,21 +381,17 @@ convert(value=1, from_unit="slug", to_unit="lb")
 
 ## All Dimensions
 
-```
-acceleration          angular_momentum      area
-capacitance           catalytic_activity    charge
-conductance           conductivity          count
-current               density               dynamic_viscosity
-electric_field_strength  energy            entropy
-force                 frequency             gravitation
-illuminance           inductance            information
-kinematic_viscosity   length                luminous_intensity
-magnetic_flux         magnetic_flux_density magnetic_permeability
-mass                  molar_mass            molar_volume
-momentum              none                  permittivity
-power                 pressure              ratio
-resistance            resistivity           solid_angle
-specific_heat_capacity  temperature         thermal_conductivity
-time                  velocity              voltage
-volume                angle
-```
+| | | | |
+|-------------------------|-------------------------|-------------------------|-------------------------|
+| acceleration            | dynamic_viscosity       | luminous_intensity      | ratio                   |
+| angle                   | electric_field_strength | magnetic_flux           | resistance              |
+| angular_momentum        | energy                  | magnetic_flux_density   | resistivity             |
+| area                    | entropy                 | magnetic_permeability   | solid_angle             |
+| capacitance             | force                   | mass                    | specific_heat_capacity  |
+| catalytic_activity      | frequency               | molar_mass              | temperature             |
+| charge                  | gravitation             | molar_volume            | thermal_conductivity    |
+| conductance             | illuminance             | momentum                | time                    |
+| conductivity            | inductance              | none                    | velocity                |
+| count                   | information             | permittivity            | voltage                 |
+| current                 | kinematic_viscosity     | power                   | volume                  |
+| density                 | length                  | pressure                |                         |
