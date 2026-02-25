@@ -17,10 +17,11 @@ This separation reflects a fundamental distinction: *dimensional compatibility* 
 
 A naive approach stores all conversions in one graph:
 
-```
-meter ──(×0.3048)──> foot
-meter ──(×100)────> centimeter
-ampere ──(×2.998e9)──> statampere
+```mermaid
+graph LR
+    meter -->|"×0.3048"| foot
+    meter -->|"×100"| centimeter
+    ampere -->|"×2.998e9"| statampere
 ```
 
 This works for same-basis conversions but fails for cross-basis cases:
@@ -41,12 +42,14 @@ This works for same-basis conversions but fails for cross-basis cases:
 
 ## BasisGraph: The Dimensional Layer
 
-```
-       SI ─────────────────> CGS
-    (T,L,M,I,Θ,J,N,B)    (L,M,T)
-           │
-           └──────────────> CGS-ESU
-                          (L,M,T,Q)
+```mermaid
+graph LR
+    SI["<b>SI</b><br/>(T, L, M, I, Θ, J, N, B)"]
+    CGS["<b>CGS</b><br/>(L, M, T)"]
+    ESU["<b>CGS-ESU</b><br/>(L, M, T, Q)"]
+
+    SI -->|SI_TO_CGS| CGS
+    SI -->|SI_TO_CGS_ESU| ESU
 ```
 
 ### Structure
@@ -92,12 +95,20 @@ cgs_current = SI_TO_CGS_ESU(si_current)  # L^(3/2) M^(1/2) T^(-2)
 
 ## ConversionGraph: The Numeric Layer
 
-```
-    meter ──(×0.3048)──> foot
-      │
-      └──(×100)──> centimeter [CGS-ESU]
-                        │
-                    (RebasedUnit)
+```mermaid
+graph LR
+    subgraph SI Basis
+        meter
+        foot
+    end
+    subgraph CGS-ESU Basis
+        centimeter
+        rebased["RebasedUnit(meter)"]
+    end
+
+    meter -->|"×0.3048"| foot
+    meter -.->|"basis_transform"| rebased
+    rebased -->|"×100"| centimeter
 ```
 
 ### Structure
@@ -144,46 +155,51 @@ The `RebasedUnit` lives in the *destination's* dimension partition, enabling BFS
 
 ### Adding a Cross-Basis Edge
 
-```
-User calls:
-  graph.add_edge(ampere, statampere, LinearMap(k), basis_transform=SI_TO_CGS_ESU)
+```mermaid
+sequenceDiagram
+    participant User
+    participant CG as ConversionGraph
+    participant BT as BasisTransform
 
-ConversionGraph:
-  1. Validate dimensions via BasisTransform
-     └─> SI_TO_CGS_ESU(ampere.vector) == statampere.vector? ✓
-  2. Create RebasedUnit(ampere) in CGS-ESU dimension partition
-  3. Store edge: RebasedUnit ←→ statampere
-  4. Store transform reference for introspection
+    User->>CG: add_edge(ampere, statampere, LinearMap(k), basis_transform)
+    CG->>BT: transform(ampere.dimension.vector)
+    BT-->>CG: transformed_vector
+    CG->>CG: validate: transformed == statampere.vector?
+    CG->>CG: create RebasedUnit(ampere) in CGS-ESU partition
+    CG->>CG: store edge: RebasedUnit ↔ statampere
+    CG-->>User: edge added
 ```
 
 ### Converting Across Bases
 
-```
-User calls:
-  graph.convert(ampere, statampere)
+```mermaid
+sequenceDiagram
+    participant User
+    participant CG as ConversionGraph
 
-ConversionGraph:
-  1. Check dimensions
-     └─> ampere.dimension != statampere.dimension (different bases)
-  2. Look up RebasedUnit for ampere
-     └─> Found: RebasedUnit(ampere) in CGS-ESU partition
-  3. BFS from RebasedUnit to statampere
-     └─> Direct edge found: LinearMap(2.998e9)
-  4. Return composed Map
+    User->>CG: convert(ampere, statampere)
+    CG->>CG: dimensions differ (different bases)
+    CG->>CG: lookup RebasedUnit(ampere)
+    Note right of CG: Found in CGS-ESU partition
+    CG->>CG: BFS: RebasedUnit → statampere
+    Note right of CG: Direct edge: LinearMap(2.998e9)
+    CG-->>User: return composed Map
 ```
 
 ### Validating with BasisGraph
 
 When `_basis_graph` is set on ConversionGraph:
 
-```
-User calls:
-  graph.add_edge(meter, weird_unit_in_unknown_basis, ...)
+```mermaid
+sequenceDiagram
+    participant User
+    participant CG as ConversionGraph
+    participant BG as BasisGraph
 
-ConversionGraph:
-  1. Check: are SI and unknown_basis connected in BasisGraph?
-     └─> bg.are_connected(SI, unknown_basis)? ✗
-  2. Raise NoTransformPath
+    User->>CG: add_edge(meter, weird_unit, ...)
+    CG->>BG: are_connected(SI, unknown_basis)?
+    BG-->>CG: False
+    CG-->>User: raise NoTransformPath
 ```
 
 ---
@@ -202,20 +218,23 @@ ConversionGraph:
 
 ### The Layered View
 
-```
-┌─────────────────────────────────────────────────┐
-│                  User API                        │
-│    Number.to()  /  graph.convert()              │
-├─────────────────────────────────────────────────┤
-│              ConversionGraph                     │
-│    Units, Maps, BFS pathfinding, RebasedUnits   │
-├─────────────────────────────────────────────────┤
-│               BasisGraph                         │
-│    Bases, BasisTransforms, connectivity         │
-├─────────────────────────────────────────────────┤
-│             Dimension / Vector                   │
-│    Exponent vectors, basis-aware arithmetic     │
-└─────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph api["User API"]
+        a1["Number.to()"]
+        a2["graph.convert()"]
+    end
+    subgraph cg["ConversionGraph"]
+        c1["Units, Maps, BFS, RebasedUnits"]
+    end
+    subgraph bg["BasisGraph"]
+        b1["Bases, BasisTransforms, Connectivity"]
+    end
+    subgraph dim["Dimension / Vector"]
+        d1["Exponent vectors, Basis-aware arithmetic"]
+    end
+
+    api --> cg --> bg --> dim
 ```
 
 Each layer has a single responsibility:
