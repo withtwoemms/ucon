@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-02-25
+
 ### Added
 
 - Auto-generated `dimension.pyi` stubs for IDE code completion (`make stubs`)
