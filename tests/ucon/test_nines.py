@@ -9,12 +9,11 @@ Tests the 'nines' unit for SRE availability calculations,
 including conversions from fraction/percent and uncertainty propagation.
 """
 
-import math
 import unittest
 
-from ucon import units
-from ucon.core import Number, Dimension
-from ucon.graph import DimensionMismatch, ConversionNotFound
+from ucon import Dimension, units
+from ucon.core import Number
+from ucon.graph import DimensionMismatch
 
 
 class TestNinesUnit(unittest.TestCase):
@@ -223,9 +222,9 @@ class TestNinesDimensionMismatch(unittest.TestCase):
 
     def test_nines_to_angle_raises(self):
         # Even though both are "dimensionless", pseudo-dimensions isolate them
-        # ConversionNotFound is raised because no path exists between ratio and angle
+        # DimensionMismatch is raised because ratio and angle are distinct dimensions
         n = Number(5, unit=units.nines)
-        with self.assertRaises(ConversionNotFound):
+        with self.assertRaises(DimensionMismatch):
             n.to(units.radian)
 
 

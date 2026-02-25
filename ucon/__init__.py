@@ -37,7 +37,7 @@ Design Philosophy
   data-driven framework that is generalizable to arbitrary unit systems.
 """
 from ucon import units
-from ucon.algebra import Exponent
+from ucon.core import Exponent
 from ucon.basis import (
     Basis,
     BasisComponent,
@@ -61,7 +61,6 @@ from ucon.bases import (
 from ucon.core import (
     BasisTransform,
     DimConstraint,
-    Dimension,
     DimensionNotCovered,
     NonInvertibleTransform,
     RebasedUnit,
@@ -72,6 +71,11 @@ from ucon.core import (
     UnitSystem,
     Number,
     Ratio,
+)
+from ucon.dimension import (
+    Dimension,
+    all_dimensions,
+    resolve as resolve_dimension,
 )
 from ucon.checking import enforce_dimensions
 from ucon.graph import get_default_graph, get_parsing_graph, set_default_graph, using_graph
@@ -117,11 +121,13 @@ __all__ = [
     'UnitSystem',
     'UnknownUnitError',
     # Functions
+    'all_dimensions',
     'enforce_dimensions',
     'get_default_graph',
     'get_parsing_graph',
     'get_unit_by_name',
     'load_package',
+    'resolve_dimension',
     'set_default_graph',
     'using_graph',
     # Submodules

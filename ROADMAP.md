@@ -39,32 +39,33 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.7.7 | Schema-Level Dimension Constraints | Complete |
 | v0.8.0 | Basis Abstraction Core | Complete |
 | v0.8.1 | BasisGraph + Standard Bases | Complete |
-| v0.8.2 | Dimension Integration | Planned |
+| v0.8.2 | Dimension Integration | Complete |
 | v0.8.3 | ConversionGraph Integration | Planned |
 | v0.8.4 | Basis Context Scoping | Planned |
 | v0.8.5 | String Parsing | Planned |
-| v0.9.0 | Vector Migration + Constants | Planned |
+| v0.9.0 | Physical Constants | Planned |
 | v0.10.0 | Scientific Computing | Planned |
 | v1.0.0 | API Stability | Planned |
 
 ---
 
-## Current Version: **v0.8.0** (complete)
+## Current Version: **v0.8.2** (complete)
 
-Building on v0.5.x baseline:
-- `ucon.core` (`Dimension`, `Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`, `UnitSystem`, `BasisTransform`, `RebasedUnit`)
-- `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap` with `derivative()`)
+Building on v0.8.1 baseline:
+- `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`)
+- `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`; standard transforms)
+- `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
+- `ucon.core` (`Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`, `UnitSystem`, `RebasedUnit`, `Exponent`)
+- `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`, `LogMap`, `ExpMap`)
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`, cross-basis conversion)
 - `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax, `si` and `imperial` systems, `get_unit_by_name()`)
 - `ucon.pydantic` (`Number` type for Pydantic v2 models)
-- `ucon.algebra` (`Vector` with `Fraction` exponents, `Exponent`)
 - Callable unit API: `meter(5)`, `(mile / hour)(60)`
 - `Number.simplify()` for base-scale normalization
-- `Dimension.information` with `units.bit`, `units.byte`
-- Pseudo-dimensions: `angle`, `solid_angle`, `ratio` with semantic isolation
+- Pseudo-dimensions: `ANGLE`, `SOLID_ANGLE`, `RATIO`, `COUNT` with semantic isolation
 - Uncertainty propagation: `meter(1.234, uncertainty=0.005)` with quadrature arithmetic
-- `BasisTransform` for cross-system dimensional mapping with exact matrix arithmetic
-- `UnitSystem` for named dimension-to-unit groupings
+- User-definable dimensional bases via `Basis` and `BasisGraph`
+- `Dimension` now uses basis-aware `Vector` with explicit basis reference
 - Pydantic v2 integration with JSON serialization
 - Unit string parsing: `get_unit_by_name("kg*m/s^2")`
 
@@ -470,24 +471,32 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.8.2 — Dimension Integration
+## v0.8.2 — Dimension Integration (Complete)
 
 **Theme:** Wire new Vector into Dimension.
 
-- [ ] `Dimension.vector` uses new basis-aware `Vector`
-- [ ] `Dimension.basis` property delegating to `vector.basis`
-- [ ] `Dimension.from_components(basis, length=1, mass=2)` factory
-- [ ] Backward-compatible construction for SI dimensions
+- [x] `Dimension.vector` uses new basis-aware `Vector`
+- [x] `Dimension.basis` property delegating to `vector.basis`
+- [x] `Dimension.from_components(basis, length=1, mass=2)` factory
+- [x] Backward-compatible construction for SI dimensions
+- [x] `Dimension` refactored from Enum to frozen dataclass
+- [x] `resolve(vector)` function for dimension lookup/creation
+- [x] Pseudo-dimensions via `Dimension.pseudo()` factory with tag isolation
+- [x] Delete `ucon/algebra.py` (pulled forward from v0.9.0)
+- [x] Move `Exponent` to `ucon/core.py` (pulled forward from v0.9.0)
 
 **Outcomes:**
 - Dimensions carry explicit basis reference
 - Foundation for cross-basis dimensional comparison
+- Clean module structure achieved early
 
 ---
 
 ## v0.8.3 — ConversionGraph Integration
 
-**Theme:** Cross-basis conversion validation.
+**Theme:** Cross-basis conversion validation and BasisTransform unification.
+
+### BasisGraph Integration
 
 - [ ] `ConversionGraph` accepts `BasisGraph` as constructor parameter
 - [ ] `add_edge()` validates cross-basis edges via `BasisGraph`
@@ -495,9 +504,18 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - [ ] `Unit.basis` property: `return self.dimension.vector.basis`
 - [ ] `Unit.is_compatible(other)` using `BasisGraph`
 
+### BasisTransform Cleanup
+
+- [ ] Update `RebasedUnit` to use `ucon.basis.BasisTransform`
+- [ ] Update `ConversionGraph` cross-basis methods to use new `BasisTransform`
+- [ ] Delete old `BasisTransform` from `ucon/core.py`
+- [ ] Remove `NewBasisTransform` alias from `ucon/__init__.py`
+- [ ] Export only `BasisTransform` from `ucon.basis`
+
 **Outcomes:**
 - Cross-basis unit edges validated at registration time
 - Dimensional errors caught before numeric conversion attempted
+- Single unified `BasisTransform` implementation
 
 ---
 
@@ -536,34 +554,31 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.9.0 — Vector Migration + Constants
+## v0.9.0 — Physical Constants
 
-**Theme:** Complete basis migration and physical completeness.
-
-### Breaking Change: Delete ucon.algebra
-
-- [ ] Move `Exponent` from `ucon/algebra.py` to `ucon/core.py`
-- [ ] Delete hardcoded 8-field `Vector` from `ucon/algebra.py`
-- [ ] Delete `ucon/algebra.py` entirely
-- [ ] Update all imports to use `Vector` from `ucon.basis`
-
-**Rationale:** `Vector` is now inseparable from `Basis` (carries `.basis` reference). `Exponent` belongs near its consumers in `ucon.core`. "algebra" as a module name doesn't communicate contents.
+**Theme:** Physical completeness and logarithmic units.
 
 ### Physical Constants
 
 - [ ] Physical constants with uncertainties: `c`, `h`, `G`, `k_B`, `N_A`, etc.
 - [ ] Natural units basis (c=ℏ=1) using new Basis abstraction
+- [ ] CODATA 2022 values with documented uncertainties
+
+### Logarithmic Units
+
 - [x] `LogMap`/`ExpMap` for logarithmic conversions (completed in v0.6.x)
 - [ ] Logarithmic units with reference levels: `decibel`, `bel`, `neper`
+- [ ] Reference-level infrastructure for dBm, dBV, dBSPL variants
 - [ ] pH scale support
+
+### Additional Dimensions
+
 - [ ] Currency dimension (with caveats about exchange rates)
 
 **Outcomes:**
-- Clean module structure: `ucon.basis`, `ucon.core`, `ucon.graph`
 - Physical constants with CODATA uncertainties
 - Natural units leverage custom basis infrastructure
 - Enables acoustics (dB), chemistry (pH), and signal processing domains
-- Reference-level infrastructure for dBm, dBV, dBSPL variants
 
 ---
 

@@ -45,9 +45,17 @@ else:
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ucon.dimension import all_dimensions
+
 if TYPE_CHECKING:
     from ucon.core import Unit
     from ucon.graph import ConversionGraph
+
+
+def _get_dimension_map() -> dict[str, "Dimension"]:
+    """Build a mapping from dimension names to Dimension objects."""
+    from ucon.dimension import Dimension
+    return {d.name: d for d in all_dimensions() if d.name is not None}
 
 
 class PackageLoadError(Exception):
@@ -85,11 +93,11 @@ class UnitDef:
         PackageLoadError
             If the dimension name is invalid.
         """
-        from ucon.core import Unit, Dimension
+        from ucon.core import Unit
 
-        try:
-            dim = getattr(Dimension, self.dimension)
-        except AttributeError:
+        dim_map = _get_dimension_map()
+        dim = dim_map.get(self.dimension)
+        if dim is None:
             raise PackageLoadError(
                 f"Unknown dimension '{self.dimension}' for unit '{self.name}'"
             )
@@ -184,11 +192,11 @@ class UnitPackage:
 
     def __post_init__(self):
         """Validate package contents."""
-        from ucon.core import Dimension
+        dim_map = _get_dimension_map()
 
         # Validate dimension names
         for unit_def in self.units:
-            if not hasattr(Dimension, unit_def.dimension):
+            if unit_def.dimension not in dim_map:
                 raise PackageLoadError(
                     f"Unknown dimension '{unit_def.dimension}' for unit '{unit_def.name}'"
                 )

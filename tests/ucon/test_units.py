@@ -5,8 +5,7 @@
 
 from unittest import TestCase
 
-from ucon import units
-from ucon.core import Dimension
+from ucon import Dimension, units
 
 
 class TestUnits(TestCase):

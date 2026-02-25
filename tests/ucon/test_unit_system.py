@@ -12,7 +12,8 @@ unit system definitions.
 import unittest
 
 from ucon import units
-from ucon.core import Dimension, Unit, UnitSystem, DimensionNotCovered
+from ucon.core import UnitSystem, DimensionNotCovered
+from ucon import Dimension
 
 
 class TestUnitSystemConstruction(unittest.TestCase):

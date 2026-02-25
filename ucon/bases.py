@@ -32,20 +32,20 @@ from ucon.basis import Basis, BasisComponent, BasisTransform
 SI = Basis(
     "SI",
     [
+        BasisComponent("time", "T"),
         BasisComponent("length", "L"),
         BasisComponent("mass", "M"),
-        BasisComponent("time", "T"),
         BasisComponent("current", "I"),
         BasisComponent("temperature", "Θ"),
-        BasisComponent("amount", "N"),
-        BasisComponent("luminosity", "J"),
-        BasisComponent("angle", "A"),
+        BasisComponent("luminous_intensity", "J"),
+        BasisComponent("amount_of_substance", "N"),
+        BasisComponent("information", "B"),
     ],
 )
 """The International System of Units.
 
-8 base dimensions: length, mass, time, current, temperature, amount,
-luminosity, and angle.
+8 base dimensions in canonical order: time, length, mass, current, temperature,
+luminous_intensity, amount_of_substance, and information (T, L, M, I, Θ, J, N, B).
 """
 
 CGS = Basis(
@@ -86,20 +86,23 @@ SI_TO_CGS = BasisTransform(
     SI,
     CGS,
     (
-        (Fraction(1), Fraction(0), Fraction(0)),  # L -> L
-        (Fraction(0), Fraction(1), Fraction(0)),  # M -> M
-        (Fraction(0), Fraction(0), Fraction(1)),  # T -> T
+        # SI order: T, L, M, I, Θ, J, N, B
+        # CGS order: L, M, T
+        (Fraction(0), Fraction(0), Fraction(1)),  # T -> T (column 2 in CGS)
+        (Fraction(1), Fraction(0), Fraction(0)),  # L -> L (column 0 in CGS)
+        (Fraction(0), Fraction(1), Fraction(0)),  # M -> M (column 1 in CGS)
         (Fraction(0), Fraction(0), Fraction(0)),  # I -> (not representable)
         (Fraction(0), Fraction(0), Fraction(0)),  # Θ -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0)),  # N -> (not representable)
         (Fraction(0), Fraction(0), Fraction(0)),  # J -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0)),  # A -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0)),  # N -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0)),  # B -> (not representable)
     ),
 )
 """Transform from SI to CGS.
 
 Projects SI dimensions to CGS by preserving length, mass, and time,
-and dropping current, temperature, amount, luminosity, and angle.
+and dropping current, temperature, luminous_intensity, amount_of_substance,
+and information.
 
 Warning: This is a lossy projection. Attempting to transform a vector
 with non-zero current (or other dropped components) will raise
@@ -110,16 +113,18 @@ SI_TO_CGS_ESU = BasisTransform(
     SI,
     CGS_ESU,
     (
-        (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),  # L -> L
-        (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),  # M -> M
-        (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),  # T -> T
+        # SI order: T, L, M, I, Θ, J, N, B
+        # CGS_ESU order: L, M, T, Q
+        (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),  # T -> T (column 2 in CGS_ESU)
+        (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),  # L -> L (column 0 in CGS_ESU)
+        (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),  # M -> M (column 1 in CGS_ESU)
         # I -> L^(3/2) M^(1/2) T^(-2) (current as derived dimension)
         # In ESU: 1 statampere = 1 statcoulomb/s = 1 g^(1/2) cm^(3/2) s^(-2)
         (Fraction(3, 2), Fraction(1, 2), Fraction(-2), Fraction(0)),
         (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # Θ -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # N -> (not representable)
         (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # J -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # A -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # N -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # B -> (not representable)
     ),
 )
 """Transform from SI to CGS-ESU.
@@ -128,8 +133,8 @@ Maps SI dimensions to CGS-ESU. Current (I) becomes a derived dimension
 expressed as L^(3/2) M^(1/2) T^(-2), which is the dimensional formula
 for charge/time in the ESU system.
 
-Temperature, amount, luminosity, and angle are not representable in
-CGS-ESU and will raise LossyProjection if non-zero.
+Temperature, luminous_intensity, amount_of_substance, and information
+are not representable in CGS-ESU and will raise LossyProjection if non-zero.
 """
 
 

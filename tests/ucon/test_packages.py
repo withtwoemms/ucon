@@ -17,7 +17,6 @@ from pathlib import Path
 from tests.ucon import EXAMPLE_UNIT_EXTENSIONS_PATH
 from ucon import (
     Dimension,
-    Number,
     get_default_graph,
     get_unit_by_name,
     load_package,
@@ -28,7 +27,6 @@ from ucon import (
     UnitPackage,
 )
 from ucon.graph import ConversionGraph
-from ucon.units import UnknownUnitError
 
 
 class TestUnitDef(unittest.TestCase):

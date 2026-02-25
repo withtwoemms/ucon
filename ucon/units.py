@@ -16,9 +16,9 @@ Example
 -------
 >>> from ucon import units
 >>> units.meter.dimension
-<Dimension.length>
+<LENGTH>
 >>> units.newton.dimension
-<Dimension.force>
+<FORCE>
 
 Includes convenience utilities such as :func:`have(name)` for unit membership
 checks.
@@ -32,6 +32,19 @@ import re
 from typing import Dict, Tuple, Union
 
 from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct, UnitSystem
+from ucon.dimension import (
+    NONE, TIME, LENGTH, MASS, CURRENT, TEMPERATURE,
+    LUMINOUS_INTENSITY, AMOUNT_OF_SUBSTANCE, INFORMATION,
+    ANGLE, SOLID_ANGLE, RATIO, COUNT,
+    VELOCITY, ACCELERATION, FORCE, ENERGY, POWER,
+    MOMENTUM, ANGULAR_MOMENTUM, AREA, VOLUME, DENSITY, PRESSURE, FREQUENCY,
+    DYNAMIC_VISCOSITY, KINEMATIC_VISCOSITY, GRAVITATION,
+    CHARGE, VOLTAGE, RESISTANCE, RESISTIVITY, CONDUCTANCE, CONDUCTIVITY,
+    CAPACITANCE, INDUCTANCE, MAGNETIC_FLUX, MAGNETIC_FLUX_DENSITY,
+    MAGNETIC_PERMEABILITY, PERMITTIVITY, ELECTRIC_FIELD_STRENGTH,
+    ENTROPY, SPECIFIC_HEAT_CAPACITY, THERMAL_CONDUCTIVITY,
+    ILLUMINANCE, CATALYTIC_ACTIVITY, MOLAR_MASS, MOLAR_VOLUME,
+)
 from ucon.graph import get_parsing_graph
 from ucon.parsing import parse_unit_expression, ParseError
 
@@ -48,129 +61,129 @@ none = Unit()
 
 
 # -- International System of Units (SI) --------------------------------
-ampere = Unit(name='ampere', dimension=Dimension.current, aliases=('A', 'I', 'amp'))
-becquerel = Unit(name='becquerel', dimension=Dimension.frequency, aliases=('Bq',))
-celsius = Unit(name='celsius', dimension=Dimension.temperature, aliases=('°C', 'degC'))
-coulomb = Unit(name='coulomb', dimension=Dimension.charge, aliases=('C',))
-farad = Unit(name='farad', dimension=Dimension.capacitance, aliases=('F',))
-gram = Unit(name='gram', dimension=Dimension.mass, aliases=('g',))
-gray = Unit(name='gray', dimension=Dimension.energy, aliases=('Gy',))
-henry = Unit(name='henry', dimension=Dimension.inductance, aliases=('H',))
-hertz = Unit(name='hertz', dimension=Dimension.frequency, aliases=('Hz',))
-joule = Unit(name='joule', dimension=Dimension.energy, aliases=('J',))
-joule_per_kelvin = Unit(name='joule_per_kelvin', dimension=Dimension.entropy, aliases=('J/K',))
-katal = Unit(name='katal', dimension=Dimension.catalytic_activity, aliases=('kat',))
-kelvin = Unit(name='kelvin', dimension=Dimension.temperature, aliases=('K',))
-kilogram = Unit(name='kilogram', dimension=Dimension.mass, aliases=('kg',))
-liter = Unit(name='liter', dimension=Dimension.volume, aliases=('L', 'l'))
-candela = Unit(name='candela', dimension=Dimension.luminous_intensity, aliases=('cd',))
-lumen = Unit(name='lumen', dimension=Dimension.luminous_intensity, aliases=('lm',))
-lux = Unit(name='lux', dimension=Dimension.illuminance, aliases=('lx',))
-meter = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-mole = Unit(name='mole', dimension=Dimension.amount_of_substance, aliases=('mol', 'n'))
-newton = Unit(name='newton', dimension=Dimension.force, aliases=('N',))
-ohm = Unit(name='ohm', dimension=Dimension.resistance, aliases=('Ω',))
-pascal = Unit(name='pascal', dimension=Dimension.pressure, aliases=('Pa',))
-radian = Unit(name='radian', dimension=Dimension.angle, aliases=('rad',))
-siemens = Unit(name='siemens', dimension=Dimension.conductance, aliases=('S',))
-sievert = Unit(name='sievert', dimension=Dimension.energy, aliases=('Sv',))
-steradian = Unit(name='steradian', dimension=Dimension.solid_angle, aliases=('sr',))
-tesla = Unit(name='tesla', dimension=Dimension.magnetic_flux_density, aliases=('T',))
-volt = Unit(name='volt', dimension=Dimension.voltage, aliases=('V',))
-watt = Unit(name='watt', dimension=Dimension.power, aliases=('W',))
-weber = Unit(name='weber', dimension=Dimension.magnetic_flux, aliases=('Wb',))
-webers_per_meter = Unit(name='webers_per_meter', dimension=Dimension.magnetic_permeability, aliases=('Wb/m',))
+ampere = Unit(name='ampere', dimension=CURRENT, aliases=('A', 'I', 'amp'))
+becquerel = Unit(name='becquerel', dimension=FREQUENCY, aliases=('Bq',))
+celsius = Unit(name='celsius', dimension=TEMPERATURE, aliases=('°C', 'degC'))
+coulomb = Unit(name='coulomb', dimension=CHARGE, aliases=('C',))
+farad = Unit(name='farad', dimension=CAPACITANCE, aliases=('F',))
+gram = Unit(name='gram', dimension=MASS, aliases=('g',))
+gray = Unit(name='gray', dimension=ENERGY, aliases=('Gy',))
+henry = Unit(name='henry', dimension=INDUCTANCE, aliases=('H',))
+hertz = Unit(name='hertz', dimension=FREQUENCY, aliases=('Hz',))
+joule = Unit(name='joule', dimension=ENERGY, aliases=('J',))
+joule_per_kelvin = Unit(name='joule_per_kelvin', dimension=ENTROPY, aliases=('J/K',))
+katal = Unit(name='katal', dimension=CATALYTIC_ACTIVITY, aliases=('kat',))
+kelvin = Unit(name='kelvin', dimension=TEMPERATURE, aliases=('K',))
+kilogram = Unit(name='kilogram', dimension=MASS, aliases=('kg',))
+liter = Unit(name='liter', dimension=VOLUME, aliases=('L', 'l'))
+candela = Unit(name='candela', dimension=LUMINOUS_INTENSITY, aliases=('cd',))
+lumen = Unit(name='lumen', dimension=LUMINOUS_INTENSITY, aliases=('lm',))
+lux = Unit(name='lux', dimension=ILLUMINANCE, aliases=('lx',))
+meter = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+mole = Unit(name='mole', dimension=AMOUNT_OF_SUBSTANCE, aliases=('mol', 'n'))
+newton = Unit(name='newton', dimension=FORCE, aliases=('N',))
+ohm = Unit(name='ohm', dimension=RESISTANCE, aliases=('Ω',))
+pascal = Unit(name='pascal', dimension=PRESSURE, aliases=('Pa',))
+radian = Unit(name='radian', dimension=ANGLE, aliases=('rad',))
+siemens = Unit(name='siemens', dimension=CONDUCTANCE, aliases=('S',))
+sievert = Unit(name='sievert', dimension=ENERGY, aliases=('Sv',))
+steradian = Unit(name='steradian', dimension=SOLID_ANGLE, aliases=('sr',))
+tesla = Unit(name='tesla', dimension=MAGNETIC_FLUX_DENSITY, aliases=('T',))
+volt = Unit(name='volt', dimension=VOLTAGE, aliases=('V',))
+watt = Unit(name='watt', dimension=POWER, aliases=('W',))
+weber = Unit(name='weber', dimension=MAGNETIC_FLUX, aliases=('Wb',))
+webers_per_meter = Unit(name='webers_per_meter', dimension=MAGNETIC_PERMEABILITY, aliases=('Wb/m',))
 # ----------------------------------------------------------------------
 
 
 # -- Viscosity Units ---------------------------------------------------
-poise = Unit(name='poise', dimension=Dimension.dynamic_viscosity, aliases=('P',))
-stokes = Unit(name='stokes', dimension=Dimension.kinematic_viscosity, aliases=('St',))
+poise = Unit(name='poise', dimension=DYNAMIC_VISCOSITY, aliases=('P',))
+stokes = Unit(name='stokes', dimension=KINEMATIC_VISCOSITY, aliases=('St',))
 # ----------------------------------------------------------------------
 
 
 # -- Time Units --------------------------------------------------------
-second = Unit(name='second', dimension=Dimension.time, aliases=('s', 'sec'))
-minute = Unit(name='minute', dimension=Dimension.time, aliases=('min',))
-hour = Unit(name='hour', dimension=Dimension.time, aliases=('h', 'hr'))
-day = Unit(name='day', dimension=Dimension.time, aliases=('d',))
+second = Unit(name='second', dimension=TIME, aliases=('s', 'sec'))
+minute = Unit(name='minute', dimension=TIME, aliases=('min',))
+hour = Unit(name='hour', dimension=TIME, aliases=('h', 'hr'))
+day = Unit(name='day', dimension=TIME, aliases=('d',))
 # ----------------------------------------------------------------------
 
 
 # -- Imperial / US Customary Units -------------------------------------
 # Length
-foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft', 'feet'))
-inch = Unit(name='inch', dimension=Dimension.length, aliases=('in', 'inches'))
-yard = Unit(name='yard', dimension=Dimension.length, aliases=('yd', 'yards'))
-mile = Unit(name='mile', dimension=Dimension.length, aliases=('mi', 'miles'))
+foot = Unit(name='foot', dimension=LENGTH, aliases=('ft', 'feet'))
+inch = Unit(name='inch', dimension=LENGTH, aliases=('in', 'inches'))
+yard = Unit(name='yard', dimension=LENGTH, aliases=('yd', 'yards'))
+mile = Unit(name='mile', dimension=LENGTH, aliases=('mi', 'miles'))
 
 # Mass
-pound = Unit(name='pound', dimension=Dimension.mass, aliases=('lb', 'lbs'))
-ounce = Unit(name='ounce', dimension=Dimension.mass, aliases=('oz', 'ounces'))
+pound = Unit(name='pound', dimension=MASS, aliases=('lb', 'lbs'))
+ounce = Unit(name='ounce', dimension=MASS, aliases=('oz', 'ounces'))
 
 # Temperature
-fahrenheit = Unit(name='fahrenheit', dimension=Dimension.temperature, aliases=('°F', 'degF'))
-rankine = Unit(name='rankine', dimension=Dimension.temperature, aliases=('°R', 'degR', 'R'))
+fahrenheit = Unit(name='fahrenheit', dimension=TEMPERATURE, aliases=('°F', 'degF'))
+rankine = Unit(name='rankine', dimension=TEMPERATURE, aliases=('°R', 'degR', 'R'))
 
 # Volume
-gallon = Unit(name='gallon', dimension=Dimension.volume, aliases=('gal', 'gallons'))
+gallon = Unit(name='gallon', dimension=VOLUME, aliases=('gal', 'gallons'))
 
 # Energy
-calorie = Unit(name='calorie', dimension=Dimension.energy, aliases=('cal', 'calories'))
-btu = Unit(name='btu', dimension=Dimension.energy, aliases=('BTU',))
-watt_hour = Unit(name='watt_hour', dimension=Dimension.energy, aliases=('Wh',))
+calorie = Unit(name='calorie', dimension=ENERGY, aliases=('cal', 'calories'))
+btu = Unit(name='btu', dimension=ENERGY, aliases=('BTU',))
+watt_hour = Unit(name='watt_hour', dimension=ENERGY, aliases=('Wh',))
 
 # Power
-horsepower = Unit(name='horsepower', dimension=Dimension.power, aliases=('hp',))
+horsepower = Unit(name='horsepower', dimension=POWER, aliases=('hp',))
 
 # Pressure
-bar = Unit(name='bar', dimension=Dimension.pressure, aliases=('bar',))
-psi = Unit(name='psi', dimension=Dimension.pressure, aliases=('psi', 'lbf/in²'))
-atmosphere = Unit(name='atmosphere', dimension=Dimension.pressure, aliases=('atm',))
-torr = Unit(name='torr', dimension=Dimension.pressure, aliases=('Torr',))
-millimeter_mercury = Unit(name='millimeter_mercury', dimension=Dimension.pressure, aliases=('mmHg',))
-inch_mercury = Unit(name='inch_mercury', dimension=Dimension.pressure, aliases=('inHg',))
+bar = Unit(name='bar', dimension=PRESSURE, aliases=('bar',))
+psi = Unit(name='psi', dimension=PRESSURE, aliases=('psi', 'lbf/in²'))
+atmosphere = Unit(name='atmosphere', dimension=PRESSURE, aliases=('atm',))
+torr = Unit(name='torr', dimension=PRESSURE, aliases=('Torr',))
+millimeter_mercury = Unit(name='millimeter_mercury', dimension=PRESSURE, aliases=('mmHg',))
+inch_mercury = Unit(name='inch_mercury', dimension=PRESSURE, aliases=('inHg',))
 
 # Force
-pound_force = Unit(name='pound_force', dimension=Dimension.force, aliases=('lbf',))
-kilogram_force = Unit(name='kilogram_force', dimension=Dimension.force, aliases=('kgf',))
-dyne = Unit(name='dyne', dimension=Dimension.force, aliases=('dyn',))
+pound_force = Unit(name='pound_force', dimension=FORCE, aliases=('lbf',))
+kilogram_force = Unit(name='kilogram_force', dimension=FORCE, aliases=('kgf',))
+dyne = Unit(name='dyne', dimension=FORCE, aliases=('dyn',))
 # ----------------------------------------------------------------------
 
 
 # -- Information Units -------------------------------------------------
-bit = Unit(name='bit', dimension=Dimension.information, aliases=('b', 'bits'))
-byte = Unit(name='byte', dimension=Dimension.information, aliases=('B', 'bytes'))
+bit = Unit(name='bit', dimension=INFORMATION, aliases=('b', 'bits'))
+byte = Unit(name='byte', dimension=INFORMATION, aliases=('B', 'bytes'))
 # ----------------------------------------------------------------------
 
 
 # -- Angle Units -------------------------------------------------------
-degree = Unit(name='degree', dimension=Dimension.angle, aliases=('deg', '°'))
-gradian = Unit(name='gradian', dimension=Dimension.angle, aliases=('grad', 'gon'))
-arcminute = Unit(name='arcminute', dimension=Dimension.angle, aliases=('arcmin', "'"))
-arcsecond = Unit(name='arcsecond', dimension=Dimension.angle, aliases=('arcsec', '"'))
-turn = Unit(name='turn', dimension=Dimension.angle, aliases=('rev', 'revolution'))
+degree = Unit(name='degree', dimension=ANGLE, aliases=('deg', '°'))
+gradian = Unit(name='gradian', dimension=ANGLE, aliases=('grad', 'gon'))
+arcminute = Unit(name='arcminute', dimension=ANGLE, aliases=('arcmin', "'"))
+arcsecond = Unit(name='arcsecond', dimension=ANGLE, aliases=('arcsec', '"'))
+turn = Unit(name='turn', dimension=ANGLE, aliases=('rev', 'revolution'))
 # ----------------------------------------------------------------------
 
 
 # -- Solid Angle Units -------------------------------------------------
-square_degree = Unit(name='square_degree', dimension=Dimension.solid_angle, aliases=('deg²', 'sq_deg'))
+square_degree = Unit(name='square_degree', dimension=SOLID_ANGLE, aliases=('deg²', 'sq_deg'))
 # ----------------------------------------------------------------------
 
 
 # -- Ratio Units -------------------------------------------------------
-fraction = Unit(name='fraction', dimension=Dimension.ratio, aliases=('frac', '1'))
-percent = Unit(name='percent', dimension=Dimension.ratio, aliases=('%',))
-permille = Unit(name='permille', dimension=Dimension.ratio, aliases=('‰',))
-ppm = Unit(name='ppm', dimension=Dimension.ratio, aliases=())
-ppb = Unit(name='ppb', dimension=Dimension.ratio, aliases=())
-basis_point = Unit(name='basis_point', dimension=Dimension.ratio, aliases=('bp', 'bps'))
-nines = Unit(name='nines', dimension=Dimension.ratio, aliases=('9s',))
+fraction = Unit(name='fraction', dimension=RATIO, aliases=('frac', '1'))
+percent = Unit(name='percent', dimension=RATIO, aliases=('%',))
+permille = Unit(name='permille', dimension=RATIO, aliases=('‰',))
+ppm = Unit(name='ppm', dimension=RATIO, aliases=())
+ppb = Unit(name='ppb', dimension=RATIO, aliases=())
+basis_point = Unit(name='basis_point', dimension=RATIO, aliases=('bp', 'bps'))
+nines = Unit(name='nines', dimension=RATIO, aliases=('9s',))
 # ----------------------------------------------------------------------
 
 
 # -- Count Units -------------------------------------------------------
-each = Unit(name='each', dimension=Dimension.count, aliases=('ea', 'item', 'ct'))
+each = Unit(name='each', dimension=COUNT, aliases=('ea', 'item', 'ct'))
 # ----------------------------------------------------------------------
 
 
@@ -182,23 +195,23 @@ webers = weber
 si = UnitSystem(
     name="SI",
     bases={
-        Dimension.length: meter,
-        Dimension.mass: kilogram,
-        Dimension.time: second,
-        Dimension.temperature: kelvin,
-        Dimension.current: ampere,
-        Dimension.amount_of_substance: mole,
-        Dimension.luminous_intensity: candela,
+        LENGTH: meter,
+        MASS: kilogram,
+        TIME: second,
+        TEMPERATURE: kelvin,
+        CURRENT: ampere,
+        AMOUNT_OF_SUBSTANCE: mole,
+        LUMINOUS_INTENSITY: candela,
     }
 )
 
 imperial = UnitSystem(
     name="Imperial",
     bases={
-        Dimension.length: foot,
-        Dimension.mass: pound,
-        Dimension.time: second,
-        Dimension.temperature: fahrenheit,
+        LENGTH: foot,
+        MASS: pound,
+        TIME: second,
+        TEMPERATURE: fahrenheit,
     }
 )
 # --------------------------------------------------------------------------
@@ -260,31 +273,17 @@ _PRIORITY_ALIASES: set = {'min'}
 _PRIORITY_SCALED_ALIASES: Dict[str, Tuple[Unit, Scale]] = {}
 
 # Scale prefix mapping (shorthand -> Scale)
-# Sorted by length descending for greedy matching
+# Derived from Scale enum's ScaleDescriptor.shorthand, plus input-only aliases
 _SCALE_PREFIXES: Dict[str, Scale] = {
-    # Binary (IEC) - must come before single-char metric
-    'Gi': Scale.gibi,
-    'Mi': Scale.mebi,
-    'Ki': Scale.kibi,
-    # Metric (decimal) - multi-char first
-    'da': Scale.deca,
-    # Single-char metric
-    'P': Scale.peta,
-    'T': Scale.tera,
-    'G': Scale.giga,
-    'M': Scale.mega,
-    'k': Scale.kilo,
-    'h': Scale.hecto,
-    'd': Scale.deci,
-    'c': Scale.centi,
-    'm': Scale.milli,
-    'u': Scale.micro,  # ASCII alternative
-    'μ': Scale.micro,  # Unicode micro sign
-    'µ': Scale.micro,  # Unicode mu (common substitute)
-    'n': Scale.nano,
-    'p': Scale.pico,
-    'f': Scale.femto,
+    s.shorthand: s for s in Scale if s.shorthand
 }
+
+# Additional input aliases not in canonical ScaleDescriptor.shorthand
+_SCALE_PREFIXES.update({
+    'u': Scale.micro,  # ASCII alternative for µ
+    'μ': Scale.micro,  # Unicode MICRO SIGN (U+00B5)
+    # Note: Scale.micro.shorthand is 'µ' (GREEK SMALL LETTER MU, U+03BC)
+})
 
 # Sorted by length descending for greedy prefix matching
 _SCALE_PREFIXES_SORTED = sorted(_SCALE_PREFIXES.keys(), key=len, reverse=True)

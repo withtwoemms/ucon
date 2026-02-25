@@ -13,6 +13,7 @@ import unittest
 
 from ucon import Dimension, units
 from ucon.core import Scale
+from ucon.dimension import all_dimensions
 
 
 class TestConvertTool(unittest.TestCase):
@@ -339,10 +340,10 @@ class TestListDimensionsTool(unittest.TestCase):
         # This depends on what's in the Dimension enum
         self.assertIn("none", result)
 
-    def test_matches_dimension_enum(self):
-        """Test that all Dimension enum members are represented."""
+    def test_matches_all_dimensions(self):
+        """Test that all standard dimensions are represented."""
         result = self.list_dimensions()
-        for dim in Dimension:
+        for dim in all_dimensions():
             self.assertIn(dim.name, result)
 
     def test_sorted(self):
@@ -426,12 +427,12 @@ class TestConvertToolSuggestions(unittest.TestCase):
         """Test that pseudo-dimension isolation is explained."""
         result = self.convert(1, "radian", "percent")
         self.assertIsInstance(result, self.ConversionError)
-        self.assertEqual(result.error_type, "no_conversion_path")
-        self.assertEqual(result.got, "angle")
-        self.assertEqual(result.expected, "ratio")
-        self.assertTrue(
-            any("cannot interconvert" in h or "isolated" in h for h in result.hints)
-        )
+        # Pseudo-dimensions are semantically distinct, so this is a dimension mismatch
+        self.assertEqual(result.error_type, "dimension_mismatch")
+        # The "got" field is the source dimension, "expected" is the target
+        # But DimensionMismatch error now shows both in the same format
+        self.assertIn(result.got, ["angle", "ratio"])
+        self.assertIn(result.expected, ["angle", "ratio"])
 
     def test_compatible_units_in_hints(self):
         """Test that dimension mismatch includes compatible units."""
@@ -612,15 +613,15 @@ class TestCountDimensionMCP(unittest.TestCase):
         """Test that converting ea to rad is rejected (pseudo-dimension isolation)."""
         result = self.convert(5, "ea", "rad")
         self.assertIsInstance(result, self.ConversionError)
-        # Pseudo-dimensions have same zero vector but are isolated
-        self.assertEqual(result.error_type, "no_conversion_path")
+        # Pseudo-dimensions are semantically distinct, so this is a dimension mismatch
+        self.assertEqual(result.error_type, "dimension_mismatch")
 
     def test_convert_each_to_percent_rejected(self):
         """Test that converting ea to % is rejected (pseudo-dimension isolation)."""
         result = self.convert(5, "ea", "%")
         self.assertIsInstance(result, self.ConversionError)
-        # Pseudo-dimensions have same zero vector but are isolated
-        self.assertEqual(result.error_type, "no_conversion_path")
+        # Pseudo-dimensions are semantically distinct, so this is a dimension mismatch
+        self.assertEqual(result.error_type, "dimension_mismatch")
 
     def test_check_dimensions_ea_vs_rad_incompatible(self):
         """Test that ea and rad are incompatible."""

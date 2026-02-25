@@ -14,7 +14,7 @@ Verifies that get_unit_by_name() correctly parses unit strings including:
 
 import unittest
 
-from ucon import units, Scale
+from ucon import units, Scale, Dimension, Number
 from ucon.core import Unit, UnitProduct, UnitFactor
 from ucon.units import get_unit_by_name, UnknownUnitError
 
@@ -296,7 +296,6 @@ class TestPriorityAliases(unittest.TestCase):
 
     def test_min_is_minute_not_milli_inch(self):
         """'min' should parse as minute (time), not milli-inch (length)."""
-        from ucon.core import Dimension
         result = get_unit_by_name("min")
         self.assertEqual(result, units.minute)
         self.assertEqual(result.dimension, Dimension.time)
@@ -306,13 +305,11 @@ class TestPriorityAliases(unittest.TestCase):
         result = get_unit_by_name("mL/min")
         self.assertIsInstance(result, UnitProduct)
         # Volume / time dimension
-        from ucon.core import Dimension
         expected_dim = Dimension.volume / Dimension.time
         self.assertEqual(result.dimension, expected_dim)
 
     def test_mL_per_min_conversion(self):
         """Conversion using 'min' should work correctly."""
-        from ucon.core import Number
         rate_per_hour = Number(120, unit=get_unit_by_name("mL/h"))
         rate_per_min = rate_per_hour.to(get_unit_by_name("mL/min"))
         self.assertAlmostEqual(rate_per_min.quantity, 2.0, places=9)
@@ -338,7 +335,6 @@ class TestPriorityScaledAliases(unittest.TestCase):
 
     def test_mcg_is_microgram(self):
         """'mcg' should parse as microgram (medical convention)."""
-        from ucon.core import Dimension
         result = get_unit_by_name("mcg")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.mass)
@@ -346,14 +342,12 @@ class TestPriorityScaledAliases(unittest.TestCase):
 
     def test_mcg_to_mg(self):
         """Conversion from mcg to mg should work."""
-        from ucon.core import Number
         dose = Number(500, unit=get_unit_by_name("mcg"))
         result = dose.to(get_unit_by_name("mg"))
         self.assertAlmostEqual(result.quantity, 0.5, places=9)
 
     def test_mcg_to_ug(self):
         """mcg and µg should be equivalent."""
-        from ucon.core import Number
         dose = Number(1, unit=get_unit_by_name("mcg"))
         result = dose.to(get_unit_by_name("µg"))
         self.assertAlmostEqual(result.quantity, 1.0, places=9)
@@ -362,7 +356,6 @@ class TestPriorityScaledAliases(unittest.TestCase):
         """'mcg' should work in composite units."""
         result = get_unit_by_name("mcg/mL")
         self.assertIsInstance(result, UnitProduct)
-        from ucon.core import Dimension
         self.assertEqual(result.dimension, Dimension.density)
 
     def test_mcg_per_kg_per_min(self):
@@ -373,7 +366,6 @@ class TestPriorityScaledAliases(unittest.TestCase):
 
     def test_cc_is_milliliter(self):
         """'cc' should parse as milliliter (1 cc = 1 mL)."""
-        from ucon.core import Dimension
         result = get_unit_by_name("cc")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.volume)
@@ -381,14 +373,12 @@ class TestPriorityScaledAliases(unittest.TestCase):
 
     def test_cc_to_mL(self):
         """Conversion from cc to mL should be 1:1."""
-        from ucon.core import Number
         vol = Number(5, unit=get_unit_by_name("cc"))
         result = vol.to(get_unit_by_name("mL"))
         self.assertAlmostEqual(result.quantity, 5.0, places=9)
 
     def test_cc_to_L(self):
         """Conversion from cc to L should work."""
-        from ucon.core import Number
         vol = Number(1000, unit=get_unit_by_name("cc"))
         result = vol.to(get_unit_by_name("L"))
         self.assertAlmostEqual(result.quantity, 1.0, places=9)
@@ -463,7 +453,6 @@ class TestRecursiveDescentParser(unittest.TestCase):
 
     def test_acceleration_unicode_superscript(self):
         """GIVEN m/s² THEN returns UnitProduct with dimension acceleration."""
-        from ucon.core import Dimension
         result = get_unit_by_name("m/s²")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.acceleration)
@@ -476,21 +465,18 @@ class TestRecursiveDescentParser(unittest.TestCase):
 
     def test_frequency_negative_superscript(self):
         """GIVEN s⁻¹ THEN returns UnitProduct with dimension frequency."""
-        from ucon.core import Dimension
         result = get_unit_by_name("s⁻¹")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.frequency)
 
     def test_force_mixed_notation(self):
         """GIVEN kg*m/s^2 THEN returns UnitProduct with dimension force."""
-        from ucon.core import Dimension
         result = get_unit_by_name("kg*m/s^2")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.force)
 
     def test_force_nested_parentheses(self):
         """GIVEN (kg*m)/(s^2) THEN returns UnitProduct with dimension force."""
-        from ucon.core import Dimension
         result = get_unit_by_name("(kg*m)/(s^2)")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.force)

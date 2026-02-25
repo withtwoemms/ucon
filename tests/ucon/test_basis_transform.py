@@ -19,7 +19,7 @@ from ucon.core import (
     Unit,
     UnitSystem,
 )
-from ucon import units
+from ucon import Dimension, units
 
 
 class TestBasisTransformConstruction(unittest.TestCase):
@@ -329,10 +329,11 @@ class TestBasisTransformTransform(unittest.TestCase):
             dst_dimensions=(Dimension.length,),
             matrix=((2,),),
         )
-        src_vector = Dimension.length.value
+        src_vector = Dimension.length.vector
         result = bt.transform(src_vector)
         # Length component should be doubled
-        self.assertEqual(result.L, Fraction(2))
+        # Access via index (1 = length in SI basis: T, L, M, I, Θ, J, N, B)
+        self.assertEqual(result["length"], Fraction(2))
 
     def test_mixed_transform_vector(self):
         # Transform where mass includes contributions from multiple src dimensions
@@ -347,10 +348,10 @@ class TestBasisTransformTransform(unittest.TestCase):
             ),
         )
         # Input: pure length (L=1, M=0)
-        src_vector = Dimension.length.value
+        src_vector = Dimension.length.vector
         result = bt.transform(src_vector)
-        self.assertEqual(result.L, Fraction(1))
-        self.assertEqual(result.M, Fraction(1))  # Contribution from length
+        self.assertEqual(result["length"], Fraction(1))
+        self.assertEqual(result["mass"], Fraction(1))  # Contribution from length
 
 
 class TestBasisTransformValidateEdge(unittest.TestCase):

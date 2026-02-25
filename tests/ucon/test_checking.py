@@ -6,7 +6,7 @@
 
 import unittest
 
-from ucon import Number, Dimension, units, enforce_dimensions, DimConstraint
+from ucon import Dimension, Number, units, enforce_dimensions, DimConstraint
 
 
 class TestEnforceDimensions(unittest.TestCase):

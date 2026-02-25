@@ -14,12 +14,12 @@ Verifies that:
 import unittest
 
 from ucon import (
-    Dimension,
     Unit,
     get_default_graph,
     get_unit_by_name,
     using_graph,
 )
+from ucon import Dimension
 from ucon.graph import ConversionGraph, get_parsing_graph
 from ucon.units import UnknownUnitError
 

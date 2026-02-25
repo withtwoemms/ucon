@@ -12,8 +12,8 @@ can be serialized and deserialized via pickle.
 import pickle
 import unittest
 
-from ucon import Number, Scale, units
-from ucon.core import Unit, UnitProduct, UnitFactor, Dimension
+from ucon import Dimension, Number, Scale, units
+from ucon.core import UnitFactor
 
 
 class TestPickleNumber(unittest.TestCase):

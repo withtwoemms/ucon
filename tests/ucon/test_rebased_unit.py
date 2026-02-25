@@ -10,16 +10,13 @@ provenance while exposing the rebased dimension.
 """
 
 import unittest
-from fractions import Fraction
 
 from ucon.core import (
     BasisTransform,
-    Dimension,
     RebasedUnit,
-    Unit,
     UnitSystem,
 )
-from ucon import units
+from ucon import Dimension, units
 
 
 class TestRebasedUnitConstruction(unittest.TestCase):

@@ -5,7 +5,7 @@
 
 import pytest
 
-from ucon import Number, Dimension, enforce_dimensions
+from ucon import Dimension, Number, enforce_dimensions
 from ucon.mcp.formulas import (
     FormulaInfo,
     register_formula,

@@ -12,9 +12,8 @@ and cross-pseudo-dimension conversion failure.
 import math
 import unittest
 
-from ucon import units
-from ucon.core import Dimension, Vector
-from ucon.graph import ConversionNotFound
+from ucon import Dimension, units
+from ucon.graph import DimensionMismatch
 
 
 class TestPseudoDimensionIsolation(unittest.TestCase):
@@ -45,11 +44,11 @@ class TestPseudoDimensionIsolation(unittest.TestCase):
         self.assertEqual(Dimension.none, Dimension.none)
 
     def test_all_pseudo_dimensions_have_zero_vector(self):
-        zero = Vector()
-        self.assertEqual(Dimension.none.vector, zero)
-        self.assertEqual(Dimension.angle.vector, zero)
-        self.assertEqual(Dimension.solid_angle.vector, zero)
-        self.assertEqual(Dimension.ratio.vector, zero)
+        # All pseudo-dimensions have dimensionless vectors
+        self.assertTrue(Dimension.none.vector.is_dimensionless())
+        self.assertTrue(Dimension.angle.vector.is_dimensionless())
+        self.assertTrue(Dimension.solid_angle.vector.is_dimensionless())
+        self.assertTrue(Dimension.ratio.vector.is_dimensionless())
 
 
 class TestPseudoDimensionHashing(unittest.TestCase):
@@ -224,23 +223,24 @@ class TestCrossPseudoDimensionFails(unittest.TestCase):
     """Test that cross-pseudo-dimension conversions fail."""
 
     def test_radian_to_percent_fails(self):
-        with self.assertRaises(ConversionNotFound):
+        # Pseudo-dimensions are semantically distinct, so this is DimensionMismatch
+        with self.assertRaises(DimensionMismatch):
             units.radian(1).to(units.percent)
 
     def test_percent_to_degree_fails(self):
-        with self.assertRaises(ConversionNotFound):
+        with self.assertRaises(DimensionMismatch):
             units.percent(50).to(units.degree)
 
     def test_radian_to_steradian_fails(self):
-        with self.assertRaises(ConversionNotFound):
+        with self.assertRaises(DimensionMismatch):
             units.radian(1).to(units.steradian)
 
     def test_steradian_to_percent_fails(self):
-        with self.assertRaises(ConversionNotFound):
+        with self.assertRaises(DimensionMismatch):
             units.steradian(1).to(units.percent)
 
     def test_ppm_to_arcminute_fails(self):
-        with self.assertRaises(ConversionNotFound):
+        with self.assertRaises(DimensionMismatch):
             units.ppm(1000).to(units.arcminute)
 
 
