@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI: CHANGELOG entry required for all PRs
 - CHANGELOG with full version history
 - Automated GitHub Releases from CHANGELOG on tag push
+- Tests for Pydantic dimension constraints and constrained_number factory
 
 ## [0.8.2] - 2026-02-24
 
