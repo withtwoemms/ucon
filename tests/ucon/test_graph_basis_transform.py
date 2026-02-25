@@ -10,46 +10,24 @@ and conversion paths that span dimensional bases.
 """
 
 import unittest
+from fractions import Fraction
 
-from ucon.core import (
-    BasisTransform,
-    RebasedUnit,
-    Unit,
-    UnitSystem,
-)
+from ucon.basis import Basis, BasisComponent, BasisTransform
+from ucon.core import RebasedUnit, Unit
 from ucon.graph import ConversionGraph
 from ucon.maps import LinearMap
 from ucon import Dimension, units
+from ucon.bases import SI
 
 
 class TestGraphAddEdgeWithBasisTransform(unittest.TestCase):
     """Test add_edge with basis_transform parameter."""
 
     def setUp(self):
-        self.si = UnitSystem(
-            name="SI",
-            bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
-            }
-        )
-        self.imperial = UnitSystem(
-            name="Imperial",
-            bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
-            }
-        )
-        # Simple 1:1 transform for length
-        self.bt = BasisTransform(
-            src=self.imperial,
-            dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
-            matrix=((1,),),
-        )
+        # Create a simple identity transform within SI basis
+        # This is used to mark an edge as cross-basis even though
+        # the units are in the same dimensional system
+        self.bt = BasisTransform.identity(SI)
         self.graph = ConversionGraph()
 
     def test_add_edge_with_basis_transform(self):
@@ -82,29 +60,7 @@ class TestGraphConvertWithBasisTransform(unittest.TestCase):
     """Test convert() with cross-basis edges."""
 
     def setUp(self):
-        self.si = UnitSystem(
-            name="SI",
-            bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
-            }
-        )
-        self.imperial = UnitSystem(
-            name="Imperial",
-            bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
-            }
-        )
-        self.bt = BasisTransform(
-            src=self.imperial,
-            dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
-            matrix=((1,),),
-        )
+        self.bt = BasisTransform.identity(SI)
         self.graph = ConversionGraph()
         # Add edge with basis transform
         self.graph.add_edge(
@@ -131,29 +87,7 @@ class TestGraphConnectSystems(unittest.TestCase):
     """Test connect_systems convenience method."""
 
     def setUp(self):
-        self.si = UnitSystem(
-            name="SI",
-            bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-                Dimension.time: units.second,
-            }
-        )
-        self.imperial = UnitSystem(
-            name="Imperial",
-            bases={
-                Dimension.length: units.foot,
-                Dimension.mass: units.pound,
-                Dimension.time: units.second,
-            }
-        )
-        self.bt = BasisTransform(
-            src=self.imperial,
-            dst=self.si,
-            src_dimensions=(Dimension.length, Dimension.mass),
-            dst_dimensions=(Dimension.length, Dimension.mass),
-            matrix=((1, 0), (0, 1)),
-        )
+        self.bt = BasisTransform.identity(SI)
         self.graph = ConversionGraph()
 
     def test_connect_systems_bulk_adds_edges(self):
@@ -176,25 +110,7 @@ class TestGraphListTransforms(unittest.TestCase):
     """Test introspection methods for transforms."""
 
     def setUp(self):
-        self.si = UnitSystem(
-            name="SI",
-            bases={
-                Dimension.length: units.meter,
-            }
-        )
-        self.imperial = UnitSystem(
-            name="Imperial",
-            bases={
-                Dimension.length: units.foot,
-            }
-        )
-        self.bt = BasisTransform(
-            src=self.imperial,
-            dst=self.si,
-            src_dimensions=(Dimension.length,),
-            dst_dimensions=(Dimension.length,),
-            matrix=((1,),),
-        )
+        self.bt = BasisTransform.identity(SI)
         self.graph = ConversionGraph()
         self.graph.add_edge(
             src=units.foot,
@@ -220,33 +136,9 @@ class TestGraphListTransforms(unittest.TestCase):
         self.assertEqual(edges[0], (units.foot, units.meter))
 
     def test_list_transforms_multiple(self):
-        # Add another transform
-        custom = UnitSystem(
-            name="Custom",
-            bases={Dimension.mass: units.pound}
-        )
-        bt2 = BasisTransform(
-            src=custom,
-            dst=self.si,
-            src_dimensions=(Dimension.mass,),
-            dst_dimensions=(Dimension.mass,),
-            matrix=((1,),),
-        )
-        # Need to add a mass base to SI for this test
-        si_with_mass = UnitSystem(
-            name="SI",
-            bases={
-                Dimension.length: units.meter,
-                Dimension.mass: units.kilogram,
-            }
-        )
-        bt2 = BasisTransform(
-            src=custom,
-            dst=si_with_mass,
-            src_dimensions=(Dimension.mass,),
-            dst_dimensions=(Dimension.mass,),
-            matrix=((1,),),
-        )
+        # Add another edge with a different transform instance
+        # (same matrix, but different object)
+        bt2 = BasisTransform.identity(SI)
         self.graph.add_edge(
             src=units.pound,
             dst=units.kilogram,

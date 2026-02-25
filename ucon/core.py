@@ -44,11 +44,6 @@ class DimensionNotCovered(Exception):
     pass
 
 
-class NonInvertibleTransform(Exception):
-    """Raised when a BasisTransform is not invertible (non-square or singular)."""
-    pass
-
-
 # --------------------------------------------------------------------------------------
 # Exponent
 # --------------------------------------------------------------------------------------
@@ -367,6 +362,12 @@ class Unit:
         base = (self.aliases[0] if self.aliases else self.name) or ""
         return base.strip()
 
+    @property
+    def basis(self) -> 'Basis':
+        """The dimensional basis this unit belongs to."""
+        from ucon.basis import Basis
+        return self.dimension.vector.basis
+
     # ----------------- algebra -----------------
 
     def __mul__(self, other):
@@ -557,251 +558,6 @@ class UnitSystem:
 
 
 # --------------------------------------------------------------------------------------
-# BasisTransform
-# --------------------------------------------------------------------------------------
-
-@dataclass(frozen=True)
-class BasisTransform:
-    """
-    A surjective map between dimensional exponent spaces.
-
-    Transforms exponent vectors from one system's basis to another's using
-    matrix multiplication. Columns correspond to source dimensions, rows
-    correspond to destination dimensions.
-
-    Parameters
-    ----------
-    src : UnitSystem
-        The source unit system.
-    dst : UnitSystem
-        The destination unit system.
-    src_dimensions : tuple[Dimension, ...]
-        Ordered source dimensions (matrix columns).
-    dst_dimensions : tuple[Dimension, ...]
-        Ordered destination dimensions (matrix rows).
-    matrix : tuple[tuple[Fraction, ...], ...]
-        Transformation matrix with exact Fraction arithmetic.
-
-    Raises
-    ------
-    ValueError
-        If matrix dimensions don't match the declared dimension counts.
-
-    Examples
-    --------
-    >>> # 1:1 dimension relabeling (esu_charge -> charge)
-    >>> esu_to_si = BasisTransform(
-    ...     src=cgs_esu,
-    ...     dst=si,
-    ...     src_dimensions=(Dimension.esu_charge,),
-    ...     dst_dimensions=(Dimension.charge,),
-    ...     matrix=((1,),),
-    ... )
-    """
-    src: 'UnitSystem'
-    dst: 'UnitSystem'
-    src_dimensions: Tuple[Dimension, ...]
-    dst_dimensions: Tuple[Dimension, ...]
-    matrix: Tuple[Tuple, ...]
-
-    def __post_init__(self):
-        from fractions import Fraction
-
-        # Convert matrix entries to Fraction for exact arithmetic
-        converted = tuple(
-            tuple(Fraction(x) for x in row)
-            for row in self.matrix
-        )
-        object.__setattr__(self, 'matrix', converted)
-
-        # Validate matrix dimensions
-        rows = len(self.matrix)
-        cols = len(self.matrix[0]) if self.matrix else 0
-
-        if rows != len(self.dst_dimensions):
-            raise ValueError(
-                f"Matrix has {rows} rows but {len(self.dst_dimensions)} "
-                f"dst dimensions declared"
-            )
-        if cols != len(self.src_dimensions):
-            raise ValueError(
-                f"Matrix has {cols} columns but {len(self.src_dimensions)} "
-                f"src dimensions declared"
-            )
-
-    def transform(self, src_vector: Vector) -> Vector:
-        """Map exponent vector from src basis to dst basis."""
-        from fractions import Fraction
-
-        # Extract components corresponding to src_dimensions
-        src_components = []
-        for dim in self.src_dimensions:
-            src_components.append(self._get_component(src_vector, dim))
-
-        # Matrix multiply
-        result = {}
-        for i, dst_dim in enumerate(self.dst_dimensions):
-            val = sum(
-                self.matrix[i][j] * src_components[j]
-                for j in range(len(self.src_dimensions))
-            )
-            result[dst_dim] = val
-
-        return self._build_vector(result)
-
-    def _get_component(self, vector, dim: Dimension) -> 'Fraction':
-        """Extract the component of a vector corresponding to a dimension."""
-        from fractions import Fraction
-        from ucon.basis import Vector as BasisVector
-
-        dim_vector = dim.vector
-        # Find which component is non-zero in the dimension's vector
-        for i, exp in enumerate(dim_vector.components):
-            if exp == Fraction(1):
-                return vector.components[i]
-        return Fraction(0)
-
-    def _build_vector(self, dim_values: dict):
-        """Build a Vector from dimension -> value mapping."""
-        from fractions import Fraction
-        from ucon.basis import Vector as BasisVector
-
-        first_dim = next(iter(dim_values.keys()), None) if dim_values else None
-        if not first_dim:
-            return None
-
-        basis = first_dim.vector.basis
-        components = [Fraction(0)] * len(basis)
-
-        for dim, val in dim_values.items():
-            dim_vector = dim.vector
-            for i, exp in enumerate(dim_vector.components):
-                if exp != Fraction(0):
-                    components[i] = components[i] + val * exp
-
-        return BasisVector(basis, tuple(components))
-
-    def validate_edge(self, src_unit: 'Unit', dst_unit: 'Unit') -> bool:
-        """Check if src transforms to dst's dimension."""
-        src_dim_vector = src_unit.dimension.vector
-        transformed = self.transform(src_dim_vector)
-        dst_dim_vector = dst_unit.dimension.vector
-        return transformed == dst_dim_vector
-
-    @property
-    def is_square(self) -> bool:
-        """Return True if the matrix is square."""
-        return len(self.src_dimensions) == len(self.dst_dimensions)
-
-    @property
-    def is_invertible(self) -> bool:
-        """Return True if the matrix is invertible."""
-        from fractions import Fraction
-        if not self.is_square:
-            return False
-        return self._determinant() != Fraction(0)
-
-    def inverse(self) -> 'BasisTransform':
-        """Return the inverse transform.
-
-        Raises
-        ------
-        NonInvertibleTransform
-            If the transform is not invertible (non-square or singular).
-        """
-        if not self.is_invertible:
-            raise NonInvertibleTransform(
-                f"Transform {self.src.name} -> {self.dst.name} "
-                f"({len(self.dst_dimensions)}x{len(self.src_dimensions)}) "
-                f"is not invertible"
-            )
-        inv_matrix = self._invert_matrix()
-        return BasisTransform(
-            src=self.dst,
-            dst=self.src,
-            src_dimensions=self.dst_dimensions,
-            dst_dimensions=self.src_dimensions,
-            matrix=inv_matrix,
-        )
-
-    def _determinant(self) -> 'Fraction':
-        """Compute determinant for square matrices."""
-        from fractions import Fraction
-        n = len(self.matrix)
-        if n == 1:
-            return self.matrix[0][0]
-        if n == 2:
-            return (self.matrix[0][0] * self.matrix[1][1] -
-                    self.matrix[0][1] * self.matrix[1][0])
-        # General case: cofactor expansion
-        det = Fraction(0)
-        for j in range(n):
-            minor = tuple(
-                tuple(self.matrix[i][k] for k in range(n) if k != j)
-                for i in range(1, n)
-            )
-            sign = Fraction((-1) ** j)
-            sub_det = BasisTransform._static_determinant(minor)
-            det += sign * self.matrix[0][j] * sub_det
-        return det
-
-    @staticmethod
-    def _static_determinant(matrix: tuple) -> 'Fraction':
-        """Recursive determinant for submatrices."""
-        from fractions import Fraction
-        n = len(matrix)
-        if n == 1:
-            return matrix[0][0]
-        if n == 2:
-            return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]
-        det = Fraction(0)
-        for j in range(n):
-            minor = tuple(
-                tuple(matrix[i][k] for k in range(n) if k != j)
-                for i in range(1, n)
-            )
-            det += Fraction((-1) ** j) * matrix[0][j] * BasisTransform._static_determinant(minor)
-        return det
-
-    def _invert_matrix(self) -> Tuple[Tuple, ...]:
-        """Gauss-Jordan elimination with exact Fraction arithmetic."""
-        from fractions import Fraction
-        n = len(self.matrix)
-
-        # Augment with identity
-        aug = [
-            [Fraction(self.matrix[i][j]) for j in range(n)] +
-            [Fraction(1) if i == j else Fraction(0) for j in range(n)]
-            for i in range(n)
-        ]
-
-        # Forward elimination with partial pivoting
-        for col in range(n):
-            pivot_row = None
-            for row in range(col, n):
-                if aug[row][col] != 0:
-                    pivot_row = row
-                    break
-            if pivot_row is None:
-                raise NonInvertibleTransform("Singular matrix")
-
-            aug[col], aug[pivot_row] = aug[pivot_row], aug[col]
-
-            pivot = aug[col][col]
-            aug[col] = [x / pivot for x in aug[col]]
-
-            for row in range(n):
-                if row != col:
-                    factor = aug[row][col]
-                    aug[row] = [a - factor * b for a, b in zip(aug[row], aug[col])]
-
-        return tuple(
-            tuple(aug[i][n + j] for j in range(n))
-            for i in range(n)
-        )
-
-
-# --------------------------------------------------------------------------------------
 # RebasedUnit
 # --------------------------------------------------------------------------------------
 
@@ -819,8 +575,8 @@ class RebasedUnit:
         The original unit before transformation.
     rebased_dimension : Dimension
         The dimension in the destination system.
-    basis_transform : BasisTransform
-        The transform that rebased this unit.
+    basis_transform : ucon.basis.BasisTransform
+        The transform that rebased this unit (from ucon.basis module).
 
     Examples
     --------
@@ -836,7 +592,7 @@ class RebasedUnit:
     """
     original: 'Unit'
     rebased_dimension: Dimension
-    basis_transform: 'BasisTransform'
+    basis_transform: 'ucon.basis.BasisTransform'
 
     @property
     def dimension(self) -> Dimension:
