@@ -734,3 +734,190 @@ reset_default_basis_graph()
 | `using_basis_graph(graph)` | Scoped BasisGraph override |
 | `set_default_basis_graph(graph)` | Replace module default |
 | `reset_default_basis_graph()` | Restore standard graph |
+
+---
+
+## Natural Units
+
+Support for natural units where physical constants c = h_bar = k_B = 1.
+
+```python
+from ucon import NATURAL, SI_TO_NATURAL, NATURAL_TO_SI
+from ucon.basis import ConstantBinding, ConstantAwareBasisTransform
+```
+
+### NATURAL Basis
+
+Single-dimensional basis where all quantities reduce to powers of energy:
+
+```python
+from ucon import NATURAL, BasisVector
+from fractions import Fraction
+
+# NATURAL has one component: energy (E)
+len(NATURAL)  # 1
+NATURAL[0].name  # "energy"
+NATURAL[0].symbol  # "E"
+
+# Create natural unit vectors
+energy = BasisVector(NATURAL, (Fraction(1),))  # E^1
+inverse_energy = BasisVector(NATURAL, (Fraction(-1),))  # E^-1
+dimensionless = BasisVector(NATURAL, (Fraction(0),))  # E^0
+```
+
+### Dimension Mappings
+
+With c = h_bar = k_B = 1:
+
+| SI Dimension | Natural Units | Physical Meaning |
+|--------------|---------------|------------------|
+| Length (L) | E^-1 | L = h_bar*c / E |
+| Time (T) | E^-1 | T = h_bar / E |
+| Mass (M) | E | E = mc^2 |
+| Temperature (Theta) | E | E = k_B * T |
+| Velocity (L/T) | E^0 | Dimensionless (c=1) |
+| Action (ML^2/T) | E^0 | Dimensionless (h_bar=1) |
+| Energy (ML^2/T^2) | E | Energy is fundamental |
+
+### SI_TO_NATURAL Transform
+
+Transform SI dimensions to natural units:
+
+```python
+from ucon import SI, NATURAL, SI_TO_NATURAL, BasisVector
+from fractions import Fraction
+
+# Velocity: L^1 T^-1 in SI
+si_velocity = BasisVector(SI, (
+    Fraction(-1),  # T^-1
+    Fraction(1),   # L^1
+    Fraction(0), Fraction(0), Fraction(0),
+    Fraction(0), Fraction(0), Fraction(0),
+))
+
+natural_velocity = SI_TO_NATURAL(si_velocity)
+natural_velocity.is_dimensionless()  # True! (c = 1)
+
+# Energy: M^1 L^2 T^-2 in SI
+si_energy = BasisVector(SI, (
+    Fraction(-2),  # T^-2
+    Fraction(2),   # L^2
+    Fraction(1),   # M^1
+    Fraction(0), Fraction(0),
+    Fraction(0), Fraction(0), Fraction(0),
+))
+
+natural_energy = SI_TO_NATURAL(si_energy)
+natural_energy["E"]  # Fraction(1) - pure energy
+```
+
+### Lossy Projections
+
+Electromagnetic dimensions (current, luminous intensity, etc.) are not representable in pure natural units:
+
+```python
+from ucon import SI, SI_TO_NATURAL, BasisVector, LossyProjection
+from fractions import Fraction
+
+# Current has no representation in natural units
+si_current = BasisVector(SI, (
+    Fraction(0), Fraction(0), Fraction(0), Fraction(1),
+    Fraction(0), Fraction(0), Fraction(0), Fraction(0),
+))
+
+# Raises LossyProjection
+try:
+    SI_TO_NATURAL(si_current)
+except LossyProjection as e:
+    print(e)  # "current has no representation in natural"
+
+# Use allow_projection=True to drop
+result = SI_TO_NATURAL(si_current, allow_projection=True)
+result.is_dimensionless()  # True (projected to zero)
+```
+
+### NATURAL_TO_SI (Inverse)
+
+Transform natural unit dimensions back to SI using constant bindings:
+
+```python
+from ucon import NATURAL, NATURAL_TO_SI, BasisVector
+from fractions import Fraction
+
+# Energy in natural units
+natural_energy = BasisVector(NATURAL, (Fraction(1),))
+
+# Transform back to SI
+si_result = NATURAL_TO_SI(natural_energy)
+si_result.basis.name  # "SI"
+```
+
+### ConstantBinding
+
+Records the relationship between source and target dimensions via physical constants:
+
+```python
+from ucon import ConstantBinding, NATURAL, BasisVector
+from ucon.basis import BasisComponent
+from fractions import Fraction
+
+# Length relates to inverse energy via h_bar*c
+binding = ConstantBinding(
+    source_component=BasisComponent("length", "L"),
+    target_expression=BasisVector(NATURAL, (Fraction(-1),)),
+    constant_symbol="h_bar_c",  # h_bar * c
+    exponent=Fraction(1),
+)
+
+binding.constant_symbol  # "h_bar_c"
+binding.exponent  # Fraction(1)
+```
+
+### ConstantAwareBasisTransform
+
+Basis transform with bindings that enable inversion of non-square matrices:
+
+```python
+from ucon import ConstantAwareBasisTransform
+
+# SI_TO_NATURAL is a ConstantAwareBasisTransform (8x1 matrix)
+isinstance(SI_TO_NATURAL, ConstantAwareBasisTransform)  # True
+
+# Inverse works despite non-square matrix
+NATURAL_TO_SI = SI_TO_NATURAL.inverse()
+NATURAL_TO_SI.source.name  # "natural"
+NATURAL_TO_SI.target.name  # "SI"
+
+# Convert to plain BasisTransform (loses binding info)
+plain = SI_TO_NATURAL.as_basis_transform()
+```
+
+### Particle Physics Applications
+
+Common particle physics dimensions:
+
+```python
+from ucon import SI, SI_TO_NATURAL, BasisVector
+from fractions import Fraction
+
+# Cross-section (area): L^2 -> E^-2
+si_cross_section = BasisVector(SI, (
+    Fraction(0), Fraction(2), Fraction(0), Fraction(0),
+    Fraction(0), Fraction(0), Fraction(0), Fraction(0),
+))
+SI_TO_NATURAL(si_cross_section)["E"]  # Fraction(-2)
+
+# Decay width (inverse time): T^-1 -> E
+si_decay_width = BasisVector(SI, (
+    Fraction(-1), Fraction(0), Fraction(0), Fraction(0),
+    Fraction(0), Fraction(0), Fraction(0), Fraction(0),
+))
+SI_TO_NATURAL(si_decay_width)["E"]  # Fraction(1)
+
+# Momentum: M*L/T -> E
+si_momentum = BasisVector(SI, (
+    Fraction(-1), Fraction(1), Fraction(1), Fraction(0),
+    Fraction(0), Fraction(0), Fraction(0), Fraction(0),
+))
+SI_TO_NATURAL(si_momentum)["E"]  # Fraction(1)
+```
