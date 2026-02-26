@@ -9,10 +9,10 @@
 import hashlib
 import json
 import re
-from contextvars import ContextVar
-from typing import TYPE_CHECKING
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, AsyncIterator
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from pydantic import BaseModel
 
 from ucon import Dimension, get_default_graph
@@ -22,6 +22,7 @@ from ucon.units import get_unit_by_name
 from ucon.graph import ConversionGraph, DimensionMismatch, ConversionNotFound, using_graph
 from ucon.maps import LinearMap
 from ucon.mcp.formulas import list_formulas as _list_formulas, get_formula
+from ucon.mcp.session import SessionState, DefaultSessionState
 from ucon.mcp.suggestions import (
     ConversionError,
     resolve_unit,
@@ -32,62 +33,56 @@ from ucon.mcp.suggestions import (
 from ucon.packages import EdgeDef, PackageLoadError, UnitDef
 
 
-mcp = FastMCP("ucon")
+@asynccontextmanager
+async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
+    """Server lifespan - creates session state that persists across tool calls."""
+    yield {"session": DefaultSessionState()}
+
+
+mcp = FastMCP("ucon", lifespan=lifespan)
 
 
 # -----------------------------------------------------------------------------
 # Session Graph Management
 # -----------------------------------------------------------------------------
 
-# Session-scoped graph for persistent custom definitions
-_session_graph: ContextVar[ConversionGraph | None] = ContextVar(
-    '_session_graph', default=None
-)
-
 # Cache for inline graph compilation (keyed by hash of definitions)
 _inline_graph_cache: dict[str, ConversionGraph] = {}
 
-# Session-scoped constants for persistent custom definitions
-_session_constants: ContextVar[dict | None] = ContextVar(
-    '_session_constants', default=None
-)
 
+def _get_session(ctx: Context | None) -> SessionState:
+    """Extract session state from context.
 
-def _get_session_graph() -> ConversionGraph:
-    """Get or create the session graph.
-
-    Returns a copy of the default graph on first access, then reuses
-    the session graph for subsequent calls within the same session.
+    Falls back to a default session for direct function calls (testing).
     """
-    graph = _session_graph.get()
-    if graph is None:
-        graph = get_default_graph().copy()
-        _session_graph.set(graph)
-    return graph
+    if ctx is not None and hasattr(ctx, 'request_context'):
+        lifespan_ctx = ctx.request_context.lifespan_context
+        if lifespan_ctx and "session" in lifespan_ctx:
+            return lifespan_ctx["session"]
+    # Fallback for direct calls (testing without MCP context)
+    return _get_fallback_session()
 
 
-def _reset_session_graph() -> None:
-    """Reset the session graph to a fresh copy of the default graph."""
-    graph = get_default_graph().copy()
-    _session_graph.set(graph)
+# Fallback session for testing without MCP context
+_fallback_session: DefaultSessionState | None = None
 
 
-def _get_session_constants() -> dict:
-    """Get or create the session constants dict."""
-    from ucon.constants import Constant
-    constants = _session_constants.get()
-    if constants is None:
-        constants = {}
-        _session_constants.set(constants)
-    return constants
+def _get_fallback_session() -> DefaultSessionState:
+    """Get or create fallback session for direct function calls."""
+    global _fallback_session
+    if _fallback_session is None:
+        _fallback_session = DefaultSessionState()
+    return _fallback_session
 
 
-def _reset_session_constants() -> None:
-    """Reset the session constants."""
-    _session_constants.set({})
+def _reset_fallback_session() -> None:
+    """Reset the fallback session (for testing)."""
+    global _fallback_session
+    if _fallback_session is not None:
+        _fallback_session.reset()
 
 
-def _resolve_constant(symbol: str):
+def _resolve_constant(symbol: str, ctx: Context | None = None):
     """Resolve a constant symbol from built-in or session constants."""
     from ucon.constants import get_constant_by_symbol
 
@@ -97,8 +92,8 @@ def _resolve_constant(symbol: str):
         return const
 
     # Try session constants
-    session = _get_session_constants()
-    return session.get(symbol)
+    session = _get_session(ctx)
+    return session.get_constants().get(symbol)
 
 
 def _hash_definitions(
@@ -116,6 +111,7 @@ def _hash_definitions(
 def _build_inline_graph(
     custom_units: list[dict] | None,
     custom_edges: list[dict] | None,
+    base_graph: ConversionGraph | None = None,
 ) -> tuple[ConversionGraph | None, ConversionError | None]:
     """Build an ephemeral graph with inline definitions.
 
@@ -130,8 +126,7 @@ def _build_inline_graph(
     if cache_key in _inline_graph_cache:
         return _inline_graph_cache[cache_key], None
 
-    # Build new graph from session (or default)
-    base_graph = _session_graph.get()
+    # Build new graph from provided base (or default)
     if base_graph is None:
         base_graph = get_default_graph()
     graph = base_graph.copy()
@@ -375,6 +370,7 @@ def convert(
     to_unit: str,
     custom_units: list[dict] | None = None,
     custom_edges: list[dict] | None = None,
+    ctx: Context | None = None,
 ) -> ConversionResult | ConversionError:
     """
     Convert a numeric value from one unit to another.
@@ -407,13 +403,16 @@ def convert(
             custom_units=[{"name": "slug", "dimension": "mass", "aliases": ["slug"]}],
             custom_edges=[{"src": "slug", "dst": "kg", "factor": 14.5939}])
     """
+    session = _get_session(ctx)
+    session_graph = session.get_graph()
+
     # Build inline graph if custom definitions provided
-    inline_graph, err = _build_inline_graph(custom_units, custom_edges)
+    inline_graph, err = _build_inline_graph(custom_units, custom_edges, session_graph)
     if err:
         return err
 
-    # Use inline graph, session graph, or default
-    graph = inline_graph or _session_graph.get() or get_default_graph()
+    # Use inline graph or session graph
+    graph = inline_graph or session_graph
 
     # Perform resolution and conversion within graph context
     with using_graph(graph):
@@ -580,6 +579,7 @@ def compute(
     factors: list[dict],
     custom_units: list[dict] | None = None,
     custom_edges: list[dict] | None = None,
+    ctx: Context | None = None,
 ) -> ComputeResult | ConversionError:
     """
     Perform multi-step factor-label calculations with dimensional tracking.
@@ -623,13 +623,16 @@ def compute(
             ]
         )
     """
+    session = _get_session(ctx)
+    session_graph = session.get_graph()
+
     # Build inline graph if custom definitions provided
-    inline_graph, err = _build_inline_graph(custom_units, custom_edges)
+    inline_graph, err = _build_inline_graph(custom_units, custom_edges, session_graph)
     if err:
         return err
 
-    # Use inline graph, session graph, or default
-    graph = inline_graph or _session_graph.get() or get_default_graph()
+    # Use inline graph or session graph
+    graph = inline_graph or session_graph
 
     # All unit resolution within graph context
     with using_graph(graph):
@@ -841,6 +844,7 @@ def list_dimensions() -> list[str]:
 @mcp.tool()
 def list_constants(
     category: str | None = None,
+    ctx: Context | None = None,
 ) -> list[ConstantInfo] | ConstantError:
     """
     List available physical constants, optionally filtered by category.
@@ -870,6 +874,7 @@ def list_constants(
 
     from ucon.constants import all_constants
 
+    session = _get_session(ctx)
     result = []
 
     # Built-in constants
@@ -881,7 +886,7 @@ def list_constants(
 
     # Session constants
     if category in (None, "all", "session"):
-        for const in _get_session_constants().values():
+        for const in session.get_constants().values():
             result.append(_constant_to_info(const, category="session"))
 
     return sorted(result, key=lambda c: (c.category, c.symbol))
@@ -895,6 +900,7 @@ def define_constant(
     unit: str,
     uncertainty: float | None = None,
     source: str = "user-defined",
+    ctx: Context | None = None,
 ) -> ConstantDefinitionResult | ConstantError:
     """
     Define a custom constant for the current session.
@@ -936,7 +942,8 @@ def define_constant(
         )
 
     # Check for duplicate in session constants
-    session_constants = _get_session_constants()
+    session = _get_session(ctx)
+    session_constants = session.get_constants()
     if symbol in session_constants:
         return ConstantError(
             error=f"Symbol '{symbol}' is already defined in this session",
@@ -1003,6 +1010,7 @@ def define_unit(
     name: str,
     dimension: str,
     aliases: list[str] | None = None,
+    ctx: Context | None = None,
 ) -> UnitDefinitionResult | ConversionError:
     """
     Define a custom unit for the current session.
@@ -1051,7 +1059,8 @@ def define_unit(
         )
 
     # Register in session graph
-    graph = _get_session_graph()
+    session = _get_session(ctx)
+    graph = session.get_graph()
     graph.register_unit(unit)
 
     return UnitDefinitionResult(
@@ -1068,6 +1077,7 @@ def define_conversion(
     src: str,
     dst: str,
     factor: float,
+    ctx: Context | None = None,
 ) -> ConversionDefinitionResult | ConversionError:
     """
     Define a conversion edge between two units for the current session.
@@ -1089,7 +1099,8 @@ def define_conversion(
     Example:
         define_conversion(src="slug", dst="kg", factor=14.5939)
     """
-    graph = _get_session_graph()
+    session = _get_session(ctx)
+    graph = session.get_graph()
 
     # Create edge definition and materialize
     try:
@@ -1116,7 +1127,7 @@ def define_conversion(
 
 
 @mcp.tool()
-def reset_session() -> SessionResult:
+def reset_session(ctx: Context | None = None) -> SessionResult:
     """
     Reset the session, clearing all custom units, conversions, and constants.
 
@@ -1128,8 +1139,8 @@ def reset_session() -> SessionResult:
     Returns:
         SessionResult confirming the reset.
     """
-    _reset_session_graph()
-    _reset_session_constants()
+    session = _get_session(ctx)
+    session.reset()
     return SessionResult(
         success=True,
         message="Session reset. All custom units, conversions, and constants cleared.",

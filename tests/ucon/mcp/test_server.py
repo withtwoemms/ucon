@@ -1071,7 +1071,7 @@ class TestSessionTools(unittest.TestCase):
             from ucon.mcp.server import (
                 define_unit, define_conversion, reset_session, convert,
                 UnitDefinitionResult, ConversionDefinitionResult, SessionResult,
-                _reset_session_graph,
+                _reset_fallback_session,
             )
             from ucon.mcp.suggestions import ConversionError
             cls.define_unit = staticmethod(define_unit)
@@ -1082,7 +1082,7 @@ class TestSessionTools(unittest.TestCase):
             cls.ConversionDefinitionResult = ConversionDefinitionResult
             cls.SessionResult = SessionResult
             cls.ConversionError = ConversionError
-            cls._reset_session_graph = staticmethod(_reset_session_graph)
+            cls._reset_fallback_session = staticmethod(_reset_fallback_session)
             cls.skip_tests = False
         except ImportError:
             cls.skip_tests = True
@@ -1091,12 +1091,12 @@ class TestSessionTools(unittest.TestCase):
         if self.skip_tests:
             self.skipTest("mcp not installed")
         # Reset session before each test
-        self._reset_session_graph()
+        self._reset_fallback_session()
 
     def tearDown(self):
         # Clean up session after each test
         if not self.skip_tests:
-            self._reset_session_graph()
+            self._reset_fallback_session()
 
     def test_define_unit_success(self):
         """Test defining a custom unit successfully."""
@@ -1181,12 +1181,12 @@ class TestInlineParameters(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from ucon.mcp.server import convert, compute, _reset_session_graph
+            from ucon.mcp.server import convert, compute, _reset_fallback_session
             from ucon.mcp.suggestions import ConversionError
             cls.convert = staticmethod(convert)
             cls.compute = staticmethod(compute)
             cls.ConversionError = ConversionError
-            cls._reset_session_graph = staticmethod(_reset_session_graph)
+            cls._reset_fallback_session = staticmethod(_reset_fallback_session)
             cls.skip_tests = False
         except ImportError:
             cls.skip_tests = True
@@ -1195,11 +1195,11 @@ class TestInlineParameters(unittest.TestCase):
         if self.skip_tests:
             self.skipTest("mcp not installed")
         # Reset session to ensure clean state
-        self._reset_session_graph()
+        self._reset_fallback_session()
 
     def tearDown(self):
         if not self.skip_tests:
-            self._reset_session_graph()
+            self._reset_fallback_session()
 
     def test_convert_with_inline_units(self):
         """Test convert() with inline custom_units and custom_edges."""
@@ -1309,12 +1309,12 @@ class TestGraphCaching(unittest.TestCase):
     def setUpClass(cls):
         try:
             from ucon.mcp.server import (
-                convert, _inline_graph_cache, _hash_definitions, _reset_session_graph
+                convert, _inline_graph_cache, _hash_definitions, _reset_fallback_session
             )
             cls.convert = staticmethod(convert)
             cls._inline_graph_cache = _inline_graph_cache
             cls._hash_definitions = staticmethod(_hash_definitions)
-            cls._reset_session_graph = staticmethod(_reset_session_graph)
+            cls._reset_fallback_session = staticmethod(_reset_fallback_session)
             cls.skip_tests = False
         except ImportError:
             cls.skip_tests = True
@@ -1322,13 +1322,13 @@ class TestGraphCaching(unittest.TestCase):
     def setUp(self):
         if self.skip_tests:
             self.skipTest("mcp not installed")
-        self._reset_session_graph()
+        self._reset_fallback_session()
         # Clear cache
         self._inline_graph_cache.clear()
 
     def tearDown(self):
         if not self.skip_tests:
-            self._reset_session_graph()
+            self._reset_fallback_session()
             self._inline_graph_cache.clear()
 
     def test_same_definitions_use_cache(self):
@@ -1374,3 +1374,145 @@ class TestGraphCaching(unittest.TestCase):
 
         # Same content, different order → same hash (sorted internally)
         self.assertEqual(hash_a, hash_b)
+
+
+class TestSessionState(unittest.TestCase):
+    """Test SessionState protocol and DefaultSessionState implementation."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.session import SessionState, DefaultSessionState
+            from ucon.core import Unit
+            from ucon.dimension import Dimension
+            cls.SessionState = SessionState
+            cls.DefaultSessionState = DefaultSessionState
+            cls.Unit = Unit
+            cls.Dimension = Dimension
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+
+    def test_default_session_state_implements_protocol(self):
+        """Test that DefaultSessionState implements SessionState protocol."""
+        session = self.DefaultSessionState()
+        self.assertIsInstance(session, self.SessionState)
+
+    def test_graph_persistence(self):
+        """Test that units registered in graph persist across get_graph() calls."""
+        session = self.DefaultSessionState()
+
+        graph1 = session.get_graph()
+        unit = self.Unit(name="test_unit", dimension=self.Dimension.mass)
+        graph1.register_unit(unit)
+
+        graph2 = session.get_graph()
+        # Should be same instance
+        self.assertIs(graph1, graph2)
+        # Unit should be resolvable (returns tuple of (Unit, Scale))
+        resolved = graph2.resolve_unit("test_unit")
+        self.assertIsNotNone(resolved)
+        resolved_unit, resolved_scale = resolved
+        self.assertEqual(resolved_unit.name, "test_unit")
+
+    def test_constants_persistence(self):
+        """Test that constants dict persists across get_constants() calls."""
+        from ucon.constants import Constant
+
+        session = self.DefaultSessionState()
+
+        constants1 = session.get_constants()
+        test_const = Constant(
+            symbol="test",
+            name="test constant",
+            value=42.0,
+            unit=units.meter,
+            uncertainty=None,
+            source="test",
+            category="session",
+        )
+        constants1["test"] = test_const
+
+        constants2 = session.get_constants()
+        # Should be same instance
+        self.assertIs(constants1, constants2)
+        # Constant should be present
+        self.assertIn("test", constants2)
+        self.assertEqual(constants2["test"].value, 42.0)
+
+    def test_reset_clears_graph(self):
+        """Test that reset() clears custom units from graph."""
+        session = self.DefaultSessionState()
+
+        graph = session.get_graph()
+        unit = self.Unit(name="test_unit_reset", dimension=self.Dimension.mass)
+        graph.register_unit(unit)
+
+        # Verify unit exists (returns tuple of (Unit, Scale))
+        self.assertIsNotNone(graph.resolve_unit("test_unit_reset"))
+
+        # Reset
+        session.reset()
+
+        # Get new graph
+        new_graph = session.get_graph()
+        # Should be different instance
+        self.assertIsNot(graph, new_graph)
+        # Unit should not be resolvable
+        self.assertIsNone(new_graph.resolve_unit("test_unit_reset"))
+
+    def test_reset_clears_constants(self):
+        """Test that reset() clears custom constants."""
+        from ucon.constants import Constant
+
+        session = self.DefaultSessionState()
+
+        constants = session.get_constants()
+        test_const = Constant(
+            symbol="test",
+            name="test constant",
+            value=42.0,
+            unit=units.meter,
+            uncertainty=None,
+            source="test",
+            category="session",
+        )
+        constants["test"] = test_const
+
+        # Verify constant exists
+        self.assertIn("test", constants)
+
+        # Reset
+        session.reset()
+
+        # Get new constants
+        new_constants = session.get_constants()
+        # Should be different instance
+        self.assertIsNot(constants, new_constants)
+        # Constant should not be present
+        self.assertNotIn("test", new_constants)
+
+    def test_custom_base_graph(self):
+        """Test that DefaultSessionState can use a custom base graph."""
+        from ucon.graph import get_default_graph
+
+        base = get_default_graph().copy()
+        custom_unit = self.Unit(name="base_unit_custom", dimension=self.Dimension.length)
+        base.register_unit(custom_unit)
+
+        session = self.DefaultSessionState(base_graph=base)
+        graph = session.get_graph()
+
+        # Custom unit should be available (returns tuple of (Unit, Scale))
+        resolved = graph.resolve_unit("base_unit_custom")
+        self.assertIsNotNone(resolved)
+
+        # After reset, custom unit should still be available (from base)
+        session.reset()
+        new_graph = session.get_graph()
+        resolved = new_graph.resolve_unit("base_unit_custom")
+        self.assertIsNotNone(resolved)
