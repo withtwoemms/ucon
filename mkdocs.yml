@@ -53,6 +53,7 @@ nav:
     - Config Safety: guides/dimensional-safety-config.md
     - Dimensional Analysis: guides/dimensional-analysis.md
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
+    - Natural Units: guides/natural-units.md
     - MCP Server:
       - guides/mcp-server/index.md
       - Custom Units: guides/mcp-server/custom-units.md
