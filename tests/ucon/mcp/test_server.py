@@ -1516,3 +1516,213 @@ class TestSessionState(unittest.TestCase):
         new_graph = session.get_graph()
         resolved = new_graph.resolve_unit("base_unit_custom")
         self.assertIsNotNone(resolved)
+
+
+class TestConcurrencyFeedbackIssues(unittest.TestCase):
+    """Tests for issues identified in concurrency feedback (FEEDBACK_ucon-mcp-concurrency.md)."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from ucon.mcp.server import (
+                define_unit, define_conversion, reset_session, convert, compute,
+                check_dimensions, list_units,
+                UnitDefinitionResult, ConversionDefinitionResult,
+                _reset_fallback_session,
+            )
+            from ucon.mcp.suggestions import ConversionError
+            cls.define_unit = staticmethod(define_unit)
+            cls.define_conversion = staticmethod(define_conversion)
+            cls.reset_session = staticmethod(reset_session)
+            cls.convert = staticmethod(convert)
+            cls.compute = staticmethod(compute)
+            cls.check_dimensions = staticmethod(check_dimensions)
+            cls.list_units = staticmethod(list_units)
+            cls.UnitDefinitionResult = UnitDefinitionResult
+            cls.ConversionDefinitionResult = ConversionDefinitionResult
+            cls.ConversionError = ConversionError
+            cls._reset_fallback_session = staticmethod(_reset_fallback_session)
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("mcp not installed")
+        self._reset_fallback_session()
+
+    def tearDown(self):
+        if not self.skip_tests:
+            self._reset_fallback_session()
+
+    # -------------------------------------------------------------------------
+    # Issue 1: Unit Re-Registration Should Not Destroy Edges
+    # -------------------------------------------------------------------------
+
+    def test_issue1_reregistration_rejected(self):
+        """Issue 1: Re-registering a unit should be rejected to prevent edge loss."""
+        # Define unit and conversion
+        result = self.define_unit(name="widget", dimension="count", aliases=["widget"])
+        self.assertIsInstance(result, self.UnitDefinitionResult)
+        self.assertTrue(result.success)
+
+        result = self.define_unit(name="gizmo", dimension="count", aliases=["gizmo"])
+        self.assertTrue(result.success)
+
+        result = self.define_conversion(src="widget", dst="gizmo", factor=3.5)
+        self.assertTrue(result.success)
+
+        # Verify conversion works
+        result = self.convert(10, "widget", "gizmo")
+        self.assertNotIsInstance(result, self.ConversionError)
+        self.assertAlmostEqual(result.quantity, 35.0)
+
+        # Attempt to re-register widget - should be rejected
+        result = self.define_unit(name="widget", dimension="count", aliases=["widget"])
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "duplicate_unit")
+        self.assertIn("widget", result.error)
+
+        # Original conversion should still work
+        result = self.convert(10, "widget", "gizmo")
+        self.assertNotIsInstance(result, self.ConversionError)
+        self.assertAlmostEqual(result.quantity, 35.0)
+
+    # -------------------------------------------------------------------------
+    # Issue 2: Alias Collisions Should Be Rejected
+    # -------------------------------------------------------------------------
+
+    def test_issue2_alias_collision_same_dimension_rejected(self):
+        """Issue 2: Alias collision within same dimension should be rejected."""
+        # Define first unit with alias "thing"
+        result = self.define_unit(name="alpha_thing", dimension="count", aliases=["thing"])
+        self.assertTrue(result.success)
+
+        # Attempt to define second unit with same alias - should be rejected
+        result = self.define_unit(name="beta_thing", dimension="count", aliases=["thing"])
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "alias_collision")
+        self.assertIn("thing", result.error)
+        self.assertIn("alpha_thing", result.error)
+
+    def test_issue2_alias_collision_cross_dimension_rejected(self):
+        """Issue 2: Alias collision across dimensions should be rejected."""
+        # Define first unit with alias "x"
+        result = self.define_unit(name="length_x", dimension="length", aliases=["x"])
+        self.assertTrue(result.success)
+
+        # Attempt to define second unit with same alias but different dimension
+        result = self.define_unit(name="mass_x", dimension="mass", aliases=["x"])
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "alias_collision")
+        self.assertIn("x", result.error)
+
+    def test_issue2_alias_collision_with_builtin(self):
+        """Issue 2: Alias collision with built-in unit should be rejected."""
+        # "m" is already used by meter
+        result = self.define_unit(name="custom_m", dimension="mass", aliases=["m"])
+        self.assertIsInstance(result, self.ConversionError)
+        self.assertEqual(result.error_type, "alias_collision")
+
+    # -------------------------------------------------------------------------
+    # Issue 3: Session Units Should Be Visible to All Tools
+    # -------------------------------------------------------------------------
+
+    def test_issue3_check_dimensions_sees_session_units(self):
+        """Issue 3: check_dimensions should see session-defined units."""
+        # Define a session unit
+        result = self.define_unit(name="mass_test", dimension="mass", aliases=["mass_test"])
+        self.assertTrue(result.success)
+
+        # check_dimensions should recognize it
+        result = self.check_dimensions("mass_test", "kg")
+        self.assertNotIsInstance(result, self.ConversionError)
+        self.assertTrue(result.compatible)
+        self.assertEqual(result.dimension_a, "mass")
+        self.assertEqual(result.dimension_b, "mass")
+
+    def test_issue3_list_units_includes_session_units(self):
+        """Issue 3: list_units should include session-defined units."""
+        # Define a session unit
+        result = self.define_unit(name="custom_mass_unit", dimension="mass", aliases=["cmu"])
+        self.assertTrue(result.success)
+
+        # list_units should include it
+        result = self.list_units(dimension="mass")
+        self.assertNotIsInstance(result, self.ConversionError)
+
+        unit_names = [u.name for u in result]
+        self.assertIn("custom_mass_unit", unit_names)
+
+    # -------------------------------------------------------------------------
+    # Issue 4: compute Should See Session Units in Denominators
+    # -------------------------------------------------------------------------
+
+    def test_issue4_compute_sees_session_units_in_denominator(self):
+        """Issue 4: compute should resolve session units in denominator with numeric prefix."""
+        # Define a session unit
+        result = self.define_unit(name="dose", dimension="count", aliases=["dose"])
+        self.assertTrue(result.success)
+
+        # compute should be able to use it in a denominator like "3 dose"
+        result = self.compute(
+            initial_value=154,
+            initial_unit="lb",
+            factors=[
+                {"value": 1, "numerator": "kg", "denominator": "2.205 lb"},
+                {"value": 15, "numerator": "mg", "denominator": "kg*day"},
+                {"value": 1, "numerator": "day", "denominator": "3 dose"},
+            ]
+        )
+        self.assertNotIsInstance(result, self.ConversionError, f"compute failed: {result}")
+        # 154 lb × (1 kg / 2.205 lb) × (15 mg / kg·day) × (1 day / 3 dose)
+        # ≈ 349.2 mg/dose
+        expected = 154 / 2.205 * 15 / 3
+        self.assertAlmostEqual(result.quantity, expected, places=1)
+
+    def test_issue4_compute_sees_session_units_in_numerator(self):
+        """Issue 4: compute should resolve session units in numerator too."""
+        # Define session units
+        result = self.define_unit(name="widget", dimension="count", aliases=["widget"])
+        self.assertTrue(result.success)
+
+        # compute should be able to use session unit in numerator
+        result = self.compute(
+            initial_value=10,
+            initial_unit="kg",
+            factors=[
+                {"value": 5, "numerator": "widget", "denominator": "kg"},
+            ]
+        )
+        self.assertNotIsInstance(result, self.ConversionError, f"compute failed: {result}")
+        self.assertAlmostEqual(result.quantity, 50.0)
+
+    # -------------------------------------------------------------------------
+    # Multi-hop Graph Traversal (confirmed working in feedback)
+    # -------------------------------------------------------------------------
+
+    def test_multi_hop_traversal(self):
+        """Confirm multi-hop traversal through session units works."""
+        # widget → gizmo → doohickey
+        self.define_unit(name="widget", dimension="count", aliases=["widget"])
+        self.define_unit(name="gizmo", dimension="count", aliases=["gizmo"])
+        self.define_unit(name="doohickey", dimension="count", aliases=["doohickey"])
+
+        self.define_conversion(src="widget", dst="gizmo", factor=3.5)
+        self.define_conversion(src="gizmo", dst="doohickey", factor=2.0)
+
+        # widget → doohickey = 3.5 × 2.0 = 7.0
+        result = self.convert(10, "widget", "doohickey")
+        self.assertNotIsInstance(result, self.ConversionError)
+        self.assertAlmostEqual(result.quantity, 70.0)
+
+    def test_inverse_traversal(self):
+        """Confirm inverse traversal works automatically."""
+        self.define_unit(name="widget", dimension="count", aliases=["widget"])
+        self.define_unit(name="gizmo", dimension="count", aliases=["gizmo"])
+        self.define_conversion(src="widget", dst="gizmo", factor=3.5)
+
+        # gizmo → widget (inverse) = 1/3.5
+        result = self.convert(35, "gizmo", "widget")
+        self.assertNotIsInstance(result, self.ConversionError)
+        self.assertAlmostEqual(result.quantity, 10.0)

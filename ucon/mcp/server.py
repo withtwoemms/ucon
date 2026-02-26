@@ -450,12 +450,17 @@ def convert(
 
 
 @mcp.tool()
-def list_units(dimension: str | None = None) -> list[UnitInfo] | ConversionError:
+def list_units(
+    dimension: str | None = None,
+    ctx: Context | None = None,
+) -> list[UnitInfo] | ConversionError:
     """
     List available units, optionally filtered by dimension.
 
     Returns base units only. Use scale prefixes (from list_scales) to form
     scaled variants. For example, "meter" with prefix "k" becomes "km".
+
+    Includes both built-in units and session-defined units (from define_unit).
 
     Args:
         dimension: Optional filter by dimension name (e.g., "length", "mass", "time").
@@ -485,6 +490,7 @@ def list_units(dimension: str | None = None) -> list[UnitInfo] | ConversionError
     result = []
     seen_names = set()
 
+    # Built-in units from ucon.units module
     for name in dir(units_module):
         obj = getattr(units_module, name)
         if isinstance(obj, Unit) and obj.name and obj.name not in seen_names:
@@ -500,6 +506,30 @@ def list_units(dimension: str | None = None) -> list[UnitInfo] | ConversionError
                     aliases=list(obj.aliases) if obj.aliases else [],
                     dimension=obj.dimension.name,
                     scalable=obj.name in SCALABLE_UNITS,
+                )
+            )
+
+    # Session-defined units from graph registry
+    session = _get_session(ctx)
+    graph = session.get_graph()
+
+    # Get unique units from graph's case-sensitive registry
+    # (registry maps names/aliases to units, so we need unique values)
+    session_units = set(graph._name_registry_cs.values())
+    for unit in session_units:
+        if unit.name and unit.name not in seen_names:
+            seen_names.add(unit.name)
+
+            if dimension and unit.dimension.name != dimension:
+                continue
+
+            result.append(
+                UnitInfo(
+                    name=unit.name,
+                    shorthand=unit.shorthand or unit.name,
+                    aliases=list(unit.aliases) if unit.aliases else [],
+                    dimension=unit.dimension.name,
+                    scalable=False,  # Session units are not scalable by default
                 )
             )
 
@@ -539,7 +569,11 @@ def list_scales() -> list[ScaleInfo]:
 
 
 @mcp.tool()
-def check_dimensions(unit_a: str, unit_b: str) -> DimensionCheck | ConversionError:
+def check_dimensions(
+    unit_a: str,
+    unit_b: str,
+    ctx: Context | None = None,
+) -> DimensionCheck | ConversionError:
     """
     Check if two units have compatible dimensions.
 
@@ -554,13 +588,18 @@ def check_dimensions(unit_a: str, unit_b: str) -> DimensionCheck | ConversionErr
         DimensionCheck indicating compatibility and the dimension of each unit.
         ConversionError if a unit string cannot be parsed.
     """
-    a, err = resolve_unit(unit_a, parameter="unit_a")
-    if err:
-        return err
+    session = _get_session(ctx)
+    graph = session.get_graph()
 
-    b, err = resolve_unit(unit_b, parameter="unit_b")
-    if err:
-        return err
+    # Resolve units within session graph context
+    with using_graph(graph):
+        a, err = resolve_unit(unit_a, parameter="unit_a")
+        if err:
+            return err
+
+        b, err = resolve_unit(unit_b, parameter="unit_b")
+        if err:
+            return err
 
     dim_a = a.dimension if isinstance(a, Unit) else a.dimension
     dim_b = b.dimension if isinstance(b, Unit) else b.dimension
@@ -1037,10 +1076,43 @@ def define_unit(
     """
     aliases = aliases or []
 
+    # Get session graph first for validation
+    session = _get_session(ctx)
+    graph = session.get_graph()
+
     # Validate dimension
     known_dimensions = [d.name for d in all_dimensions()]
     if dimension not in known_dimensions:
         return build_unknown_dimension_error(dimension)
+
+    # Check for duplicate unit name (Issue 1: re-registration destroys edges)
+    existing = graph.resolve_unit(name)
+    if existing is not None:
+        existing_unit, _ = existing
+        return ConversionError(
+            error=f"Unit '{name}' is already defined (dimension: {existing_unit.dimension.name})",
+            error_type="duplicate_unit",
+            parameter="name",
+            hints=[
+                "Use a different name for the new unit",
+                "Use reset_session() to clear all custom definitions",
+            ],
+        )
+
+    # Check for alias collisions (Issue 2: alias collisions silently accepted)
+    for alias in aliases:
+        existing = graph.resolve_unit(alias)
+        if existing is not None:
+            existing_unit, _ = existing
+            return ConversionError(
+                error=f"Alias '{alias}' is already claimed by unit '{existing_unit.name}' (dimension: {existing_unit.dimension.name})",
+                error_type="alias_collision",
+                parameter="aliases",
+                hints=[
+                    f"Remove '{alias}' from aliases or use a different alias",
+                    f"The existing unit '{existing_unit.name}' already uses this alias",
+                ],
+            )
 
     # Create unit definition and materialize
     try:
@@ -1059,8 +1131,6 @@ def define_unit(
         )
 
     # Register in session graph
-    session = _get_session(ctx)
-    graph = session.get_graph()
     graph.register_unit(unit)
 
     return UnitDefinitionResult(
