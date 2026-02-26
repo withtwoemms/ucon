@@ -422,6 +422,28 @@ c_num = c.as_number()
 type(c_num)  # Number
 ```
 
+### Creating Custom Constants
+
+```python
+from ucon.constants import Constant
+from ucon import units
+
+# Domain-specific constant
+custom_k = Constant(
+    symbol="k_custom",
+    name="custom spring constant",
+    value=250.0,
+    unit=units.newton / units.meter,
+    uncertainty=0.5,  # or None for exact
+    source="Lab measurement",
+    category="session",
+)
+
+# Use in calculations
+x = units.meter(0.1)
+F = custom_k.as_number() * x  # Hooke's law
+```
+
 ---
 
 ## ConversionGraph
