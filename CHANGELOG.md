@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- MCP session state persistence across tool calls (#209)
+  - Custom units defined via `define_unit()` are now resolvable in subsequent `define_conversion()` calls
+  - Replaced `ContextVar`-based isolation (per-task) with lifespan context (per-session)
+  - Added `SessionState` protocol and `DefaultSessionState` for injectable session management
+  - All session-dependent tools now use FastMCP `Context` injection
+
 ## [0.9.2] - 2026-02-25
 
 ### Added
