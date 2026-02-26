@@ -4,5 +4,6 @@
 # Run: ucon-mcp
 
 from ucon.mcp.server import main
+from ucon.mcp.session import DefaultSessionState, SessionState
 
-__all__ = ["main"]
+__all__ = ["main", "DefaultSessionState", "SessionState"]
