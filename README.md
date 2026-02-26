@@ -133,6 +133,8 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 - **Scale prefixes** — Full SI (kilo, milli, micro, etc.) and binary (kibi, mebi) prefix support
 - **Uncertainty propagation** — Errors propagate through arithmetic and conversions
 - **Pseudo-dimensions** — Semantically isolated handling of angles, ratios, and counts
+- **Natural units** — Custom dimensional bases where c=ℏ=k_B=1 for particle physics
+- **Logarithmic units** — dB, pH, and neper conversions with uncertainty propagation
 - **Pydantic v2** — Type-safe API validation and JSON serialization
 - **MCP server** — AI agent integration with Claude, Cursor, and other MCP clients
 - **ConversionGraph** — Extensible conversion registry with custom unit support
@@ -149,7 +151,7 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 | **0.6.x** | Pydantic + MCP Server | Complete |
 | **0.7.x** | Compute Tool + Extension API | Complete |
 | **0.8.x** | Basis Abstraction + String Parsing | Complete |
-| **0.9.x** | Constants + Logarithmic Units | In Progress |
+| **0.9.x** | Constants + Natural Units | Complete |
 | **0.10.x** | NumPy/Polars Integration | Planned |
 | **1.0.0** | API Stability | Planned |
 
