@@ -53,6 +53,7 @@ nav:
     - Config Safety: guides/dimensional-safety-config.md
     - Dimensional Analysis: guides/dimensional-analysis.md
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
+    - Natural Units: guides/natural-units.md
     - MCP Server:
       - guides/mcp-server/index.md
       - Custom Units: guides/mcp-server/custom-units.md
@@ -69,6 +70,7 @@ nav:
   - Architecture:
     - architecture/index.md
     - Design Principles: architecture/design-principles.md
+    - Kind-of-Quantity Problem: architecture/kind-of-quantity.md
     - ConversionGraph: architecture/conversion-graph.md
     - Dual-Graph Architecture: architecture/dual-graph-architecture.md
     - Suggestions & Recovery: architecture/suggestions-and-recovery.md

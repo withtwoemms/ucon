@@ -46,23 +46,24 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.9.0 | Physical Constants | Complete |
 | v0.9.1 | Logarithmic Units | Complete |
 | v0.9.2 | MCP Constants Tools | Complete |
-| v0.9.3 | Natural Units | Planned |
+| v0.9.3 | Natural Units + MCP Session Fixes | Complete |
 | v0.10.0 | Scientific Computing | Planned |
 | v1.0.0 | API Stability | Planned |
 
 ---
 
-## Current Version: **v0.9.2** (complete)
+## Current Version: **v0.9.3** (complete)
 
-Building on v0.9.1 baseline:
-- `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`)
-- `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`; standard transforms)
+Building on v0.9.2 baseline:
+- `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`, `ConstantAwareBasisTransform`)
+- `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`, `NATURAL`; standard transforms including `SI_TO_NATURAL`)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
 - `ucon.core` (`Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`, `UnitSystem`, `RebasedUnit`, `Exponent`)
 - `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`, `LogMap`, `ExpMap`)
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`, cross-basis conversion)
 - `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax, `si` and `imperial` systems, `get_unit_by_name()`)
 - `ucon.pydantic` (`Number` type for Pydantic v2 models)
+- `ucon.mcp` (`SessionState`, `DefaultSessionState` for injectable session management)
 - Callable unit API: `meter(5)`, `(mile / hour)(60)`
 - `Number.simplify()` for base-scale normalization
 - Pseudo-dimensions: `ANGLE`, `SOLID_ANGLE`, `RATIO`, `COUNT` with semantic isolation
@@ -77,6 +78,8 @@ Building on v0.9.1 baseline:
 - Physical constants: `Constant` class with CODATA 2022 values and uncertainty propagation
 - Logarithmic units: pH with concentration dimension, dBm, dBW, dBV, dBSPL
 - MCP constants tools: `list_constants()`, `define_constant()` for AI agent access
+- Natural units: `NATURAL` basis with c=ℏ=k_B=1, `ConstantAwareBasisTransform` for non-square transforms
+- MCP session persistence: lifespan-scoped session state across tool calls
 
 ---
 
@@ -628,18 +631,27 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.9.3 — Natural Units
+## v0.9.3 — Natural Units + MCP Session Fixes (Complete)
 
-**Theme:** Custom dimensional bases where c=ℏ=1.
+**Theme:** Custom dimensional bases where c=ℏ=1, plus MCP reliability fixes.
 
-- [ ] `ConstantAwareBasisTransform` with `inverse()` for non-square transforms
-- [ ] `NATURAL` basis with single energy dimension
-- [ ] SI ↔ NATURAL transform using constant bindings
-- [ ] Documentation and examples
+### Natural Units
+
+- [x] `ConstantAwareBasisTransform` with `inverse()` for non-square transforms
+- [x] `ConstantBinding` dataclass for tracking which constants absorb dimensions
+- [x] `NATURAL` basis with single energy dimension
+- [x] SI → NATURAL transform: T→E⁻¹, L→E⁻¹, M→E, Θ→E (via ℏ, c, k_B)
+- [x] NATURAL → SI inverse transform
+- [x] Documentation and examples (`examples/basis/`)
+
+### MCP Safety Improvements (Feedback Issues)
+
+- [x] All session-dependent tools use FastMCP `Context` injection
 
 **Outcomes:**
 - Natural units leverage custom basis infrastructure
 - Foundation for particle physics and quantum field theory domains
+- MCP tools are more reliable for multi-call agent workflows
 
 ---
 

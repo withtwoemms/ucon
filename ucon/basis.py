@@ -11,7 +11,7 @@ to a specific set of components.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import TYPE_CHECKING, Iterator, Sequence
 
@@ -619,6 +619,285 @@ class BasisTransform:
                 if val != expected:
                     return False
         return True
+
+
+# -----------------------------------------------------------------------------
+# ConstantBinding
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ConstantBinding:
+    """Binds a source dimension to a target expression via a physical constant.
+
+    Records that `source_component` in the source basis becomes
+    `target_expression` in the target basis, with the relationship
+    defined by a physical constant raised to `exponent`.
+
+    Parameters
+    ----------
+    source_component : BasisComponent
+        The fundamental component being transformed.
+    target_expression : Vector
+        How it expresses in the target basis.
+    constant_symbol : str
+        Symbol of the constant defining this relationship (e.g., "c", "ℏ").
+        We use a string rather than a Constant object to avoid circular imports
+        between ucon.basis and ucon.constants.
+    exponent : Fraction
+        Power of the constant in the relationship (usually ±1/2 or ±1).
+
+    Examples
+    --------
+    >>> # In natural units: length = ℏc/E, so L → E⁻¹ via ℏc
+    >>> from fractions import Fraction
+    >>> binding = ConstantBinding(
+    ...     source_component=BasisComponent("length", "L"),
+    ...     target_expression=Vector(NATURAL, (Fraction(-1),)),
+    ...     constant_symbol="ℏc",
+    ...     exponent=Fraction(1),
+    ... )
+    """
+
+    source_component: BasisComponent
+    target_expression: "Vector"
+    constant_symbol: str
+    exponent: Fraction = field(default_factory=lambda: Fraction(1))
+
+
+# -----------------------------------------------------------------------------
+# ConstantAwareBasisTransform
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ConstantAwareBasisTransform:
+    """A basis transform with constants that enable inversion of non-square matrices.
+
+    Extends BasisTransform with explicit constant bindings that record which
+    constants define each non-trivial mapping. This enables `inverse()` to work
+    on non-square transforms by providing the information needed to reverse
+    derived mappings.
+
+    Parameters
+    ----------
+    source : Basis
+        Source basis.
+    target : Basis
+        Target basis.
+    matrix : tuple[tuple[Fraction, ...], ...]
+        Dimensional transformation matrix. Shape is (len(source), len(target)).
+    bindings : tuple[ConstantBinding, ...]
+        Constants that define derived relationships.
+
+    Examples
+    --------
+    >>> # SI (8 dimensions) → NATURAL (1 dimension) transform
+    >>> SI_TO_NATURAL = ConstantAwareBasisTransform(
+    ...     source=SI,
+    ...     target=NATURAL,
+    ...     matrix=(...),  # 8×1 matrix
+    ...     bindings=(...),  # Bindings for L, T, M, Θ → E
+    ... )
+    >>> # This works because bindings record how to reverse!
+    >>> NATURAL_TO_SI = SI_TO_NATURAL.inverse()
+    """
+
+    source: Basis
+    target: Basis
+    matrix: tuple[tuple[Fraction, ...], ...]
+    bindings: tuple[ConstantBinding, ...] = ()
+
+    def __post_init__(self) -> None:
+        if len(self.matrix) != len(self.source):
+            raise ValueError(
+                f"Matrix has {len(self.matrix)} rows but source basis "
+                f"'{self.source.name}' has {len(self.source)} components"
+            )
+        for i, row in enumerate(self.matrix):
+            if len(row) != len(self.target):
+                raise ValueError(
+                    f"Matrix row {i} has {len(row)} columns but target basis "
+                    f"'{self.target.name}' has {len(self.target)} components"
+                )
+
+    def __repr__(self) -> str:
+        return f"ConstantAwareBasisTransform({self.source.name} -> {self.target.name})"
+
+    def __call__(self, vector: Vector, *, allow_projection: bool = False) -> Vector:
+        """Transform a vector from source basis to target basis.
+
+        Args:
+            vector: The vector to transform (must be in source basis).
+            allow_projection: If False (default), raise LossyProjection when
+                a non-zero component would be discarded. If True, silently
+                project (drop) unrepresentable components.
+
+        Returns:
+            A new Vector in the target basis.
+
+        Raises:
+            ValueError: If vector is not in the source basis.
+            LossyProjection: If allow_projection=False and a non-zero
+                component maps entirely to zeros in the target basis.
+        """
+        if vector.basis != self.source:
+            raise ValueError(
+                f"Vector is in basis '{vector.basis.name}' but transform "
+                f"expects basis '{self.source.name}'"
+            )
+
+        # Check for lossy projection (unless explicitly allowed)
+        if not allow_projection:
+            for i, src_exp in enumerate(vector.components):
+                if src_exp != 0:
+                    # Does this component have ANY representation in target?
+                    if all(self.matrix[i][j] == 0 for j in range(len(self.target))):
+                        raise LossyProjection(
+                            self.source[i],
+                            self.source,
+                            self.target,
+                        )
+
+        # Matrix-vector multiplication
+        result = [Fraction(0)] * len(self.target)
+        for i, src_exp in enumerate(vector.components):
+            for j, transform_coeff in enumerate(self.matrix[i]):
+                result[j] += src_exp * transform_coeff
+
+        return Vector(self.target, tuple(result))
+
+    def inverse(self) -> "ConstantAwareBasisTransform":
+        """Compute the inverse transform using constant bindings.
+
+        For each binding (src_component → target_expression via constant):
+        - The inverse maps target_expression → src_component
+        - The constant exponent is negated (constant^(-exponent))
+
+        Returns
+        -------
+        ConstantAwareBasisTransform
+            The inverse transform from target to source.
+
+        Raises
+        ------
+        ValueError
+            If a source component has no binding and cannot be inverted.
+
+        Notes
+        -----
+        Components that map to zero (truly dropped) cannot be recovered
+        and will map to zero in the inverse. Only components with bindings
+        are invertible for non-square matrices.
+        """
+        inv_matrix = self._compute_inverse_matrix()
+        inv_bindings = self._invert_bindings()
+
+        return ConstantAwareBasisTransform(
+            source=self.target,
+            target=self.source,
+            matrix=inv_matrix,
+            bindings=inv_bindings,
+        )
+
+    def _compute_inverse_matrix(self) -> tuple[tuple[Fraction, ...], ...]:
+        """Compute inverse matrix using constant bindings.
+
+        For each binding, we record how to map from target back to source.
+        The inverse matrix has shape (len(target), len(source)).
+        """
+        n_src = len(self.source)
+        n_tgt = len(self.target)
+
+        # Start with zero matrix of shape (n_tgt, n_src)
+        inv: list[list[Fraction]] = [
+            [Fraction(0)] * n_src for _ in range(n_tgt)
+        ]
+
+        # Build a set of source components that have bindings
+        bound_src_indices: set[int] = set()
+
+        # For each binding, record the reverse mapping
+        for binding in self.bindings:
+            src_idx = self.source.index(binding.source_component.name)
+            bound_src_indices.add(src_idx)
+
+            # The target expression tells us which target components
+            # contribute to this source component
+            for tgt_idx, coeff in enumerate(binding.target_expression.components):
+                if coeff != 0:
+                    # For the inverse: we need to invert the coefficient
+                    # E.g., if L → E⁻¹ (coeff = -1), then E → L⁻¹ means
+                    # multiplying by -1 to get back the L exponent
+                    inv[tgt_idx][src_idx] = Fraction(1) / coeff
+
+        # For source components without bindings, check for clean 1:1 mappings
+        for i in range(n_src):
+            if i in bound_src_indices:
+                continue
+
+            # Find which target component(s) this source maps to
+            non_zero = [
+                (j, self.matrix[i][j])
+                for j in range(n_tgt)
+                if self.matrix[i][j] != 0
+            ]
+
+            if len(non_zero) == 1 and non_zero[0][1] == 1:
+                # Clean 1-to-1 mapping: source[i] -> target[j] with coeff 1
+                j = non_zero[0][0]
+                inv[j][i] = Fraction(1)
+            elif len(non_zero) == 0:
+                # Source component is dropped (projected out) - leave as zero
+                pass
+            # For more complex mappings, we rely on bindings
+
+        return tuple(tuple(row) for row in inv)
+
+    def _invert_bindings(self) -> tuple[ConstantBinding, ...]:
+        """Invert the constant bindings (negate exponents, swap source/target)."""
+        inverted: list[ConstantBinding] = []
+
+        for binding in self.bindings:
+            src_idx = self.source.index(binding.source_component.name)
+
+            # Find the primary target component (first non-zero)
+            primary_tgt_idx = None
+            for tgt_idx, coeff in enumerate(binding.target_expression.components):
+                if coeff != 0:
+                    primary_tgt_idx = tgt_idx
+                    break
+
+            if primary_tgt_idx is None:
+                continue
+
+            # Create inverse binding: target component → source component
+            inv_binding = ConstantBinding(
+                source_component=self.target[primary_tgt_idx],
+                target_expression=Vector(
+                    self.source,
+                    tuple(
+                        Fraction(1) if k == src_idx else Fraction(0)
+                        for k in range(len(self.source))
+                    ),
+                ),
+                constant_symbol=binding.constant_symbol,
+                exponent=-binding.exponent,  # Negate the exponent
+            )
+            inverted.append(inv_binding)
+
+        return tuple(inverted)
+
+    def as_basis_transform(self) -> BasisTransform:
+        """Return as plain BasisTransform (loses binding information).
+
+        Useful for interoperability with code expecting BasisTransform.
+        """
+        return BasisTransform(
+            source=self.source,
+            target=self.target,
+            matrix=self.matrix,
+        )
 
 
 # -----------------------------------------------------------------------------

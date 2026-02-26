@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-02-26
+
+### Added
+
+- Natural units support with `ConstantAwareBasisTransform` (#206)
+  - `NATURAL` basis where c = ℏ = k_B = 1 (all quantities reduce to powers of energy)
+  - `SI_TO_NATURAL` transform maps SI dimensions to natural units (e.g., velocity → dimensionless)
+  - `NATURAL_TO_SI` inverse transform with constant bindings for reconstruction
+  - `ConstantBinding` records relationships between dimensions via physical constants
+  - `LossyProjection` exception for dimensions without natural unit representation (e.g., current)
+  - `allow_projection=True` option to drop unrepresentable dimensions
+- Example demos for alternative unit systems (`examples/basis/`)
+  - `natural_units_demo.py` — particle physics natural units
+  - `geometrized_units_demo.py` — general relativity units (c = G = 1)
+  - `elemental_units_demo.py` — custom "elemental" basis
+- Natural units guide in `docs/guides/natural-units.md`
+- Natural units section in API reference `docs/reference/api.md`
+- Custom constants documentation in README and API reference
+- Comprehensive test suite for natural units (`tests/ucon/test_natural_units.py`)
+
 ### Fixed
 
 - MCP session state persistence across tool calls (#209)
@@ -418,7 +438,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.2...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.3...HEAD
+[0.9.3]: https://github.com/withtwoemms/ucon/compare/0.9.2...0.9.3
 [0.9.2]: https://github.com/withtwoemms/ucon/compare/0.9.1...0.9.2
 [0.9.1]: https://github.com/withtwoemms/ucon/compare/0.9.0...0.9.1
 [0.9.0]: https://github.com/withtwoemms/ucon/compare/0.8.5...0.9.0
