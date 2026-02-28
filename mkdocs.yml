@@ -54,10 +54,8 @@ nav:
     - Dimensional Analysis: guides/dimensional-analysis.md
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
     - Natural Units: guides/natural-units.md
-    - MCP Server:
-      - guides/mcp-server/index.md
-      - Custom Units: guides/mcp-server/custom-units.md
-      - Registering Formulas: guides/mcp-server/registering-formulas.md
+    # MCP Server docs moved to ucon-tools - will be sourced via submodule
+    # - MCP Server: external/ucon-tools/docs/guides/mcp-server/index.md
     - Domain Walkthroughs:
       - guides/domain-walkthroughs/index.md
       - Nursing Dosage: guides/domain-walkthroughs/nursing-dosage.md
@@ -65,7 +63,8 @@ nav:
     - reference/index.md
     - API: reference/api.md
     - Units & Dimensions: reference/units-and-dimensions.md
-    - MCP Tools: reference/mcp-tools.md
+    # MCP Tools docs moved to ucon-tools - will be sourced via submodule
+    # - MCP Tools: external/ucon-tools/docs/reference/mcp-tools.md
     - Scales & Prefixes: reference/scales-and-prefixes.md
   - Architecture:
     - architecture/index.md

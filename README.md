@@ -49,7 +49,7 @@ With extras:
 
 ```bash
 pip install ucon[pydantic]  # Pydantic v2 integration
-pip install ucon[mcp]       # MCP server for AI agents
+pip install ucon-tools[mcp] # MCP server for AI agents (separate package)
 ```
 
 ---
@@ -108,14 +108,18 @@ print(m.model_dump_json())
 
 ### MCP Server for AI Agents
 
-Configure in Claude Desktop:
+Install `ucon-tools` and configure in Claude Desktop:
+
+```bash
+pip install ucon-tools[mcp]
+```
 
 ```json
 {
   "mcpServers": {
     "ucon": {
       "command": "uvx",
-      "args": ["--from", "ucon[mcp]", "ucon-mcp"]
+      "args": ["--from", "ucon-tools[mcp]", "ucon-mcp"]
     }
   }
 }
