@@ -49,7 +49,7 @@ With extras:
 
 ```bash
 pip install ucon[pydantic]  # Pydantic v2 integration
-pip install ucon[mcp]       # MCP server for AI agents
+pip install ucon-tools[mcp] # MCP server for AI agents (separate package)
 ```
 
 ---
@@ -108,14 +108,18 @@ print(m.model_dump_json())
 
 ### MCP Server for AI Agents
 
-Configure in Claude Desktop:
+Install `ucon-tools` and configure in Claude Desktop:
+
+```bash
+pip install ucon-tools[mcp]
+```
 
 ```json
 {
   "mcpServers": {
     "ucon": {
       "command": "uvx",
-      "args": ["--from", "ucon[mcp]", "ucon-mcp"]
+      "args": ["--from", "ucon-tools[mcp]", "ucon-mcp"]
     }
   }
 }
@@ -128,7 +132,7 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 ## Features
 
 - **Physical constants** — CODATA 2022 values with uncertainty propagation (`E = m * c**2`)
-- **Custom constants** — Define domain-specific constants with uncertainty propagation via MCP or Python API
+- **Custom constants** — Define domain-specific constants with uncertainty propagation
 - **String parsing** — `parse("9.81 m/s^2")` with uncertainty support (`1.234 ± 0.005 m`)
 - **Dimensional algebra** — Units combine through multiplication/division with automatic dimension tracking
 - **Scale prefixes** — Full SI (kilo, milli, micro, etc.) and binary (kibi, mebi) prefix support
