@@ -3,7 +3,7 @@
 ucon's unit system is extensible. You can define domain-specific units and conversions for aerospace, medicine, finance, or any specialized field.
 
 !!! tip "MCP Users"
-    For AI agent use cases, see [Custom Units via MCP](mcp-server/custom-units.md).
+    For AI agent use cases, see [Custom Units via MCP](../external/ucon-tools/docs/guides/mcp-server/custom-units.md).
 
 ## Unit Definition
 
