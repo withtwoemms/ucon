@@ -46,7 +46,11 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: success() && github.repository_owner == 'withtwoemms'
-        run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false
 
       - name: Archive coverage report
         if: always()
@@ -61,6 +65,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          submodules: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

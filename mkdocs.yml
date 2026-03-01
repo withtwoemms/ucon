@@ -39,6 +39,7 @@ extra_css:
 
 exclude_docs: |
   internal/
+  external/ucon-tools/*.*
 
 nav:
   - Home: index.md
@@ -55,9 +56,9 @@ nav:
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
     - Natural Units: guides/natural-units.md
     - MCP Server:
-      - guides/mcp-server/index.md
-      - Custom Units: guides/mcp-server/custom-units.md
-      - Registering Formulas: guides/mcp-server/registering-formulas.md
+      - external/ucon-tools/docs/guides/mcp-server/index.md
+      - Custom Units: external/ucon-tools/docs/guides/mcp-server/custom-units.md
+      - Registering Formulas: external/ucon-tools/docs/guides/mcp-server/registering-formulas.md
     - Domain Walkthroughs:
       - guides/domain-walkthroughs/index.md
       - Nursing Dosage: guides/domain-walkthroughs/nursing-dosage.md
@@ -65,7 +66,7 @@ nav:
     - reference/index.md
     - API: reference/api.md
     - Units & Dimensions: reference/units-and-dimensions.md
-    - MCP Tools: reference/mcp-tools.md
+    - MCP Tools: external/ucon-tools/docs/reference/mcp-tools.md
     - Scales & Prefixes: reference/scales-and-prefixes.md
   - Architecture:
     - architecture/index.md

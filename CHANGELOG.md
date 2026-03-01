@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-02-28
+
+### Changed
+
+- MCP subpackage extracted to [ucon-tools](https://github.com/withtwoemms/ucon-tools) (#212)
+  - Install MCP server via `pip install ucon-tools[mcp]`
+  - Core ucon package no longer has MCP dependencies
+  - Namespace package support via `pkgutil.extend_path()` enables coexistence
+
+### Removed
+
+- `ucon.mcp` subpackage (moved to ucon-tools)
+- `ucon-mcp` CLI entry point (now in ucon-tools)
+- `mcp` optional dependency
+- MCP documentation (moved to ucon-tools, sourced via submodule)
+
 ## [0.9.3] - 2026-02-26
 
 ### Added
@@ -438,7 +454,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.3...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.4...HEAD
+[0.9.4]: https://github.com/withtwoemms/ucon/compare/0.9.3...0.9.4
 [0.9.3]: https://github.com/withtwoemms/ucon/compare/0.9.2...0.9.3
 [0.9.2]: https://github.com/withtwoemms/ucon/compare/0.9.1...0.9.2
 [0.9.1]: https://github.com/withtwoemms/ucon/compare/0.9.0...0.9.1

@@ -47,14 +47,15 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.9.1 | Logarithmic Units | Complete |
 | v0.9.2 | MCP Constants Tools | Complete |
 | v0.9.3 | Natural Units + MCP Session Fixes | Complete |
+| v0.9.4 | MCP Extraction | Complete |
 | v0.10.0 | Scientific Computing | Planned |
 | v1.0.0 | API Stability | Planned |
 
 ---
 
-## Current Version: **v0.9.3** (complete)
+## Current Version: **v0.9.4** (complete)
 
-Building on v0.9.2 baseline:
+Building on v0.9.3 baseline:
 - `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`, `ConstantAwareBasisTransform`)
 - `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`, `NATURAL`; standard transforms including `SI_TO_NATURAL`)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
@@ -63,7 +64,6 @@ Building on v0.9.2 baseline:
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`, cross-basis conversion)
 - `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax, `si` and `imperial` systems, `get_unit_by_name()`)
 - `ucon.pydantic` (`Number` type for Pydantic v2 models)
-- `ucon.mcp` (`SessionState`, `DefaultSessionState` for injectable session management)
 - Callable unit API: `meter(5)`, `(mile / hour)(60)`
 - `Number.simplify()` for base-scale normalization
 - Pseudo-dimensions: `ANGLE`, `SOLID_ANGLE`, `RATIO`, `COUNT` with semantic isolation
@@ -77,9 +77,8 @@ Building on v0.9.2 baseline:
 - Quantity string parsing: `parse("1.234 ± 0.005 m")` → `Number` with uncertainty
 - Physical constants: `Constant` class with CODATA 2022 values and uncertainty propagation
 - Logarithmic units: pH with concentration dimension, dBm, dBW, dBV, dBSPL
-- MCP constants tools: `list_constants()`, `define_constant()` for AI agent access
 - Natural units: `NATURAL` basis with c=ℏ=k_B=1, `ConstantAwareBasisTransform` for non-square transforms
-- MCP session persistence: lifespan-scoped session state across tool calls
+- Namespace package support: `pkgutil.extend_path` enables coexistence with ucon-tools
 
 ---
 
@@ -212,6 +211,9 @@ Building on v0.9.2 baseline:
 ## v0.6.x — MCP Server (Complete)
 
 **Theme:** AI agent integration.
+
+> **Note:** MCP functionality moved to [ucon-tools](https://github.com/withtwoemms/ucon-tools) in v0.9.4.
+> Install via `pip install ucon-tools[mcp]`.
 
 - [x] MCP server exposing unit conversion tools
 - [x] `convert` tool with dimensional validation
@@ -652,6 +654,24 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - Natural units leverage custom basis infrastructure
 - Foundation for particle physics and quantum field theory domains
 - MCP tools are more reliable for multi-call agent workflows
+
+---
+
+## v0.9.4 — MCP Extraction (Complete)
+
+**Theme:** Separate MCP tooling into ucon-tools package.
+
+- [x] Extract `ucon.mcp` subpackage to `ucon-tools` repository
+- [x] Add `pkgutil.extend_path()` for namespace package coexistence
+- [x] Remove MCP optional dependency and entry point from pyproject.toml
+- [x] Update documentation to reference `ucon-tools[mcp]` for MCP features
+- [x] MCP docs moved to ucon-tools (sourced via git submodule)
+
+**Outcomes:**
+- Core ucon package has no MCP dependencies (simpler install, broader compatibility)
+- MCP tooling available via `pip install ucon-tools[mcp]`
+- Namespace package allows both packages to coexist under `ucon.*`
+- ucon-tools can iterate independently on AI agent features
 
 ---
 

@@ -58,7 +58,7 @@ ${UV_VENV}: ${UV_INSTALLED}
 
 ${DEPS_INSTALLED}: pyproject.toml uv.lock | ${UV_VENV}
 	@echo "${GREEN}Syncing dependencies into ${UV_VENV}...${RESET}"
-	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv sync --python ${PYTHON} --extra test --extra pydantic --extra mcp
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv sync --python ${PYTHON} --extra test --extra pydantic
 	@touch ${DEPS_INSTALLED}
 
 .PHONY: venv
@@ -74,7 +74,7 @@ install-test: ${UV_VENV}
 .PHONY: install
 install: ${UV_VENV}
 	@echo "${GREEN}Installing with all extras into ${UV_VENV}...${RESET}"
-	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv sync --python ${PYTHON} --extra test --extra pydantic --extra mcp
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv sync --python ${PYTHON} --extra test --extra pydantic
 
 # --- Testing ---
 .PHONY: test

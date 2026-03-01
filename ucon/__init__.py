@@ -2,6 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 # See the LICENSE file for details.
 
+# Enable namespace package support for ucon-tools coexistence
+from pkgutil import extend_path
+__path__ = extend_path(__path__, __name__)
+
 """
 ucon
 ====

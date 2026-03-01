@@ -1,0 +1,3 @@
+[submodule "docs/external/ucon-tools"]
+	path = docs/external/ucon-tools
+	url = https://github.com/withtwoemms/ucon-tools.git
