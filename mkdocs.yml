@@ -39,6 +39,7 @@ extra_css:
 
 exclude_docs: |
   internal/
+  external/ucon-tools/*.*
 
 nav:
   - Home: index.md
