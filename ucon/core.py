@@ -510,15 +510,20 @@ class Unit:
 
     # ----------------- callable (creates Number) -----------------
 
-    def __call__(self, quantity: Union[int, float], uncertainty: Union[float, None] = None) -> "Number":
-        """Create a Number with this unit.
+    def __call__(self, quantity, uncertainty=None):
+        """Create a Number or NumberArray with this unit.
 
         Parameters
         ----------
-        quantity : int or float
-            The numeric value.
-        uncertainty : float, optional
+        quantity : int, float, list, tuple, or numpy.ndarray
+            The numeric value(s). If array-like, returns NumberArray.
+        uncertainty : float, array-like, or None
             The measurement uncertainty.
+
+        Returns
+        -------
+        Number or NumberArray
+            Number for scalar inputs, NumberArray for array inputs.
 
         Example
         -------
@@ -526,7 +531,22 @@ class Unit:
         <5 m>
         >>> meter(1.234, uncertainty=0.005)
         <1.234 ± 0.005 m>
+        >>> meter([1, 2, 3])  # requires numpy
+        <NumberArray [1. 2. 3.] m>
         """
+        # Check for array-like inputs
+        try:
+            import numpy as np
+            if isinstance(quantity, np.ndarray):
+                from ucon.numpy import NumberArray
+                return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
+            if isinstance(quantity, (list, tuple)) and len(quantity) > 0:
+                from ucon.numpy import NumberArray
+                return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
+        except ImportError:
+            # numpy not installed - fall through to scalar handling
+            pass
+
         return Number(quantity=quantity, unit=UnitProduct.from_unit(self), uncertainty=uncertainty)
 
 
@@ -1116,15 +1136,20 @@ class UnitProduct:
         # Sort by name; UnitFactor exposes .name, so this is stable.
         return hash(tuple(sorted(self.factors.items(), key=lambda x: x[0].name)))
 
-    def __call__(self, quantity: Union[int, float], uncertainty: Union[float, None] = None) -> "Number":
-        """Create a Number with this unit product.
+    def __call__(self, quantity, uncertainty=None):
+        """Create a Number or NumberArray with this unit product.
 
         Parameters
         ----------
-        quantity : int or float
-            The numeric value.
-        uncertainty : float, optional
+        quantity : int, float, list, tuple, or numpy.ndarray
+            The numeric value(s). If array-like, returns NumberArray.
+        uncertainty : float, array-like, or None
             The measurement uncertainty.
+
+        Returns
+        -------
+        Number or NumberArray
+            Number for scalar inputs, NumberArray for array inputs.
 
         Example
         -------
@@ -1132,7 +1157,22 @@ class UnitProduct:
         <10 m/s>
         >>> (meter / second)(10, uncertainty=0.5)
         <10 ± 0.5 m/s>
+        >>> (meter / second)([10, 20, 30])  # requires numpy
+        <NumberArray [10. 20. 30.] m/s>
         """
+        # Check for array-like inputs
+        try:
+            import numpy as np
+            if isinstance(quantity, np.ndarray):
+                from ucon.numpy import NumberArray
+                return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
+            if isinstance(quantity, (list, tuple)) and len(quantity) > 0:
+                from ucon.numpy import NumberArray
+                return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
+        except ImportError:
+            # numpy not installed - fall through to scalar handling
+            pass
+
         return Number(quantity=quantity, unit=self, uncertainty=uncertainty)
 
 
