@@ -12,6 +12,8 @@ DEPS_INSTALLED := ${UV_VENV}/.deps-installed
 TESTDIR := tests/
 TESTNAME ?=
 COVERAGE ?= true
+BENCH_SIZES ?= 1000 10000 100000
+BENCH_ITERATIONS ?= 50
 
 # --- Color Setup ---
 GREEN := \033[0;32m
@@ -35,12 +37,16 @@ help:
 	@echo "  ${CYAN}clean${RESET}         - Remove build artifacts and caches"
 	@echo "  ${CYAN}stubs${RESET}         - Generate dimension.pyi type stubs"
 	@echo "  ${CYAN}stubs-check${RESET}   - Verify stubs are current (for CI)"
+	@echo "  ${CYAN}benchmark${RESET}     - Run array performance benchmarks"
+	@echo "  ${CYAN}benchmark-pint${RESET} - Run benchmarks with pint comparison"
 	@echo ""
 	@echo "${YELLOW}Variables:${RESET}\n"
 	@echo "  PYTHON=${PYTHON}		- Python version for test target"
 	@echo "  UV_VENV=${UV_VENV}	- Path to virtual environment"
 	@echo "  TESTNAME=		- Specific test to run (e.g., tests.ucon.test_core)"
 	@echo "  COVERAGE=${COVERAGE}		- Enable coverage (true/false)"
+	@echo "  BENCH_SIZES=${BENCH_SIZES}	- Array sizes for benchmarks"
+	@echo "  BENCH_ITERATIONS=${BENCH_ITERATIONS}	- Iterations per benchmark"
 	@echo ""
 
 # --- uv Installation ---
@@ -163,3 +169,18 @@ stubs-check: ${DEPS_INSTALLED}
 	@echo "${GREEN}Verifying dimension stubs are current...${RESET}"
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
 		python scripts/generate_dimension_stubs.py --check
+
+# --- Benchmarks ---
+.PHONY: benchmark
+benchmark: ${DEPS_INSTALLED}
+	@echo "${GREEN}Running array performance benchmarks...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
+		python benchmarks/array_operations.py --sizes $(BENCH_SIZES) --iterations $(BENCH_ITERATIONS)
+
+.PHONY: benchmark-pint
+benchmark-pint: ${DEPS_INSTALLED}
+	@echo "${GREEN}Installing pint for comparison...${RESET}"
+	@uv pip install pint --python ${UV_VENV}/bin/python 2>/dev/null || true
+	@echo "${GREEN}Running benchmarks with pint comparison...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
+		python benchmarks/array_operations.py --sizes $(BENCH_SIZES) --iterations $(BENCH_ITERATIONS) --with-pint
