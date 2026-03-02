@@ -172,3 +172,17 @@ Choose Pandas when:
 - You need the `.ucon` accessor
 - Working with existing pandas workflows
 - You need label-based indexing
+
+## Performance Tips
+
+- **Batch conversions**: Convert entire columns at once rather than row-by-row
+- **Pre-convert before loops**: Call `.to()` once before iterating over values
+- **Polars speed**: Polars' columnar format combined with NumberColumn gives excellent performance for large datasets
+
+```python
+# Efficient - single vectorized conversion
+heights_ft = NumberColumn(df['height_m'], unit=units.meter).to(units.foot)
+
+# Less efficient - element-wise
+heights_ft = [units.meter(h).to(units.foot) for h in df['height_m']]  # avoid this
+```

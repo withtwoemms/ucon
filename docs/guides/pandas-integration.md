@@ -184,3 +184,18 @@ print(f"Mean weight: {weights.mean()}")
 tall = heights > units.centimeter(175)
 tall_people = df[tall.series]
 ```
+
+## Performance Tips
+
+- **Batch conversions**: Convert entire columns at once rather than row-by-row
+- **Pre-convert before loops**: Call `.to()` once before iterating over values
+- **Accessor overhead**: The `.ucon` accessor has minimal overhead, but for tight loops consider extracting to a NumberSeries first
+
+```python
+# Efficient - single conversion
+heights_ft = df['height_m'].ucon(units.meter).to(units.foot)
+
+# Less efficient - converts per row
+for idx, row in df.iterrows():
+    height_ft = units.meter(row['height_m']).to(units.foot)  # avoid this
+```
