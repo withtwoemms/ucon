@@ -569,6 +569,227 @@ class TestNumberArrayReductions(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_NUMPY, "NumPy not installed")
+class TestNumberArrayArithmeticExtended(unittest.TestCase):
+    """Extended arithmetic tests for coverage."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+        self.second = units.second
+
+    def test_divide_by_number(self):
+        """Test NumberArray / Number."""
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([10.0, 20.0, 30.0], unit=self.meter)
+        n = Number(quantity=2.0, unit=self.second)
+        result = arr / n
+        np.testing.assert_array_equal(result.quantities, np.array([5.0, 10.0, 15.0]))
+
+    def test_divide_by_number_with_uncertainty(self):
+        """Test NumberArray / Number with uncertainty propagation."""
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
+        n = Number(quantity=2.0, unit=self.second, uncertainty=0.1)
+        result = arr / n
+        self.assertIsNotNone(result.uncertainty)
+
+    def test_divide_by_scalar_with_uncertainty(self):
+        """Test NumberArray / scalar with uncertainty."""
+        from ucon.numpy import NumberArray
+        arr = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
+        result = arr / 2
+        self.assertEqual(result.uncertainty, 0.5)
+
+    def test_rdiv_scalar_by_array(self):
+        """Test scalar / NumberArray."""
+        from ucon.numpy import NumberArray
+        arr = NumberArray([2.0, 4.0, 5.0], unit=self.meter)
+        result = 10.0 / arr
+        np.testing.assert_array_equal(result.quantities, np.array([5.0, 2.5, 2.0]))
+
+    def test_rdiv_scalar_by_array_with_uncertainty(self):
+        """Test scalar / NumberArray with uncertainty."""
+        from ucon.numpy import NumberArray
+        arr = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
+        result = 100.0 / arr
+        self.assertIsNotNone(result.uncertainty)
+        # For c = a/x, δc = |c| * |δx/x|
+        expected_unc_0 = abs(10.0) * abs(1.0 / 10.0)  # = 1.0
+        self.assertAlmostEqual(result.uncertainty[0], expected_unc_0)
+
+    def test_add_number_to_array(self):
+        """Test NumberArray + Number."""
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        n = Number(quantity=10.0, unit=self.meter)
+        result = arr + n
+        np.testing.assert_array_equal(result.quantities, np.array([11.0, 12.0, 13.0]))
+
+    def test_add_number_with_uncertainty(self):
+        """Test NumberArray + Number with uncertainty."""
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
+        n = Number(quantity=10.0, unit=self.meter, uncertainty=0.2)
+        result = arr + n
+        expected_unc = math.sqrt(0.1**2 + 0.2**2)
+        np.testing.assert_array_almost_equal(
+            result.uncertainty, np.array([expected_unc, expected_unc])
+        )
+
+    def test_radd_number(self):
+        """Test Number + NumberArray (radd)."""
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([1.0, 2.0], unit=self.meter)
+        n = Number(quantity=10.0, unit=self.meter)
+        result = n + arr  # triggers __radd__
+        np.testing.assert_array_equal(result.quantities, np.array([11.0, 12.0]))
+
+    def test_sub_number_from_array(self):
+        """Test NumberArray - Number."""
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([10.0, 20.0, 30.0], unit=self.meter)
+        n = Number(quantity=5.0, unit=self.meter)
+        result = arr - n
+        np.testing.assert_array_equal(result.quantities, np.array([5.0, 15.0, 25.0]))
+
+    def test_rsub_number(self):
+        """Test Number - NumberArray (rsub)."""
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([1.0, 2.0], unit=self.meter)
+        n = Number(quantity=10.0, unit=self.meter)
+        result = n - arr  # triggers __rsub__
+        np.testing.assert_array_equal(result.quantities, np.array([9.0, 8.0]))
+
+    def test_rsub_number_with_uncertainty(self):
+        """Test Number - NumberArray with uncertainty."""
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
+        n = Number(quantity=10.0, unit=self.meter, uncertainty=0.2)
+        result = n - arr
+        expected_unc = math.sqrt(0.1**2 + 0.2**2)
+        np.testing.assert_array_almost_equal(
+            result.uncertainty, np.array([expected_unc, expected_unc])
+        )
+
+    def test_pos(self):
+        """Test unary positive (+arr)."""
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, -2.0, 3.0], unit=self.meter, uncertainty=0.1)
+        result = +arr
+        np.testing.assert_array_equal(result.quantities, arr.quantities)
+        self.assertEqual(result.uncertainty, arr.uncertainty)
+
+    def test_pos_with_per_element_uncertainty(self):
+        """Test unary positive with per-element uncertainty."""
+        from ucon.numpy import NumberArray
+        unc = np.array([0.1, 0.2, 0.3])
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter, uncertainty=unc)
+        result = +arr
+        np.testing.assert_array_equal(result.uncertainty, unc)
+
+    def test_multiply_number_by_array(self):
+        """Test Number * NumberArray."""
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        n = Number(quantity=2.0, unit=self.second)
+        result = arr * n
+        np.testing.assert_array_equal(result.quantities, np.array([2.0, 4.0, 6.0]))
+
+    def test_divide_arrays_incompatible_shapes(self):
+        """Test division with incompatible shapes raises."""
+        from ucon.numpy import NumberArray
+        a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        b = NumberArray([1.0, 2.0], unit=self.second)
+        with self.assertRaises(ValueError) as ctx:
+            a / b
+        self.assertIn("not broadcast-compatible", str(ctx.exception))
+
+    def test_divide_arrays_with_uncertainty(self):
+        """Test NumberArray / NumberArray with uncertainty."""
+        from ucon.numpy import NumberArray
+        a = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
+        b = NumberArray([2.0, 4.0], unit=self.second, uncertainty=0.1)
+        result = a / b
+        self.assertIsNotNone(result.uncertainty)
+
+
+@unittest.skipUnless(HAS_NUMPY, "NumPy not installed")
+class TestNumberArrayReductionsExtended(unittest.TestCase):
+    """Extended reduction tests for coverage."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+
+    def test_sum_with_per_element_uncertainty(self):
+        """Test sum with per-element uncertainty."""
+        from ucon.numpy import NumberArray
+        unc = np.array([0.1, 0.2, 0.3])
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter, uncertainty=unc)
+        total = arr.sum()
+        # σ_sum = sqrt(Σσᵢ²)
+        expected_unc = math.sqrt(0.1**2 + 0.2**2 + 0.3**2)
+        self.assertAlmostEqual(total.uncertainty, expected_unc)
+
+    def test_mean_with_per_element_uncertainty(self):
+        """Test mean with per-element uncertainty."""
+        from ucon.numpy import NumberArray
+        unc = np.array([0.1, 0.2, 0.3])
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter, uncertainty=unc)
+        avg = arr.mean()
+        # σ_mean = sqrt(Σσᵢ²) / n
+        expected_unc = math.sqrt(0.1**2 + 0.2**2 + 0.3**2) / 3
+        self.assertAlmostEqual(avg.uncertainty, expected_unc)
+
+
+@unittest.skipUnless(HAS_NUMPY, "NumPy not installed")
+class TestNumberArrayNumpyIntegration(unittest.TestCase):
+    """Test numpy integration features."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+
+    def test_asarray(self):
+        """Test np.asarray(NumberArray)."""
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        result = np.asarray(arr)
+        np.testing.assert_array_equal(result, np.array([1.0, 2.0, 3.0]))
+
+    def test_asarray_with_dtype(self):
+        """Test np.asarray with dtype conversion."""
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        result = np.asarray(arr, dtype=np.float32)
+        self.assertEqual(result.dtype, np.float32)
+
+    def test_dimension_property(self):
+        """Test dimension property."""
+        from ucon.numpy import NumberArray
+        from ucon.dimension import Dimension
+        arr = NumberArray([1.0, 2.0], unit=self.meter)
+        self.assertEqual(arr.dimension, Dimension.length)
+
+    def test_dimension_property_dimensionless(self):
+        """Test dimension property for dimensionless."""
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0])
+        # dimensionless unit may have None dimension
+        dim = arr.dimension
+        # Just verify it doesn't raise
+
+
+@unittest.skipUnless(HAS_NUMPY, "NumPy not installed")
 class TestNumberArrayRepr(unittest.TestCase):
     """Test string representation."""
 

@@ -385,5 +385,305 @@ class TestNumberColumnToList(unittest.TestCase):
             self.assertEqual(n.unit, self.meter)
 
 
+@unittest.skipUnless(HAS_POLARS, "Polars not installed")
+class TestNumberColumnArithmeticExtended(unittest.TestCase):
+    """Extended arithmetic tests for better coverage."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+        self.second = units.second
+
+    def test_divide_by_number(self):
+        """Test division by a Number."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([10.0, 20.0, 30.0]), unit=self.meter)
+        divisor = Number(quantity=2.0, unit=self.second)
+        result = nc / divisor
+        self.assertEqual(result.series.to_list(), [5.0, 10.0, 15.0])
+
+    def test_divide_by_number_with_uncertainty(self):
+        """Test division by Number with uncertainty propagation."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([10.0, 20.0]), unit=self.meter, uncertainty=1.0)
+        divisor = Number(quantity=2.0, unit=self.second, uncertainty=0.1)
+        result = nc / divisor
+        self.assertIsNotNone(result.uncertainty)
+
+    def test_divide_numbercolumn_by_numbercolumn(self):
+        """Test division between two NumberColumns."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([10.0, 20.0, 30.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([2.0, 4.0, 5.0]), unit=self.second)
+        result = a / b
+        self.assertEqual(result.series.to_list(), [5.0, 5.0, 6.0])
+
+    def test_divide_numbercolumn_with_uncertainty(self):
+        """Test division between NumberColumns with uncertainty."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([10.0, 20.0]), unit=self.meter, uncertainty=1.0)
+        b = NumberColumn(pl.Series([2.0, 4.0]), unit=self.second, uncertainty=0.1)
+        result = a / b
+        self.assertIsNotNone(result.uncertainty)
+
+    def test_divide_length_mismatch(self):
+        """Test division with mismatched lengths raises."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([1.0, 2.0]), unit=self.second)
+        with self.assertRaises(ValueError) as ctx:
+            a / b
+        self.assertIn("Length mismatch", str(ctx.exception))
+
+    def test_add_number(self):
+        """Test adding a Number to NumberColumn."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        n = Number(quantity=0.5, unit=self.meter)
+        result = nc + n
+        self.assertEqual(result.series.to_list(), [1.5, 2.5, 3.5])
+
+    def test_add_number_with_uncertainty(self):
+        """Test adding Number with uncertainty propagation."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0]), unit=self.meter, uncertainty=0.1)
+        n = Number(quantity=0.5, unit=self.meter, uncertainty=0.05)
+        result = nc + n
+        self.assertIsNotNone(result.uncertainty)
+
+    def test_add_length_mismatch(self):
+        """Test addition with mismatched lengths raises."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([1.0, 2.0]), unit=self.meter)
+        with self.assertRaises(ValueError) as ctx:
+            a + b
+        self.assertIn("Length mismatch", str(ctx.exception))
+
+    def test_sub_number(self):
+        """Test subtracting a Number from NumberColumn."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([3.0, 4.0, 5.0]), unit=self.meter)
+        n = Number(quantity=1.0, unit=self.meter)
+        result = nc - n
+        self.assertEqual(result.series.to_list(), [2.0, 3.0, 4.0])
+
+    def test_sub_number_with_uncertainty(self):
+        """Test subtracting Number with uncertainty propagation."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([3.0, 4.0]), unit=self.meter, uncertainty=0.1)
+        n = Number(quantity=1.0, unit=self.meter, uncertainty=0.05)
+        result = nc - n
+        self.assertIsNotNone(result.uncertainty)
+
+    def test_sub_length_mismatch(self):
+        """Test subtraction with mismatched lengths raises."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([1.0, 2.0]), unit=self.meter)
+        with self.assertRaises(ValueError) as ctx:
+            a - b
+        self.assertIn("Length mismatch", str(ctx.exception))
+
+    def test_multiply_by_number(self):
+        """Test multiplying NumberColumn by Number."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        n = Number(quantity=2.0, unit=self.second)
+        result = nc * n
+        self.assertEqual(result.series.to_list(), [2.0, 4.0, 6.0])
+
+    def test_multiply_by_number_with_uncertainty(self):
+        """Test multiplying by Number with uncertainty propagation."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([10.0, 20.0]), unit=self.meter, uncertainty=1.0)
+        n = Number(quantity=2.0, unit=self.second, uncertainty=0.1)
+        result = nc * n
+        self.assertIsNotNone(result.uncertainty)
+
+    def test_multiply_numbercolumns_with_uncertainty(self):
+        """Test multiplying NumberColumns with uncertainty."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([10.0, 20.0]), unit=self.meter, uncertainty=1.0)
+        b = NumberColumn(pl.Series([2.0, 3.0]), unit=self.second, uncertainty=0.1)
+        result = a * b
+        self.assertIsNotNone(result.uncertainty)
+
+
+@unittest.skipUnless(HAS_POLARS, "Polars not installed")
+class TestNumberColumnComparisonExtended(unittest.TestCase):
+    """Extended comparison tests for better coverage."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+        self.second = units.second
+
+    def test_lt_with_number(self):
+        """Test less-than comparison with Number."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        n = Number(quantity=2.5, unit=self.meter)
+        result = nc < n
+        self.assertEqual(result.to_list(), [True, True, False])
+
+    def test_lt_with_numbercolumn(self):
+        """Test less-than comparison with NumberColumn."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 3.0, 2.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([2.0, 2.0, 2.0]), unit=self.meter)
+        result = a < b
+        self.assertEqual(result.to_list(), [True, False, False])
+
+    def test_le_with_number(self):
+        """Test less-equal comparison with Number."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        result = nc <= n
+        self.assertEqual(result.to_list(), [True, True, False])
+
+    def test_le_with_numbercolumn(self):
+        """Test less-equal comparison with NumberColumn."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([2.0, 2.0, 2.0]), unit=self.meter)
+        result = a <= b
+        self.assertEqual(result.to_list(), [True, True, False])
+
+    def test_gt_with_number(self):
+        """Test greater-than comparison with Number."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        n = Number(quantity=1.5, unit=self.meter)
+        result = nc > n
+        self.assertEqual(result.to_list(), [False, True, True])
+
+    def test_gt_with_numbercolumn(self):
+        """Test greater-than comparison with NumberColumn."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 3.0, 2.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([2.0, 2.0, 2.0]), unit=self.meter)
+        result = a > b
+        self.assertEqual(result.to_list(), [False, True, False])
+
+    def test_ge_with_number(self):
+        """Test greater-equal comparison with Number."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        result = nc >= n
+        self.assertEqual(result.to_list(), [False, True, True])
+
+    def test_ge_with_numbercolumn(self):
+        """Test greater-equal comparison with NumberColumn."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([2.0, 2.0, 2.0]), unit=self.meter)
+        result = a >= b
+        self.assertEqual(result.to_list(), [False, True, True])
+
+    def test_ne_with_number(self):
+        """Test not-equal comparison with Number."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        result = nc != n
+        self.assertEqual(result.to_list(), [True, False, True])
+
+    def test_ne_with_numbercolumn(self):
+        """Test not-equal comparison with NumberColumn."""
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([1.0, 5.0, 3.0]), unit=self.meter)
+        result = a != b
+        self.assertEqual(result.to_list(), [False, True, False])
+
+
+@unittest.skipUnless(HAS_POLARS, "Polars not installed")
+class TestNumberColumnReductionsExtended(unittest.TestCase):
+    """Extended reduction tests for better coverage."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+
+    def test_sum_with_per_element_uncertainty(self):
+        """Test sum with per-element uncertainty."""
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(
+            pl.Series([1.0, 2.0, 3.0, 4.0]),
+            unit=self.meter,
+            uncertainty=pl.Series([0.1, 0.2, 0.1, 0.2])
+        )
+        total = nc.sum()
+        self.assertEqual(total.quantity, 10.0)
+        self.assertIsNotNone(total.uncertainty)
+        # sqrt(0.1^2 + 0.2^2 + 0.1^2 + 0.2^2) = sqrt(0.01 + 0.04 + 0.01 + 0.04) = sqrt(0.1) ~ 0.316
+        self.assertAlmostEqual(total.uncertainty, 0.3162, places=3)
+
+    def test_mean_with_per_element_uncertainty(self):
+        """Test mean with per-element uncertainty."""
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(
+            pl.Series([1.0, 2.0, 3.0, 4.0]),
+            unit=self.meter,
+            uncertainty=pl.Series([0.1, 0.2, 0.1, 0.2])
+        )
+        avg = nc.mean()
+        self.assertEqual(avg.quantity, 2.5)
+        self.assertIsNotNone(avg.uncertainty)
+
+
+@unittest.skipUnless(HAS_POLARS, "Polars not installed")
+class TestNumberColumnProperties(unittest.TestCase):
+    """Test NumberColumn properties for coverage."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+
+    def test_shape_property(self):
+        """Test shape property."""
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        self.assertEqual(nc.shape, (3,))
+
+    def test_dtype_property(self):
+        """Test dtype property."""
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        self.assertEqual(nc.dtype, pl.Float64)
+
+    def test_dimension_property(self):
+        """Test dimension property."""
+        from ucon.polars import NumberColumn
+        from ucon.core import Dimension
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        self.assertEqual(nc.dimension, Dimension.length)
+
+    def test_dimension_property_unitproduct(self):
+        """Test dimension property with UnitProduct."""
+        from ucon.polars import NumberColumn
+        from ucon import units
+        area_unit = units.meter * units.meter
+        nc = NumberColumn(pl.Series([1.0, 2.0]), unit=area_unit)
+        dim = nc.dimension
+        self.assertIsNotNone(dim)
+
+
 if __name__ == "__main__":
     unittest.main()
