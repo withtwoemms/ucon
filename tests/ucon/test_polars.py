@@ -178,6 +178,82 @@ class TestNumberColumnArithmetic(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_POLARS, "Polars not installed")
+class TestNumberColumnComparison(unittest.TestCase):
+    """Test comparison operators returning boolean Series."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+        self.second = units.second
+
+    def test_eq_with_scalar(self):
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = nc == 2.0
+        self.assertEqual(result.to_list(), [False, True, False])
+
+    def test_eq_with_number(self):
+        from ucon.polars import NumberColumn
+        from ucon.core import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        result = nc == n
+        self.assertEqual(result.to_list(), [False, True, False])
+
+    def test_eq_with_numbercolumn(self):
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([1.0, 5.0, 3.0]), unit=self.meter)
+        result = a == b
+        self.assertEqual(result.to_list(), [True, False, True])
+
+    def test_ne_with_scalar(self):
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = nc != 2.0
+        self.assertEqual(result.to_list(), [True, False, True])
+
+    def test_lt_with_scalar(self):
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = nc < 2.0
+        self.assertEqual(result.to_list(), [True, False, False])
+
+    def test_le_with_scalar(self):
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = nc <= 2.0
+        self.assertEqual(result.to_list(), [True, True, False])
+
+    def test_gt_with_scalar(self):
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = nc > 2.0
+        self.assertEqual(result.to_list(), [False, False, True])
+
+    def test_ge_with_scalar(self):
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = nc >= 2.0
+        self.assertEqual(result.to_list(), [False, True, True])
+
+    def test_comparison_different_unit_raises(self):
+        from ucon.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0]), unit=self.meter)
+        b = NumberColumn(pl.Series([1.0, 2.0]), unit=self.second)
+        with self.assertRaises(ValueError) as ctx:
+            a == b
+        self.assertIn("different units", str(ctx.exception))
+
+    def test_comparison_for_filtering(self):
+        from ucon.polars import NumberColumn
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0, 4.0, 5.0]), unit=self.meter)
+        mask = nc > 2.5
+        filtered = nc.series.filter(mask)
+        self.assertEqual(filtered.to_list(), [3.0, 4.0, 5.0])
+
+
+@unittest.skipUnless(HAS_POLARS, "Polars not installed")
 class TestNumberColumnConversion(unittest.TestCase):
     """Test NumberColumn unit conversion."""
 

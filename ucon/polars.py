@@ -354,6 +354,82 @@ class NumberColumn:
             uncertainty=self._uncertainty,
         )
 
+    # -------------------------------------------------------------------------
+    # Comparison Operators
+    # -------------------------------------------------------------------------
+
+    def __eq__(self, other) -> 'pl.Series':
+        """Element-wise equality comparison. Returns boolean Series."""
+        if isinstance(other, NumberColumn):
+            self._check_same_unit(other._unit)
+            return self._series == other._series
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._series == other.quantity
+        if isinstance(other, (int, float)):
+            return self._series == other
+        return NotImplemented
+
+    def __ne__(self, other) -> 'pl.Series':
+        """Element-wise inequality comparison. Returns boolean Series."""
+        if isinstance(other, NumberColumn):
+            self._check_same_unit(other._unit)
+            return self._series != other._series
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._series != other.quantity
+        if isinstance(other, (int, float)):
+            return self._series != other
+        return NotImplemented
+
+    def __lt__(self, other) -> 'pl.Series':
+        """Element-wise less-than comparison. Returns boolean Series."""
+        if isinstance(other, NumberColumn):
+            self._check_same_unit(other._unit)
+            return self._series < other._series
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._series < other.quantity
+        if isinstance(other, (int, float)):
+            return self._series < other
+        return NotImplemented
+
+    def __le__(self, other) -> 'pl.Series':
+        """Element-wise less-than-or-equal comparison. Returns boolean Series."""
+        if isinstance(other, NumberColumn):
+            self._check_same_unit(other._unit)
+            return self._series <= other._series
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._series <= other.quantity
+        if isinstance(other, (int, float)):
+            return self._series <= other
+        return NotImplemented
+
+    def __gt__(self, other) -> 'pl.Series':
+        """Element-wise greater-than comparison. Returns boolean Series."""
+        if isinstance(other, NumberColumn):
+            self._check_same_unit(other._unit)
+            return self._series > other._series
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._series > other.quantity
+        if isinstance(other, (int, float)):
+            return self._series > other
+        return NotImplemented
+
+    def __ge__(self, other) -> 'pl.Series':
+        """Element-wise greater-than-or-equal comparison. Returns boolean Series."""
+        if isinstance(other, NumberColumn):
+            self._check_same_unit(other._unit)
+            return self._series >= other._series
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._series >= other.quantity
+        if isinstance(other, (int, float)):
+            return self._series >= other
+        return NotImplemented
+
     def _check_same_unit(self, other_unit) -> None:
         """Raise ValueError if units don't match for addition/subtraction."""
         if self._unit != other_unit:

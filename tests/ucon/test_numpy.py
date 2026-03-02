@@ -163,13 +163,13 @@ class TestNumberArrayArithmetic(unittest.TestCase):
         self.assertIn('m', str(result.unit))
         self.assertIn('s', str(result.unit))
 
-    def test_multiply_numberarrays_shape_mismatch(self):
+    def test_multiply_numberarrays_incompatible_shapes(self):
         from ucon.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         b = NumberArray([1.0, 2.0], unit=self.meter)
         with self.assertRaises(ValueError) as ctx:
             a * b
-        self.assertIn("Shape mismatch", str(ctx.exception))
+        self.assertIn("not broadcast-compatible", str(ctx.exception))
 
     def test_add_same_unit(self):
         from ucon.numpy import NumberArray
@@ -367,6 +367,152 @@ class TestMapArraySupport(unittest.TestCase):
         # d/dx [10 * log10(x)] = 10 / (x * ln(10))
         expected = 10 / (arr * math.log(10))
         np.testing.assert_array_almost_equal(deriv, expected)
+
+
+@unittest.skipUnless(HAS_NUMPY, "NumPy not installed")
+class TestNumberArrayComparison(unittest.TestCase):
+    """Test comparison operators returning boolean arrays."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+        self.second = units.second
+
+    def test_eq_with_scalar(self):
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        result = arr == 2.0
+        np.testing.assert_array_equal(result, np.array([False, True, False]))
+
+    def test_eq_with_number(self):
+        from ucon.numpy import NumberArray
+        from ucon.core import Number
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        result = arr == n
+        np.testing.assert_array_equal(result, np.array([False, True, False]))
+
+    def test_eq_with_numberarray(self):
+        from ucon.numpy import NumberArray
+        a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        b = NumberArray([1.0, 5.0, 3.0], unit=self.meter)
+        result = a == b
+        np.testing.assert_array_equal(result, np.array([True, False, True]))
+
+    def test_ne_with_scalar(self):
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        result = arr != 2.0
+        np.testing.assert_array_equal(result, np.array([True, False, True]))
+
+    def test_lt_with_scalar(self):
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        result = arr < 2.0
+        np.testing.assert_array_equal(result, np.array([True, False, False]))
+
+    def test_le_with_scalar(self):
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        result = arr <= 2.0
+        np.testing.assert_array_equal(result, np.array([True, True, False]))
+
+    def test_gt_with_scalar(self):
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        result = arr > 2.0
+        np.testing.assert_array_equal(result, np.array([False, False, True]))
+
+    def test_ge_with_scalar(self):
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        result = arr >= 2.0
+        np.testing.assert_array_equal(result, np.array([False, True, True]))
+
+    def test_comparison_different_unit_raises(self):
+        from ucon.numpy import NumberArray
+        a = NumberArray([1.0, 2.0], unit=self.meter)
+        b = NumberArray([1.0, 2.0], unit=self.second)
+        with self.assertRaises(ValueError) as ctx:
+            a == b
+        self.assertIn("different units", str(ctx.exception))
+
+    def test_comparison_for_filtering(self):
+        from ucon.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0, 3.0, 4.0, 5.0], unit=self.meter)
+        mask = arr > 2.5
+        filtered = arr.quantities[mask]
+        np.testing.assert_array_equal(filtered, np.array([3.0, 4.0, 5.0]))
+
+
+@unittest.skipUnless(HAS_NUMPY, "NumPy not installed")
+class TestNumberArrayBroadcasting(unittest.TestCase):
+    """Test numpy broadcasting support."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+
+    def test_mul_broadcasting_1d_scalar_array(self):
+        """Test (3,) * (1,) broadcasting."""
+        from ucon.numpy import NumberArray
+        a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)  # shape (3,)
+        b = NumberArray([2.0], unit=self.meter)  # shape (1,)
+        result = a * b
+        np.testing.assert_array_equal(result.quantities, np.array([2.0, 4.0, 6.0]))
+
+    def test_mul_broadcasting_2d_1d(self):
+        """Test (2, 3) * (3,) broadcasting."""
+        from ucon.numpy import NumberArray
+        a = NumberArray([[1, 2, 3], [4, 5, 6]], unit=self.meter)  # shape (2, 3)
+        b = NumberArray([1, 2, 3], unit=self.meter)  # shape (3,)
+        result = a * b
+        expected = np.array([[1, 4, 9], [4, 10, 18]])
+        np.testing.assert_array_equal(result.quantities, expected)
+
+    def test_add_broadcasting_2d_1d(self):
+        """Test (2, 3) + (3,) broadcasting."""
+        from ucon.numpy import NumberArray
+        a = NumberArray([[1, 2, 3], [4, 5, 6]], unit=self.meter)  # shape (2, 3)
+        b = NumberArray([10, 20, 30], unit=self.meter)  # shape (3,)
+        result = a + b
+        expected = np.array([[11, 22, 33], [14, 25, 36]])
+        np.testing.assert_array_equal(result.quantities, expected)
+
+    def test_sub_broadcasting(self):
+        """Test (3,) - (1,) broadcasting."""
+        from ucon.numpy import NumberArray
+        a = NumberArray([10.0, 20.0, 30.0], unit=self.meter)
+        b = NumberArray([5.0], unit=self.meter)
+        result = a - b
+        np.testing.assert_array_equal(result.quantities, np.array([5.0, 15.0, 25.0]))
+
+    def test_div_broadcasting(self):
+        """Test (2, 2) / (2,) broadcasting."""
+        from ucon.numpy import NumberArray
+        a = NumberArray([[4, 6], [8, 10]], unit=self.meter)
+        b = NumberArray([2, 2], unit=self.meter)
+        result = a / b
+        expected = np.array([[2, 3], [4, 5]])
+        np.testing.assert_array_equal(result.quantities, expected)
+
+    def test_comparison_broadcasting(self):
+        """Test comparison with broadcasting."""
+        from ucon.numpy import NumberArray
+        a = NumberArray([[1, 2], [3, 4]], unit=self.meter)
+        b = NumberArray([2, 3], unit=self.meter)
+        result = a < b
+        expected = np.array([[True, True], [False, False]])
+        np.testing.assert_array_equal(result, expected)
+
+    def test_incompatible_shapes_raise(self):
+        """Test that truly incompatible shapes raise error."""
+        from ucon.numpy import NumberArray
+        a = NumberArray([1, 2, 3], unit=self.meter)  # shape (3,)
+        b = NumberArray([1, 2], unit=self.meter)  # shape (2,) - not compatible
+        with self.assertRaises(ValueError) as ctx:
+            a + b
+        self.assertIn("not broadcast-compatible", str(ctx.exception))
 
 
 @unittest.skipUnless(HAS_NUMPY, "NumPy not installed")

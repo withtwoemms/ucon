@@ -249,10 +249,14 @@ class NumberArray:
             return NumberArray(quantities=result_q, unit=result_unit, uncertainty=new_unc)
 
         if isinstance(other, NumberArray):
-            if self.shape != other.shape:
-                raise ValueError(f"Shape mismatch: {self.shape} vs {other.shape}")
+            # Allow numpy broadcasting - shapes must be broadcast-compatible
+            try:
+                result_q = self._quantities * other._quantities
+            except ValueError as e:
+                raise ValueError(
+                    f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
+                ) from e
 
-            result_q = self._quantities * other._quantities
             result_unit = self._unit * other._unit
             new_unc = self._propagate_mul_uncertainty(
                 self._quantities, self._uncertainty,
@@ -289,10 +293,14 @@ class NumberArray:
             return NumberArray(quantities=result_q, unit=result_unit, uncertainty=new_unc)
 
         if isinstance(other, NumberArray):
-            if self.shape != other.shape:
-                raise ValueError(f"Shape mismatch: {self.shape} vs {other.shape}")
+            # Allow numpy broadcasting - shapes must be broadcast-compatible
+            try:
+                result_q = self._quantities / other._quantities
+            except ValueError as e:
+                raise ValueError(
+                    f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
+                ) from e
 
-            result_q = self._quantities / other._quantities
             result_unit = self._unit / other._unit
             new_unc = self._propagate_div_uncertainty(
                 self._quantities, self._uncertainty,
@@ -335,10 +343,14 @@ class NumberArray:
 
         if isinstance(other, NumberArray):
             self._check_same_unit(other._unit)
-            if self.shape != other.shape:
-                raise ValueError(f"Shape mismatch: {self.shape} vs {other.shape}")
+            # Allow numpy broadcasting - shapes must be broadcast-compatible
+            try:
+                result_q = self._quantities + other._quantities
+            except ValueError as e:
+                raise ValueError(
+                    f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
+                ) from e
 
-            result_q = self._quantities + other._quantities
             new_unc = self._propagate_add_uncertainty(
                 self._uncertainty, other._uncertainty
             )
@@ -362,10 +374,14 @@ class NumberArray:
 
         if isinstance(other, NumberArray):
             self._check_same_unit(other._unit)
-            if self.shape != other.shape:
-                raise ValueError(f"Shape mismatch: {self.shape} vs {other.shape}")
+            # Allow numpy broadcasting - shapes must be broadcast-compatible
+            try:
+                result_q = self._quantities - other._quantities
+            except ValueError as e:
+                raise ValueError(
+                    f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
+                ) from e
 
-            result_q = self._quantities - other._quantities
             new_unc = self._propagate_add_uncertainty(
                 self._uncertainty, other._uncertainty
             )
@@ -410,6 +426,82 @@ class NumberArray:
             unit=self._unit,
             uncertainty=self._uncertainty,
         )
+
+    # -------------------------------------------------------------------------
+    # Comparison Operators
+    # -------------------------------------------------------------------------
+
+    def __eq__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise equality comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities == other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities == other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities == other
+        return NotImplemented
+
+    def __ne__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise inequality comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities != other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities != other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities != other
+        return NotImplemented
+
+    def __lt__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise less-than comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities < other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities < other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities < other
+        return NotImplemented
+
+    def __le__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise less-than-or-equal comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities <= other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities <= other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities <= other
+        return NotImplemented
+
+    def __gt__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise greater-than comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities > other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities > other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities > other
+        return NotImplemented
+
+    def __ge__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise greater-than-or-equal comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities >= other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities >= other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities >= other
+        return NotImplemented
 
     def _check_same_unit(self, other_unit) -> None:
         """Raise ValueError if units don't match for addition/subtraction."""

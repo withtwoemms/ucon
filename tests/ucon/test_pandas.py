@@ -248,6 +248,85 @@ class TestNumberSeriesConversion(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_PANDAS, "Pandas not installed")
+class TestNumberSeriesComparison(unittest.TestCase):
+    """Test comparison operators returning boolean Series."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+        self.second = units.second
+
+    def test_eq_with_scalar(self):
+        from ucon.pandas import NumberSeries
+        ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = ns == 2.0
+        pd.testing.assert_series_equal(result, pd.Series([False, True, False]))
+
+    def test_eq_with_number(self):
+        from ucon.pandas import NumberSeries
+        from ucon.core import Number
+        ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        result = ns == n
+        pd.testing.assert_series_equal(result, pd.Series([False, True, False]))
+
+    def test_eq_with_numberseries(self):
+        from ucon.pandas import NumberSeries
+        a = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        b = NumberSeries(pd.Series([1.0, 5.0, 3.0]), unit=self.meter)
+        result = a == b
+        pd.testing.assert_series_equal(result, pd.Series([True, False, True]))
+
+    def test_ne_with_scalar(self):
+        from ucon.pandas import NumberSeries
+        ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = ns != 2.0
+        pd.testing.assert_series_equal(result, pd.Series([True, False, True]))
+
+    def test_lt_with_scalar(self):
+        from ucon.pandas import NumberSeries
+        ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = ns < 2.0
+        pd.testing.assert_series_equal(result, pd.Series([True, False, False]))
+
+    def test_le_with_scalar(self):
+        from ucon.pandas import NumberSeries
+        ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = ns <= 2.0
+        pd.testing.assert_series_equal(result, pd.Series([True, True, False]))
+
+    def test_gt_with_scalar(self):
+        from ucon.pandas import NumberSeries
+        ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = ns > 2.0
+        pd.testing.assert_series_equal(result, pd.Series([False, False, True]))
+
+    def test_ge_with_scalar(self):
+        from ucon.pandas import NumberSeries
+        ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = ns >= 2.0
+        pd.testing.assert_series_equal(result, pd.Series([False, True, True]))
+
+    def test_comparison_different_unit_raises(self):
+        from ucon.pandas import NumberSeries
+        a = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter)
+        b = NumberSeries(pd.Series([1.0, 2.0]), unit=self.second)
+        with self.assertRaises(ValueError) as ctx:
+            a == b
+        self.assertIn("different units", str(ctx.exception))
+
+    def test_comparison_for_filtering(self):
+        from ucon.pandas import NumberSeries
+        ns = NumberSeries(pd.Series([1.0, 2.0, 3.0, 4.0, 5.0]), unit=self.meter)
+        mask = ns > 2.5
+        filtered = ns.series[mask]
+        pd.testing.assert_series_equal(
+            filtered.reset_index(drop=True),
+            pd.Series([3.0, 4.0, 5.0])
+        )
+
+
+@unittest.skipUnless(HAS_PANDAS, "Pandas not installed")
 class TestNumberSeriesReductions(unittest.TestCase):
     """Test reduction operations (sum, mean, etc.)."""
 
