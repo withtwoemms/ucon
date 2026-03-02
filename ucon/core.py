@@ -978,9 +978,16 @@ class UnitProduct:
         float
             The combined numeric scale factor.
         """
+        # Cache the result since UnitProduct is effectively immutable
+        cached = getattr(self, '_fold_scale_cache', None)
+        if cached is not None:
+            return cached
+
         result = getattr(self, '_residual_scale_factor', 1.0)
         for factor, power in self.factors.items():
             result *= factor.scale.value.evaluated ** power
+
+        self._fold_scale_cache = result
         return result
 
     # ------------- Helpers ---------------------------------------------------

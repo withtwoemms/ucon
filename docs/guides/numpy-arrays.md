@@ -195,7 +195,7 @@ NumberArray is designed for correctness first, but performs well for batch opera
 
 ### What Has Fixed Costs
 
-Conversions and multiplications have small fixed costs (~0.1ms) for unit checking and combination. These amortize well at scale but matter in tight loops.
+Conversions have small fixed costs for unit checking and graph lookup. These are cached after the first conversion, so repeated conversions of the same unit pair are faster (~1.5x speedup from cache).
 
 ### Best Practices
 

@@ -90,6 +90,10 @@ class ConversionGraph:
     # Optional BasisGraph for cross-basis dimensional validation
     _basis_graph: BasisGraph | None = field(default=None)
 
+    # Conversion path cache: (src_key, dst_key) -> Map
+    # Cleared when edges are added
+    _conversion_cache: dict[tuple, Map] = field(default_factory=dict)
+
     # ------------- Edge Management -------------------------------------------
 
     def add_edge(
@@ -124,6 +128,9 @@ class ConversionGraph:
         NoTransformPath
             If basis_graph is set and no path exists between src/dst bases.
         """
+        # Clear conversion cache (new edge may create shorter paths)
+        self._conversion_cache.clear()
+
         # If basis_graph is set, validate cross-basis compatibility
         if self._basis_graph is not None and basis_transform is None:
             src_basis = getattr(getattr(src, 'dimension', None), 'vector', None)
@@ -474,15 +481,24 @@ class ConversionGraph:
         ConversionNotFound
             If no conversion path exists.
         """
+        # Check cache first (units are hashable)
+        cache_key = (src, dst)
+        if cache_key in self._conversion_cache:
+            return self._conversion_cache[cache_key]
+
         # Both plain Units
         if isinstance(src, Unit) and not isinstance(src, UnitProduct):
             if isinstance(dst, Unit) and not isinstance(dst, UnitProduct):
-                return self._convert_units(src=src, dst=dst)
+                result = self._convert_units(src=src, dst=dst)
+                self._conversion_cache[cache_key] = result
+                return result
 
         # At least one is a UnitProduct
         src_prod = src if isinstance(src, UnitProduct) else UnitProduct.from_unit(src)
         dst_prod = dst if isinstance(dst, UnitProduct) else UnitProduct.from_unit(dst)
-        return self._convert_products(src=src_prod, dst=dst_prod)
+        result = self._convert_products(src=src_prod, dst=dst_prod)
+        self._conversion_cache[cache_key] = result
+        return result
 
     def _convert_units(self, *, src: Unit, dst: Unit) -> Map:
         """Convert between plain Units via BFS.
