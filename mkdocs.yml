@@ -55,6 +55,10 @@ nav:
     - Dimensional Analysis: guides/dimensional-analysis.md
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
     - Natural Units: guides/natural-units.md
+    - Scientific Computing:
+      - NumPy Arrays: guides/numpy-arrays.md
+      - Pandas Integration: guides/pandas-integration.md
+      - Polars Integration: guides/polars-integration.md
     - MCP Server:
       - external/ucon-tools/docs/guides/mcp-server/index.md
       - Custom Units: external/ucon-tools/docs/guides/mcp-server/custom-units.md
