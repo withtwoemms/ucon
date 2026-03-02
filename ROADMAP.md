@@ -48,14 +48,33 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.9.2 | MCP Constants Tools | Complete |
 | v0.9.3 | Natural Units + MCP Session Fixes | Complete |
 | v0.9.4 | MCP Extraction | Complete |
-| v0.10.0 | Scientific Computing | Planned |
+| v0.10.0 | Scientific Computing | Complete |
 | v1.0.0 | API Stability | Planned |
 
 ---
 
-## Current Version: **v0.9.4** (complete)
+## Current Version: **v0.10.0** (complete)
 
-Building on v0.9.3 baseline:
+Building on v0.9.4 baseline:
+- `ucon.numpy` (`NumberArray` class for vectorized operations on dimensioned arrays)
+- `ucon.pandas` (`NumberSeries` wrapper and `UconSeriesAccessor` for Pandas integration)
+- `ucon.polars` (`NumberColumn` wrapper for Polars integration)
+- NumPy array support: `units.meter([1, 2, 3])` → `NumberArray`
+- Vectorized conversion: `heights.to(units.foot)` on arrays
+- Vectorized arithmetic: add, sub, mul, div with unit tracking
+- Per-element and uniform uncertainty propagation through arrays
+- Reduction operations: `sum()`, `mean()`, `std()`, `min()`, `max()` with uncertainty
+- Comparison operators returning boolean arrays for filtering
+- N-D array support (not just 1D)
+- Broadcasting support for compatible shapes
+- Pandas accessor: `df['height'].ucon.with_unit(units.meter).to(units.foot)`
+- Polars column wrapper: `NumberColumn(series, unit=units.meter)`
+- Optional dependencies: `pip install ucon[numpy]`, `ucon[pandas]`, `ucon[polars]`
+- Graceful degradation: ImportError with clear messages when deps not installed
+- Performance caching: conversion paths, scale factors, unit multiplication
+- Performance benchmarks: `make benchmark`, `make benchmark-pint`
+
+Previous versions include:
 - `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`, `ConstantAwareBasisTransform`)
 - `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`, `NATURAL`; standard transforms including `SI_TO_NATURAL`)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
@@ -675,25 +694,29 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v0.10.0 — Scientific Computing
+## v0.10.0 — Scientific Computing (Complete)
 
 **Theme:** NumPy and DataFrame integration.
 
-- [ ] `Number` wraps `np.ndarray` values
-- [ ] Vectorized conversion and arithmetic
-- [ ] Vectorized uncertainty propagation
-- [ ] Polars integration: `NumberColumn` type
-- [ ] Pandas integration: `NumberSeries` type
-- [ ] Column-wise conversion
-- [ ] Unit-aware arithmetic on columns
-- [ ] Performance benchmarks
+- [x] `NumberArray` class with vectorized arithmetic and conversion
+- [x] Scalar and per-element uncertainty propagation
+- [x] Reduction operations: `sum()`, `mean()`, `std()`, `min()`, `max()`
+- [x] Comparison operators returning boolean arrays
+- [x] Callable syntax: `meter([1, 2, 3])` → `NumberArray`
+- [x] Map array support (`LinearMap`, `AffineMap`, `LogMap`, `ExpMap`)
+- [x] Pandas integration: `NumberSeries` and `UconSeriesAccessor`
+- [x] Polars integration: `NumberColumn`
+- [x] Optional dependencies: `ucon[numpy]`, `ucon[pandas]`, `ucon[polars]`
+- [x] Performance caching (conversion paths, scale factors, unit products)
+- [x] Benchmarks: `make benchmark`, `make benchmark-pint`
 
 **Outcomes:**
 - Seamless integration with NumPy-based scientific workflows
-- Efficient batch conversions for large datasets
-- First-class support for data science workflows
+- Efficient batch conversions for large datasets (100M+ elements/sec)
+- First-class support for data science workflows with Pandas and Polars
 - Unit-safe transformations on tabular data
-- Performance characteristics documented and optimized
+- Performance competitive with pint, much faster on creation
+- Lazy caching approximates fixed registry without startup cost
 
 ---
 
@@ -718,6 +741,7 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 | Feature | Notes |
 |---------|-------|
+| Cache Warming | `warm_cache()` API for precomputing common conversion paths |
 | Decompose Tool | SLM enablement: deterministic `decompose` → `compute` pipeline |
 | Uncertainty correlation | Full covariance tracking |
 | Cython optimization | Performance parity with unyt |
