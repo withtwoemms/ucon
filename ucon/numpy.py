@@ -37,6 +37,15 @@ if TYPE_CHECKING:
 
 from ucon.core import Unit, UnitProduct, UnitFactor, Scale, Number, _none
 
+# Module-level cache for scale factors: (src_unit, dst_unit) -> factor
+_scale_factor_cache: dict[tuple, float] = {}
+
+# Module-level cache for unit multiplication: (unit_a, unit_b) -> result_unit
+_unit_mul_cache: dict[tuple, 'UnitProduct'] = {}
+
+# Module-level cache for unit division: (unit_a, unit_b) -> result_unit
+_unit_div_cache: dict[tuple, 'UnitProduct'] = {}
+
 
 def _require_numpy() -> None:
     """Raise ImportError if numpy is not available."""
@@ -257,7 +266,14 @@ class NumberArray:
                     f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
                 ) from e
 
-            result_unit = self._unit * other._unit
+            # Cache unit multiplication (expensive due to UnitProduct.__init__)
+            unit_key = (self._unit, other._unit)
+            if unit_key in _unit_mul_cache:
+                result_unit = _unit_mul_cache[unit_key]
+            else:
+                result_unit = self._unit * other._unit
+                _unit_mul_cache[unit_key] = result_unit
+
             new_unc = self._propagate_mul_uncertainty(
                 self._quantities, self._uncertainty,
                 other._quantities, other._uncertainty
@@ -301,7 +317,14 @@ class NumberArray:
                     f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
                 ) from e
 
-            result_unit = self._unit / other._unit
+            # Cache unit division (expensive due to UnitProduct.__init__)
+            unit_key = (self._unit, other._unit)
+            if unit_key in _unit_div_cache:
+                result_unit = _unit_div_cache[unit_key]
+            else:
+                result_unit = self._unit / other._unit
+                _unit_div_cache[unit_key] = result_unit
+
             new_unc = self._propagate_div_uncertainty(
                 self._quantities, self._uncertainty,
                 other._quantities, other._uncertainty
@@ -609,6 +632,19 @@ class NumberArray:
         """
         from ucon.graph import get_default_graph
 
+        # Check scale factor cache first
+        cache_key = (self._unit, target)
+        if cache_key in _scale_factor_cache:
+            factor = _scale_factor_cache[cache_key]
+            new_unc = None
+            if self._uncertainty is not None:
+                new_unc = self._uncertainty * abs(factor)
+            return NumberArray(
+                quantities=self._quantities * factor,
+                unit=target,
+                uncertainty=new_unc,
+            )
+
         # Normalize to UnitProduct
         src = self._unit if isinstance(self._unit, UnitProduct) else UnitProduct.from_unit(self._unit)
         dst = target if isinstance(target, UnitProduct) else UnitProduct.from_unit(target)
@@ -616,6 +652,7 @@ class NumberArray:
         # Scale-only conversion (no graph needed)
         if self._is_scale_only_conversion(src, dst):
             factor = src.fold_scale() / dst.fold_scale()
+            _scale_factor_cache[cache_key] = factor  # Cache it
             new_unc = None
             if self._uncertainty is not None:
                 new_unc = self._uncertainty * abs(factor)
