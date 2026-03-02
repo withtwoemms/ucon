@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-03-01
+
+### Added
+
+- NumPy array support via `NumberArray` class
+  - Vectorized arithmetic with unit tracking and uncertainty propagation
+  - Vectorized conversion: `heights.to(units.foot)`
+  - Reduction operations: `sum()`, `mean()`, `std()`, `min()`, `max()`
+  - Comparison operators returning boolean arrays for filtering
+  - N-D array support with broadcasting
+  - Callable syntax: `units.meter([1, 2, 3])` returns `NumberArray`
+- Pandas integration via `NumberSeries` and `UconSeriesAccessor`
+  - `df['height'].ucon.with_unit(units.meter).to(units.foot)`
+  - Arithmetic preserves unit semantics
+- Polars integration via `NumberColumn`
+  - Wraps `pl.Series` with unit metadata
+  - `.to()` conversion with unit tracking
+- Map array support for vectorized operations
+  - `LinearMap`, `AffineMap`, `LogMap`, `ExpMap` work with numpy arrays
+  - `_log()` and `_exp()` helpers for scalar/array compatibility
+- Optional dependencies: `ucon[numpy]`, `ucon[pandas]`, `ucon[polars]`
+- Performance caching for repeated operations
+  - Conversion path caching in `ConversionGraph`
+  - Scale factor caching for scale-only conversions
+  - Unit multiplication/division caching
+  - `fold_scale()` result caching on `UnitProduct`
+- Performance benchmarks: `make benchmark`, `make benchmark-pint`
+- Documentation: `docs/guides/numpy-arrays.md`, `docs/guides/pandas-integration.md`, `docs/guides/polars-integration.md`
+
+### Changed
+
+- `Unit.__call__` and `UnitProduct.__call__` return `NumberArray` when given list or ndarray input
+
 ## [0.9.4] - 2026-02-28
 
 ### Changed
@@ -454,7 +487,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.9.4...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.10.0...HEAD
+[0.10.0]: https://github.com/withtwoemms/ucon/compare/0.9.4...0.10.0
 [0.9.4]: https://github.com/withtwoemms/ucon/compare/0.9.3...0.9.4
 [0.9.3]: https://github.com/withtwoemms/ucon/compare/0.9.2...0.9.3
 [0.9.2]: https://github.com/withtwoemms/ucon/compare/0.9.1...0.9.2
