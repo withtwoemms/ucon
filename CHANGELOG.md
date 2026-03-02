@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `fold_scale()` result caching on `UnitProduct`
 - Performance benchmarks: `make benchmark`, `make benchmark-pint`
 - Documentation: `docs/guides/numpy-arrays.md`, `docs/guides/pandas-integration.md`, `docs/guides/polars-integration.md`
+- Example notebook: `examples/scientific_computing.ipynb`
 
 ### Changed
 
