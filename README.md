@@ -48,6 +48,9 @@ pip install ucon
 With extras:
 
 ```bash
+pip install ucon[numpy]     # NumPy array support
+pip install ucon[pandas]    # Pandas DataFrame integration
+pip install ucon[polars]    # Polars DataFrame integration
 pip install ucon[pydantic]  # Pydantic v2 integration
 pip install ucon-tools[mcp] # MCP server for AI agents (separate package)
 ```
@@ -92,6 +95,22 @@ speed(units.meter(100), units.second(10))   # <10.0 m/s>
 speed(units.second(100), units.second(10))  # raises ValueError
 ```
 
+### NumPy Arrays
+
+```python
+from ucon import units
+
+# Vectorized operations on arrays
+heights = units.meter([1.7, 1.8, 1.9, 2.0])
+heights_ft = heights.to(units.foot)  # <[5.577, 5.906, 6.234, 6.562] ft>
+
+# Arithmetic with unit tracking
+areas = heights * units.meter([2, 2, 2, 2])  # m^2
+
+# Statistical reductions preserve units
+avg = heights.mean()  # <1.85 m>
+```
+
 ### Pydantic Integration
 
 ```python
@@ -131,6 +150,8 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 
 ## Features
 
+- **NumPy arrays** — Vectorized operations with `NumberArray` for batch computations
+- **Pandas/Polars** — Unit-aware DataFrames with `NumberSeries` and `NumberColumn`
 - **Physical constants** — CODATA 2022 values with uncertainty propagation (`E = m * c**2`)
 - **Custom constants** — Define domain-specific constants with uncertainty propagation
 - **String parsing** — `parse("9.81 m/s^2")` with uncertainty support (`1.234 ± 0.005 m`)
@@ -157,7 +178,7 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 | **0.7.x** | Compute Tool + Extension API | Complete |
 | **0.8.x** | Basis Abstraction + String Parsing | Complete |
 | **0.9.x** | Constants + Natural Units | Complete |
-| **0.10.x** | NumPy/Polars Integration | Planned |
+| **0.10.x** | NumPy/Pandas/Polars Integration | Current |
 | **1.0.0** | API Stability | Planned |
 
 See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROADMAP.md)
@@ -169,7 +190,7 @@ See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROA
 | Section | Description |
 |---------|-------------|
 | [Getting Started](https://docs.ucon.dev/getting-started/) | Why ucon, quickstart, installation |
-| [Guides](https://docs.ucon.dev/guides/) | MCP server, Pydantic, custom units, dimensional analysis |
+| [Guides](https://docs.ucon.dev/guides/) | NumPy/Pandas/Polars, MCP server, Pydantic, custom units |
 | [Reference](https://docs.ucon.dev/reference/) | API docs, unit tables, MCP tool schemas |
 | [Architecture](https://docs.ucon.dev/architecture/) | Design principles, ConversionGraph, comparison with Pint |
 

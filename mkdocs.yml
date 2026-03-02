@@ -62,6 +62,10 @@ nav:
     - Domain Walkthroughs:
       - guides/domain-walkthroughs/index.md
       - Nursing Dosage: guides/domain-walkthroughs/nursing-dosage.md
+    - Scientific Computing:
+      - NumPy Arrays: guides/numpy-arrays.md
+      - Pandas Integration: guides/pandas-integration.md
+      - Polars Integration: guides/polars-integration.md
   - Reference:
     - reference/index.md
     - API: reference/api.md

@@ -17,12 +17,66 @@ Classes
 - :class:`LogMap` — y = scale * log_base(x) + offset
 - :class:`ExpMap` — y = base^(scale * x + offset)
 - :class:`ComposedMap` — Generic composition fallback: g(f(x))
+
+All maps support both scalar and numpy array inputs. NumPy is optional;
+scalar operations use the standard library `math` module.
 """
 from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+    from numpy.typing import NDArray
+    Numeric = Union[float, NDArray[np.floating]]
+
+
+def _is_array(x) -> bool:
+    """Check if x is a numpy array."""
+    try:
+        import numpy as np
+        return isinstance(x, np.ndarray)
+    except ImportError:
+        return False
+
+
+def _log(x, base: float):
+    """Logarithm that works with both scalars and numpy arrays."""
+    try:
+        import numpy as np
+        if isinstance(x, np.ndarray):
+            return np.log(x) / np.log(base)
+    except ImportError:
+        pass
+    return math.log(x, base)
+
+
+def _exp(base: float, x):
+    """Exponentiation that works with both scalars and numpy arrays."""
+    try:
+        import numpy as np
+        if isinstance(x, np.ndarray):
+            return np.power(base, x)
+    except ImportError:
+        pass
+    return base ** x
+
+
+def _validate_positive(x, name: str = "x") -> None:
+    """Validate that x is positive (for logarithm arguments)."""
+    try:
+        import numpy as np
+        if isinstance(x, np.ndarray):
+            if np.any(x <= 0):
+                raise ValueError(f"Logarithm argument must be positive")
+            return
+    except ImportError:
+        pass
+    if x <= 0:
+        raise ValueError(f"Logarithm argument must be positive, got {x}")
 
 
 class Map(ABC):
@@ -183,10 +237,10 @@ class LogMap(Map):
     reference: float = 1.0
     offset: float = 0.0
 
-    def __call__(self, x: float) -> float:
-        if x <= 0:
-            raise ValueError(f"Logarithm argument must be positive, got {x}")
-        return self.scale * math.log(x / self.reference, self.base) + self.offset
+    def __call__(self, x):
+        """Apply the logarithmic map. Works with scalars and numpy arrays."""
+        _validate_positive(x)
+        return self.scale * _log(x / self.reference, self.base) + self.offset
 
     @property
     def invertible(self) -> bool:
@@ -215,10 +269,12 @@ class LogMap(Map):
             return self.inverse()
         raise ValueError("LogMap only supports exp=1 or exp=-1")
 
-    def derivative(self, x: float) -> float:
-        """Derivative: d/dx[scale * log_base(x/ref)] = scale / (x * ln(base))"""
-        if x <= 0:
-            raise ValueError(f"Derivative undefined for x={x}")
+    def derivative(self, x):
+        """Derivative: d/dx[scale * log_base(x/ref)] = scale / (x * ln(base))
+
+        Works with both scalars and numpy arrays.
+        """
+        _validate_positive(x)
         return self.scale / (x * math.log(self.base))
 
     def is_identity(self, tol: float = 1e-9) -> bool:
@@ -250,8 +306,9 @@ class ExpMap(Map):
     reference: float = 1.0
     offset: float = 0.0
 
-    def __call__(self, x: float) -> float:
-        return self.reference * self.base ** (self.scale * x + self.offset)
+    def __call__(self, x):
+        """Apply the exponential map. Works with scalars and numpy arrays."""
+        return self.reference * _exp(self.base, self.scale * x + self.offset)
 
     @property
     def invertible(self) -> bool:
@@ -280,8 +337,11 @@ class ExpMap(Map):
             return self.inverse()
         raise ValueError("ExpMap only supports exp=1 or exp=-1")
 
-    def derivative(self, x: float) -> float:
-        """Derivative: d/dx[ref * base^(scale*x + offset)] = ln(base) * scale * ref * base^(scale*x + offset)"""
+    def derivative(self, x):
+        """Derivative: d/dx[ref * base^(scale*x + offset)] = ln(base) * scale * ref * base^(scale*x + offset)
+
+        Works with both scalars and numpy arrays.
+        """
         return math.log(self.base) * self.scale * self(x)
 
     def is_identity(self, tol: float = 1e-9) -> bool:

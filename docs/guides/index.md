@@ -13,6 +13,12 @@ Task-oriented guides for common use cases.
 - **[Pydantic Integration](pydantic-integration.md)** - Type-safe dimensional fields in Pydantic models
 - **[Config Safety](dimensional-safety-config.md)** - Dimensional safety for configuration files
 
+## Scientific Computing
+
+- **[NumPy Arrays](numpy-arrays.md)** - Vectorized operations with `NumberArray`
+- **[Pandas Integration](pandas-integration.md)** - Unit-aware DataFrames with `NumberSeries`
+- **[Polars Integration](polars-integration.md)** - Unit-aware Polars with `NumberColumn`
+
 ## Calculation Guides
 
 - **[Dimensional Analysis](dimensional-analysis.md)** - Step-by-step factor-label calculations
