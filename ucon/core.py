@@ -436,6 +436,8 @@ class Unit:
             return other.__rmul__(self)
 
         if isinstance(other, Unit):
+            if self == other:
+                return UnitProduct({self: 2})
             return UnitProduct({self: 1, other: 1})
 
         return NotImplemented
