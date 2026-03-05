@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Domain-Specific Bases documentation (`docs/guides/domain-bases/`)
+  - Explains how to resolve SI dimensional degeneracies with extended bases
+  - Radiation Dosimetry: Gy vs Sv vs Gy(RBE) vs effective dose
+  - Pharmacology: drug potency, IU variations, morphine equivalents
+  - Clinical Chemistry: molarity vs osmolarity, Bq vs Hz, mEq vs mmol
+  - Classical Mechanics: torque vs energy, surface tension vs spring constant
+  - Thermodynamics: heat capacity vs entropy
+
 ## [0.10.0] - 2026-03-01
 
 ### Added
