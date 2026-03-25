@@ -89,6 +89,118 @@ class TestEdgeDef(unittest.TestCase):
         self.assertIn('nonexistent', str(ctx.exception))
 
 
+class TestEdgeDefAffine(unittest.TestCase):
+    """Test EdgeDef affine (offset) support."""
+
+    def test_edge_def_creation_with_offset(self):
+        """EdgeDef stores offset field."""
+        edge_def = EdgeDef(src='celsius', dst='kelvin', factor=1.0, offset=273.15)
+        self.assertEqual(edge_def.offset, 273.15)
+
+    def test_edge_def_default_offset_zero(self):
+        """EdgeDef defaults offset to 0.0 for backward compatibility."""
+        edge_def = EdgeDef(src='meter', dst='foot', factor=3.28084)
+        self.assertEqual(edge_def.offset, 0.0)
+
+    def test_edge_def_materialize_affine(self):
+        """EdgeDef.materialize() uses AffineMap when offset is non-zero."""
+        from ucon.maps import AffineMap
+
+        pkg = UnitPackage(
+            name='test_affine',
+            units=(UnitDef(name='rankine', dimension='temperature', aliases=('Ra',)),),
+            edges=(EdgeDef(src='rankine', dst='kelvin', factor=5/9, offset=0.0),),
+        )
+
+        # Use a non-zero offset edge
+        graph = get_default_graph().with_package(pkg)
+
+        # Now add an affine edge manually via EdgeDef
+        edge_def = EdgeDef(src='celsius', dst='kelvin', factor=1.0, offset=273.15)
+        edge_def.materialize(graph)
+
+        # Verify the map type on the graph edge
+        with using_graph(graph):
+            celsius = get_unit_by_name('celsius')
+            kelvin = get_unit_by_name('kelvin')
+            m = graph.convert(src=celsius, dst=kelvin)
+            self.assertIsInstance(m, AffineMap)
+            # 0°C → 273.15 K
+            self.assertAlmostEqual(m(0), 273.15, places=2)
+            # 100°C → 373.15 K
+            self.assertAlmostEqual(m(100), 373.15, places=2)
+
+    def test_load_package_with_affine_edge(self):
+        """load_package() reads offset field from TOML."""
+        toml_content = '''
+name = "affine_test"
+version = "1.0.0"
+
+[[units]]
+name = "custom_temp"
+dimension = "temperature"
+aliases = ["ct"]
+
+[[edges]]
+src = "custom_temp"
+dst = "kelvin"
+factor = 1.0
+offset = 100.0
+'''
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.toml', delete=False
+        ) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            pkg = load_package(path)
+            self.assertEqual(len(pkg.edges), 1)
+            self.assertEqual(pkg.edges[0].offset, 100.0)
+        finally:
+            path.unlink()
+
+    def test_with_package_affine_conversion(self):
+        """End-to-end: load package with affine edge, convert through graph."""
+        toml_content = '''
+name = "affine_e2e"
+version = "1.0.0"
+
+[[units]]
+name = "custom_temp"
+dimension = "temperature"
+aliases = ["ct"]
+
+[[edges]]
+src = "custom_temp"
+dst = "kelvin"
+factor = 1.0
+offset = 100.0
+'''
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.toml', delete=False
+        ) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            pkg = load_package(path)
+            graph = get_default_graph().with_package(pkg)
+
+            with using_graph(graph):
+                ct = get_unit_by_name('ct')
+                kelvin = get_unit_by_name('kelvin')
+                m = graph.convert(src=ct, dst=kelvin)
+                # 0 ct → 100.0 K (factor=1.0, offset=100.0)
+                self.assertAlmostEqual(m(0), 100.0, places=2)
+                # 50 ct → 150.0 K
+                self.assertAlmostEqual(m(50), 150.0, places=2)
+        finally:
+            path.unlink()
+
+
 class TestUnitPackage(unittest.TestCase):
     """Test UnitPackage dataclass."""
 
