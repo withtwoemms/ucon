@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-03-25
+
 ### Added
 
+- Affine conversion support in `EdgeDef` (#215)
+  - `EdgeDef` gains `offset: float = 0.0` field for affine conversions (e.g., temperature scales)
+  - `materialize()` uses `AffineMap(factor, offset)` when offset is non-zero, `LinearMap(factor)` otherwise
+  - `load_package()` reads optional `offset` field from TOML `[[edges]]` definitions
+  - Backward compatible: existing packages and edge definitions are unaffected
 - Domain-Specific Bases documentation (`docs/guides/domain-bases/`)
   - Explains how to resolve SI dimensional degeneracies with extended bases
   - Radiation Dosimetry: Gy vs Sv vs Gy(RBE) vs effective dose
@@ -498,7 +505,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.10.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.10.1...HEAD
+[0.10.1]: https://github.com/withtwoemms/ucon/compare/0.10.0...0.10.1
 [0.10.0]: https://github.com/withtwoemms/ucon/compare/0.9.4...0.10.0
 [0.9.4]: https://github.com/withtwoemms/ucon/compare/0.9.3...0.9.4
 [0.9.3]: https://github.com/withtwoemms/ucon/compare/0.9.2...0.9.3
