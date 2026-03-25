@@ -120,11 +120,15 @@ class EdgeDef:
     dst : str
         Destination unit name or composite expression.
     factor : float
-        LinearMap multiplier (dst = factor * src).
+        Multiplier (dst = factor * src + offset).
+    offset : float
+        Additive offset for affine conversions (default 0.0).
+        When non-zero, an AffineMap is used instead of LinearMap.
     """
     src: str
     dst: str
     factor: float
+    offset: float = 0.0
 
     def materialize(self, graph: 'ConversionGraph'):
         """Resolve units and add edge to graph.
@@ -142,7 +146,7 @@ class EdgeDef:
         """
         from ucon import get_unit_by_name
         from ucon.graph import using_graph
-        from ucon.maps import LinearMap
+        from ucon.maps import AffineMap, LinearMap
         from ucon.units import UnknownUnitError
 
         # Resolve units within graph context
@@ -161,7 +165,10 @@ class EdgeDef:
                     f"Cannot resolve destination unit '{self.dst}' in edge"
                 )
 
-        graph.add_edge(src=src_unit, dst=dst_unit, map=LinearMap(self.factor))
+        if self.offset != 0.0:
+            graph.add_edge(src=src_unit, dst=dst_unit, map=AffineMap(self.factor, self.offset))
+        else:
+            graph.add_edge(src=src_unit, dst=dst_unit, map=LinearMap(self.factor))
 
 
 @dataclass(frozen=True)
@@ -252,6 +259,7 @@ def load_package(path: str | Path) -> UnitPackage:
             src=e["src"],
             dst=e["dst"],
             factor=float(e["factor"]),
+            offset=float(e.get("offset", 0.0)),
         )
         for e in data.get("edges", [])
     )
