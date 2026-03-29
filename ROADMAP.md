@@ -49,40 +49,39 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.9.3 | Natural Units + MCP Session Fixes | Complete |
 | v0.9.4 | MCP Extraction | Complete |
 | v0.10.0 | Scientific Computing | Complete |
+| v0.11.0 | Module Reorganization | Complete |
 | v1.0.0 | API Stability | Planned |
 
 ---
 
-## Current Version: **v0.10.0** (complete)
+## Current Version: **v0.11.0** (complete)
 
-Building on v0.9.4 baseline:
-- `ucon.numpy` (`NumberArray` class for vectorized operations on dimensioned arrays)
-- `ucon.pandas` (`NumberSeries` wrapper and `UconSeriesAccessor` for Pandas integration)
-- `ucon.polars` (`NumberColumn` wrapper for Polars integration)
-- NumPy array support: `units.meter([1, 2, 3])` → `NumberArray`
-- Vectorized conversion: `heights.to(units.foot)` on arrays
-- Vectorized arithmetic: add, sub, mul, div with unit tracking
-- Per-element and uniform uncertainty propagation through arrays
-- Reduction operations: `sum()`, `mean()`, `std()`, `min()`, `max()` with uncertainty
-- Comparison operators returning boolean arrays for filtering
-- N-D array support (not just 1D)
-- Broadcasting support for compatible shapes
-- Pandas accessor: `df['height'].ucon.with_unit(units.meter).to(units.foot)`
-- Polars column wrapper: `NumberColumn(series, unit=units.meter)`
-- Optional dependencies: `pip install ucon[numpy]`, `ucon[pandas]`, `ucon[polars]`
-- Graceful degradation: ImportError with clear messages when deps not installed
-- Performance caching: conversion paths, scale factors, unit multiplication
-- Performance benchmarks: `make benchmark`, `make benchmark-pint`
+Module reorganization for v1.0 API clarity:
+- `ucon.basis` is now a subpackage with four modules:
+  - `ucon.basis` (`__init__`) — core types: `Basis`, `BasisComponent`, `Vector`, `LossyProjection`, `NoTransformPath`
+  - `ucon.basis.builtin` — shipped basis instances: `SI`, `CGS`, `CGS_ESU`, `NATURAL`
+  - `ucon.basis.transforms` — transform types and instances: `BasisTransform`, `ConstantAwareBasisTransform`, `ConstantBinding`, `SI_TO_CGS`, `CGS_TO_SI`, `SI_TO_CGS_ESU`, `SI_TO_NATURAL`, `NATURAL_TO_SI`
+  - `ucon.basis.graph` — registry and context scoping: `BasisGraph`, `get_default_basis()`, `get_basis_graph()`, `using_basis()`, `using_basis_graph()`
+- Integration modules moved to `ucon.integrations` subpackage:
+  - `ucon.integrations.numpy` (`NumberArray`)
+  - `ucon.integrations.pandas` (`NumberSeries`, `UconSeriesAccessor`)
+  - `ucon.integrations.polars` (`NumberColumn`)
+  - `ucon.integrations.pydantic` (`Number` type for Pydantic v2 models)
+- `ucon.bases` and `ucon.quantity` removed (no backward-compat shims)
+- All symbols remain importable from `ucon.basis` and `ucon` via re-exports
+- Package discovery changed from explicit list to `setuptools.packages.find`
 
 Previous versions include:
 - `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`, `ConstantAwareBasisTransform`)
-- `ucon.bases` (standard bases: `SI`, `CGS`, `CGS_ESU`, `NATURAL`; standard transforms including `SI_TO_NATURAL`)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
 - `ucon.core` (`Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`, `UnitSystem`, `RebasedUnit`, `Exponent`)
 - `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`, `LogMap`, `ExpMap`)
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`, cross-basis conversion)
 - `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax, `si` and `imperial` systems, `get_unit_by_name()`)
-- `ucon.pydantic` (`Number` type for Pydantic v2 models)
+- `ucon.integrations.numpy` (`NumberArray` for vectorized operations on dimensioned arrays)
+- `ucon.integrations.pandas` (`NumberSeries` wrapper and `UconSeriesAccessor`)
+- `ucon.integrations.polars` (`NumberColumn` wrapper)
+- `ucon.integrations.pydantic` (`Number` type for Pydantic v2 models)
 - Callable unit API: `meter(5)`, `(mile / hour)(60)`
 - `Number.simplify()` for base-scale normalization
 - Pseudo-dimensions: `ANGLE`, `SOLID_ANGLE`, `RATIO`, `COUNT` with semantic isolation
@@ -98,6 +97,12 @@ Previous versions include:
 - Logarithmic units: pH with concentration dimension, dBm, dBW, dBV, dBSPL
 - Natural units: `NATURAL` basis with c=ℏ=k_B=1, `ConstantAwareBasisTransform` for non-square transforms
 - Namespace package support: `pkgutil.extend_path` enables coexistence with ucon-tools
+- NumPy array support: `units.meter([1, 2, 3])` → `NumberArray`
+- Vectorized conversion, arithmetic, uncertainty propagation through arrays
+- Pandas accessor: `df['height'].ucon.with_unit(units.meter).to(units.foot)`
+- Polars column wrapper: `NumberColumn(series, unit=units.meter)`
+- Optional dependencies: `pip install ucon[numpy]`, `ucon[pandas]`, `ucon[polars]`
+- Performance caching: conversion paths, scale factors, unit multiplication
 
 ---
 
@@ -717,6 +722,26 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - Unit-safe transformations on tabular data
 - Performance competitive with pint, much faster on creation
 - Lazy caching approximates fixed registry without startup cost
+
+---
+
+## v0.11.0 — Module Reorganization (Complete)
+
+**Theme:** Structural clarity for v1.0 API surface.
+
+- [x] `ucon/basis.py` split into `ucon/basis/` subpackage (`__init__`, `builtin`, `transforms`, `graph`)
+- [x] `ucon/bases.py` removed (contents split into `ucon.basis.builtin` and `ucon.basis.transforms`)
+- [x] Integration modules moved to `ucon/integrations/` (`numpy`, `pandas`, `polars`, `pydantic`)
+- [x] `ucon/quantity.py` removed (backward-compat shim; `Number`, `Ratio` importable from `ucon.core` or `ucon`)
+- [x] All public symbols remain importable from `ucon.basis` and `ucon` via re-exports
+- [x] Package discovery changed to `setuptools.packages.find` for automatic subpackage inclusion
+
+**Outcomes:**
+- Clear separation of concerns within the basis subsystem (types, instances, transforms, registry)
+- Integration modules grouped under a single namespace
+- Acyclic import dependency order within `ucon.basis` subpackage
+- Clean break — no backward-compat shims for removed modules
+- Module layout stable for v1.0 API freeze
 
 ---
 
