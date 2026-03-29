@@ -31,9 +31,9 @@ from typing import Union, TYPE_CHECKING, Iterator, Optional
 
 try:
     import pandas as pd
-    HAS_PANDAS = True
+    _HAS_PANDAS = True
 except ImportError:
-    HAS_PANDAS = False
+    _HAS_PANDAS = False
     pd = None  # type: ignore
 
 if TYPE_CHECKING:
@@ -44,7 +44,7 @@ from ucon.core import Unit, UnitProduct, UnitFactor, Scale, Number, _none
 
 def _require_pandas() -> None:
     """Raise ImportError if pandas is not available."""
-    if not HAS_PANDAS:
+    if not _HAS_PANDAS:
         raise ImportError(
             "Pandas is required for NumberSeries. "
             "Install with: pip install ucon[pandas]"
@@ -646,7 +646,7 @@ class NumberSeries:
 # Pandas Accessor
 # -----------------------------------------------------------------------------
 
-if HAS_PANDAS:
+if _HAS_PANDAS:
     @pd.api.extensions.register_series_accessor("ucon")
     class UconSeriesAccessor:
         """
@@ -706,6 +706,6 @@ if HAS_PANDAS:
 
 
 # Export check
-__all__ = ['NumberSeries', 'HAS_PANDAS']
-if HAS_PANDAS:
+__all__ = ['NumberSeries']
+if _HAS_PANDAS:
     __all__.append('UconSeriesAccessor')

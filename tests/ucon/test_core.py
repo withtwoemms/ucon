@@ -13,7 +13,7 @@ from ucon import Dimension
 from ucon import Unit
 from ucon import units
 from ucon.basis import Vector
-from ucon.core import UnitFactor, UnitProduct, ScaleDescriptor
+from ucon.core import UnitFactor, UnitProduct, _ScaleDescriptor
 from ucon.dimension import all_dimensions, resolve, SI
 from fractions import Fraction
 
@@ -290,11 +290,11 @@ class TestDimensionEdgeCases(unittest.TestCase):
         self.assertEqual(len(seen), len(dims))
 
 
-class TestScaleDescriptor(unittest.TestCase):
+class Test_ScaleDescriptor(unittest.TestCase):
 
     def test_scale_descriptor_power_and_repr(self):
         exp = Exponent(10, 3)
-        desc = ScaleDescriptor(exp, "k", "kilo")
+        desc = _ScaleDescriptor(exp, "k", "kilo")
 
         # power property should reflect Exponent.power
         assert desc.power == 3
@@ -755,7 +755,7 @@ class TestScaleEdgeCases(unittest.TestCase):
         self.assertTrue(all((val in by_val.values()) for _, val in all_map.items()))
 
     def test_descriptor_property(self):
-        self.assertIsInstance(Scale.kilo.descriptor, ScaleDescriptor)
+        self.assertIsInstance(Scale.kilo.descriptor, _ScaleDescriptor)
         self.assertEqual(Scale.kilo.descriptor, Scale.kilo.value)
 
     def test_alias_property(self):

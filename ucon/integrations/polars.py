@@ -26,9 +26,9 @@ from typing import Union, TYPE_CHECKING, Iterator, Optional
 
 try:
     import polars as pl
-    HAS_POLARS = True
+    _HAS_POLARS = True
 except ImportError:
-    HAS_POLARS = False
+    _HAS_POLARS = False
     pl = None  # type: ignore
 
 if TYPE_CHECKING:
@@ -39,7 +39,7 @@ from ucon.core import Unit, UnitProduct, UnitFactor, Scale, Number, _none
 
 def _require_polars() -> None:
     """Raise ImportError if polars is not available."""
-    if not HAS_POLARS:
+    if not _HAS_POLARS:
         raise ImportError(
             "Polars is required for NumberColumn. "
             "Install with: pip install ucon[polars]"
@@ -654,4 +654,4 @@ class NumberColumn:
 
 
 # Export check
-__all__ = ['NumberColumn', 'HAS_POLARS']
+__all__ = ['NumberColumn']

@@ -26,9 +26,9 @@ from typing import Union, TYPE_CHECKING, Iterator, Any
 
 try:
     import numpy as np
-    HAS_NUMPY = True
+    _HAS_NUMPY = True
 except ImportError:
-    HAS_NUMPY = False
+    _HAS_NUMPY = False
     np = None  # type: ignore
 
 if TYPE_CHECKING:
@@ -49,7 +49,7 @@ _unit_div_cache: dict[tuple, 'UnitProduct'] = {}
 
 def _require_numpy() -> None:
     """Raise ImportError if numpy is not available."""
-    if not HAS_NUMPY:
+    if not _HAS_NUMPY:
         raise ImportError(
             "NumPy is required for NumberArray. "
             "Install with: pip install ucon[numpy]"
@@ -761,4 +761,4 @@ class NumberArray:
 
 
 # Export check
-__all__ = ['NumberArray', 'HAS_NUMPY']
+__all__ = ['NumberArray']

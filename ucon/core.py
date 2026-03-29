@@ -161,7 +161,7 @@ class Exponent:
 # --------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)
-class ScaleDescriptor:
+class _ScaleDescriptor:
     exponent: Exponent
     shorthand: str
     alias: str
@@ -183,35 +183,35 @@ class ScaleDescriptor:
 
     def __repr__(self):
         tag = self.alias or self.shorthand or "1"
-        return f"<ScaleDescriptor {tag}: {self.base}^{self.power}>"
+        return f"<_ScaleDescriptor {tag}: {self.base}^{self.power}>"
 
 
 @total_ordering
 class Scale(Enum):
     # Binary
-    gibi  = ScaleDescriptor(Exponent(2, 30), "Gi", "gibi")
-    mebi  = ScaleDescriptor(Exponent(2, 20), "Mi", "mebi")
-    kibi  = ScaleDescriptor(Exponent(2, 10), "Ki", "kibi")
+    gibi  = _ScaleDescriptor(Exponent(2, 30), "Gi", "gibi")
+    mebi  = _ScaleDescriptor(Exponent(2, 20), "Mi", "mebi")
+    kibi  = _ScaleDescriptor(Exponent(2, 10), "Ki", "kibi")
 
     # Decimal
-    peta  = ScaleDescriptor(Exponent(10, 15), "P", "peta")
-    tera  = ScaleDescriptor(Exponent(10, 12), "T", "tera")
-    giga  = ScaleDescriptor(Exponent(10, 9),  "G", "giga")
-    mega  = ScaleDescriptor(Exponent(10, 6),  "M", "mega")
-    kilo  = ScaleDescriptor(Exponent(10, 3),  "k", "kilo")
-    hecto = ScaleDescriptor(Exponent(10, 2),  "h", "hecto")
-    deca  = ScaleDescriptor(Exponent(10, 1),  "da", "deca")
-    one   = ScaleDescriptor(Exponent(10, 0),  "",  "")
-    deci  = ScaleDescriptor(Exponent(10,-1),  "d", "deci")
-    centi = ScaleDescriptor(Exponent(10,-2),  "c", "centi")
-    milli = ScaleDescriptor(Exponent(10,-3),  "m", "milli")
-    micro = ScaleDescriptor(Exponent(10,-6),  "µ", "micro")
-    nano  = ScaleDescriptor(Exponent(10,-9),  "n", "nano")
-    pico  = ScaleDescriptor(Exponent(10,-12), "p", "pico")
-    femto = ScaleDescriptor(Exponent(10,-15), "f", "femto")
+    peta  = _ScaleDescriptor(Exponent(10, 15), "P", "peta")
+    tera  = _ScaleDescriptor(Exponent(10, 12), "T", "tera")
+    giga  = _ScaleDescriptor(Exponent(10, 9),  "G", "giga")
+    mega  = _ScaleDescriptor(Exponent(10, 6),  "M", "mega")
+    kilo  = _ScaleDescriptor(Exponent(10, 3),  "k", "kilo")
+    hecto = _ScaleDescriptor(Exponent(10, 2),  "h", "hecto")
+    deca  = _ScaleDescriptor(Exponent(10, 1),  "da", "deca")
+    one   = _ScaleDescriptor(Exponent(10, 0),  "",  "")
+    deci  = _ScaleDescriptor(Exponent(10,-1),  "d", "deci")
+    centi = _ScaleDescriptor(Exponent(10,-2),  "c", "centi")
+    milli = _ScaleDescriptor(Exponent(10,-3),  "m", "milli")
+    micro = _ScaleDescriptor(Exponent(10,-6),  "µ", "micro")
+    nano  = _ScaleDescriptor(Exponent(10,-9),  "n", "nano")
+    pico  = _ScaleDescriptor(Exponent(10,-12), "p", "pico")
+    femto = _ScaleDescriptor(Exponent(10,-15), "f", "femto")
 
     @property
-    def descriptor(self) -> ScaleDescriptor:
+    def descriptor(self) -> _ScaleDescriptor:
         return self.value
 
     @property
@@ -1193,7 +1193,7 @@ class UnitProduct:
 _none = Unit()
 
 
-Quantifiable = Union['Number', 'Ratio']
+_Quantifiable = Union['Number', 'Ratio']
 
 
 class DimensionConstraint:
@@ -1407,7 +1407,7 @@ class Number:
     def as_ratio(self):
         return Ratio(self)
 
-    def __mul__(self, other: Quantifiable) -> 'Number':
+    def __mul__(self, other: _Quantifiable) -> 'Number':
         if isinstance(other, Ratio):
             other = other.evaluate()
 
@@ -1489,7 +1489,7 @@ class Number:
             uncertainty=new_uncertainty,
         )
 
-    def __truediv__(self, other: Quantifiable) -> "Number":
+    def __truediv__(self, other: _Quantifiable) -> "Number":
         # Allow dividing by a Ratio (interpret as its evaluated Number)
         if isinstance(other, Ratio):
             other = other.evaluate()
@@ -1536,7 +1536,7 @@ class Number:
         new_quantity = self.quantity / other.quantity
         return Number(quantity=new_quantity, unit=unit_quot, uncertainty=compute_uncertainty(new_quantity))
 
-    def __eq__(self, other: Quantifiable) -> bool:
+    def __eq__(self, other: _Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
             raise TypeError(
                 f"Cannot compare Number to non-Number/Ratio type: {type(other)}"
