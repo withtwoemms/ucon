@@ -91,10 +91,18 @@ from ucon.dimension import (
     resolve as resolve_dimension,
 )
 from ucon.checking import enforce_dimensions
-from ucon.graph import get_default_graph, set_default_graph, using_graph
+from ucon.graph import (
+    ConversionGraph,
+    ConversionNotFound,
+    DimensionMismatch,
+    get_default_graph,
+    reset_default_graph,
+    set_default_graph,
+    using_graph,
+)
 from ucon.packages import EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
 from ucon.units import UnknownUnitError, get_unit_by_name
-from ucon.parsing import parse
+from ucon.parsing import ParseError, parse
 
 
 __all__ = [
@@ -128,13 +136,17 @@ __all__ = [
     'SI_TO_NATURAL',
     # Core types
     'Constant',
+    'ConversionGraph',
+    'ConversionNotFound',
     'DimensionConstraint',
     'Dimension',
+    'DimensionMismatch',
     'DimensionNotCovered',
     'EdgeDef',
     'Exponent',
     'Number',
     'PackageLoadError',
+    'ParseError',
     'Ratio',
     'RebasedUnit',
     'Scale',
@@ -152,6 +164,7 @@ __all__ = [
     'get_unit_by_name',
     'load_package',
     'parse',
+    'reset_default_graph',
     'resolve_dimension',
     'set_default_graph',
     'using_graph',
