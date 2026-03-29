@@ -45,7 +45,7 @@ from ucon.dimension import (
     ENTROPY, SPECIFIC_HEAT_CAPACITY, THERMAL_CONDUCTIVITY,
     ILLUMINANCE, CATALYTIC_ACTIVITY, MOLAR_MASS, MOLAR_VOLUME,
 )
-from ucon.graph import get_parsing_graph
+from ucon.graph import _get_parsing_graph
 from ucon.parsing import parse_unit_expression, ParseError
 
 
@@ -415,7 +415,7 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
         UnknownUnitError: If the unit cannot be resolved.
     """
     # Check graph-local registry first (if in using_graph() context)
-    graph = get_parsing_graph()
+    graph = _get_parsing_graph()
     if graph is not None:
         result = graph.resolve_unit(s)
         if result is not None:

@@ -91,7 +91,7 @@ from ucon.dimension import (
     resolve as resolve_dimension,
 )
 from ucon.checking import enforce_dimensions
-from ucon.graph import get_default_graph, get_parsing_graph, set_default_graph, using_graph
+from ucon.graph import get_default_graph, set_default_graph, using_graph
 from ucon.packages import EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
 from ucon.units import UnknownUnitError, get_unit_by_name
 from ucon.parsing import parse
@@ -149,7 +149,6 @@ __all__ = [
     'all_dimensions',
     'enforce_dimensions',
     'get_default_graph',
-    'get_parsing_graph',
     'get_unit_by_name',
     'load_package',
     'parse',

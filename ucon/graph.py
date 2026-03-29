@@ -19,7 +19,7 @@ Functions
 - :func:`set_default_graph` — Replace the default graph.
 - :func:`reset_default_graph` — Reset to standard graph on next access.
 - :func:`using_graph` — Context manager for scoped graph override.
-- :func:`get_parsing_graph` — Get the graph for name resolution during parsing.
+- :func:`_get_parsing_graph` — Get the graph for name resolution during parsing.
 """
 from __future__ import annotations
 
@@ -825,7 +825,7 @@ def reset_default_graph() -> None:
     _default_graph = None
 
 
-def get_parsing_graph() -> ConversionGraph | None:
+def _get_parsing_graph() -> ConversionGraph | None:
     """Get the graph to use for name resolution during parsing.
 
     Returns the context-local parsing graph if set, otherwise None.
