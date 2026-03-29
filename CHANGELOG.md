@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-03-28
+
+### Changed
+
+- `ucon.basis` is now a subpackage (`ucon/basis/`) with four modules:
+  - `ucon.basis` (`__init__.py`) — core types: `Basis`, `BasisComponent`, `Vector`, `LossyProjection`, `NoTransformPath`
+  - `ucon.basis.builtin` — shipped basis instances: `SI`, `CGS`, `CGS_ESU`, `NATURAL`
+  - `ucon.basis.transforms` — transform types and instances: `BasisTransform`, `ConstantAwareBasisTransform`, `ConstantBinding`, `SI_TO_CGS`, `CGS_TO_SI`, `SI_TO_CGS_ESU`, `SI_TO_NATURAL`, `NATURAL_TO_SI`
+  - `ucon.basis.graph` — registry and context scoping: `BasisGraph`, `get_default_basis()`, `get_basis_graph()`, `using_basis()`, `using_basis_graph()`
+  - All symbols remain importable from `ucon.basis` and `ucon` via re-exports
+- Integration modules moved to `ucon.integrations` subpackage:
+  - `ucon.numpy` → `ucon.integrations.numpy`
+  - `ucon.pandas` → `ucon.integrations.pandas`
+  - `ucon.polars` → `ucon.integrations.polars`
+  - `ucon.pydantic` → `ucon.integrations.pydantic`
+- Package discovery changed from explicit list to `setuptools.packages.find`
+
+### Removed
+
+- `ucon.bases` module (contents split into `ucon.basis.builtin` and `ucon.basis.transforms`)
+- `ucon.quantity` module (backward-compatibility shim; import `Number`, `Ratio` from `ucon.core` or `ucon`)
+
 ## [0.10.1] - 2026-03-25
 
 ### Added
@@ -505,7 +527,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.10.1...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.11.0...HEAD
+[0.11.0]: https://github.com/withtwoemms/ucon/compare/0.10.1...0.11.0
 [0.10.1]: https://github.com/withtwoemms/ucon/compare/0.10.0...0.10.1
 [0.10.0]: https://github.com/withtwoemms/ucon/compare/0.9.4...0.10.0
 [0.9.4]: https://github.com/withtwoemms/ucon/compare/0.9.3...0.9.4
