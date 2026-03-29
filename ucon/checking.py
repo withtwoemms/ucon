@@ -24,7 +24,7 @@ else:
     # to ensure get_origin() correctly identifies typing_extensions.Annotated
     from typing_extensions import Annotated, get_type_hints, get_args, get_origin
 
-from ucon.core import Dimension, Number, Unit, UnitProduct, DimConstraint
+from ucon.core import Dimension, Number, Unit, UnitProduct, DimensionConstraint
 
 
 def _get_dimension(n: Number) -> Dimension:
@@ -70,15 +70,15 @@ def enforce_dimensions(fn):
     hints = get_type_hints(fn, include_extras=True)
     sig = inspect.signature(fn)
 
-    # Precompute: which params have DimConstraint annotations?
-    checks: dict[str, DimConstraint] = {}
+    # Precompute: which params have DimensionConstraint annotations?
+    checks: dict[str, DimensionConstraint] = {}
     for name, hint in hints.items():
         if name == "return":
             continue
         if get_origin(hint) is not Annotated:
             continue
         for metadata in get_args(hint)[1:]:
-            if isinstance(metadata, DimConstraint):
+            if isinstance(metadata, DimensionConstraint):
                 checks[name] = metadata
                 break
 

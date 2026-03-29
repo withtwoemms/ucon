@@ -278,7 +278,7 @@ Previous versions include:
 
 - [x] Human-readable derived dimension names (`derived(length^3/time)` not `Vector(...)`)
 - [x] `Number[Dimension]` type-safe generics via `typing.Annotated`
-- [x] `DimConstraint` marker class for annotation introspection
+- [x] `DimensionConstraint` marker class for annotation introspection
 - [x] `@enforce_dimensions` decorator for runtime validation at function boundaries
 
 **Outcomes:**

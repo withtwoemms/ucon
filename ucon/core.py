@@ -1196,7 +1196,7 @@ _none = Unit()
 Quantifiable = Union['Number', 'Ratio']
 
 
-class DimConstraint:
+class DimensionConstraint:
     """Annotation marker: constrains a Number to a specific Dimension.
 
     Used with typing.Annotated to enable Number[TIME] syntax.
@@ -1209,13 +1209,13 @@ class DimConstraint:
         self.dimension = dim
 
     def __repr__(self) -> str:
-        return f"DimConstraint({self.dimension.name})"
+        return f"DimensionConstraint({self.dimension.name})"
 
     def __eq__(self, other) -> bool:
-        return isinstance(other, DimConstraint) and self.dimension == other.dimension
+        return isinstance(other, DimensionConstraint) and self.dimension == other.dimension
 
     def __hash__(self) -> int:
-        return hash(("DimConstraint", self.dimension))
+        return hash(("DimensionConstraint", self.dimension))
 
 
 @dataclass
@@ -1250,11 +1250,11 @@ class Number:
     def __class_getitem__(cls, dim):
         """Enable Number[Dimension.X] syntax for type annotations.
 
-        Returns Annotated[Number, DimConstraint(dim)] for runtime introspection
+        Returns Annotated[Number, DimensionConstraint(dim)] for runtime introspection
         by @enforce_dimensions decorator.
         """
         if isinstance(dim, Dimension):
-            return Annotated[cls, DimConstraint(dim)]
+            return Annotated[cls, DimensionConstraint(dim)]
         return cls
 
     @property

@@ -74,7 +74,7 @@ from ucon.basis.transforms import (
     SI_TO_NATURAL,
 )
 from ucon.core import (
-    DimConstraint,
+    DimensionConstraint,
     DimensionNotCovered,
     RebasedUnit,
     Scale,
@@ -128,7 +128,7 @@ __all__ = [
     'SI_TO_NATURAL',
     # Core types
     'Constant',
-    'DimConstraint',
+    'DimensionConstraint',
     'Dimension',
     'DimensionNotCovered',
     'EdgeDef',
