@@ -83,6 +83,21 @@ nav:
     - Units & Dimensions: reference/units-and-dimensions.md
     - MCP Tools: external/ucon-tools/docs/reference/mcp-tools.md
     - Scales & Prefixes: reference/scales-and-prefixes.md
+    - Module Reference:
+      - reference/modules/index.md
+      - ucon.basis: reference/modules/basis.md
+      - ucon.basis.builtin: reference/modules/basis-builtin.md
+      - ucon.basis.transforms: reference/modules/basis-transforms.md
+      - ucon.basis.graph: reference/modules/basis-graph.md
+      - ucon.checking: reference/modules/checking.md
+      - ucon.constants: reference/modules/constants.md
+      - ucon.core: reference/modules/core.md
+      - ucon.dimension: reference/modules/dimension.md
+      - ucon.graph: reference/modules/graph.md
+      - ucon.maps: reference/modules/maps.md
+      - ucon.packages: reference/modules/packages.md
+      - ucon.parsing: reference/modules/parsing.md
+      - ucon.units: reference/modules/units.md
   - Architecture:
     - architecture/index.md
     - Design Principles: architecture/design-principles.md

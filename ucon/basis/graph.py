@@ -203,13 +203,33 @@ def _build_standard_basis_graph() -> BasisGraph:
 
 
 def get_default_basis() -> Basis:
-    """Get current default basis (context-local or SI fallback)."""
+    """Get the current default basis.
+
+    Returns the context-local basis if one has been set via
+    :func:`using_basis`, otherwise returns SI.
+
+    Returns
+    -------
+    Basis
+        The active basis for the current context.
+    """
     from ucon.basis.builtin import SI
     return _default_basis.get() or SI
 
 
 def get_basis_graph() -> BasisGraph:
-    """Get current basis graph (context-local or module default)."""
+    """Get the current basis graph.
+
+    Priority:
+
+    1. Context-local graph (from :func:`using_basis_graph`)
+    2. Module-level default graph (lazily built with standard transforms)
+
+    Returns
+    -------
+    BasisGraph
+        The active basis graph for the current context.
+    """
     global _default_basis_graph
     ctx_graph = _basis_graph_context.get()
     if ctx_graph is not None:
@@ -220,20 +240,44 @@ def get_basis_graph() -> BasisGraph:
 
 
 def set_default_basis_graph(graph: BasisGraph) -> None:
-    """Replace module-level default basis graph."""
+    """Replace the module-level default basis graph.
+
+    Parameters
+    ----------
+    graph : BasisGraph
+        The new default basis graph.
+    """
     global _default_basis_graph
     _default_basis_graph = graph
 
 
 def reset_default_basis_graph() -> None:
-    """Reset to standard basis graph on next access."""
+    """Reset to the standard basis graph on next access.
+
+    The standard graph (with SI, CGS, CGS-ESU, and NATURAL transforms)
+    is lazily rebuilt when :func:`get_basis_graph` is next called.
+    """
     global _default_basis_graph
     _default_basis_graph = None
 
 
 @contextmanager
 def using_basis(basis: Basis):
-    """Context manager for scoped basis override."""
+    """Context manager for scoped basis override.
+
+    Within the ``with`` block, :func:`get_default_basis` returns the
+    provided basis instead of SI. Thread-safe via ContextVar.
+
+    Parameters
+    ----------
+    basis : Basis
+        The basis to use within this context.
+
+    Yields
+    ------
+    Basis
+        The provided basis.
+    """
     token = _default_basis.set(basis)
     try:
         yield basis
@@ -243,7 +287,21 @@ def using_basis(basis: Basis):
 
 @contextmanager
 def using_basis_graph(graph: BasisGraph | None):
-    """Context manager for scoped basis graph override."""
+    """Context manager for scoped basis graph override.
+
+    Within the ``with`` block, :func:`get_basis_graph` returns the
+    provided graph. Thread-safe via ContextVar.
+
+    Parameters
+    ----------
+    graph : BasisGraph or None
+        The basis graph to use, or None to fall back to the module default.
+
+    Yields
+    ------
+    BasisGraph or None
+        The provided graph.
+    """
     token = _basis_graph_context.set(graph)
     try:
         yield graph

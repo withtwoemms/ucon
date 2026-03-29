@@ -50,14 +50,29 @@ parse("1.234 m ± 0.005 m") # <1.234 ± 0.005 m>
 ### Error Handling
 
 ```python
+from ucon.parsing import ParseError
+
 # Unknown unit
 parse("60 foobar")         # raises UnknownUnitError
 
 # Invalid number
-parse("abc m")             # raises ValueError
+parse("abc m")             # raises ParseError (subclass of ValueError)
 
 # Empty string
 parse("")                  # raises ValueError
+```
+
+### ParseError
+
+Raised when a quantity string cannot be parsed. Subclass of `ValueError`.
+
+```python
+from ucon.parsing import ParseError
+
+try:
+    parse("abc m")
+except ParseError as e:
+    print(e)  # parse error details
 ```
 
 ---
@@ -193,7 +208,7 @@ units.meter.is_compatible(units.second)  # False
 
 # Cross-basis — requires BasisGraph
 from ucon.basis import BasisGraph
-from ucon.bases import SI_TO_CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS_ESU
 
 bg = BasisGraph().with_transform(SI_TO_CGS_ESU)
 units.ampere.is_compatible(statampere, basis_graph=bg)  # True
@@ -489,7 +504,7 @@ result(12)  # 3.6576
 For units in different dimensional bases, use `basis_transform`:
 
 ```python
-from ucon.bases import SI_TO_CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS_ESU
 
 graph.add_edge(
     src=units.ampere,
@@ -529,6 +544,176 @@ from ucon.graph import using_graph
 with using_graph(my_graph):
     # Unit parsing uses my_graph for resolution
     value = convert(1, "custom_unit", "kg")
+```
+
+---
+
+## Maps
+
+Composable conversion morphisms used as edges in the ConversionGraph.
+
+```python
+from ucon.maps import Map, LinearMap, AffineMap, LogMap, ExpMap, ComposedMap
+```
+
+### Class Hierarchy
+
+| Class | Formula | Use Case |
+|-------|---------|----------|
+| `LinearMap(a)` | y = a * x | Most unit conversions (m -> ft, kg -> lb) |
+| `AffineMap(a, b)` | y = a * x + b | Temperature conversions (C -> F) |
+| `LogMap(scale, base, reference)` | y = scale * log(x/ref) + offset | Decibels, pH |
+| `ExpMap(scale, base, reference)` | y = ref * base^(scale*x + offset) | Inverse of LogMap |
+| `ComposedMap(outer, inner)` | y = outer(inner(x)) | Heterogeneous composition fallback |
+
+All maps are `@dataclass(frozen=True)` --- immutable and hashable.
+
+### Creating Maps
+
+```python
+from ucon.maps import LinearMap, AffineMap, LogMap
+
+# Linear: meters to feet
+m_to_ft = LinearMap(3.28084)
+m_to_ft(1.0)  # 3.28084
+
+# Affine: Celsius to Fahrenheit
+c_to_f = AffineMap(1.8, 32)
+c_to_f(100)  # 212.0
+
+# Logarithmic: watts to dBm
+w_to_dbm = LogMap(scale=10, reference=0.001)
+w_to_dbm(1.0)  # 30.0 (1 W = 30 dBm)
+
+# pH: concentration to pH
+conc_to_ph = LogMap(scale=-1)
+conc_to_ph(1e-7)  # 7.0
+```
+
+### Inverse
+
+Every map has an `inverse()` that returns the reverse conversion:
+
+```python
+ft_to_m = m_to_ft.inverse()
+ft_to_m(3.28084)  # ~1.0
+
+f_to_c = c_to_f.inverse()
+f_to_c(212)  # 100.0
+
+dbm_to_w = w_to_dbm.inverse()  # returns ExpMap
+dbm_to_w(30)  # 1.0
+```
+
+### Composition
+
+Maps compose via `@` (outer @ inner = apply inner first, then outer):
+
+```python
+# Chain: meters -> feet -> inches
+m_to_ft = LinearMap(3.28084)
+ft_to_in = LinearMap(12)
+m_to_in = ft_to_in @ m_to_ft
+m_to_in(1.0)  # ~39.37
+
+# Linear @ Linear stays Linear
+isinstance(m_to_in, LinearMap)  # True
+
+# Mixed types fall back to ComposedMap
+mixed = LogMap(scale=10) @ AffineMap(1, 5)
+isinstance(mixed, ComposedMap)  # True
+```
+
+### Derivative (Uncertainty Propagation)
+
+Maps provide `derivative(x)` for uncertainty propagation: `delta_y = |f'(x)| * delta_x`.
+
+```python
+m = LinearMap(3.28084)
+m.derivative(1.0)  # 3.28084 (constant for linear)
+
+log_m = LogMap(scale=10)
+log_m.derivative(100)  # 10 / (100 * ln(10)) ≈ 0.0434
+```
+
+---
+
+## Packages
+
+Load domain-specific units and conversions from TOML files.
+
+```python
+from ucon.packages import load_package, UnitPackage, UnitDef, EdgeDef, PackageLoadError
+```
+
+### TOML Schema
+
+```toml
+name = "aerospace"
+version = "1.0.0"
+description = "Aerospace and aviation units"
+
+[[units]]
+name = "slug"
+dimension = "mass"
+aliases = ["slug"]
+
+[[edges]]
+src = "slug"
+dst = "kilogram"
+factor = 14.5939
+```
+
+Edges support affine conversions for temperature-like units:
+
+```toml
+[[edges]]
+src = "celsius"
+dst = "fahrenheit"
+a = 1.8
+b = 32
+```
+
+### Loading
+
+```python
+from ucon.packages import load_package
+from ucon import get_default_graph
+
+package = load_package("aerospace.ucon.toml")
+print(package.name)     # "aerospace"
+print(package.units)    # (UnitDef(...), ...)
+print(package.edges)    # (EdgeDef(...), ...)
+
+# Apply to graph
+graph = get_default_graph().with_package(package)
+```
+
+### UnitDef and EdgeDef
+
+```python
+# UnitDef holds the declaration before materialization
+for unit_def in package.units:
+    print(unit_def.name)       # "slug"
+    print(unit_def.dimension)  # "mass"
+    print(unit_def.aliases)    # ["slug"]
+
+# EdgeDef holds the conversion specification
+for edge_def in package.edges:
+    print(edge_def.src)     # "slug"
+    print(edge_def.dst)     # "kilogram"
+    print(edge_def.factor)  # 14.5939
+```
+
+### Error Handling
+
+```python
+from ucon.packages import load_package, PackageLoadError
+
+try:
+    load_package("nonexistent.toml")
+except PackageLoadError as e:
+    print(e)  # file not found or invalid schema
 ```
 
 ---
@@ -632,7 +817,8 @@ For cross-basis conversions (e.g., SI ↔ CGS).
 
 ```python
 from ucon.basis import Basis, BasisGraph, BasisTransform
-from ucon.bases import SI, CGS, CGS_ESU, SI_TO_CGS, SI_TO_CGS_ESU
+from ucon.basis.builtin import SI, CGS, CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS, SI_TO_CGS_ESU
 ```
 
 ### Standard Bases
@@ -649,7 +835,7 @@ Track connectivity between bases:
 
 ```python
 from ucon.basis import BasisGraph
-from ucon.bases import SI_TO_CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS_ESU
 
 bg = BasisGraph()
 bg = bg.with_transform(SI_TO_CGS_ESU)
@@ -662,7 +848,7 @@ bg.are_connected(SI, CGS_ESU)  # True
 Matrix mapping dimension vectors between bases:
 
 ```python
-from ucon.bases import SI_TO_CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS_ESU
 
 # Transform a dimension vector
 si_current = units.ampere.dimension.vector

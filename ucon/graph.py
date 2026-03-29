@@ -814,13 +814,23 @@ def get_default_graph() -> ConversionGraph:
 
 
 def set_default_graph(graph: ConversionGraph) -> None:
-    """Replace the module-level default graph."""
+    """Replace the module-level default graph.
+
+    Parameters
+    ----------
+    graph : ConversionGraph
+        The new default conversion graph.
+    """
     global _default_graph
     _default_graph = graph
 
 
 def reset_default_graph() -> None:
-    """Reset to standard graph on next access."""
+    """Reset to the standard graph on next access.
+
+    The standard graph (with all built-in unit conversions) is lazily
+    rebuilt when :func:`get_default_graph` is next called.
+    """
     global _default_graph
     _default_graph = None
 
