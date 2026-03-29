@@ -225,10 +225,6 @@ each = Unit(name='each', dimension=COUNT, aliases=('ea', 'item', 'ct'))
 # ----------------------------------------------------------------------
 
 
-# Backward compatibility alias
-webers = weber
-
-
 # -- Predefined Unit Systems -----------------------------------------------
 si = UnitSystem(
     name="SI",
