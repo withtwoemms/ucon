@@ -62,6 +62,10 @@ nav:
     - Domain Walkthroughs:
       - guides/domain-walkthroughs/index.md
       - Nursing Dosage: guides/domain-walkthroughs/nursing-dosage.md
+      - Chemical Engineering: guides/domain-walkthroughs/chemical-engineering.md
+      - Aerospace: guides/domain-walkthroughs/aerospace.md
+      - Finance: guides/domain-walkthroughs/finance.md
+      - Electrical Engineering: guides/domain-walkthroughs/electrical-engineering.md
     - Domain-Specific Bases:
       - guides/domain-bases/index.md
       - Radiation Dosimetry: guides/domain-bases/radiation-dosimetry.md
