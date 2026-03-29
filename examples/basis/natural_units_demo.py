@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-ConstantAwareBasisTransform Demo: Natural Units
+ConstantBoundBasisTransform Demo: Natural Units
 
-Demonstrates how ConstantAwareBasisTransform enables inversion of non-square
+Demonstrates how ConstantBoundBasisTransform enables inversion of non-square
 transformation matrices by tracking physical constant bindings.
 
 Background:
@@ -13,7 +13,7 @@ energy dimension. This creates a non-square transform (8 SI dims -> 1 energy).
 
 A regular BasisTransform cannot invert a non-square matrix. But by recording
 which constants define each dimensional relationship (via ConstantBinding),
-ConstantAwareBasisTransform can compute the inverse.
+ConstantBoundBasisTransform can compute the inverse.
 
 Key concepts:
 - Non-square transformation matrices (e.g., 8x1)
@@ -28,7 +28,7 @@ from fractions import Fraction
 from ucon.basis import (
     Basis,
     BasisComponent,
-    ConstantAwareBasisTransform,
+    ConstantBoundBasisTransform,
     ConstantBinding,
     LossyProjection,
     Vector,
@@ -36,9 +36,9 @@ from ucon.basis import (
 
 
 def custom_example():
-    """Demonstrate building a custom ConstantAwareBasisTransform."""
+    """Demonstrate building a custom ConstantBoundBasisTransform."""
     print("=" * 70)
-    print("PART 1: Custom ConstantAwareBasisTransform")
+    print("PART 1: Custom ConstantBoundBasisTransform")
     print("=" * 70)
 
     # -------------------------------------------------------------------------
@@ -98,9 +98,9 @@ def custom_example():
               f"via {b.constant_symbol}^{b.exponent}")
 
     # -------------------------------------------------------------------------
-    # Create the ConstantAwareBasisTransform
+    # Create the ConstantBoundBasisTransform
     # -------------------------------------------------------------------------
-    transform = ConstantAwareBasisTransform(
+    transform = ConstantBoundBasisTransform(
         source=MECHANICS,
         target=ENERGY,
         matrix=(
@@ -190,7 +190,7 @@ def builtin_natural_units():
 
     print(f"\nSI basis: {len(SI)} components")
     print(f"NATURAL basis: {len(NATURAL)} component (energy only)")
-    print(f"\nSI_TO_NATURAL is a ConstantAwareBasisTransform:")
+    print(f"\nSI_TO_NATURAL is a ConstantBoundBasisTransform:")
     print(f"  Type: {type(SI_TO_NATURAL).__name__}")
     print(f"  Bindings: {len(SI_TO_NATURAL.bindings)}")
 
@@ -260,10 +260,10 @@ def builtin_natural_units():
 def main():
     """Run all demonstrations."""
     print("\n" + "=" * 70)
-    print("ConstantAwareBasisTransform Demonstration")
+    print("ConstantBoundBasisTransform Demonstration")
     print("=" * 70)
     print("""
-This demo shows how ConstantAwareBasisTransform enables inversion of
+This demo shows how ConstantBoundBasisTransform enables inversion of
 non-square transformation matrices by recording constant bindings.
 
 In particle physics natural units (c = h-bar = k_B = 1):

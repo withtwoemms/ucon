@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-ConstantAwareBasisTransform Demo: Geometrized Units (General Relativity)
+ConstantBoundBasisTransform Demo: Geometrized Units (General Relativity)
 
-Demonstrates creating a custom ConstantAwareBasisTransform for geometrized
+Demonstrates creating a custom ConstantBoundBasisTransform for geometrized
 units, commonly used in general relativity where G = c = 1.
 
 Background:
@@ -22,7 +22,7 @@ Key result: Everything is measured in lengths!
 
 This example shows:
   1. Creating a custom geometrized basis
-  2. Building a ConstantAwareBasisTransform from SI to geometrized
+  2. Building a ConstantBoundBasisTransform from SI to geometrized
   3. Transforming physical quantities
   4. Computing the inverse transform
   5. Verifying that the Schwarzschild radius formula simplifies
@@ -33,7 +33,7 @@ from fractions import Fraction
 from ucon.basis import (
     Basis,
     BasisComponent,
-    ConstantAwareBasisTransform,
+    ConstantBoundBasisTransform,
     ConstantBinding,
     Vector,
 )
@@ -49,7 +49,7 @@ The Schwarzschild radius formula:
 
   r_s = 2GM/c^2  (SI)  -->  r_s = 2M  (geometrized)
 
-This example builds a ConstantAwareBasisTransform for this system.
+This example builds a ConstantBoundBasisTransform for this system.
 """)
 
     # -------------------------------------------------------------------------
@@ -114,7 +114,7 @@ This example builds a ConstantAwareBasisTransform for this system.
     # Build the transform
     # -------------------------------------------------------------------------
     # Matrix: each SI dimension maps to L^1 in geometrized
-    SI_TO_GEOMETRIZED = ConstantAwareBasisTransform(
+    SI_TO_GEOMETRIZED = ConstantBoundBasisTransform(
         source=SI_MECH,
         target=GEOMETRIZED,
         matrix=(

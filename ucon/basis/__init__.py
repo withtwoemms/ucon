@@ -327,7 +327,7 @@ class NoTransformPath(Exception):
 # Re-export submodule symbols for convenience
 from ucon.basis.transforms import (  # noqa: E402
     BasisTransform,
-    ConstantAwareBasisTransform,
+    ConstantBoundBasisTransform,
     ConstantBinding,
 )
 from ucon.basis.graph import (  # noqa: E402

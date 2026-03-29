@@ -229,7 +229,7 @@ torsional_stiffness = Dimension(
 When you need SI compatibility:
 
 ```python
-MECHANICS_TO_SI = ConstantAwareBasisTransform(
+MECHANICS_TO_SI = ConstantBoundBasisTransform(
     source=MECHANICS,
     target=SI,
     matrix=(

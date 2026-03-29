@@ -8,7 +8,7 @@ Transform Types
 ---------------
 - BasisTransform: Linear map between dimensional bases via matrix multiplication
 - ConstantBinding: Binds a source dimension to a target expression via a physical constant
-- ConstantAwareBasisTransform: Transform with constants that enable inversion of non-square matrices
+- ConstantBoundBasisTransform: Transform with constants that enable inversion of non-square matrices
 
 Standard Transforms
 -------------------
@@ -375,12 +375,12 @@ class ConstantBinding:
 
 
 # -----------------------------------------------------------------------------
-# ConstantAwareBasisTransform
+# ConstantBoundBasisTransform
 # -----------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
-class ConstantAwareBasisTransform:
+class ConstantBoundBasisTransform:
     """A basis transform with constants that enable inversion of non-square matrices.
 
     Extends BasisTransform with explicit constant bindings that record which
@@ -402,7 +402,7 @@ class ConstantAwareBasisTransform:
     Examples
     --------
     >>> # SI (8 dimensions) → NATURAL (1 dimension) transform
-    >>> SI_TO_NATURAL = ConstantAwareBasisTransform(
+    >>> SI_TO_NATURAL = ConstantBoundBasisTransform(
     ...     source=SI,
     ...     target=NATURAL,
     ...     matrix=(...),  # 8×1 matrix
@@ -431,7 +431,7 @@ class ConstantAwareBasisTransform:
                 )
 
     def __repr__(self) -> str:
-        return f"ConstantAwareBasisTransform({self.source.name} -> {self.target.name})"
+        return f"ConstantBoundBasisTransform({self.source.name} -> {self.target.name})"
 
     def __call__(self, vector: Vector, *, allow_projection: bool = False) -> Vector:
         """Transform a vector from source basis to target basis.
@@ -476,7 +476,7 @@ class ConstantAwareBasisTransform:
 
         return Vector(self.target, tuple(result))
 
-    def inverse(self) -> "ConstantAwareBasisTransform":
+    def inverse(self) -> "ConstantBoundBasisTransform":
         """Compute the inverse transform using constant bindings.
 
         For each binding (src_component → target_expression via constant):
@@ -485,7 +485,7 @@ class ConstantAwareBasisTransform:
 
         Returns
         -------
-        ConstantAwareBasisTransform
+        ConstantBoundBasisTransform
             The inverse transform from target to source.
 
         Raises
@@ -502,7 +502,7 @@ class ConstantAwareBasisTransform:
         inv_matrix = self._compute_inverse_matrix()
         inv_bindings = self._invert_bindings()
 
-        return ConstantAwareBasisTransform(
+        return ConstantBoundBasisTransform(
             source=self.target,
             target=self.source,
             matrix=inv_matrix,
@@ -724,7 +724,7 @@ _NATURAL_BINDINGS = (
     ),
 )
 
-SI_TO_NATURAL = ConstantAwareBasisTransform(
+SI_TO_NATURAL = ConstantBoundBasisTransform(
     source=SI,
     target=NATURAL,
     matrix=(

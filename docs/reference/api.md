@@ -765,7 +765,7 @@ Support for natural units where physical constants c = h_bar = k_B = 1.
 
 ```python
 from ucon import NATURAL, SI_TO_NATURAL, NATURAL_TO_SI
-from ucon.basis import ConstantBinding, ConstantAwareBasisTransform
+from ucon.basis import ConstantBinding, ConstantBoundBasisTransform
 ```
 
 ### NATURAL Basis
@@ -895,15 +895,15 @@ binding.constant_symbol  # "h_bar_c"
 binding.exponent  # Fraction(1)
 ```
 
-### ConstantAwareBasisTransform
+### ConstantBoundBasisTransform
 
 Basis transform with bindings that enable inversion of non-square matrices:
 
 ```python
-from ucon import ConstantAwareBasisTransform
+from ucon import ConstantBoundBasisTransform
 
-# SI_TO_NATURAL is a ConstantAwareBasisTransform (8x1 matrix)
-isinstance(SI_TO_NATURAL, ConstantAwareBasisTransform)  # True
+# SI_TO_NATURAL is a ConstantBoundBasisTransform (8x1 matrix)
+isinstance(SI_TO_NATURAL, ConstantBoundBasisTransform)  # True
 
 # Inverse works despite non-square matrix
 NATURAL_TO_SI = SI_TO_NATURAL.inverse()

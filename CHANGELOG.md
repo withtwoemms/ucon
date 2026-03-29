@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ucon.basis` is now a subpackage (`ucon/basis/`) with four modules:
   - `ucon.basis` (`__init__.py`) — core types: `Basis`, `BasisComponent`, `Vector`, `LossyProjection`, `NoTransformPath`
   - `ucon.basis.builtin` — shipped basis instances: `SI`, `CGS`, `CGS_ESU`, `NATURAL`
-  - `ucon.basis.transforms` — transform types and instances: `BasisTransform`, `ConstantAwareBasisTransform`, `ConstantBinding`, `SI_TO_CGS`, `CGS_TO_SI`, `SI_TO_CGS_ESU`, `SI_TO_NATURAL`, `NATURAL_TO_SI`
+  - `ucon.basis.transforms` — transform types and instances: `BasisTransform`, `ConstantBoundBasisTransform`, `ConstantBinding`, `SI_TO_CGS`, `CGS_TO_SI`, `SI_TO_CGS_ESU`, `SI_TO_NATURAL`, `NATURAL_TO_SI`
   - `ucon.basis.graph` — registry and context scoping: `BasisGraph`, `get_default_basis()`, `get_basis_graph()`, `using_basis()`, `using_basis_graph()`
   - All symbols remain importable from `ucon.basis` and `ucon` via re-exports
 - Integration modules moved to `ucon.integrations` subpackage:
@@ -100,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Natural units support with `ConstantAwareBasisTransform` (#206)
+- Natural units support with `ConstantBoundBasisTransform` (#206)
   - `NATURAL` basis where c = ℏ = k_B = 1 (all quantities reduce to powers of energy)
   - `SI_TO_NATURAL` transform maps SI dimensions to natural units (e.g., velocity → dimensionless)
   - `NATURAL_TO_SI` inverse transform with constant bindings for reconstruction

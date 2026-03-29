@@ -60,7 +60,7 @@ Module reorganization for v1.0 API clarity:
 - `ucon.basis` is now a subpackage with four modules:
   - `ucon.basis` (`__init__`) — core types: `Basis`, `BasisComponent`, `Vector`, `LossyProjection`, `NoTransformPath`
   - `ucon.basis.builtin` — shipped basis instances: `SI`, `CGS`, `CGS_ESU`, `NATURAL`
-  - `ucon.basis.transforms` — transform types and instances: `BasisTransform`, `ConstantAwareBasisTransform`, `ConstantBinding`, `SI_TO_CGS`, `CGS_TO_SI`, `SI_TO_CGS_ESU`, `SI_TO_NATURAL`, `NATURAL_TO_SI`
+  - `ucon.basis.transforms` — transform types and instances: `BasisTransform`, `ConstantBoundBasisTransform`, `ConstantBinding`, `SI_TO_CGS`, `CGS_TO_SI`, `SI_TO_CGS_ESU`, `SI_TO_NATURAL`, `NATURAL_TO_SI`
   - `ucon.basis.graph` — registry and context scoping: `BasisGraph`, `get_default_basis()`, `get_basis_graph()`, `using_basis()`, `using_basis_graph()`
 - Integration modules moved to `ucon.integrations` subpackage:
   - `ucon.integrations.numpy` (`NumberArray`)
@@ -72,7 +72,7 @@ Module reorganization for v1.0 API clarity:
 - Package discovery changed from explicit list to `setuptools.packages.find`
 
 Previous versions include:
-- `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`, `ConstantAwareBasisTransform`)
+- `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`, `ConstantBoundBasisTransform`)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
 - `ucon.core` (`Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`, `UnitSystem`, `RebasedUnit`, `Exponent`)
 - `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`, `LogMap`, `ExpMap`)
@@ -95,7 +95,7 @@ Previous versions include:
 - Quantity string parsing: `parse("1.234 ± 0.005 m")` → `Number` with uncertainty
 - Physical constants: `Constant` class with CODATA 2022 values and uncertainty propagation
 - Logarithmic units: pH with concentration dimension, dBm, dBW, dBV, dBSPL
-- Natural units: `NATURAL` basis with c=ℏ=k_B=1, `ConstantAwareBasisTransform` for non-square transforms
+- Natural units: `NATURAL` basis with c=ℏ=k_B=1, `ConstantBoundBasisTransform` for non-square transforms
 - Namespace package support: `pkgutil.extend_path` enables coexistence with ucon-tools
 - NumPy array support: `units.meter([1, 2, 3])` → `NumberArray`
 - Vectorized conversion, arithmetic, uncertainty propagation through arrays
@@ -663,7 +663,7 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ### Natural Units
 
-- [x] `ConstantAwareBasisTransform` with `inverse()` for non-square transforms
+- [x] `ConstantBoundBasisTransform` with `inverse()` for non-square transforms
 - [x] `ConstantBinding` dataclass for tracking which constants absorb dimensions
 - [x] `NATURAL` basis with single energy dimension
 - [x] SI → NATURAL transform: T→E⁻¹, L→E⁻¹, M→E, Θ→E (via ℏ, c, k_B)

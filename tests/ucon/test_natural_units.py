@@ -13,7 +13,7 @@ import pytest
 
 from ucon.basis import (
     BasisComponent,
-    ConstantAwareBasisTransform,
+    ConstantBoundBasisTransform,
     ConstantBinding,
     LossyProjection,
     Vector,
@@ -108,8 +108,8 @@ class TestSIToNatural:
     """Tests for SI_TO_NATURAL transform."""
 
     def test_is_constant_aware_transform(self):
-        """GIVEN SI_TO_NATURAL, THEN it is a ConstantAwareBasisTransform."""
-        assert isinstance(SI_TO_NATURAL, ConstantAwareBasisTransform)
+        """GIVEN SI_TO_NATURAL, THEN it is a ConstantBoundBasisTransform."""
+        assert isinstance(SI_TO_NATURAL, ConstantBoundBasisTransform)
 
     def test_source_is_si(self):
         """GIVEN SI_TO_NATURAL, THEN source is SI basis."""
@@ -269,8 +269,8 @@ class TestNaturalToSI:
     """Tests for NATURAL_TO_SI inverse transform."""
 
     def test_is_constant_aware_transform(self):
-        """GIVEN NATURAL_TO_SI, THEN it is a ConstantAwareBasisTransform."""
-        assert isinstance(NATURAL_TO_SI, ConstantAwareBasisTransform)
+        """GIVEN NATURAL_TO_SI, THEN it is a ConstantBoundBasisTransform."""
+        assert isinstance(NATURAL_TO_SI, ConstantBoundBasisTransform)
 
     def test_source_is_natural(self):
         """GIVEN NATURAL_TO_SI, THEN source is NATURAL basis."""
@@ -402,12 +402,12 @@ class TestParticlePhysicsDimensions:
 
 
 # -----------------------------------------------------------------------------
-# ConstantAwareBasisTransform General Tests
+# ConstantBoundBasisTransform General Tests
 # -----------------------------------------------------------------------------
 
 
-class TestConstantAwareBasisTransform:
-    """General tests for ConstantAwareBasisTransform."""
+class TestConstantBoundBasisTransform:
+    """General tests for ConstantBoundBasisTransform."""
 
     def test_wrong_basis_raises(self):
         """GIVEN a vector in wrong basis, THEN ValueError raised."""
@@ -419,7 +419,7 @@ class TestConstantAwareBasisTransform:
     def test_matrix_dimension_validation(self):
         """GIVEN wrong matrix dimensions, THEN ValueError raised."""
         with pytest.raises(ValueError, match="Matrix has 2 rows"):
-            ConstantAwareBasisTransform(
+            ConstantBoundBasisTransform(
                 source=SI,  # 8 components
                 target=NATURAL,  # 1 component
                 matrix=(
@@ -430,7 +430,7 @@ class TestConstantAwareBasisTransform:
             )
 
     def test_as_basis_transform(self):
-        """GIVEN ConstantAwareBasisTransform, THEN as_basis_transform works."""
+        """GIVEN ConstantBoundBasisTransform, THEN as_basis_transform works."""
         from ucon.basis import BasisTransform
 
         plain = SI_TO_NATURAL.as_basis_transform()
@@ -440,6 +440,6 @@ class TestConstantAwareBasisTransform:
         assert plain.matrix == SI_TO_NATURAL.matrix
 
     def test_repr(self):
-        """GIVEN ConstantAwareBasisTransform, THEN repr is informative."""
+        """GIVEN ConstantBoundBasisTransform, THEN repr is informative."""
         assert "SI" in repr(SI_TO_NATURAL)
         assert "natural" in repr(SI_TO_NATURAL)
