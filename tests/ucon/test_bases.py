@@ -7,15 +7,9 @@ from fractions import Fraction
 
 import pytest
 
-from ucon.bases import (
-    CGS,
-    CGS_ESU,
-    CGS_TO_SI,
-    SI,
-    SI_TO_CGS,
-    SI_TO_CGS_ESU,
-)
 from ucon.basis import LossyProjection, Vector
+from ucon.basis.builtin import CGS, CGS_ESU, SI
+from ucon.basis.transforms import CGS_TO_SI, SI_TO_CGS, SI_TO_CGS_ESU
 
 
 # -----------------------------------------------------------------------------

@@ -24,7 +24,8 @@ from fractions import Fraction
 
 from ucon import Dimension, units
 from ucon.basis import BasisGraph, Vector
-from ucon.bases import CGS_ESU, SI_TO_CGS_ESU
+from ucon.basis.builtin import CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS_ESU
 from ucon.core import Unit
 from ucon.graph import ConversionGraph
 from ucon.maps import LinearMap

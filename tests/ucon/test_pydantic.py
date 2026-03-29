@@ -25,7 +25,7 @@ class TestPydanticIntegration(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.pydantic import Number
+            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -79,7 +79,7 @@ class TestPydanticSerialization(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.pydantic import Number
+            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -139,7 +139,7 @@ class TestPydanticRoundtrip(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.pydantic import Number
+            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -193,7 +193,7 @@ class TestPydanticScaledUnits(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.pydantic import Number
+            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -239,7 +239,7 @@ class TestPydanticCompositeUnits(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.pydantic import Number
+            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -309,7 +309,7 @@ class TestPydanticValidationErrors(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.pydantic import Number
+            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -353,7 +353,7 @@ class TestPydanticDimensionConstraints(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.pydantic import Number
+            from ucon.integrations.pydantic import Number
             from ucon.core import Dimension
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
@@ -424,7 +424,7 @@ class TestPydanticConstrainedNumber(unittest.TestCase):
         try:
             from pydantic import BaseModel, ValidationError
             from pydantic.functional_validators import AfterValidator
-            from ucon.pydantic import Number, constrained_number
+            from ucon.integrations.pydantic import Number, constrained_number
             from ucon.core import Dimension
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
@@ -474,7 +474,7 @@ class TestPydanticJsonSchema(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel
-            from ucon.pydantic import Number
+            from ucon.integrations.pydantic import Number
             from ucon.core import Dimension
             cls.BaseModel = BaseModel
             cls.Number = Number

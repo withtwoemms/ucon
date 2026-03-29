@@ -24,44 +24,44 @@ class TestNumberSeriesBasic(unittest.TestCase):
         self.second = units.second
 
     def test_create_from_series(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         s = pd.Series([1.0, 2.0, 3.0])
         ns = NumberSeries(s, unit=self.meter)
         self.assertEqual(len(ns), 3)
         self.assertEqual(ns.unit, self.meter)
 
     def test_create_from_list(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries([1.0, 2.0, 3.0], unit=self.meter)
         self.assertEqual(len(ns), 3)
         self.assertIsInstance(ns.series, pd.Series)
 
     def test_default_unit_is_dimensionless(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import _none
         ns = NumberSeries(pd.Series([1.0, 2.0]))
         self.assertEqual(ns.unit, _none)
 
     def test_uniform_uncertainty(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter, uncertainty=0.1)
         self.assertEqual(ns.uncertainty, 0.1)
 
     def test_per_element_uncertainty(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         unc = pd.Series([0.1, 0.2, 0.3])
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter, uncertainty=unc)
         pd.testing.assert_series_equal(ns.uncertainty, unc)
 
     def test_uncertainty_length_mismatch_raises(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         with self.assertRaises(ValueError) as ctx:
             NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter,
                         uncertainty=pd.Series([0.1, 0.2]))
         self.assertIn("length", str(ctx.exception))
 
     def test_index_property(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         idx = pd.Index(['a', 'b', 'c'])
         s = pd.Series([1.0, 2.0, 3.0], index=idx)
         ns = NumberSeries(s, unit=self.meter)
@@ -77,7 +77,7 @@ class TestNumberSeriesIndexing(unittest.TestCase):
         self.meter = units.meter
 
     def test_scalar_index_returns_number(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         elem = ns[0]
@@ -85,14 +85,14 @@ class TestNumberSeriesIndexing(unittest.TestCase):
         self.assertEqual(elem.quantity, 1.0)
 
     def test_slice_returns_numberseries(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0, 4.0]), unit=self.meter)
         sliced = ns[1:3]
         self.assertIsInstance(sliced, NumberSeries)
         self.assertEqual(len(sliced), 2)
 
     def test_label_index(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         s = pd.Series([1.0, 2.0, 3.0], index=['a', 'b', 'c'])
         ns = NumberSeries(s, unit=self.meter)
@@ -101,7 +101,7 @@ class TestNumberSeriesIndexing(unittest.TestCase):
         self.assertEqual(elem.quantity, 2.0)
 
     def test_iteration_yields_numbers(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         elements = list(ns)
@@ -120,7 +120,7 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         self.second = units.second
 
     def test_multiply_by_scalar(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         result = ns * 2
         pd.testing.assert_series_equal(
@@ -129,13 +129,13 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         self.assertEqual(result.unit, self.meter)
 
     def test_multiply_by_scalar_with_uncertainty(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter, uncertainty=0.1)
         result = ns * 2
         self.assertEqual(result.uncertainty, 0.2)
 
     def test_rmul(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         result = 2 * ns
         pd.testing.assert_series_equal(
@@ -143,7 +143,7 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         )
 
     def test_divide_by_scalar(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([2.0, 4.0, 6.0]), unit=self.meter)
         result = ns / 2
         pd.testing.assert_series_equal(
@@ -151,7 +151,7 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         )
 
     def test_multiply_numberseries(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter)
         b = NumberSeries(pd.Series([3.0, 4.0]), unit=self.second)
         result = a * b
@@ -160,7 +160,7 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         )
 
     def test_multiply_length_mismatch(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         b = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter)
         with self.assertRaises(ValueError) as ctx:
@@ -168,7 +168,7 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         self.assertIn("Length mismatch", str(ctx.exception))
 
     def test_add_same_unit(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter)
         b = NumberSeries(pd.Series([0.5, 0.5]), unit=self.meter)
         result = a + b
@@ -177,7 +177,7 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         )
 
     def test_add_different_unit_raises(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter)
         b = NumberSeries(pd.Series([1.0, 2.0]), unit=self.second)
         with self.assertRaises(ValueError) as ctx:
@@ -185,7 +185,7 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         self.assertIn("different units", str(ctx.exception))
 
     def test_subtract(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([3.0, 4.0]), unit=self.meter)
         b = NumberSeries(pd.Series([1.0, 1.0]), unit=self.meter)
         result = a - b
@@ -194,7 +194,7 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         )
 
     def test_negation(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, -2.0, 3.0]), unit=self.meter)
         result = -ns
         pd.testing.assert_series_equal(
@@ -202,7 +202,7 @@ class TestNumberSeriesArithmetic(unittest.TestCase):
         )
 
     def test_abs(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([-1.0, 2.0, -3.0]), unit=self.meter)
         result = abs(ns)
         pd.testing.assert_series_equal(
@@ -221,7 +221,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_divide_by_number(self):
         """Test NumberSeries / Number."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([10.0, 20.0, 30.0]), unit=self.meter)
         n = Number(quantity=2.0, unit=self.second)
@@ -232,7 +232,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_divide_by_number_with_uncertainty(self):
         """Test NumberSeries / Number with uncertainty."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([10.0, 20.0]), unit=self.meter, uncertainty=1.0)
         n = Number(quantity=2.0, unit=self.second, uncertainty=0.1)
@@ -241,7 +241,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_divide_numberseries_with_uncertainty(self):
         """Test NumberSeries / NumberSeries with uncertainty."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([10.0, 20.0]), unit=self.meter, uncertainty=1.0)
         b = NumberSeries(pd.Series([2.0, 4.0]), unit=self.second, uncertainty=0.1)
         result = a / b
@@ -249,7 +249,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_add_number(self):
         """Test NumberSeries + Number."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=10.0, unit=self.meter)
@@ -260,7 +260,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_add_number_with_uncertainty(self):
         """Test NumberSeries + Number with uncertainty."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter, uncertainty=0.1)
         n = Number(quantity=10.0, unit=self.meter, uncertainty=0.2)
@@ -270,7 +270,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_sub_number(self):
         """Test NumberSeries - Number."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([10.0, 20.0, 30.0]), unit=self.meter)
         n = Number(quantity=5.0, unit=self.meter)
@@ -281,7 +281,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_multiply_by_number(self):
         """Test NumberSeries * Number."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=2.0, unit=self.second)
@@ -292,7 +292,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_multiply_by_number_with_uncertainty(self):
         """Test NumberSeries * Number with uncertainty."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([10.0, 20.0]), unit=self.meter, uncertainty=1.0)
         n = Number(quantity=2.0, unit=self.second, uncertainty=0.1)
@@ -301,7 +301,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_divide_numberseries_length_mismatch(self):
         """Test division with length mismatch."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         b = NumberSeries(pd.Series([1.0, 2.0]), unit=self.second)
         with self.assertRaises(ValueError) as ctx:
@@ -310,7 +310,7 @@ class TestNumberSeriesArithmeticExtended(unittest.TestCase):
 
     def test_add_length_mismatch(self):
         """Test addition with length mismatch."""
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         b = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter)
         with self.assertRaises(ValueError) as ctx:
@@ -330,7 +330,7 @@ class TestNumberSeriesConversion(unittest.TestCase):
         self.kilometer = Scale.kilo * units.meter
 
     def test_scale_only_conversion(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.kilometer)
         result = ns.to(self.meter)
         pd.testing.assert_series_equal(
@@ -339,13 +339,13 @@ class TestNumberSeriesConversion(unittest.TestCase):
         self.assertEqual(result.unit, self.meter)
 
     def test_conversion_with_uncertainty(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0]), unit=self.kilometer, uncertainty=0.1)
         result = ns.to(self.meter)
         self.assertAlmostEqual(result.uncertainty, 100.0)
 
     def test_graph_based_conversion(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         result = ns.to(self.foot)
         # 1 meter ~ 3.28084 feet
@@ -365,13 +365,13 @@ class TestNumberSeriesComparison(unittest.TestCase):
         self.second = units.second
 
     def test_eq_with_scalar(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         result = ns == 2.0
         pd.testing.assert_series_equal(result, pd.Series([False, True, False]))
 
     def test_eq_with_number(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
@@ -379,44 +379,44 @@ class TestNumberSeriesComparison(unittest.TestCase):
         pd.testing.assert_series_equal(result, pd.Series([False, True, False]))
 
     def test_eq_with_numberseries(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         b = NumberSeries(pd.Series([1.0, 5.0, 3.0]), unit=self.meter)
         result = a == b
         pd.testing.assert_series_equal(result, pd.Series([True, False, True]))
 
     def test_ne_with_scalar(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         result = ns != 2.0
         pd.testing.assert_series_equal(result, pd.Series([True, False, True]))
 
     def test_lt_with_scalar(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         result = ns < 2.0
         pd.testing.assert_series_equal(result, pd.Series([True, False, False]))
 
     def test_le_with_scalar(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         result = ns <= 2.0
         pd.testing.assert_series_equal(result, pd.Series([True, True, False]))
 
     def test_gt_with_scalar(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         result = ns > 2.0
         pd.testing.assert_series_equal(result, pd.Series([False, False, True]))
 
     def test_ge_with_scalar(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         result = ns >= 2.0
         pd.testing.assert_series_equal(result, pd.Series([False, True, True]))
 
     def test_comparison_different_unit_raises(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         a = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter)
         b = NumberSeries(pd.Series([1.0, 2.0]), unit=self.second)
         with self.assertRaises(ValueError) as ctx:
@@ -424,7 +424,7 @@ class TestNumberSeriesComparison(unittest.TestCase):
         self.assertIn("different units", str(ctx.exception))
 
     def test_comparison_for_filtering(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0, 4.0, 5.0]), unit=self.meter)
         mask = ns > 2.5
         filtered = ns.series[mask]
@@ -443,7 +443,7 @@ class TestNumberSeriesReductions(unittest.TestCase):
         self.meter = units.meter
 
     def test_sum(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0, 4.0]), unit=self.meter)
         total = ns.sum()
@@ -452,13 +452,13 @@ class TestNumberSeriesReductions(unittest.TestCase):
         self.assertEqual(total.unit, self.meter)
 
     def test_sum_with_uncertainty(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0, 4.0]), unit=self.meter, uncertainty=0.1)
         total = ns.sum()
         self.assertAlmostEqual(total.uncertainty, 0.1 * math.sqrt(4))
 
     def test_mean(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         from ucon.core import Number
         ns = NumberSeries(pd.Series([2.0, 4.0, 6.0]), unit=self.meter)
         avg = ns.mean()
@@ -466,20 +466,20 @@ class TestNumberSeriesReductions(unittest.TestCase):
         self.assertEqual(avg.quantity, 4.0)
 
     def test_mean_with_uncertainty(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0, 4.0]), unit=self.meter, uncertainty=0.2)
         avg = ns.mean()
         self.assertAlmostEqual(avg.uncertainty, 0.2 / math.sqrt(4))
 
     def test_std(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([2.0, 4.0, 6.0, 8.0]), unit=self.meter)
         s = ns.std()
         expected = pd.Series([2.0, 4.0, 6.0, 8.0]).std()
         self.assertAlmostEqual(s.quantity, expected)
 
     def test_min_max(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([3.0, 1.0, 4.0, 1.0, 5.0]), unit=self.meter)
         self.assertEqual(ns.min().quantity, 1.0)
         self.assertEqual(ns.max().quantity, 5.0)
@@ -494,20 +494,20 @@ class TestNumberSeriesRepr(unittest.TestCase):
         self.meter = units.meter
 
     def test_small_series_repr(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         s = repr(ns)
         self.assertIn("NumberSeries", s)
         self.assertIn("m", s)
 
     def test_large_series_truncation(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series(range(100)), unit=self.meter)
         s = repr(ns)
         self.assertIn("...", s)
 
     def test_repr_with_uncertainty(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0]), unit=self.meter, uncertainty=0.1)
         s = repr(ns)
         self.assertIn("\u00b1", s)
@@ -523,27 +523,27 @@ class TestUconSeriesAccessor(unittest.TestCase):
         self.foot = units.foot
 
     def test_accessor_with_unit(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         s = pd.Series([1.7, 1.8, 1.9])
         ns = s.ucon.with_unit(self.meter)
         self.assertIsInstance(ns, NumberSeries)
         self.assertEqual(ns.unit, self.meter)
 
     def test_accessor_callable(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         s = pd.Series([1.7, 1.8, 1.9])
         ns = s.ucon(self.meter)
         self.assertIsInstance(ns, NumberSeries)
         self.assertEqual(ns.unit, self.meter)
 
     def test_accessor_with_uncertainty(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         s = pd.Series([1.7, 1.8, 1.9])
         ns = s.ucon.with_unit(self.meter, uncertainty=0.01)
         self.assertEqual(ns.uncertainty, 0.01)
 
     def test_accessor_conversion_chain(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         s = pd.Series([1.0, 2.0, 3.0])
         result = s.ucon(self.meter).to(self.foot)
         self.assertIsInstance(result, NumberSeries)
@@ -561,7 +561,7 @@ class TestNumberSeriesToFrame(unittest.TestCase):
         self.meter = units.meter
 
     def test_to_frame_default_name(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         df = ns.to_frame()
         self.assertIsInstance(df, pd.DataFrame)
@@ -569,7 +569,7 @@ class TestNumberSeriesToFrame(unittest.TestCase):
         self.assertIn('m', df.columns[0])
 
     def test_to_frame_custom_name(self):
-        from ucon.pandas import NumberSeries
+        from ucon.integrations.pandas import NumberSeries
         ns = NumberSeries(pd.Series([1.0, 2.0, 3.0]), unit=self.meter)
         df = ns.to_frame(name='height')
         self.assertEqual(df.columns[0], 'height')

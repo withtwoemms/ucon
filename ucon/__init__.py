@@ -60,13 +60,15 @@ from ucon.basis import (
     using_basis,
     using_basis_graph,
 )
-from ucon.bases import (
+from ucon.basis.builtin import (
     CGS,
     CGS_ESU,
-    CGS_TO_SI,
     NATURAL,
-    NATURAL_TO_SI,
     SI,
+)
+from ucon.basis.transforms import (
+    CGS_TO_SI,
+    NATURAL_TO_SI,
     SI_TO_CGS,
     SI_TO_CGS_ESU,
     SI_TO_NATURAL,
