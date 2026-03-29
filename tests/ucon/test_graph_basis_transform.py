@@ -17,7 +17,7 @@ from ucon.core import RebasedUnit, Unit
 from ucon.graph import ConversionGraph
 from ucon.maps import LinearMap
 from ucon import Dimension, units
-from ucon.bases import SI
+from ucon.basis.builtin import SI
 
 
 class TestGraphAddEdgeWithBasisTransform(unittest.TestCase):
@@ -171,7 +171,8 @@ class TestUnitIsCompatible(unittest.TestCase):
     def test_cross_basis_compatible_when_connected(self):
         # Create two connected bases
         from ucon.basis import BasisGraph, BasisTransform
-        from ucon.bases import SI, CGS, SI_TO_CGS
+        from ucon.basis.builtin import SI, CGS
+        from ucon.basis.transforms import SI_TO_CGS
 
         bg = BasisGraph()
         bg = bg.with_transform(SI_TO_CGS)

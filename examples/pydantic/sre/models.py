@@ -20,7 +20,7 @@ from pydantic import BaseModel, model_validator
 from pydantic.functional_validators import AfterValidator
 
 from ucon import Dimension, Number, Scale, units
-from ucon.pydantic import constrained_number
+from ucon.integrations.pydantic import constrained_number
 
 
 # Define millisecond for convenience

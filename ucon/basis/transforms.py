@@ -2,320 +2,29 @@
 # Licensed under the Apache License, Version 2.0
 
 """
-Basis abstraction for user-definable dimensional coordinate systems.
+Basis transform types and standard transform instances.
 
-This module provides the foundation for representing dimensions in arbitrary
-bases (SI, CGS, CGS-ESU, natural units, custom domains) without hardcoding
-to a specific set of components.
+Transform Types
+---------------
+- BasisTransform: Linear map between dimensional bases via matrix multiplication
+- ConstantBinding: Binds a source dimension to a target expression via a physical constant
+- ConstantAwareBasisTransform: Transform with constants that enable inversion of non-square matrices
+
+Standard Transforms
+-------------------
+- SI_TO_CGS: Projects SI to CGS (drops current, temperature, amount, luminosity, information)
+- SI_TO_CGS_ESU: Maps SI to CGS-ESU (current becomes derived dimension)
+- CGS_TO_SI: Embedding from CGS back to SI
+- SI_TO_NATURAL: Maps SI to natural units via physical constants
+- NATURAL_TO_SI: Inverse of SI_TO_NATURAL
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import TYPE_CHECKING, Iterator, Sequence
 
-if TYPE_CHECKING:
-    pass  # Vector will be added in Phase 2
-
-
-@dataclass(frozen=True)
-class BasisComponent:
-    """An atomic generator of a dimensional basis.
-
-    A BasisComponent represents a single independent dimension in a basis,
-    such as "length", "mass", or "time" in SI, or custom dimensions like
-    "mana" or "gold" in a game domain.
-
-    Args:
-        name: The canonical name of the component (e.g., "length").
-        symbol: Optional short symbol (e.g., "L"). If None, name is used.
-
-    Examples:
-        >>> length = BasisComponent("length", "L")
-        >>> str(length)
-        'L'
-        >>> mass = BasisComponent("mass")
-        >>> str(mass)
-        'mass'
-    """
-
-    name: str
-    symbol: str | None = None
-
-    def __str__(self) -> str:
-        return self.symbol if self.symbol is not None else self.name
-
-
-class Basis:
-    """An ordered collection of basis components defining a coordinate system.
-
-    A Basis defines the dimensional coordinate system for a set of units.
-    Components are indexed by both name and symbol for flexible lookup.
-
-    Args:
-        name: A descriptive name for the basis (e.g., "SI", "CGS", "Mechanics").
-        components: Sequence of component names (str) or BasisComponent objects.
-
-    Raises:
-        ValueError: If component names or symbols collide.
-
-    Examples:
-        >>> mechanics = Basis("Mechanics", ["length", "mass", "time"])
-        >>> len(mechanics)
-        3
-        >>> "length" in mechanics
-        True
-        >>> mechanics.index("length")
-        0
-
-        >>> si = Basis("SI", [
-        ...     BasisComponent("length", "L"),
-        ...     BasisComponent("mass", "M"),
-        ...     BasisComponent("time", "T"),
-        ... ])
-        >>> "L" in si
-        True
-        >>> si.index("L")
-        0
-    """
-
-    __slots__ = ("_name", "_components", "_index")
-
-    def __init__(self, name: str, components: Sequence[str | BasisComponent]) -> None:
-        self._name = name
-
-        # Normalize strings to BasisComponent
-        normalized: list[BasisComponent] = []
-        for c in components:
-            if isinstance(c, BasisComponent):
-                normalized.append(c)
-            else:
-                normalized.append(BasisComponent(c))
-
-        self._components: tuple[BasisComponent, ...] = tuple(normalized)
-
-        # Build index with collision detection
-        index: dict[str, int] = {}
-        for i, comp in enumerate(self._components):
-            # Check name collision
-            if comp.name in index:
-                raise ValueError(
-                    f"Basis '{name}': component name '{comp.name}' "
-                    f"conflicts with existing entry"
-                )
-            index[comp.name] = i
-
-            # Check symbol collision (if symbol differs from name)
-            if comp.symbol is not None and comp.symbol != comp.name:
-                if comp.symbol in index:
-                    raise ValueError(
-                        f"Basis '{name}': symbol '{comp.symbol}' "
-                        f"conflicts with existing name or symbol"
-                    )
-                index[comp.symbol] = i
-
-        self._index: dict[str, int] = index
-
-    @property
-    def name(self) -> str:
-        """The descriptive name of this basis."""
-        return self._name
-
-    @property
-    def component_names(self) -> tuple[str, ...]:
-        """Tuple of component names in order."""
-        return tuple(c.name for c in self._components)
-
-    def __len__(self) -> int:
-        return len(self._components)
-
-    def __iter__(self) -> Iterator[BasisComponent]:
-        return iter(self._components)
-
-    def __contains__(self, name: str) -> bool:
-        return name in self._index
-
-    def __getitem__(self, index: int) -> BasisComponent:
-        return self._components[index]
-
-    def index(self, name: str) -> int:
-        """Return the index of a component by name or symbol.
-
-        Args:
-            name: Component name or symbol to look up.
-
-        Returns:
-            The zero-based index of the component.
-
-        Raises:
-            KeyError: If name/symbol is not found in this basis.
-        """
-        if name not in self._index:
-            raise KeyError(f"'{name}' not found in basis '{self._name}'")
-        return self._index[name]
-
-    def __repr__(self) -> str:
-        return f"Basis({self._name!r}, {list(self.component_names)})"
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Basis):
-            return NotImplemented
-        return self._name == other._name and self._components == other._components
-
-    def __hash__(self) -> int:
-        return hash((self._name, self._components))
-
-    def zero_vector(self) -> "Vector":
-        """Create a zero vector in this basis.
-
-        Returns:
-            A Vector with all components set to Fraction(0).
-        """
-        return Vector(self, tuple(Fraction(0) for _ in self._components))
-
-
-@dataclass(frozen=True)
-class Vector:
-    """A dimensional exponent vector tied to a specific basis.
-
-    Vector represents a point in dimensional space, where each component
-    is the exponent of the corresponding basis component. For example,
-    velocity (length/time) in SI would be Vector(SI, (1, 0, -1, 0, 0, 0, 0, 0)).
-
-    Args:
-        basis: The Basis this vector belongs to.
-        components: Tuple of Fraction exponents, one per basis component.
-
-    Raises:
-        ValueError: If components length doesn't match basis length.
-    """
-
-    basis: Basis
-    components: tuple[Fraction, ...]
-
-    def __post_init__(self) -> None:
-        if len(self.components) != len(self.basis):
-            raise ValueError(
-                f"Vector has {len(self.components)} components but "
-                f"basis '{self.basis.name}' has {len(self.basis)}"
-            )
-
-    def __getitem__(self, key: str | int) -> Fraction:
-        """Get a component by name, symbol, or index.
-
-        Args:
-            key: Component name, symbol, or integer index.
-
-        Returns:
-            The Fraction exponent for that component.
-        """
-        if isinstance(key, int):
-            return self.components[key]
-        return self.components[self.basis.index(key)]
-
-    def __repr__(self) -> str:
-        parts = []
-        for comp, exp in zip(self.basis, self.components):
-            if exp != 0:
-                parts.append(f"{comp.name}={exp}")
-        if not parts:
-            return f"Vector({self.basis.name}, dimensionless)"
-        return f"Vector({self.basis.name}, {', '.join(parts)})"
-
-    def is_dimensionless(self) -> bool:
-        """Return True if all exponents are zero."""
-        return all(c == 0 for c in self.components)
-
-    def __mul__(self, other: "Vector") -> "Vector":
-        """Multiply dimensions (add exponents)."""
-        if self.basis != other.basis:
-            raise ValueError(
-                f"Cannot multiply vectors from different bases: "
-                f"'{self.basis.name}' and '{other.basis.name}'"
-            )
-        return Vector(
-            self.basis,
-            tuple(a + b for a, b in zip(self.components, other.components)),
-        )
-
-    def __truediv__(self, other: "Vector") -> "Vector":
-        """Divide dimensions (subtract exponents)."""
-        if self.basis != other.basis:
-            raise ValueError(
-                f"Cannot divide vectors from different bases: "
-                f"'{self.basis.name}' and '{other.basis.name}'"
-            )
-        return Vector(
-            self.basis,
-            tuple(a - b for a, b in zip(self.components, other.components)),
-        )
-
-    def __pow__(self, exponent: int | Fraction) -> "Vector":
-        """Raise dimension to a power (multiply all exponents)."""
-        exp = Fraction(exponent)
-        return Vector(
-            self.basis,
-            tuple(c * exp for c in self.components),
-        )
-
-    def __neg__(self) -> "Vector":
-        """Negate all exponents (reciprocal dimension)."""
-        return Vector(
-            self.basis,
-            tuple(-c for c in self.components),
-        )
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Vector):
-            return NotImplemented
-        return self.basis == other.basis and self.components == other.components
-
-    def __hash__(self) -> int:
-        return hash((self.basis, self.components))
-
-
-# -----------------------------------------------------------------------------
-# Exceptions
-# -----------------------------------------------------------------------------
-
-
-class LossyProjection(Exception):
-    """Raised when a basis transform would discard dimensional information.
-
-    This occurs when a source component has a non-zero exponent but maps
-    entirely to zeros in the target basis (e.g., SI current -> CGS).
-    """
-
-    def __init__(
-        self,
-        component: BasisComponent,
-        source: Basis,
-        target: Basis,
-    ) -> None:
-        self.component = component
-        self.source = source
-        self.target = target
-        super().__init__(
-            f"Cannot transform {source.name} -> {target.name}: "
-            f"component '{component.name}' has no representation in {target.name}.\n\n"
-            f"Suggestions:\n"
-            f"  - Use a richer target basis that includes '{component.name}'\n"
-            f"  - For same-basis unit conversion, use graph.convert() directly\n"
-            f"  - To proceed with loss: transform(v, allow_projection=True)"
-        )
-
-
-class NoTransformPath(Exception):
-    """Raised when no path exists between two bases in a BasisGraph."""
-
-    def __init__(self, source: Basis, target: Basis) -> None:
-        self.source = source
-        self.target = target
-        super().__init__(
-            f"No transform path from '{source.name}' to '{target.name}'. "
-            f"These are isolated dimensional systems."
-        )
+from ucon.basis import Basis, BasisComponent, Vector, LossyProjection
 
 
 # -----------------------------------------------------------------------------
@@ -901,242 +610,163 @@ class ConstantAwareBasisTransform:
 
 
 # -----------------------------------------------------------------------------
-# BasisGraph
+# Standard Transforms
 # -----------------------------------------------------------------------------
 
+from ucon.basis.builtin import SI, CGS, CGS_ESU, NATURAL  # noqa: E402
 
-class BasisGraph:
-    """Graph of basis transforms with path-finding and composition.
+SI_TO_CGS = BasisTransform(
+    SI,
+    CGS,
+    (
+        # SI order: T, L, M, I, Θ, J, N, B
+        # CGS order: L, M, T
+        (Fraction(0), Fraction(0), Fraction(1)),  # T -> T (column 2 in CGS)
+        (Fraction(1), Fraction(0), Fraction(0)),  # L -> L (column 0 in CGS)
+        (Fraction(0), Fraction(1), Fraction(0)),  # M -> M (column 1 in CGS)
+        (Fraction(0), Fraction(0), Fraction(0)),  # I -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0)),  # Θ -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0)),  # J -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0)),  # N -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0)),  # B -> (not representable)
+    ),
+)
+"""Transform from SI to CGS.
 
-    Nodes are Basis objects (dimensional coordinate systems).
-    Edges are BasisTransform objects.
-    Path-finding composes transforms transitively.
+Projects SI dimensions to CGS by preserving length, mass, and time,
+and dropping current, temperature, luminous_intensity, amount_of_substance,
+and information.
 
-    Examples:
-        >>> graph = BasisGraph()
-        >>> graph.add_transform(SI_TO_CGS)
-        >>> graph.add_transform(CGS_TO_CGS_ESU)
-        >>> # Transitive composition: SI -> CGS -> CGS-ESU
-        >>> transform = graph.get_transform(SI, CGS_ESU)
-    """
+Warning: This is a lossy projection. Attempting to transform a vector
+with non-zero current (or other dropped components) will raise
+LossyProjection unless allow_projection=True.
+"""
 
-    def __init__(self) -> None:
-        self._edges: dict[Basis, dict[Basis, BasisTransform]] = {}
-        self._cache: dict[tuple[Basis, Basis], BasisTransform] = {}
+SI_TO_CGS_ESU = BasisTransform(
+    SI,
+    CGS_ESU,
+    (
+        # SI order: T, L, M, I, Θ, J, N, B
+        # CGS_ESU order: L, M, T, Q
+        (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),  # T -> T (column 2 in CGS_ESU)
+        (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),  # L -> L (column 0 in CGS_ESU)
+        (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),  # M -> M (column 1 in CGS_ESU)
+        # I -> L^(3/2) M^(1/2) T^(-2) (current as derived dimension)
+        # In ESU: 1 statampere = 1 statcoulomb/s = 1 g^(1/2) cm^(3/2) s^(-2)
+        (Fraction(3, 2), Fraction(1, 2), Fraction(-2), Fraction(0)),
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # Θ -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # J -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # N -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # B -> (not representable)
+    ),
+)
+"""Transform from SI to CGS-ESU.
 
-    def add_transform(self, transform: BasisTransform) -> None:
-        """Register a transform. Does NOT auto-register inverse.
+Maps SI dimensions to CGS-ESU. Current (I) becomes a derived dimension
+expressed as L^(3/2) M^(1/2) T^(-2), which is the dimensional formula
+for charge/time in the ESU system.
 
-        Args:
-            transform: The transform to register.
-        """
-        if transform.source not in self._edges:
-            self._edges[transform.source] = {}
-        self._edges[transform.source][transform.target] = transform
-        self._cache.clear()  # Invalidate composed transforms
-
-    def add_transform_pair(
-        self,
-        forward: BasisTransform,
-        reverse: BasisTransform,
-    ) -> None:
-        """Register bidirectional transforms (e.g., projection + embedding).
-
-        Args:
-            forward: Transform A -> B.
-            reverse: Transform B -> A.
-        """
-        self.add_transform(forward)
-        self.add_transform(reverse)
-
-    def get_transform(self, source: Basis, target: Basis) -> BasisTransform:
-        """Find or compose a transform between bases.
-
-        Args:
-            source: The source basis.
-            target: The target basis.
-
-        Returns:
-            A BasisTransform from source to target.
-
-        Raises:
-            NoTransformPath: If no path exists between the bases.
-        """
-        if source == target:
-            return BasisTransform.identity(source)
-
-        cache_key = (source, target)
-        if cache_key in self._cache:
-            return self._cache[cache_key]
-
-        path = self._find_path(source, target)
-        if path is None:
-            raise NoTransformPath(source, target)
-
-        composed = self._compose_path(path)
-        self._cache[cache_key] = composed
-        return composed
-
-    def _find_path(
-        self,
-        source: Basis,
-        target: Basis,
-    ) -> list[BasisTransform] | None:
-        """BFS to find shortest transform path."""
-        from collections import deque
-
-        if source not in self._edges:
-            return None
-
-        queue: deque[tuple[Basis, list[BasisTransform]]] = deque([(source, [])])
-        visited: set[Basis] = {source}
-
-        while queue:
-            current, path = queue.popleft()
-            if current not in self._edges:
-                continue
-
-            for next_basis, transform in self._edges[current].items():
-                if next_basis == target:
-                    return path + [transform]
-                if next_basis not in visited:
-                    visited.add(next_basis)
-                    queue.append((next_basis, path + [transform]))
-
-        return None
-
-    def _compose_path(self, path: list[BasisTransform]) -> BasisTransform:
-        """Compose transforms along path via matrix multiplication."""
-        result = path[0]
-        for transform in path[1:]:
-            result = transform @ result
-        return result
-
-    def are_connected(self, a: Basis, b: Basis) -> bool:
-        """Check if two bases can interoperate.
-
-        Args:
-            a: First basis.
-            b: Second basis.
-
-        Returns:
-            True if a path exists between the bases.
-        """
-        if a == b:
-            return True
-        return self._find_path(a, b) is not None
-
-    def reachable_from(self, basis: Basis) -> set[Basis]:
-        """Return all bases reachable from the given basis.
-
-        Args:
-            basis: The starting basis.
-
-        Returns:
-            Set of all bases reachable via transforms.
-        """
-        reachable: set[Basis] = {basis}
-        frontier: list[Basis] = [basis]
-
-        while frontier:
-            current = frontier.pop()
-            if current not in self._edges:
-                continue
-            for next_basis in self._edges[current]:
-                if next_basis not in reachable:
-                    reachable.add(next_basis)
-                    frontier.append(next_basis)
-
-        return reachable
-
-    def with_transform(self, transform: BasisTransform) -> "BasisGraph":
-        """Return a new graph with an additional transform (copy-on-extend).
-
-        Args:
-            transform: The transform to add.
-
-        Returns:
-            A new BasisGraph with the additional transform.
-        """
-        new_graph = BasisGraph()
-        # Deep copy edges
-        for src, targets in self._edges.items():
-            new_graph._edges[src] = dict(targets)
-        new_graph.add_transform(transform)
-        return new_graph
-
-    def __repr__(self) -> str:
-        edge_count = sum(len(targets) for targets in self._edges.values())
-        basis_count = len(self._edges)
-        return f"BasisGraph({basis_count} bases, {edge_count} transforms)"
+Temperature, luminous_intensity, amount_of_substance, and information
+are not representable in CGS-ESU and will raise LossyProjection if non-zero.
+"""
 
 
 # -----------------------------------------------------------------------------
-# Basis Context Scoping (v0.8.4)
+# Embedding transforms (reverse mappings where valid)
 # -----------------------------------------------------------------------------
 
-from contextvars import ContextVar
-from contextlib import contextmanager
+CGS_TO_SI = SI_TO_CGS.embedding()
+"""Embedding from CGS back to SI.
 
-_default_basis: ContextVar[Basis | None] = ContextVar("basis", default=None)
-_basis_graph_context: ContextVar[BasisGraph | None] = ContextVar("basis_graph", default=None)
-_default_basis_graph: BasisGraph | None = None
+Maps CGS dimensions back to SI with zeros for components that were
+dropped in the projection (current, temperature, amount, luminosity, angle).
+"""
 
-
-def _build_standard_basis_graph() -> BasisGraph:
-    """Build standard basis graph with SI/CGS/CGS-ESU transforms."""
-    from ucon.bases import SI_TO_CGS, SI_TO_CGS_ESU, CGS_TO_SI
-    graph = BasisGraph()
-    graph.add_transform(SI_TO_CGS)
-    graph.add_transform(SI_TO_CGS_ESU)
-    graph.add_transform(CGS_TO_SI)
-    return graph
+# Note: CGS_ESU_TO_SI cannot be created via embedding() because SI_TO_CGS_ESU
+# is not a clean projection — current (I) maps to a complex derived dimension
+# L^(3/2) M^(1/2) T^(-2), not a simple 1:1 mapping. Users needing CGS-ESU -> SI
+# conversion should construct the transform manually based on their use case.
 
 
-def get_default_basis() -> Basis:
-    """Get current default basis (context-local or SI fallback)."""
-    from ucon.bases import SI
-    return _default_basis.get() or SI
+# -----------------------------------------------------------------------------
+# Natural Units Transforms
+# -----------------------------------------------------------------------------
 
+# Bindings for SI → NATURAL (c = ℏ = k_B = 1)
+_NATURAL_BINDINGS = (
+    # Length: L = ℏc/E → L ~ E⁻¹ via ℏc
+    ConstantBinding(
+        source_component=SI[1],  # length (index 1 in SI)
+        target_expression=Vector(NATURAL, (Fraction(-1),)),
+        constant_symbol="ℏc",
+        exponent=Fraction(1),
+    ),
+    # Time: T = ℏ/E → T ~ E⁻¹ via ℏ
+    ConstantBinding(
+        source_component=SI[0],  # time (index 0 in SI)
+        target_expression=Vector(NATURAL, (Fraction(-1),)),
+        constant_symbol="ℏ",
+        exponent=Fraction(1),
+    ),
+    # Mass: M = E/c² → M ~ E via c⁻²
+    ConstantBinding(
+        source_component=SI[2],  # mass (index 2 in SI)
+        target_expression=Vector(NATURAL, (Fraction(1),)),
+        constant_symbol="c",
+        exponent=Fraction(-2),
+    ),
+    # Temperature: Θ = E/k_B → Θ ~ E via k_B⁻¹
+    ConstantBinding(
+        source_component=SI[4],  # temperature (index 4 in SI)
+        target_expression=Vector(NATURAL, (Fraction(1),)),
+        constant_symbol="k_B",
+        exponent=Fraction(-1),
+    ),
+)
 
-def get_basis_graph() -> BasisGraph:
-    """Get current basis graph (context-local or module default)."""
-    global _default_basis_graph
-    ctx_graph = _basis_graph_context.get()
-    if ctx_graph is not None:
-        return ctx_graph
-    if _default_basis_graph is None:
-        _default_basis_graph = _build_standard_basis_graph()
-    return _default_basis_graph
+SI_TO_NATURAL = ConstantAwareBasisTransform(
+    source=SI,
+    target=NATURAL,
+    matrix=(
+        # SI order: T, L, M, I, Θ, J, N, B
+        # NATURAL order: E
+        (Fraction(-1),),  # T → E⁻¹
+        (Fraction(-1),),  # L → E⁻¹
+        (Fraction(1),),   # M → E
+        (Fraction(0),),   # I → 0 (not representable)
+        (Fraction(1),),   # Θ → E
+        (Fraction(0),),   # J → 0 (not representable)
+        (Fraction(0),),   # N → 0 (not representable)
+        (Fraction(0),),   # B → 0 (not representable)
+    ),
+    bindings=_NATURAL_BINDINGS,
+)
+"""Transform from SI to natural units.
 
+Maps SI dimensions to the single energy dimension in natural units:
+- Time (T) → E⁻¹ (via ℏ)
+- Length (L) → E⁻¹ (via ℏc)
+- Mass (M) → E (via c²)
+- Temperature (Θ) → E (via k_B)
 
-def set_default_basis_graph(graph: BasisGraph) -> None:
-    """Replace module-level default basis graph."""
-    global _default_basis_graph
-    _default_basis_graph = graph
+Current (I), luminous_intensity (J), amount_of_substance (N), and
+information (B) are not representable in natural units and will raise
+LossyProjection if non-zero (unless allow_projection=True).
 
+Key consequences:
+- Velocity (L/T) → E⁰ (dimensionless, since c = 1)
+- Energy (ML²T⁻²) → E (as expected)
+- Action (ML²T⁻¹) → E⁰ (dimensionless, since ℏ = 1)
+"""
 
-def reset_default_basis_graph() -> None:
-    """Reset to standard basis graph on next access."""
-    global _default_basis_graph
-    _default_basis_graph = None
+NATURAL_TO_SI = SI_TO_NATURAL.inverse()
+"""Transform from natural units back to SI.
 
+This is the inverse of SI_TO_NATURAL, computed using the constant bindings.
+Allows converting natural unit dimensions back to their SI representation.
 
-@contextmanager
-def using_basis(basis: Basis):
-    """Context manager for scoped basis override."""
-    token = _default_basis.set(basis)
-    try:
-        yield basis
-    finally:
-        _default_basis.reset(token)
-
-
-@contextmanager
-def using_basis_graph(graph: BasisGraph | None):
-    """Context manager for scoped basis graph override."""
-    token = _basis_graph_context.set(graph)
-    try:
-        yield graph
-    finally:
-        _basis_graph_context.reset(token)
+Note: Information about which specific combination of L, T, M, Θ a given
+E dimension originated from is tracked via the constant bindings. However,
+the numeric conversion factors require the actual constant values from
+ucon.constants.
+"""

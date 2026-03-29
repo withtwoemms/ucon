@@ -18,12 +18,8 @@ from ucon.basis import (
     LossyProjection,
     Vector,
 )
-from ucon.bases import (
-    NATURAL,
-    NATURAL_TO_SI,
-    SI,
-    SI_TO_NATURAL,
-)
+from ucon.basis.builtin import NATURAL, SI
+from ucon.basis.transforms import NATURAL_TO_SI, SI_TO_NATURAL
 
 
 # -----------------------------------------------------------------------------

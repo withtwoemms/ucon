@@ -19,7 +19,7 @@ from pydantic import BaseModel, field_validator, model_validator
 from pydantic.functional_validators import AfterValidator
 
 from ucon import Dimension, Number, Scale, units
-from ucon.pydantic import Number as PydanticNumber, constrained_number
+from ucon.integrations.pydantic import Number as PydanticNumber, constrained_number
 
 # Define milliliter for convenience
 milliliter = Scale.milli * units.liter

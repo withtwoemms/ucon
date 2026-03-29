@@ -7,7 +7,7 @@ import unittest
 from ucon import units
 from ucon.core import UnitProduct, UnitFactor, Scale, Unit
 from ucon import Dimension
-from ucon.quantity import Number, Ratio
+from ucon.core import Number, Ratio
 
 
 class TestNumber(unittest.TestCase):

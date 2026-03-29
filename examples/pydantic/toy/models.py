@@ -12,7 +12,7 @@ for dimensionally-validated configuration loading.
 from pydantic import BaseModel
 
 from ucon import Dimension
-from ucon.pydantic import Number
+from ucon.integrations.pydantic import Number
 
 
 class VehicleConfig(BaseModel):

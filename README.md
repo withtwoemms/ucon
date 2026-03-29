@@ -115,7 +115,7 @@ avg = heights.mean()  # <1.85 m>
 
 ```python
 from pydantic import BaseModel
-from ucon.pydantic import Number
+from ucon.integrations.pydantic import Number
 
 class Measurement(BaseModel):
     value: Number
@@ -178,7 +178,8 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 | **0.7.x** | Compute Tool + Extension API | Complete |
 | **0.8.x** | Basis Abstraction + String Parsing | Complete |
 | **0.9.x** | Constants + Natural Units | Complete |
-| **0.10.x** | NumPy/Pandas/Polars Integration | Current |
+| **0.10.x** | NumPy/Pandas/Polars Integration | Complete |
+| **0.11.x** | Module Reorganization | Current |
 | **1.0.0** | API Stability | Planned |
 
 See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROADMAP.md)

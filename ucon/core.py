@@ -540,10 +540,10 @@ class Unit:
         try:
             import numpy as np
             if isinstance(quantity, np.ndarray):
-                from ucon.numpy import NumberArray
+                from ucon.integrations.numpy import NumberArray
                 return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
             if isinstance(quantity, (list, tuple)) and len(quantity) > 0:
-                from ucon.numpy import NumberArray
+                from ucon.integrations.numpy import NumberArray
                 return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
         except ImportError:
             # numpy not installed - fall through to scalar handling
@@ -1173,10 +1173,10 @@ class UnitProduct:
         try:
             import numpy as np
             if isinstance(quantity, np.ndarray):
-                from ucon.numpy import NumberArray
+                from ucon.integrations.numpy import NumberArray
                 return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
             if isinstance(quantity, (list, tuple)) and len(quantity) > 0:
-                from ucon.numpy import NumberArray
+                from ucon.integrations.numpy import NumberArray
                 return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
         except ImportError:
             # numpy not installed - fall through to scalar handling

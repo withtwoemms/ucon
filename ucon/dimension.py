@@ -39,7 +39,7 @@ from fractions import Fraction
 from typing import TYPE_CHECKING
 
 from ucon.basis import Basis, BasisComponent, Vector
-from ucon.bases import SI  # Use the canonical SI basis from bases.py
+from ucon.basis.builtin import SI
 
 if TYPE_CHECKING:
     from ucon.basis import BasisTransform

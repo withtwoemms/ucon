@@ -58,8 +58,8 @@ all = ["ucon[pydantic,numpy]", "ucon[pandas,polars]; python_version >= '3.8'"]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["ucon"]
+[tool.setuptools.packages.find]
+include = ["ucon*"]
 
 [tool.setuptools_scm]
 # Version derived from git tags

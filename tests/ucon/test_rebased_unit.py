@@ -15,7 +15,7 @@ from fractions import Fraction
 from ucon.basis import Basis, BasisComponent, BasisTransform
 from ucon.core import RebasedUnit
 from ucon import Dimension, units
-from ucon.bases import SI
+from ucon.basis.builtin import SI
 
 
 class TestRebasedUnitConstruction(unittest.TestCase):
