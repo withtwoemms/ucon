@@ -50,7 +50,7 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.9.4 | MCP Extraction | Complete |
 | v0.10.0 | Scientific Computing | Complete |
 | v0.11.0 | Module Reorganization | Complete |
-| v1.0.0 | API Stability | Planned |
+| v1.0.0 | API Stability + Units Expansion | In Progress |
 
 ---
 
@@ -75,7 +75,8 @@ Previous versions include:
 - `ucon.basis` (`Basis`, `BasisComponent`, `Vector`, `BasisTransform`, `BasisGraph`, `ConstantBoundBasisTransform`)
 - `ucon.dimension` (`Dimension` as frozen dataclass backed by basis-aware `Vector`)
 - `ucon.core` (`Scale`, `Unit`, `UnitFactor`, `UnitProduct`, `Number`, `Ratio`, `UnitSystem`, `RebasedUnit`, `Exponent`)
-- `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`, `LogMap`, `ExpMap`)
+- `ucon.maps` (`Map`, `LinearMap`, `AffineMap`, `ComposedMap`, `LogMap`, `ExpMap`, `ReciprocalMap`)
+- `ucon.contexts` (`ConversionContext`, `ContextEdge`, `using_context`, `spectroscopy`, `boltzmann`)
 - `ucon.graph` (`ConversionGraph`, default graph, `get_default_graph()`, `using_graph()`, cross-basis conversion)
 - `ucon.units` (SI + imperial + information + angle + ratio units, callable syntax, `si` and `imperial` systems, `get_unit_by_name()`)
 - `ucon.integrations.numpy` (`NumberArray` for vectorized operations on dimensioned arrays)
@@ -745,20 +746,70 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v1.0.0 — API Stability
+## v1.0.0 — API Stability + Units Expansion (In Progress)
 
 **Theme:** Production ready.
 
-- [ ] API freeze with semantic versioning commitment
-- [ ] Comprehensive documentation
+### Units Expansion (Complete)
+
+#### ReciprocalMap
+
+- [x] `ReciprocalMap(a)` — inversely proportional map: `y = a / x`
+- [x] Self-inverse property: `inverse()` returns `ReciprocalMap(a)`
+- [x] NumPy array support
+- [x] Derivative for uncertainty propagation: `f'(x) = -a / x²`
+
+#### Roentgen + EXPOSURE Dimension
+
+- [x] `EXPOSURE` dimension: `I·T/M` = `(1, 0, -1, 1, 0, 0, 0, 0)`
+- [x] `coulomb_per_kilogram` bridge unit (named SI bridge for exposure)
+- [x] `roentgen` unit with `R_exp` alias
+- [x] Conversion: 1 R = 2.58e-4 C/kg
+
+#### CGS-EMU Electromagnetic System
+
+- [x] `SI_TO_CGS_EMU` basis transform (SI current → `L^(1/2)·M^(1/2)·T^(-1)` in CGS)
+- [x] 6 CGS-EMU dimensions: current, charge, voltage, resistance, capacitance, inductance
+- [x] 7 CGS-EMU units: biot (abampere), abcoulomb, abvolt, abohm, abfarad, abhenry, gilbert
+- [x] Cross-basis edges: ampere↔biot (0.1), coulomb↔abcoulomb (0.1), volt↔abvolt (1e8), ohm↔abohm (1e9), farad↔abfarad (1e-9), henry↔abhenry (1e9)
+- [x] `_rebased` changed from `dict[Unit, RebasedUnit]` to `dict[Unit, list[RebasedUnit]]` to support multiple basis transforms per source unit
+
+#### ConversionContext Infrastructure
+
+- [x] `ucon/contexts.py` — new module for cross-dimensional conversion contexts
+- [x] `ContextEdge(src, dst, map)` frozen dataclass
+- [x] `ConversionContext(name, edges, description)` frozen dataclass
+- [x] `using_context(*contexts)` context manager (copies graph, injects edges, scopes via `using_graph()`)
+- [x] Cross-dimensional BFS fallback in `_convert_units()` (searches all dimension partitions)
+- [x] Built-in `spectroscopy` context: meter↔hertz via `ReciprocalMap(c)`, hertz→joule via `LinearMap(h)`, meter→joule via `ReciprocalMap(hc)`, joule→reciprocal_meter via `LinearMap(1/hc)`
+- [x] Built-in `boltzmann` context: kelvin→joule via `LinearMap(k_B)`
+
+#### Niche Units
+
+- [x] Réaumur temperature (`reaumur`, `°Ré`, `degRe`) — 1 °Ré = 1.25 °C
+- [x] Historical electrical: `international_ampere` (A_int), `international_volt` (V_int), `international_ohm` (ohm_int)
+
+### Pre-v1.0 Readiness
+
+- [x] API audit — every public symbol classified as stable/internal/rename
+- [x] Domain walkthroughs — 5 guides (nursing, chem-e, aerospace, finance, EE)
+- [x] API reference generation — 15 module pages via mkdocstrings
 - [ ] Performance benchmarks documented
 - [ ] Security review complete
+- [ ] LTS policy stated
+
+### API Contract
+
+- [ ] API freeze with semantic versioning commitment
 - [ ] 2+ year LTS commitment
 
 **Outcomes:**
 - Stable, well-tested release
 - Fully type-safe and validated core
 - Production-ready for integration into scientific and engineering workflows
+- Near-parity with Pint on raw unit count (~215 unique units across 67+ dimensions)
+- CGS-EMU system complements existing CGS and CGS-ESU for complete classical electromagnetic coverage
+- Cross-dimensional contexts enable spectroscopy and thermodynamic conversions without polluting the global graph
 
 ---
 

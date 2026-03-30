@@ -53,9 +53,12 @@ _product_edges: dict[tuple, dict[tuple, Map]]
 Cross-basis conversions (e.g., CGS → SI) use `RebasedUnit` as intermediate nodes:
 
 ```python
-_rebased: dict[Unit, RebasedUnit]
+_rebased: dict[Unit, list[RebasedUnit]]
 
-# Original unit → unit rebased into destination's dimension partition
+# Original unit → list of rebased units (one per basis transform)
+# A single source unit may have multiple rebased entries when
+# registered with different basis transforms (e.g., ampere has
+# rebased entries for both CGS-ESU and CGS-EMU)
 ```
 
 ### BasisGraph Reference
@@ -216,6 +219,40 @@ if self._basis_graph is not None:
         raise NoTransformPath(src.basis, dst.basis)
 ```
 
+### 6. Cross-Dimensional Context Conversion
+
+For conversions between different physical dimensions (e.g., wavelength → frequency), `ConversionContext` edges must be active via `using_context()`. When dimensions don't match and no rebased path exists, the graph falls back to cross-dimensional BFS:
+
+```python
+def _bfs_convert_cross_dimensional(self, *, start, target) -> Map:
+    """BFS across ALL dimension partitions (used for context edges)."""
+    visited: dict = {start: LinearMap.identity()}
+    queue = deque([start])
+
+    while queue:
+        current = queue.popleft()
+        current_map = visited[current]
+
+        # Search all dimension partitions, not just the source dimension
+        for dim, dim_edges in self._unit_edges.items():
+            if current not in dim_edges:
+                continue
+            for neighbor, edge_map in dim_edges[current].items():
+                if neighbor in visited:
+                    continue
+                composed = edge_map @ current_map
+                visited[neighbor] = composed
+                if neighbor == target:
+                    return composed
+                queue.append(neighbor)
+
+    raise ConversionNotFound(...)
+```
+
+Context edges are stored in **both** dimension partitions (source and destination) so BFS can discover the cross-dimensional bridge from either direction. This is handled by `_add_context_edge()` in `ucon/contexts.py`.
+
+The cross-dimensional BFS is only triggered when `src.dimension != dst.dimension` and no rebased path resolves the conversion. Outside a `using_context()` block, `DimensionMismatch` is raised as expected.
+
 ---
 
 ## Map Types
@@ -251,6 +288,21 @@ class AffineMap:
 ```
 
 **Examples:** celsius↔kelvin (`K = C + 273.15`), fahrenheit↔celsius
+
+### ReciprocalMap
+
+For inversely proportional conversions:
+
+```python
+class ReciprocalMap:
+    a: float  # y = a / x
+
+    def __call__(self, x): return self.a / x
+    def inverse(self): return ReciprocalMap(self.a)  # self-inverse
+    def derivative(self, x): return -self.a / (x * x)
+```
+
+**Examples:** wavelength↔frequency (`f = c / λ`), wavelength↔energy (`E = hc / λ`)
 
 ### LogMap / ExpMap
 
@@ -343,20 +395,9 @@ graph.connect_systems(
 
 ---
 
-## No Caching (Currently)
+## Caching
 
-The graph does not cache conversion paths. Each `number.to(target)` runs BFS.
-
-**Why:**
-
-1. Most dimension partitions are small (<10 nodes) — BFS is fast
-2. Caching adds complexity for marginal gain
-3. Custom graphs via `using_graph()` would invalidate caches
-
-**When this might change:**
-
-- v0.10.x NumPy integration may add path caching for batch conversions
-- Profiling shows BFS as a bottleneck in real workloads
+Since v0.10.0, the graph caches conversion paths, scale factors, and unit multiplication results for performance. Cache entries are invalidated when the graph is modified (e.g., via `add_edge()` or `with_package()`).
 
 ---
 

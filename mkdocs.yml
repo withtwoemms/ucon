@@ -91,6 +91,7 @@ nav:
       - ucon.basis.graph: reference/modules/basis-graph.md
       - ucon.checking: reference/modules/checking.md
       - ucon.constants: reference/modules/constants.md
+      - ucon.contexts: reference/modules/contexts.md
       - ucon.core: reference/modules/core.md
       - ucon.dimension: reference/modules/dimension.md
       - ucon.graph: reference/modules/graph.md

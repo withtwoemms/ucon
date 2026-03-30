@@ -530,7 +530,7 @@ graph.connect_systems(
 
 ```python
 # List rebased units (cross-basis bridges)
-graph.list_rebased_units()  # {ampere: RebasedUnit(...)}
+graph.list_rebased_units()  # {ampere: [RebasedUnit(...), ...], ...}
 
 # List registered transforms
 graph.list_transforms()  # [SI_TO_CGS_ESU, ...]
@@ -548,12 +548,80 @@ with using_graph(my_graph):
 
 ---
 
+## ConversionContext
+
+Scoped cross-dimensional conversions for physical relationships that connect different dimensions (e.g., wavelength and frequency).
+
+```python
+from ucon.contexts import ConversionContext, ContextEdge, using_context
+from ucon.contexts import spectroscopy, boltzmann
+```
+
+### Built-in Contexts
+
+| Context | Edges | Physical Laws |
+|---------|-------|---------------|
+| `spectroscopy` | meter↔hertz, hertz→joule, meter→joule, joule→reciprocal_meter | f=c/λ, E=hf, E=hc/λ, k=E/(hc) |
+| `boltzmann` | kelvin→joule | E=k_B·T |
+
+### Usage
+
+```python
+from ucon import units
+from ucon.contexts import spectroscopy, boltzmann, using_context
+
+# Spectroscopy: wavelength to frequency
+with using_context(spectroscopy):
+    result = units.meter(500e-9).to(units.hertz)
+    print(f"{result.quantity:.3e} Hz")  # 5.996e+14 Hz
+
+    # Energy from frequency
+    result = units.hertz(5e14).to(units.joule)
+    print(f"{result.quantity:.3e} J")   # 3.313e-19 J
+
+# Boltzmann: temperature to energy
+with using_context(boltzmann):
+    result = units.kelvin(300).to(units.joule)
+    print(f"{result.quantity:.3e} J")   # 4.142e-21 J
+
+# Multiple contexts
+with using_context(spectroscopy, boltzmann):
+    # Both spectroscopy and Boltzmann edges available
+    pass
+```
+
+Cross-dimensional conversions only work inside `using_context()` blocks. Outside the block, `DimensionMismatch` is raised as expected.
+
+### Custom Contexts
+
+```python
+from ucon.contexts import ConversionContext, ContextEdge
+from ucon.maps import LinearMap
+
+my_context = ConversionContext(
+    name="custom",
+    edges=(
+        ContextEdge(
+            src=units.kelvin,
+            dst=units.joule,
+            map=LinearMap(1.380649e-23),
+        ),
+    ),
+    description="Custom thermal context.",
+)
+
+with using_context(my_context):
+    result = units.kelvin(300).to(units.joule)
+```
+
+---
+
 ## Maps
 
 Composable conversion morphisms used as edges in the ConversionGraph.
 
 ```python
-from ucon.maps import Map, LinearMap, AffineMap, LogMap, ExpMap, ComposedMap
+from ucon.maps import Map, LinearMap, AffineMap, LogMap, ExpMap, ReciprocalMap, ComposedMap
 ```
 
 ### Class Hierarchy
@@ -562,6 +630,7 @@ from ucon.maps import Map, LinearMap, AffineMap, LogMap, ExpMap, ComposedMap
 |-------|---------|----------|
 | `LinearMap(a)` | y = a * x | Most unit conversions (m -> ft, kg -> lb) |
 | `AffineMap(a, b)` | y = a * x + b | Temperature conversions (C -> F) |
+| `ReciprocalMap(a)` | y = a / x | Inversely proportional (wavelength -> frequency) |
 | `LogMap(scale, base, reference)` | y = scale * log(x/ref) + offset | Decibels, pH |
 | `ExpMap(scale, base, reference)` | y = ref * base^(scale*x + offset) | Inverse of LogMap |
 | `ComposedMap(outer, inner)` | y = outer(inner(x)) | Heterogeneous composition fallback |
@@ -571,7 +640,7 @@ All maps are `@dataclass(frozen=True)` --- immutable and hashable.
 ### Creating Maps
 
 ```python
-from ucon.maps import LinearMap, AffineMap, LogMap
+from ucon.maps import LinearMap, AffineMap, ReciprocalMap, LogMap
 
 # Linear: meters to feet
 m_to_ft = LinearMap(3.28084)
@@ -580,6 +649,11 @@ m_to_ft(1.0)  # 3.28084
 # Affine: Celsius to Fahrenheit
 c_to_f = AffineMap(1.8, 32)
 c_to_f(100)  # 212.0
+
+# Reciprocal: wavelength to frequency (f = c / λ)
+c = 299792458.0
+lambda_to_freq = ReciprocalMap(c)
+lambda_to_freq(500e-9)  # ~5.996e14 Hz
 
 # Logarithmic: watts to dBm
 w_to_dbm = LogMap(scale=10, reference=0.001)
@@ -818,7 +892,7 @@ For cross-basis conversions (e.g., SI ↔ CGS).
 ```python
 from ucon.basis import Basis, BasisGraph, BasisTransform
 from ucon.basis.builtin import SI, CGS, CGS_ESU
-from ucon.basis.transforms import SI_TO_CGS, SI_TO_CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS, SI_TO_CGS_ESU, SI_TO_CGS_EMU
 ```
 
 ### Standard Bases
@@ -828,6 +902,17 @@ from ucon.basis.transforms import SI_TO_CGS, SI_TO_CGS_ESU
 | `SI` | T, L, M, I, Θ, J, N, B | International System (8 dimensions) |
 | `CGS` | L, M, T | Centimetre-gram-second (mechanical) |
 | `CGS_ESU` | L, M, T, Q | CGS electrostatic (charge is fundamental) |
+
+### Standard Transforms
+
+| Transform | Source | Target | Notes |
+|-----------|--------|--------|-------|
+| `SI_TO_CGS` | SI | CGS | Mechanical dimensions (L, M, T) |
+| `CGS_TO_SI` | CGS | SI | Inverse of SI_TO_CGS |
+| `SI_TO_CGS_ESU` | SI | CGS_ESU | Current → L^(3/2)·M^(1/2)·T^(-2) |
+| `SI_TO_CGS_EMU` | SI | CGS | Current → L^(1/2)·M^(1/2)·T^(-1) |
+| `SI_TO_NATURAL` | SI | NATURAL | All dimensions → powers of energy |
+| `NATURAL_TO_SI` | NATURAL | SI | Inverse with constant bindings |
 
 ### BasisGraph
 

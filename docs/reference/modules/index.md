@@ -15,6 +15,7 @@ For a curated overview with examples, see the [API Reference](../api.md).
 - **[ucon.constants](constants.md)** --- Physical constants (CODATA 2022)
 - **[ucon.checking](checking.md)** --- Dimension enforcement decorator
 - **[ucon.packages](packages.md)** --- Unit package loading from TOML
+- **[ucon.contexts](contexts.md)** --- Cross-dimensional conversion contexts (spectroscopy, boltzmann)
 
 ## Basis
 

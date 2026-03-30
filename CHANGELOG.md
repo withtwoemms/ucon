@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ReciprocalMap(a)` conversion map for inversely proportional relationships (`y = a / x`)
+  - Self-inverse: `ReciprocalMap(a).inverse()` returns `ReciprocalMap(a)`
+  - Used for spectroscopy conversions (e.g., frequency = c / wavelength)
+- EXPOSURE dimension (`I·T/M`) and roentgen unit (`R_exp`) for radiation exposure
+  - `coulomb_per_kilogram` bridge unit with `C/kg` alias
+  - 1 R = 2.58e-4 C/kg conversion edge
+- CGS-EMU electromagnetic unit system
+  - `SI_TO_CGS_EMU` basis transform mapping SI current to `L^(1/2)·M^(1/2)·T^(-1)` in CGS
+  - 6 CGS-EMU dimensions: `CGS_EMU_CURRENT`, `CGS_EMU_CHARGE`, `CGS_EMU_VOLTAGE`, `CGS_EMU_RESISTANCE`, `CGS_EMU_CAPACITANCE`, `CGS_EMU_INDUCTANCE`
+  - 7 CGS-EMU units: `biot` (abampere), `abcoulomb`, `abvolt`, `abohm`, `abfarad`, `abhenry`, `gilbert`
+  - Cross-basis edges: ampere↔biot, coulomb↔abcoulomb, volt↔abvolt, ohm↔abohm, farad↔abfarad, henry↔abhenry
+- `ConversionContext` for scoped cross-dimensional conversions (`ucon/contexts.py`)
+  - `ContextEdge` dataclass for cross-dimensional edge specifications
+  - `using_context()` context manager that copies the graph, injects context edges, and scopes via `using_graph()`
+  - Built-in `spectroscopy` context: wavelength/frequency/energy via c and h
+  - Built-in `boltzmann` context: temperature/energy via k_B
+  - Cross-dimensional BFS fallback in `ConversionGraph._bfs_convert_cross_dimensional()`
+- Réaumur temperature scale (`reaumur`, aliases: `°Ré`, `degRe`)
+  - 1 °Ré = 1.25 °C conversion edge
+- Historical electrical units
+  - `international_ampere` (`A_int`): 1 A_int = 1.000022 A
+  - `international_volt` (`V_int`): 1 V_int = 1.00034 V
+  - `international_ohm` (`ohm_int`): 1 Ω_int = 1.00049 Ω
+
+### Changed
+
+- `ConversionGraph._rebased` changed from `dict[Unit, RebasedUnit]` to `dict[Unit, list[RebasedUnit]]`
+  - Fixes collision when multiple basis transforms register rebased entries for the same source unit (e.g., CGS-ESU and CGS-EMU both rebasing `ampere`)
+  - `list_rebased_units()` now returns `dict[Unit, list[RebasedUnit]]`
+
 ## [0.11.0] - 2026-03-28
 
 ### Changed
