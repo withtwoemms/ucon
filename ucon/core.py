@@ -1322,8 +1322,11 @@ class Number:
 
         Parameters
         ----------
-        target : Unit or UnitProduct
-            The target unit to convert to.
+        target : Unit, UnitProduct, or str
+            The target unit to convert to. Strings are resolved via
+            :func:`~ucon.units.get_unit_by_name`, which supports bare names
+            (``"foot"``), aliases (``"ft"``), scale prefixes (``"km"``),
+            and composite expressions (``"m/s²"``).
         graph : ConversionGraph, optional
             The conversion graph to use. If not provided, uses the default graph.
 
@@ -1338,8 +1341,17 @@ class Number:
         >>> length = meter(100)
         >>> length.to(foot)
         <328.084 ft>
+        >>> length.to("ft")
+        <328.084 ft>
+        >>> length.to("km")
+        <0.1 km>
         """
         from ucon.graph import get_default_graph
+        from ucon.units import get_unit_by_name
+
+        # Resolve string targets via name/alias/prefix/expression lookup
+        if isinstance(target, str):
+            target = get_unit_by_name(target)
 
         # Wrap plain Units as UnitProducts for uniform handling
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)

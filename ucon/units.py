@@ -435,7 +435,7 @@ _UNIT_REGISTRY_CASE_SENSITIVE: Dict[str, Unit] = {}
 
 # Priority aliases that must match exactly before prefix decomposition.
 # Prevents ambiguous parses like "min" -> milli-inch instead of minute.
-_PRIORITY_ALIASES: set = {'min'}
+_PRIORITY_ALIASES: set = {'min', 'ft', 'ft_lb', 'ft_lbf'}
 
 # Priority scaled aliases that map to a specific (unit, scale) tuple.
 # Used for medical conventions like "mcg" -> (gram, Scale.micro).
