@@ -125,7 +125,7 @@ def main():
     # Inspect RebasedUnit
     # -------------------------------------------------------------------------
     rebased_units = graph.list_rebased_units()
-    rebased_ampere = rebased_units[units.ampere]
+    rebased_ampere = rebased_units[units.ampere][0]
 
     print(f"\nRebasedUnit created:")
     print(f"  Original: {rebased_ampere.original.name}")

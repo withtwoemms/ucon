@@ -232,8 +232,9 @@ class TestRebasedUnits(unittest.TestCase):
     def test_rebased_units_are_rebased_type(self):
         graph = get_default_graph()
         rebased = graph.list_rebased_units()
-        for unit, rebased_unit in rebased.items():
-            self.assertIsInstance(rebased_unit, RebasedUnit)
+        for unit, rebased_list in rebased.items():
+            for rebased_unit in rebased_list:
+                self.assertIsInstance(rebased_unit, RebasedUnit)
 
     def test_si_em_units_rebased_to_cgs_esu(self):
         """SI EM units should be rebased when bridging to CGS-ESU."""

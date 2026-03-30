@@ -73,7 +73,7 @@ def main():
     # Inspect the RebasedUnit created by add_edge
     # -------------------------------------------------------------------------
     rebased_units = graph.list_rebased_units()
-    rebased_meter = rebased_units[units.meter]
+    rebased_meter = rebased_units[units.meter][0]
 
     print(f"\nRebased unit details:")
     print(f"  Original unit: {rebased_meter.original.name}")

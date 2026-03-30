@@ -631,6 +631,7 @@ CONCENTRATION = _dim("concentration", 0, -3, 0, 0, 0, 0, 1, 0)  # N/L³
 # Spectroscopy / Radiation
 WAVENUMBER = _dim("wavenumber", 0, -1, 0, 0, 0, 0, 0, 0)  # 1/L
 RADIANT_EXPOSURE = _dim("radiant_exposure", -2, 0, 1, 0, 0, 0, 0, 0)  # M/T²
+EXPOSURE = _dim("exposure", 1, 0, -1, 1, 0, 0, 0, 0)  # I·T/M (radiation exposure, C/kg)
 
 # Electromagnetism (derived)
 ELECTRIC_DIPOLE_MOMENT = _dim("electric_dipole_moment", 1, 1, 0, 1, 0, 0, 0, 0)  # I·T·L
@@ -739,6 +740,55 @@ CGS_ESU_ELECTRIC_DIPOLE_MOMENT = _cgs_esu_dim(
 
 
 # -----------------------------------------------------------------------------
+# CGS-EMU Dimensions (Electromagnetic Units, using CGS basis with fractional exponents)
+# -----------------------------------------------------------------------------
+# CGS-EMU differs from CGS-ESU in how current maps from SI:
+#   CGS-ESU: I → L^(3/2)·M^(1/2)·T^(-2)
+#   CGS-EMU: I → L^(1/2)·M^(1/2)·T^(-1)
+# CGS-EMU dimensions share the CGS basis (L, M, T) but with fractional exponents
+# for electromagnetic quantities. Some vectors collide with CGS mechanical dims
+# (e.g., CGS_EMU_RESISTANCE = L·T^(-1) = CGS_VELOCITY), so we skip _register()
+# to avoid overwriting the vector registry.
+
+
+def _cgs_emu_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    """Create a CGS-EMU dimension. Skips _register() to avoid vector collisions
+    with CGS mechanical dimensions that share the same vector (KOQ collision)."""
+    vec = _cgs_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    # Skip _register(dim) — CGS-EMU electromagnetic dims share vectors
+    # with CGS mechanical dims. Only register for attribute access.
+    _register_attr(dim)
+    return dim
+
+
+CGS_EMU_CURRENT = _cgs_emu_dim(
+    "cgs_emu_current",
+    Fraction(1, 2), Fraction(1, 2), Fraction(-1),
+)  # biot/abampere: L^(1/2)·M^(1/2)·T^(-1)
+CGS_EMU_CHARGE = _cgs_emu_dim(
+    "cgs_emu_charge",
+    Fraction(1, 2), Fraction(1, 2), Fraction(0),
+)  # abcoulomb: L^(1/2)·M^(1/2)
+CGS_EMU_VOLTAGE = _cgs_emu_dim(
+    "cgs_emu_voltage",
+    Fraction(3, 2), Fraction(1, 2), Fraction(-2),
+)  # abvolt: L^(3/2)·M^(1/2)·T^(-2)
+CGS_EMU_RESISTANCE = _cgs_emu_dim(
+    "cgs_emu_resistance",
+    Fraction(1), Fraction(0), Fraction(-1),
+)  # abohm: L·T^(-1)
+CGS_EMU_CAPACITANCE = _cgs_emu_dim(
+    "cgs_emu_capacitance",
+    Fraction(-1), Fraction(0), Fraction(2),
+)  # abfarad: T^2/L
+CGS_EMU_INDUCTANCE = _cgs_emu_dim(
+    "cgs_emu_inductance",
+    Fraction(1), Fraction(0), Fraction(0),
+)  # abhenry: L
+
+
+# -----------------------------------------------------------------------------
 # Natural-unit dimensions (1D basis: energy)
 # -----------------------------------------------------------------------------
 
@@ -843,6 +893,7 @@ def all_dimensions() -> tuple[Dimension, ...]:
         # Derived - Spectroscopy / Radiation
         WAVENUMBER,
         RADIANT_EXPOSURE,
+        EXPOSURE,
         # Derived - Electromagnetism (additional)
         ELECTRIC_DIPOLE_MOMENT,
         # CGS dimensions
@@ -869,6 +920,13 @@ def all_dimensions() -> tuple[Dimension, ...]:
         CGS_ESU_MAGNETIC_FLUX,
         CGS_ESU_MAGNETIC_FIELD_STRENGTH,
         CGS_ESU_ELECTRIC_DIPOLE_MOMENT,
+        # CGS-EMU dimensions
+        CGS_EMU_CURRENT,
+        CGS_EMU_CHARGE,
+        CGS_EMU_VOLTAGE,
+        CGS_EMU_RESISTANCE,
+        CGS_EMU_CAPACITANCE,
+        CGS_EMU_INDUCTANCE,
         # Natural-unit dimensions
         NATURAL_ENERGY,
     )
@@ -949,6 +1007,7 @@ __all__ = [
     # Derived dimensions - Spectroscopy / Radiation
     "WAVENUMBER",
     "RADIANT_EXPOSURE",
+    "EXPOSURE",
     # Derived dimensions - Electromagnetism (additional)
     "ELECTRIC_DIPOLE_MOMENT",
     # CGS dimensions
@@ -975,6 +1034,13 @@ __all__ = [
     "CGS_ESU_MAGNETIC_FLUX",
     "CGS_ESU_MAGNETIC_FIELD_STRENGTH",
     "CGS_ESU_ELECTRIC_DIPOLE_MOMENT",
+    # CGS-EMU dimensions
+    "CGS_EMU_CURRENT",
+    "CGS_EMU_CHARGE",
+    "CGS_EMU_VOLTAGE",
+    "CGS_EMU_RESISTANCE",
+    "CGS_EMU_CAPACITANCE",
+    "CGS_EMU_INDUCTANCE",
     # Natural-unit dimensions
     "NATURAL_ENERGY",
 ]

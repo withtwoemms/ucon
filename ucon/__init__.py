@@ -100,6 +100,11 @@ from ucon.graph import (
     set_default_graph,
     using_graph,
 )
+from ucon.contexts import (
+    ContextEdge,
+    ConversionContext,
+    using_context,
+)
 from ucon.packages import EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
 from ucon.units import UnknownUnitError, get_unit_by_name
 from ucon.parsing import ParseError, parse
@@ -134,6 +139,10 @@ __all__ = [
     'SI_TO_CGS',
     'SI_TO_CGS_ESU',
     'SI_TO_NATURAL',
+    # Contexts
+    'ContextEdge',
+    'ConversionContext',
+    'using_context',
     # Core types
     'Constant',
     'ConversionGraph',

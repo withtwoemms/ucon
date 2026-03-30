@@ -40,7 +40,7 @@ class TestGraphAddEdgeWithBasisTransform(unittest.TestCase):
         )
         # Verify the rebased unit was created
         self.assertIn(units.foot, self.graph._rebased)
-        rebased = self.graph._rebased[units.foot]
+        rebased = self.graph._rebased[units.foot][0]
         self.assertIsInstance(rebased, RebasedUnit)
         self.assertEqual(rebased.original, units.foot)
         self.assertEqual(rebased.rebased_dimension, Dimension.length)
@@ -123,7 +123,8 @@ class TestGraphListTransforms(unittest.TestCase):
         rebased = self.graph.list_rebased_units()
         self.assertEqual(len(rebased), 1)
         self.assertIn(units.foot, rebased)
-        self.assertIsInstance(rebased[units.foot], RebasedUnit)
+        self.assertIsInstance(rebased[units.foot], list)
+        self.assertIsInstance(rebased[units.foot][0], RebasedUnit)
 
     def test_list_transforms(self):
         transforms = self.graph.list_transforms()

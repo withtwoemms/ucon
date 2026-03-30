@@ -16,6 +16,7 @@ Classes
 - :class:`AffineMap` — y = a * x + b
 - :class:`LogMap` — y = scale * log_base(x) + offset
 - :class:`ExpMap` — y = base^(scale * x + offset)
+- :class:`ReciprocalMap` — y = a / x (inversely proportional)
 - :class:`ComposedMap` — Generic composition fallback: g(f(x))
 
 All maps support both scalar and numpy array inputs. NumPy is optional;
@@ -346,6 +347,58 @@ class ExpMap(Map):
 
     def is_identity(self, tol: float = 1e-9) -> bool:
         return False  # Exponential is never identity
+
+
+@dataclass(frozen=True)
+class ReciprocalMap(Map):
+    """Inversely proportional map: ``y = a / x``.
+
+    Used for cross-dimensional conversions where quantities are inversely
+    related through a physical constant (e.g., wavelength and frequency
+    via ``c = λν``).
+
+    Parameters
+    ----------
+    a : float
+        The constant of proportionality.
+    """
+
+    a: float
+
+    def __call__(self, x):
+        """Apply the inverse map. Works with scalars and numpy arrays."""
+        if _is_array(x):
+            return self.a / x
+        return self.a / x
+
+    @property
+    def invertible(self) -> bool:
+        return self.a != 0
+
+    def inverse(self) -> 'ReciprocalMap':
+        """ReciprocalMap is self-inverse: if y = a/x, then x = a/y."""
+        return ReciprocalMap(self.a)
+
+    def __matmul__(self, other: Map) -> Map:
+        if not isinstance(other, Map):
+            return NotImplemented
+        return ComposedMap(self, other)
+
+    def __pow__(self, exp: float) -> Map:
+        if exp == 1:
+            return self
+        if exp == -1:
+            return self.inverse()
+        raise ValueError("ReciprocalMap only supports exp=1 or exp=-1")
+
+    def derivative(self, x):
+        """Derivative: d/dx[a/x] = -a/x². Works with scalars and numpy arrays."""
+        if _is_array(x):
+            return -self.a / (x * x)
+        return -self.a / (x * x)
+
+    def is_identity(self, tol: float = 1e-9) -> bool:
+        return False  # Inverse proportionality is never identity
 
 
 @dataclass(frozen=True)

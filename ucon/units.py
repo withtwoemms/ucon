@@ -45,7 +45,7 @@ from ucon.dimension import (
     MAGNETIC_FIELD_STRENGTH,
     ENTROPY, SPECIFIC_HEAT_CAPACITY, THERMAL_CONDUCTIVITY,
     ILLUMINANCE, CATALYTIC_ACTIVITY, MOLAR_MASS, MOLAR_VOLUME, CONCENTRATION,
-    WAVENUMBER, RADIANT_EXPOSURE, ELECTRIC_DIPOLE_MOMENT,
+    WAVENUMBER, RADIANT_EXPOSURE, EXPOSURE, ELECTRIC_DIPOLE_MOMENT,
     # CGS dimensions
     CGS_FORCE, CGS_ENERGY, CGS_PRESSURE,
     CGS_DYNAMIC_VISCOSITY, CGS_KINEMATIC_VISCOSITY,
@@ -55,6 +55,9 @@ from ucon.dimension import (
     CGS_ESU_RESISTANCE, CGS_ESU_CAPACITANCE,
     CGS_ESU_MAGNETIC_FLUX_DENSITY, CGS_ESU_MAGNETIC_FLUX,
     CGS_ESU_MAGNETIC_FIELD_STRENGTH, CGS_ESU_ELECTRIC_DIPOLE_MOMENT,
+    # CGS-EMU dimensions
+    CGS_EMU_CURRENT, CGS_EMU_CHARGE, CGS_EMU_VOLTAGE,
+    CGS_EMU_RESISTANCE, CGS_EMU_CAPACITANCE, CGS_EMU_INDUCTANCE,
     # Natural-unit dimensions
     NATURAL_ENERGY,
 )
@@ -117,6 +120,7 @@ meter_per_second_squared = Unit(name='meter_per_second_squared', dimension=ACCEL
 reciprocal_meter = Unit(name='reciprocal_meter', dimension=WAVENUMBER, aliases=('m⁻¹', '1/m'))
 joule_per_square_meter = Unit(name='joule_per_square_meter', dimension=RADIANT_EXPOSURE, aliases=('J/m²', 'J/m2'))
 coulomb_meter = Unit(name='coulomb_meter', dimension=ELECTRIC_DIPOLE_MOMENT, aliases=('C·m', 'C*m'))
+coulomb_per_kilogram = Unit(name='coulomb_per_kilogram', dimension=EXPOSURE, aliases=('C/kg',))
 # ----------------------------------------------------------------------
 
 
@@ -166,6 +170,12 @@ pennyweight = Unit(name='pennyweight', dimension=MASS, aliases=('dwt', 'pennywei
 # Temperature
 fahrenheit = Unit(name='fahrenheit', dimension=TEMPERATURE, aliases=('°F', 'degF'))
 rankine = Unit(name='rankine', dimension=TEMPERATURE, aliases=('°R', 'degR', 'R'))
+reaumur = Unit(name='reaumur', dimension=TEMPERATURE, aliases=('°Ré', 'degRe'))
+
+# Historical electrical
+international_ampere = Unit(name='international_ampere', dimension=CURRENT, aliases=('A_int',))
+international_volt = Unit(name='international_volt', dimension=VOLTAGE, aliases=('V_int',))
+international_ohm = Unit(name='international_ohm', dimension=RESISTANCE, aliases=('ohm_int',))
 
 # Volume
 gallon = Unit(name='gallon', dimension=VOLUME, aliases=('gal', 'gallons'))
@@ -269,6 +279,7 @@ ampere_hour = Unit(name='ampere_hour', dimension=CHARGE, aliases=('Ah',))
 curie = Unit(name='curie', dimension=FREQUENCY, aliases=('Ci',))
 rem = Unit(name='rem', dimension=ENERGY, aliases=('rem',))
 rad_dose = Unit(name='rad_dose', dimension=ENERGY, aliases=('rad_absorbed',))
+roentgen = Unit(name='roentgen', dimension=EXPOSURE, aliases=('R_exp',))
 
 
 # Catalytic activity
@@ -322,6 +333,17 @@ gauss = Unit(name='gauss', dimension=CGS_ESU_MAGNETIC_FLUX_DENSITY, aliases=('G'
 maxwell = Unit(name='maxwell', dimension=CGS_ESU_MAGNETIC_FLUX, aliases=('Mx',))
 oersted = Unit(name='oersted', dimension=CGS_ESU_MAGNETIC_FIELD_STRENGTH, aliases=('Oe',))
 debye = Unit(name='debye', dimension=CGS_ESU_ELECTRIC_DIPOLE_MOMENT, aliases=('D_dipole',))
+# ----------------------------------------------------------------------
+
+
+# -- CGS-EMU Electromagnetic Units (native CGS basis) -----------------
+biot = Unit(name='biot', dimension=CGS_EMU_CURRENT, aliases=('Bi', 'abampere', 'abA'))
+abcoulomb = Unit(name='abcoulomb', dimension=CGS_EMU_CHARGE, aliases=('abC',))
+abvolt = Unit(name='abvolt', dimension=CGS_EMU_VOLTAGE, aliases=('abV',))
+abohm = Unit(name='abohm', dimension=CGS_EMU_RESISTANCE, aliases=('abΩ',))
+abfarad = Unit(name='abfarad', dimension=CGS_EMU_CAPACITANCE, aliases=('abF',))
+abhenry = Unit(name='abhenry', dimension=CGS_EMU_INDUCTANCE, aliases=('abH',))
+gilbert = Unit(name='gilbert', dimension=CGS_EMU_CURRENT, aliases=('Gb', 'Gi'))
 # ----------------------------------------------------------------------
 
 

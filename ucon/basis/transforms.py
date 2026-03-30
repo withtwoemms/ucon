@@ -675,6 +675,36 @@ are not representable in CGS-ESU and will raise LossyProjection if non-zero.
 # Embedding transforms (reverse mappings where valid)
 # -----------------------------------------------------------------------------
 
+SI_TO_CGS_EMU = BasisTransform(
+    SI,
+    CGS,
+    (
+        # SI order: T, L, M, I, Θ, J, N, B
+        # CGS order: L, M, T
+        (Fraction(0), Fraction(0), Fraction(1)),          # T -> T
+        (Fraction(1), Fraction(0), Fraction(0)),          # L -> L
+        (Fraction(0), Fraction(1), Fraction(0)),          # M -> M
+        # I -> L^(1/2) M^(1/2) T^(-1) (EMU current definition)
+        # In EMU: 1 biot = 1 g^(1/2) cm^(1/2) s^(-1)
+        (Fraction(1, 2), Fraction(1, 2), Fraction(-1)),
+        (Fraction(0), Fraction(0), Fraction(0)),          # Θ -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0)),          # J -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0)),          # N -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0)),          # B -> (not representable)
+    ),
+)
+"""Transform from SI to CGS-EMU.
+
+Maps SI dimensions to CGS-EMU. Current (I) becomes a derived dimension
+expressed as L^(1/2) M^(1/2) T^(-1), which is the dimensional formula
+for current in the electromagnetic CGS system.
+
+Note: This differs from SI_TO_CGS_ESU where I -> L^(3/2) M^(1/2) T^(-2).
+The EMU system uses the permeability of free space = 1, while ESU uses
+the permittivity of free space = 1.
+"""
+
+
 CGS_TO_SI = SI_TO_CGS.embedding()
 """Embedding from CGS back to SI.
 

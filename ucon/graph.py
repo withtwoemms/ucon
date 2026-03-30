@@ -79,8 +79,8 @@ class ConversionGraph:
     # Edges between UnitProducts (keyed by frozen factor representation)
     _product_edges: dict[tuple, dict[tuple, Map]] = field(default_factory=dict)
 
-    # Rebased units: original unit → RebasedUnit (for cross-basis edges)
-    _rebased: dict[Unit, RebasedUnit] = field(default_factory=dict)
+    # Rebased units: original unit → list of RebasedUnits (one per target basis)
+    _rebased: dict[Unit, list[RebasedUnit]] = field(default_factory=dict)
 
     # Graph-local name resolution (case-insensitive keys)
     _name_registry: dict[str, Unit] = field(default_factory=dict)
@@ -232,7 +232,7 @@ class ConversionGraph:
             rebased_dimension=dst.dimension,
             basis_transform=basis_transform,
         )
-        self._rebased[src] = rebased
+        self._rebased.setdefault(src, []).append(rebased)
 
         # Store edge from rebased to dst (same dimension now)
         dim = dst.dimension
@@ -263,15 +263,15 @@ class ConversionGraph:
                 basis_transform=basis_transform,
             )
 
-    def list_rebased_units(self) -> dict[Unit, RebasedUnit]:
+    def list_rebased_units(self) -> dict[Unit, list[RebasedUnit]]:
         """Return all rebased units in the graph.
 
         Returns
         -------
-        dict[Unit, RebasedUnit]
-            Mapping from original unit to its RebasedUnit.
+        dict[Unit, list[RebasedUnit]]
+            Mapping from original unit to its RebasedUnit(s).
         """
-        return dict(self._rebased)
+        return {k: list(v) for k, v in self._rebased.items()}
 
     def list_transforms(self) -> list[BasisTransform]:
         """Return all BasisTransforms active in the graph.
@@ -283,11 +283,12 @@ class ConversionGraph:
         """
         seen = set()
         result = []
-        for rebased in self._rebased.values():
-            bt = rebased.basis_transform
-            if id(bt) not in seen:
-                seen.add(id(bt))
-                result.append(bt)
+        for rebased_list in self._rebased.values():
+            for rebased in rebased_list:
+                bt = rebased.basis_transform
+                if id(bt) not in seen:
+                    seen.add(id(bt))
+                    result.append(bt)
         return result
 
     def edges_for_transform(self, transform: BasisTransform) -> list[tuple[Unit, Unit]]:
@@ -304,14 +305,15 @@ class ConversionGraph:
             List of (original_unit, destination_unit) pairs.
         """
         result = []
-        for original, rebased in self._rebased.items():
-            if rebased.basis_transform == transform:
-                # Find the destination unit (the one the rebased unit connects to)
-                dim = rebased.dimension
-                if dim in self._unit_edges and rebased in self._unit_edges[dim]:
-                    for dst in self._unit_edges[dim][rebased]:
-                        if not isinstance(dst, RebasedUnit):
-                            result.append((original, dst))
+        for original, rebased_list in self._rebased.items():
+            for rebased in rebased_list:
+                if rebased.basis_transform == transform:
+                    # Find the destination unit (the one the rebased unit connects to)
+                    dim = rebased.dimension
+                    if dim in self._unit_edges and rebased in self._unit_edges[dim]:
+                        for dst in self._unit_edges[dim][rebased]:
+                            if not isinstance(dst, RebasedUnit):
+                                result.append((original, dst))
         return result
 
     # ------------- Name Resolution --------------------------------------------
@@ -384,7 +386,7 @@ class ConversionGraph:
         new = ConversionGraph()
         new._unit_edges = copy_module.deepcopy(self._unit_edges)
         new._product_edges = copy_module.deepcopy(self._product_edges)
-        new._rebased = dict(self._rebased)
+        new._rebased = {k: list(v) for k, v in self._rebased.items()}
         new._name_registry = dict(self._name_registry)
         new._name_registry_cs = dict(self._name_registry_cs)
         new._basis_graph = self._basis_graph  # BasisGraph is immutable, share reference
@@ -537,20 +539,26 @@ class ConversionGraph:
 
         # Check if src has a rebased version that can reach dst
         if src in self._rebased:
-            rebased = self._rebased[src]
-            if rebased.dimension == dst.dimension:
-                # Convert via the rebased unit
-                return self._bfs_convert(start=rebased, target=dst, dim=dst.dimension)
+            for rebased in self._rebased[src]:
+                if rebased.dimension == dst.dimension:
+                    # Convert via the rebased unit
+                    return self._bfs_convert(start=rebased, target=dst, dim=dst.dimension)
 
         # Check if dst has a rebased version (inverse conversion)
         if dst in self._rebased:
-            rebased_dst = self._rebased[dst]
-            if rebased_dst.dimension == src.dimension:
-                # Convert from src to the rebased dst
-                return self._bfs_convert(start=src, target=rebased_dst, dim=src.dimension)
+            for rebased_dst in self._rebased[dst]:
+                if rebased_dst.dimension == src.dimension:
+                    # Convert from src to the rebased dst
+                    return self._bfs_convert(start=src, target=rebased_dst, dim=src.dimension)
 
         # Check for dimension mismatch
         if src.dimension != dst.dimension:
+            # Try cross-dimensional BFS (context edges span dimensions)
+            try:
+                return self._bfs_convert_cross_dimensional(start=src, target=dst)
+            except ConversionNotFound:
+                pass
+
             # If BasisGraph is available, check if cross-basis conversion is possible
             if self._basis_graph is not None:
                 src_basis = src.dimension.vector.basis
@@ -599,6 +607,39 @@ class ConversionGraph:
                 queue.append(neighbor)
 
         raise ConversionNotFound(f"No path from {start} to {target}")
+
+    def _bfs_convert_cross_dimensional(self, *, start, target) -> Map:
+        """BFS across ALL dimension partitions.
+
+        Used for context edges that span dimensions (e.g., meter -> hertz
+        in a spectroscopy context). Searches every dimension partition
+        for edges from the current node.
+        """
+        visited: dict = {start: LinearMap.identity()}
+        queue = deque([start])
+
+        while queue:
+            current = queue.popleft()
+            current_map = visited[current]
+
+            for dim, dim_edges in self._unit_edges.items():
+                if current not in dim_edges:
+                    continue
+                for neighbor, edge_map in dim_edges[current].items():
+                    if neighbor in visited:
+                        continue
+
+                    composed = edge_map @ current_map
+                    visited[neighbor] = composed
+
+                    if neighbor == target:
+                        return composed
+
+                    queue.append(neighbor)
+
+        raise ConversionNotFound(
+            f"No cross-dimensional path from {start} to {target}"
+        )
 
     def _bfs_product_path(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
         """
@@ -1005,6 +1046,8 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.fahrenheit, dst=units.celsius, map=AffineMap(5/9, -32 * 5/9))
     # K → °R: °R = K × 9/5 (both absolute scales, same zero point)
     graph.add_edge(src=units.kelvin, dst=units.rankine, map=LinearMap(9/5))
+    # Ré → °C: °C = °Ré × 5/4 (same zero point: water freezing = 0)
+    graph.add_edge(src=units.reaumur, dst=units.celsius, map=LinearMap(5/4))
 
     # --- Pressure ---
     # 1 Pa = 0.00001 bar, so 1 bar = 100000 Pa
@@ -1159,6 +1202,18 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.rem, dst=units.sievert, map=LinearMap(0.01))
     # 1 rad (absorbed dose) = 0.01 Gy (exact, by definition)
     graph.add_edge(src=units.rad_dose, dst=units.gray, map=LinearMap(0.01))
+    # Radiation exposure: 1 R = 2.58e-4 C/kg (exact, ICRU definition)
+    graph.add_edge(src=units.coulomb_per_kilogram, dst=units.coulomb / units.kilogram, map=LinearMap(1))
+    graph.add_edge(src=units.roentgen, dst=units.coulomb_per_kilogram, map=LinearMap(2.58e-4))
+
+    # --- Historical Electrical ---
+    # Pre-1948 "international" electrical units (based on physical standards)
+    # 1 international ampere = 1.000022 A (silver voltameter definition)
+    graph.add_edge(src=units.international_ampere, dst=units.ampere, map=LinearMap(1.000022))
+    # 1 international volt = 1.00034 V (Weston cell definition)
+    graph.add_edge(src=units.international_volt, dst=units.volt, map=LinearMap(1.00034))
+    # 1 international ohm = 1.00049 Ω (mercury column definition)
+    graph.add_edge(src=units.international_ohm, dst=units.ohm, map=LinearMap(1.00049))
 
     # --- Catalytic Activity ---
     # 1 enzyme unit (U) = 1/60 µkat = 1.6667e-8 kat
@@ -1256,7 +1311,7 @@ def _build_standard_graph() -> ConversionGraph:
     # Cross-Basis Edges (CGS/CGS-ESU ↔ SI)
     # -------------------------------------------------------------------------
     from ucon.basis.graph import _build_standard_basis_graph
-    from ucon.basis.transforms import CGS_TO_SI, SI_TO_CGS_ESU, SI_TO_NATURAL
+    from ucon.basis.transforms import CGS_TO_SI, SI_TO_CGS_ESU, SI_TO_CGS_EMU, SI_TO_NATURAL
 
     graph._basis_graph = _build_standard_basis_graph()
 
@@ -1290,6 +1345,21 @@ def _build_standard_graph() -> ConversionGraph:
             (units.coulomb_meter, units.debye): LinearMap(1 / 3.33564095198152e-30),
         },
     )
+
+    # CGS-EMU electromagnetic ↔ SI (SI_TO_CGS_EMU: src=SI unit, dst=CGS-EMU unit)
+    graph.connect_systems(
+        basis_transform=SI_TO_CGS_EMU,
+        edges={
+            (units.ampere, units.biot): LinearMap(0.1),          # 1 A = 0.1 Bi
+            (units.coulomb, units.abcoulomb): LinearMap(0.1),    # 1 C = 0.1 abC
+            (units.volt, units.abvolt): LinearMap(1e8),          # 1 V = 1e8 abV
+            (units.ohm, units.abohm): LinearMap(1e9),            # 1 Ω = 1e9 abΩ
+            (units.farad, units.abfarad): LinearMap(1e-9),       # 1 F = 1e-9 abF
+            (units.henry, units.abhenry): LinearMap(1e9),        # 1 H = 1e9 abH
+        },
+    )
+    # Gilbert: 1 Gb = 1/(4π) biot (magnetomotive force)
+    graph.add_edge(src=units.gilbert, dst=units.biot, map=LinearMap(1 / (4 * math.pi)))
 
     # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
     # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)

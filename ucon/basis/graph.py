@@ -196,11 +196,14 @@ _default_basis_graph: BasisGraph | None = None
 
 
 def _build_standard_basis_graph() -> BasisGraph:
-    """Build standard basis graph with SI/CGS/CGS-ESU/natural transforms."""
-    from ucon.basis.transforms import SI_TO_CGS, SI_TO_CGS_ESU, CGS_TO_SI, SI_TO_NATURAL
+    """Build standard basis graph with SI/CGS/CGS-ESU/CGS-EMU/natural transforms."""
+    from ucon.basis.transforms import (
+        SI_TO_CGS, SI_TO_CGS_ESU, SI_TO_CGS_EMU, CGS_TO_SI, SI_TO_NATURAL,
+    )
     graph = BasisGraph()
     graph.add_transform(SI_TO_CGS)
     graph.add_transform(SI_TO_CGS_ESU)
+    graph.add_transform(SI_TO_CGS_EMU)
     graph.add_transform(CGS_TO_SI)
     graph.add_transform(SI_TO_NATURAL)
     return graph
