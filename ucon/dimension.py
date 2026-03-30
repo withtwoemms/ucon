@@ -609,6 +609,7 @@ MAGNETIC_FLUX_DENSITY = _dim("magnetic_flux_density", -2, 0, 1, -1, 0, 0, 0, 0) 
 MAGNETIC_PERMEABILITY = _dim("magnetic_permeability", -2, 1, 1, -2, 0, 0, 0, 0)  # M·L/(T²·I²)
 PERMITTIVITY = _dim("permittivity", 4, -3, -1, 2, 0, 0, 0, 0)  # T⁴·I²/(M·L³)
 ELECTRIC_FIELD_STRENGTH = _dim("electric_field_strength", -3, 1, 1, -1, 0, 0, 0, 0)  # M·L/(T³·I)
+MAGNETIC_FIELD_STRENGTH = _dim("magnetic_field_strength", 0, -1, 0, 1, 0, 0, 0, 0)  # I/L
 
 # Thermodynamics
 ENTROPY = _dim("entropy", -2, 2, 1, 0, -1, 0, 0, 0)  # M·L²/(T²·Θ)
@@ -622,6 +623,101 @@ ILLUMINANCE = _dim("illuminance", 0, -2, 0, 0, 0, 1, 0, 0)  # J/L²
 CATALYTIC_ACTIVITY = _dim("catalytic_activity", -1, 0, 0, 0, 0, 0, 1, 0)  # N/T
 MOLAR_MASS = _dim("molar_mass", 0, 0, 1, 0, 0, 0, -1, 0)  # M/N
 MOLAR_VOLUME = _dim("molar_volume", 0, 3, 0, 0, 0, 0, -1, 0)  # L³/N
+
+
+# -----------------------------------------------------------------------------
+# CGS Dimensions (Centimetre-Gram-Second)
+# -----------------------------------------------------------------------------
+
+from ucon.basis.builtin import CGS  # noqa: E402
+
+
+def _cgs_vec(*components: int | Fraction) -> Vector:
+    """Shorthand for creating a CGS vector with 3 components (L, M, T)."""
+    padded = list(components) + [0] * (3 - len(components))
+    return Vector(CGS, tuple(Fraction(c) for c in padded))
+
+
+def _cgs_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    """Create and register a standard CGS dimension."""
+    vec = _cgs_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    _register(dim)
+    _register_attr(dim)
+    return dim
+
+
+# CGS base dimensions
+CGS_NONE = _cgs_dim("cgs_none")
+CGS_LENGTH = _cgs_dim("cgs_length", 1, 0, 0)
+CGS_MASS = _cgs_dim("cgs_mass", 0, 1, 0)
+CGS_TIME = _cgs_dim("cgs_time", 0, 0, 1)
+
+# CGS derived dimensions
+CGS_VELOCITY = _cgs_dim("cgs_velocity", 1, 0, -1)  # L/T
+CGS_FORCE = _cgs_dim("cgs_force", 1, 1, -2)  # M·L/T² (dyne)
+CGS_ENERGY = _cgs_dim("cgs_energy", 2, 1, -2)  # M·L²/T² (erg)
+CGS_PRESSURE = _cgs_dim("cgs_pressure", -1, 1, -2)  # M/(L·T²) (barye)
+CGS_DYNAMIC_VISCOSITY = _cgs_dim("cgs_dynamic_viscosity", -1, 1, -1)  # M/(L·T) (poise)
+CGS_KINEMATIC_VISCOSITY = _cgs_dim("cgs_kinematic_viscosity", 2, 0, -1)  # L²/T (stokes)
+
+
+# -----------------------------------------------------------------------------
+# CGS-ESU Dimensions (Electrostatic Units)
+# -----------------------------------------------------------------------------
+
+from ucon.basis.builtin import CGS_ESU  # noqa: E402
+
+
+def _cgs_esu_vec(*components: int | Fraction) -> Vector:
+    """Shorthand for creating a CGS-ESU vector with 4 components (L, M, T, Q)."""
+    padded = list(components) + [0] * (4 - len(components))
+    return Vector(CGS_ESU, tuple(Fraction(c) for c in padded))
+
+
+def _cgs_esu_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    """Create and register a standard CGS-ESU dimension."""
+    vec = _cgs_esu_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    _register(dim)
+    _register_attr(dim)
+    return dim
+
+
+# CGS-ESU electromagnetic dimensions
+# In CGS-ESU, charge is derived: [q] = M^(1/2)·L^(3/2)·T^(-1) (from Coulomb's law with k=1)
+CGS_ESU_CHARGE = _cgs_esu_dim(
+    "cgs_esu_charge",
+    Fraction(3, 2), Fraction(1, 2), Fraction(-1), Fraction(0),
+)  # statcoulomb
+CGS_ESU_CURRENT = _cgs_esu_dim(
+    "cgs_esu_current",
+    Fraction(3, 2), Fraction(1, 2), Fraction(-2), Fraction(0),
+)  # statampere = charge/time
+CGS_ESU_VOLTAGE = _cgs_esu_dim(
+    "cgs_esu_voltage",
+    Fraction(1, 2), Fraction(1, 2), Fraction(-1), Fraction(0),
+)  # statvolt = erg/statcoulomb
+CGS_ESU_RESISTANCE = _cgs_esu_dim(
+    "cgs_esu_resistance",
+    Fraction(-1), Fraction(0), Fraction(1), Fraction(0),
+)  # statohm = s/cm
+CGS_ESU_CAPACITANCE = _cgs_esu_dim(
+    "cgs_esu_capacitance",
+    Fraction(1), Fraction(0), Fraction(0), Fraction(0),
+)  # statfarad = cm
+CGS_ESU_MAGNETIC_FLUX_DENSITY = _cgs_esu_dim(
+    "cgs_esu_magnetic_flux_density",
+    Fraction(-3, 2), Fraction(1, 2), Fraction(0), Fraction(0),
+)  # gauss: L^(-3/2)·M^(1/2) (from SI_TO_CGS_ESU applied to M/(T²·I))
+CGS_ESU_MAGNETIC_FLUX = _cgs_esu_dim(
+    "cgs_esu_magnetic_flux",
+    Fraction(1, 2), Fraction(1, 2), Fraction(0), Fraction(0),
+)  # maxwell: L^(1/2)·M^(1/2) (from SI_TO_CGS_ESU applied to M·L²/(T²·I))
+CGS_ESU_MAGNETIC_FIELD_STRENGTH = _cgs_esu_dim(
+    "cgs_esu_magnetic_field_strength",
+    Fraction(1, 2), Fraction(1, 2), Fraction(-2), Fraction(0),
+)  # oersted: L^(1/2)·M^(1/2)·T^(-2) (from SI_TO_CGS_ESU applied to I/L)
 
 
 def basis() -> tuple[Dimension, ...]:
@@ -690,6 +786,7 @@ def all_dimensions() -> tuple[Dimension, ...]:
         MAGNETIC_PERMEABILITY,
         PERMITTIVITY,
         ELECTRIC_FIELD_STRENGTH,
+        MAGNETIC_FIELD_STRENGTH,
         # Derived - Thermodynamics
         ENTROPY,
         SPECIFIC_HEAT_CAPACITY,
@@ -700,6 +797,26 @@ def all_dimensions() -> tuple[Dimension, ...]:
         CATALYTIC_ACTIVITY,
         MOLAR_MASS,
         MOLAR_VOLUME,
+        # CGS dimensions
+        CGS_NONE,
+        CGS_LENGTH,
+        CGS_MASS,
+        CGS_TIME,
+        CGS_VELOCITY,
+        CGS_FORCE,
+        CGS_ENERGY,
+        CGS_PRESSURE,
+        CGS_DYNAMIC_VISCOSITY,
+        CGS_KINEMATIC_VISCOSITY,
+        # CGS-ESU dimensions
+        CGS_ESU_CHARGE,
+        CGS_ESU_CURRENT,
+        CGS_ESU_VOLTAGE,
+        CGS_ESU_RESISTANCE,
+        CGS_ESU_CAPACITANCE,
+        CGS_ESU_MAGNETIC_FLUX_DENSITY,
+        CGS_ESU_MAGNETIC_FLUX,
+        CGS_ESU_MAGNETIC_FIELD_STRENGTH,
     )
 
 
@@ -762,6 +879,7 @@ __all__ = [
     "MAGNETIC_PERMEABILITY",
     "PERMITTIVITY",
     "ELECTRIC_FIELD_STRENGTH",
+    "MAGNETIC_FIELD_STRENGTH",
     # Derived dimensions - Thermodynamics
     "ENTROPY",
     "SPECIFIC_HEAT_CAPACITY",
@@ -772,4 +890,24 @@ __all__ = [
     "CATALYTIC_ACTIVITY",
     "MOLAR_MASS",
     "MOLAR_VOLUME",
+    # CGS dimensions
+    "CGS_NONE",
+    "CGS_LENGTH",
+    "CGS_MASS",
+    "CGS_TIME",
+    "CGS_VELOCITY",
+    "CGS_FORCE",
+    "CGS_ENERGY",
+    "CGS_PRESSURE",
+    "CGS_DYNAMIC_VISCOSITY",
+    "CGS_KINEMATIC_VISCOSITY",
+    # CGS-ESU dimensions
+    "CGS_ESU_CHARGE",
+    "CGS_ESU_CURRENT",
+    "CGS_ESU_VOLTAGE",
+    "CGS_ESU_RESISTANCE",
+    "CGS_ESU_CAPACITANCE",
+    "CGS_ESU_MAGNETIC_FLUX_DENSITY",
+    "CGS_ESU_MAGNETIC_FLUX",
+    "CGS_ESU_MAGNETIC_FIELD_STRENGTH",
 ]

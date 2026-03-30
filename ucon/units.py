@@ -42,8 +42,17 @@ from ucon.dimension import (
     CHARGE, VOLTAGE, RESISTANCE, RESISTIVITY, CONDUCTANCE, CONDUCTIVITY,
     CAPACITANCE, INDUCTANCE, MAGNETIC_FLUX, MAGNETIC_FLUX_DENSITY,
     MAGNETIC_PERMEABILITY, PERMITTIVITY, ELECTRIC_FIELD_STRENGTH,
+    MAGNETIC_FIELD_STRENGTH,
     ENTROPY, SPECIFIC_HEAT_CAPACITY, THERMAL_CONDUCTIVITY,
     ILLUMINANCE, CATALYTIC_ACTIVITY, MOLAR_MASS, MOLAR_VOLUME,
+    # CGS dimensions
+    CGS_FORCE, CGS_ENERGY, CGS_PRESSURE,
+    CGS_DYNAMIC_VISCOSITY, CGS_KINEMATIC_VISCOSITY,
+    # CGS-ESU dimensions
+    CGS_ESU_CHARGE, CGS_ESU_CURRENT, CGS_ESU_VOLTAGE,
+    CGS_ESU_RESISTANCE, CGS_ESU_CAPACITANCE,
+    CGS_ESU_MAGNETIC_FLUX_DENSITY, CGS_ESU_MAGNETIC_FLUX,
+    CGS_ESU_MAGNETIC_FIELD_STRENGTH,
 )
 from ucon.graph import _get_parsing_graph
 from ucon.parsing import parse_unit_expression, ParseError
@@ -96,9 +105,10 @@ webers_per_meter = Unit(name='webers_per_meter', dimension=MAGNETIC_PERMEABILITY
 # ----------------------------------------------------------------------
 
 
-# -- Viscosity Units ---------------------------------------------------
-poise = Unit(name='poise', dimension=DYNAMIC_VISCOSITY, aliases=('P',))
-stokes = Unit(name='stokes', dimension=KINEMATIC_VISCOSITY, aliases=('St',))
+# -- Named SI Intermediates (for cross-basis Unit→Unit edges) ----------
+pascal_second = Unit(name='pascal_second', dimension=DYNAMIC_VISCOSITY, aliases=('Pa·s', 'Pa*s'))
+square_meter_per_second = Unit(name='square_meter_per_second', dimension=KINEMATIC_VISCOSITY, aliases=('m²/s', 'm2/s'))
+ampere_per_meter = Unit(name='ampere_per_meter', dimension=MAGNETIC_FIELD_STRENGTH, aliases=('A/m',))
 # ----------------------------------------------------------------------
 
 
@@ -168,7 +178,6 @@ calorie = Unit(name='calorie', dimension=ENERGY, aliases=('cal', 'calories'))
 btu = Unit(name='btu', dimension=ENERGY, aliases=('BTU',))
 watt_hour = Unit(name='watt_hour', dimension=ENERGY, aliases=('Wh',))
 electron_volt = Unit(name='electron_volt', dimension=ENERGY, aliases=('eV',))
-erg = Unit(name='erg', dimension=ENERGY, aliases=('erg',))
 therm = Unit(name='therm', dimension=ENERGY, aliases=('thm', 'therms'))
 foot_pound = Unit(name='foot_pound', dimension=ENERGY, aliases=('ft_lb', 'ft_lbf'))
 
@@ -187,7 +196,6 @@ inch_mercury = Unit(name='inch_mercury', dimension=PRESSURE, aliases=('inHg',))
 # Force
 pound_force = Unit(name='pound_force', dimension=FORCE, aliases=('lbf',))
 kilogram_force = Unit(name='kilogram_force', dimension=FORCE, aliases=('kgf',))
-dyne = Unit(name='dyne', dimension=FORCE, aliases=('dyn',))
 kip = Unit(name='kip', dimension=FORCE, aliases=('klbf',))
 poundal = Unit(name='poundal', dimension=FORCE, aliases=('pdl',))
 gram_force = Unit(name='gram_force', dimension=FORCE, aliases=('gf',))
@@ -222,16 +230,12 @@ barn = Unit(name='barn', dimension=AREA, aliases=('b_area',))
 # Charge
 ampere_hour = Unit(name='ampere_hour', dimension=CHARGE, aliases=('Ah',))
 
-# Magnetic flux density (CGS)
-gauss = Unit(name='gauss', dimension=MAGNETIC_FLUX_DENSITY, aliases=('G', 'Gs'))
 
 # Radiation
 curie = Unit(name='curie', dimension=FREQUENCY, aliases=('Ci',))
 rem = Unit(name='rem', dimension=ENERGY, aliases=('rem',))
 rad_dose = Unit(name='rad_dose', dimension=ENERGY, aliases=('rad_absorbed',))
 
-# Magnetic flux (CGS)
-maxwell = Unit(name='maxwell', dimension=MAGNETIC_FLUX, aliases=('Mx',))
 
 # Catalytic activity
 enzyme_unit = Unit(name='enzyme_unit', dimension=CATALYTIC_ACTIVITY, aliases=('U', 'IU'))
@@ -239,6 +243,27 @@ enzyme_unit = Unit(name='enzyme_unit', dimension=CATALYTIC_ACTIVITY, aliases=('U
 # Typography
 point_typo = Unit(name='point', dimension=LENGTH, aliases=('pt_typo',))
 pica = Unit(name='pica', dimension=LENGTH, aliases=('pica',))
+# ----------------------------------------------------------------------
+
+
+# -- CGS Mechanical Units (native CGS basis) ---------------------------
+dyne = Unit(name='dyne', dimension=CGS_FORCE, aliases=('dyn',))
+erg = Unit(name='erg', dimension=CGS_ENERGY, aliases=('erg',))
+barye = Unit(name='barye', dimension=CGS_PRESSURE, aliases=('Ba',))
+poise = Unit(name='poise', dimension=CGS_DYNAMIC_VISCOSITY, aliases=('P',))
+stokes = Unit(name='stokes', dimension=CGS_KINEMATIC_VISCOSITY, aliases=('St',))
+# ----------------------------------------------------------------------
+
+
+# -- CGS-ESU Electromagnetic Units (native CGS-ESU basis) --------------
+statcoulomb = Unit(name='statcoulomb', dimension=CGS_ESU_CHARGE, aliases=('statC', 'esu', 'franklin', 'Fr'))
+statampere = Unit(name='statampere', dimension=CGS_ESU_CURRENT, aliases=('statA',))
+statvolt = Unit(name='statvolt', dimension=CGS_ESU_VOLTAGE, aliases=('statV',))
+statohm = Unit(name='statohm', dimension=CGS_ESU_RESISTANCE, aliases=('statΩ',))
+statfarad = Unit(name='statfarad', dimension=CGS_ESU_CAPACITANCE, aliases=('statF',))
+gauss = Unit(name='gauss', dimension=CGS_ESU_MAGNETIC_FLUX_DENSITY, aliases=('G', 'Gs'))
+maxwell = Unit(name='maxwell', dimension=CGS_ESU_MAGNETIC_FLUX, aliases=('Mx',))
+oersted = Unit(name='oersted', dimension=CGS_ESU_MAGNETIC_FIELD_STRENGTH, aliases=('Oe',))
 # ----------------------------------------------------------------------
 
 

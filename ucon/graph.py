@@ -1020,8 +1020,6 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.pound_force, dst=units.newton, map=LinearMap(4.4482216152605))
     # 1 kgf = 9.80665 N (exact, by definition)
     graph.add_edge(src=units.kilogram_force, dst=units.newton, map=LinearMap(9.80665))
-    # 1 dyne = 1e-5 N (CGS unit)
-    graph.add_edge(src=units.dyne, dst=units.newton, map=LinearMap(1e-5))
     # 1 kip = 1000 lbf (kilo-pound force)
     graph.add_edge(src=units.kip, dst=units.pound_force, map=LinearMap(1000))
     # 1 poundal = 0.138255 N (ft·lb/s², British absolute unit of force)
@@ -1030,12 +1028,12 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.gram_force, dst=units.newton, map=LinearMap(9.80665e-3))
 
     # --- Dynamic Viscosity ---
-    # 1 poise = 0.1 Pa·s (CGS unit)
-    graph.add_edge(src=units.poise, dst=units.pascal * units.second, map=LinearMap(0.1))
+    # SI equivalence: pascal_second ↔ Pa·s (identity)
+    graph.add_edge(src=units.pascal_second, dst=units.pascal * units.second, map=LinearMap(1))
 
     # --- Kinematic Viscosity ---
-    # 1 stokes = 1e-4 m²/s (CGS unit)
-    graph.add_edge(src=units.stokes, dst=units.meter ** 2 / units.second, map=LinearMap(1e-4))
+    # SI equivalence: square_meter_per_second ↔ m²/s (identity)
+    graph.add_edge(src=units.square_meter_per_second, dst=units.meter ** 2 / units.second, map=LinearMap(1))
 
     # --- Volume ---
     graph.add_edge(src=units.liter, dst=units.gallon, map=LinearMap(0.264172))
@@ -1070,8 +1068,6 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.joule, dst=units.watt_hour, map=LinearMap(1/3600))  # 1 Wh = 3600 J
     # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)
     graph.add_edge(src=units.electron_volt, dst=units.joule, map=LinearMap(1.602176634e-19))
-    # 1 erg = 1e-7 J (CGS unit, exact)
-    graph.add_edge(src=units.erg, dst=units.joule, map=LinearMap(1e-7))
     # 1 therm = 1.05506e8 J (US therm, ≈ 100,000 BTU)
     graph.add_edge(src=units.therm, dst=units.joule, map=LinearMap(1.05506e8))
     # 1 foot-pound = 1.3558179483314 J (exact, lbf × ft)
@@ -1102,12 +1098,6 @@ def _build_standard_graph() -> ConversionGraph:
     # --- Charge ---
     # 1 Ah = 3600 C
     graph.add_edge(src=units.ampere_hour, dst=units.coulomb, map=LinearMap(3600))
-
-    # --- Magnetic flux density ---
-    # 1 gauss = 1e-4 tesla (CGS unit, exact)
-    graph.add_edge(src=units.gauss, dst=units.tesla, map=LinearMap(1e-4))
-    # 1 maxwell = 1e-8 Wb (CGS magnetic flux unit, exact)
-    graph.add_edge(src=units.maxwell, dst=units.weber, map=LinearMap(1e-8))
 
     # --- Radiation ---
     # 1 curie = 3.7e10 Bq (exact, by definition)
@@ -1167,6 +1157,41 @@ def _build_standard_graph() -> ConversionGraph:
         src=units.mole / units.liter,
         dst=units.pH,
         map=LogMap(scale=-1, base=10, reference=1.0),
+    )
+
+    # -------------------------------------------------------------------------
+    # Cross-Basis Edges (CGS/CGS-ESU ↔ SI)
+    # -------------------------------------------------------------------------
+    from ucon.basis.graph import _build_standard_basis_graph
+    from ucon.basis.transforms import CGS_TO_SI, SI_TO_CGS_ESU
+
+    graph._basis_graph = _build_standard_basis_graph()
+
+    # CGS mechanical → SI (CGS_TO_SI: src=CGS unit, dst=SI unit)
+    graph.connect_systems(
+        basis_transform=CGS_TO_SI,
+        edges={
+            (units.dyne, units.newton): LinearMap(1e-5),
+            (units.erg, units.joule): LinearMap(1e-7),
+            (units.barye, units.pascal): LinearMap(0.1),
+            (units.poise, units.pascal_second): LinearMap(0.1),
+            (units.stokes, units.square_meter_per_second): LinearMap(1e-4),
+        },
+    )
+
+    # CGS-ESU electromagnetic ↔ SI (SI_TO_CGS_ESU: src=SI unit, dst=CGS-ESU unit)
+    graph.connect_systems(
+        basis_transform=SI_TO_CGS_ESU,
+        edges={
+            (units.ampere, units.statampere): LinearMap(2.99792458e9),
+            (units.coulomb, units.statcoulomb): LinearMap(2.99792458e9),
+            (units.volt, units.statvolt): LinearMap(1 / 2.99792458e2),
+            (units.ohm, units.statohm): LinearMap(1 / 8.9875517873681764e11),
+            (units.farad, units.statfarad): LinearMap(8.9875517873681764e11),
+            (units.tesla, units.gauss): LinearMap(1e4),
+            (units.weber, units.maxwell): LinearMap(1e8),
+            (units.ampere_per_meter, units.oersted): LinearMap(4 * math.pi * 1e-3),
+        },
     )
 
     return graph
