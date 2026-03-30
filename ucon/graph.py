@@ -1025,6 +1025,12 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.centimeter_mercury, dst=units.pascal, map=LinearMap(1333.22))
     # 1 ksi = 1000 psi = 6.894757e6 Pa
     graph.add_edge(src=units.ksi, dst=units.psi, map=LinearMap(1000))
+    # 1 technical atmosphere (at) = 98066.5 Pa (exact, 1 kgf/cm²)
+    graph.add_edge(src=units.technical_atmosphere, dst=units.pascal, map=LinearMap(98066.5))
+    # 1 mmH₂O = 9.80665 Pa (conventional, at 4°C)
+    graph.add_edge(src=units.millimeter_water, dst=units.pascal, map=LinearMap(9.80665))
+    # 1 inH₂O = 249.08891 Pa (conventional, at 4°C, 25.4 mm × 9.80665)
+    graph.add_edge(src=units.inch_water, dst=units.pascal, map=LinearMap(249.08891))
 
     # --- Force ---
     # 1 lbf = 4.4482216152605 N (exact, from lb_m × g_n)
@@ -1037,6 +1043,12 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.poundal, dst=units.newton, map=LinearMap(0.138255))
     # 1 gram-force = 9.80665e-3 N (exact, by definition of standard gravity)
     graph.add_edge(src=units.gram_force, dst=units.newton, map=LinearMap(9.80665e-3))
+    # 1 ounce-force = 0.27801385095378125 N (exact, 1/16 lbf)
+    graph.add_edge(src=units.ounce_force, dst=units.newton, map=LinearMap(0.27801385095378125))
+    # 1 short ton-force = 8896.443230521 N (exact, 2000 lbf)
+    graph.add_edge(src=units.ton_force, dst=units.newton, map=LinearMap(8896.443230521))
+    # 1 metric ton-force = 9806.65 N (exact, 1000 kgf)
+    graph.add_edge(src=units.metric_ton_force, dst=units.newton, map=LinearMap(9806.65))
 
     # --- Dynamic Viscosity ---
     # SI equivalence: pascal_second ↔ Pa·s (identity)
@@ -1072,6 +1084,24 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.pint_volume, dst=units.gill, map=LinearMap(4))
     # 1 minim = 1/480 US fluid ounce = 6.161152e-5 L
     graph.add_edge(src=units.fluid_ounce, dst=units.minim, map=LinearMap(480))
+    # 1 cubic foot = 28.316846592 L (exact)
+    graph.add_edge(src=units.cubic_foot, dst=units.liter, map=LinearMap(28.316846592))
+    # 1 cubic inch = 16.387064 mL = 0.016387064 L (exact)
+    graph.add_edge(src=units.cubic_inch, dst=units.liter, map=LinearMap(0.016387064))
+    # 1 cubic yard = 764.554857984 L (exact, 27 ft³)
+    graph.add_edge(src=units.cubic_yard, dst=units.liter, map=LinearMap(764.554857984))
+    # 1 acre-foot = 1233481.83754752 L (exact, 43560 ft³)
+    graph.add_edge(src=units.acre_foot, dst=units.liter, map=LinearMap(1233481.83754752))
+    # 1 stere = 1 m³ = 1000 L (exact, by definition)
+    graph.add_edge(src=units.stere, dst=units.liter, map=LinearMap(1000))
+    # 1 imperial quart = 1.1365225 L (exact, 1/4 imperial gallon)
+    graph.add_edge(src=units.imperial_quart, dst=units.liter, map=LinearMap(1.1365225))
+    # 1 imperial fluid ounce = 28.4130625 mL (exact, 1/20 imperial pint)
+    graph.add_edge(src=units.imperial_fluid_ounce, dst=units.liter, map=LinearMap(0.0284130625))
+    # 1 imperial gill = 142.0653125 mL (exact, 1/4 imperial pint)
+    graph.add_edge(src=units.imperial_gill, dst=units.liter, map=LinearMap(0.1420653125))
+    # 1 imperial cup = 284.130625 mL (exact, 1/2 imperial pint)
+    graph.add_edge(src=units.imperial_cup, dst=units.liter, map=LinearMap(0.284130625))
 
     # --- Energy ---
     graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
@@ -1081,6 +1111,12 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.therm, dst=units.joule, map=LinearMap(1.05506e8))
     # 1 foot-pound = 1.3558179483314 J (exact, lbf × ft)
     graph.add_edge(src=units.foot_pound, dst=units.joule, map=LinearMap(1.3558179483314))
+    # 1 thermochemical calorie = 4.184 J (exact, by definition)
+    graph.add_edge(src=units.thermochemical_calorie, dst=units.joule, map=LinearMap(4.184))
+    # 1 ton of TNT = 4.184e9 J (exact, by convention)
+    graph.add_edge(src=units.ton_tnt, dst=units.joule, map=LinearMap(4.184e9))
+    # 1 tonne of oil equivalent = 4.1868e10 J (IEA/ISO definition)
+    graph.add_edge(src=units.tonne_oil_equivalent, dst=units.joule, map=LinearMap(4.1868e10))
     # Cross-structure: energy/time → power (enables BTU/h → kW)
     # 1 BTU/h = 1055.06 J/h = 1055.06/3600 W = 0.29307 W
     graph.add_edge(src=units.btu / units.hour, dst=units.watt, map=LinearMap(1055.06 / 3600))
@@ -1089,6 +1125,14 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.watt, dst=units.horsepower, map=LinearMap(1/745.7))
     # 1 volt-ampere = 1 watt (apparent power equals real power for resistive loads)
     graph.add_edge(src=units.volt_ampere, dst=units.watt, map=LinearMap(1))
+    # 1 metric horsepower (PS) = 735.49875 W (exact, by DIN definition)
+    graph.add_edge(src=units.metric_horsepower, dst=units.watt, map=LinearMap(735.49875))
+    # 1 electrical horsepower = 746 W (exact, by definition)
+    graph.add_edge(src=units.electrical_horsepower, dst=units.watt, map=LinearMap(746))
+    # 1 boiler horsepower = 9809.5 W (ASME definition)
+    graph.add_edge(src=units.boiler_horsepower, dst=units.watt, map=LinearMap(9809.5))
+    # 1 refrigeration ton = 3516.8525 W (12000 BTU/h, exact)
+    graph.add_edge(src=units.refrigeration_ton, dst=units.watt, map=LinearMap(3516.8525))
 
     # --- Area ---
     # 1 acre = 43560 ft² = 4046.8564224 m² (exact)
@@ -1129,6 +1173,16 @@ def _build_standard_graph() -> ConversionGraph:
     # --- Photometry ---
     # 1 foot-candle = 1 lm/ft² = 10.763910417 lux
     graph.add_edge(src=units.foot_candle, dst=units.lux, map=LinearMap(10.763910417))
+
+    # --- Acceleration ---
+    # 1 galileo (Gal) = 0.01 m/s² (exact, CGS unit of acceleration)
+    graph.add_edge(src=units.galileo, dst=units.meter / units.second ** 2, map=LinearMap(0.01))
+    # 1 standard gravity (g₀) = 9.80665 m/s² (exact, by definition)
+    graph.add_edge(src=units.standard_gravity, dst=units.meter / units.second ** 2, map=LinearMap(9.80665))
+
+    # --- Concentration ---
+    # 1 molar (M) = 1 mol/L (exact, by definition)
+    graph.add_edge(src=units.molar, dst=units.mole / units.liter, map=LinearMap(1))
 
     # --- Information ---
     graph.add_edge(src=units.byte, dst=units.bit, map=LinearMap(8))

@@ -44,7 +44,7 @@ from ucon.dimension import (
     MAGNETIC_PERMEABILITY, PERMITTIVITY, ELECTRIC_FIELD_STRENGTH,
     MAGNETIC_FIELD_STRENGTH,
     ENTROPY, SPECIFIC_HEAT_CAPACITY, THERMAL_CONDUCTIVITY,
-    ILLUMINANCE, CATALYTIC_ACTIVITY, MOLAR_MASS, MOLAR_VOLUME,
+    ILLUMINANCE, CATALYTIC_ACTIVITY, MOLAR_MASS, MOLAR_VOLUME, CONCENTRATION,
     # CGS dimensions
     CGS_FORCE, CGS_ENERGY, CGS_PRESSURE,
     CGS_DYNAMIC_VISCOSITY, CGS_KINEMATIC_VISCOSITY,
@@ -176,6 +176,15 @@ bushel = Unit(name='bushel', dimension=VOLUME, aliases=('bu', 'bushels'))
 peck = Unit(name='peck', dimension=VOLUME, aliases=('pk', 'pecks'))
 gill = Unit(name='gill', dimension=VOLUME, aliases=('gi', 'gills'))
 minim = Unit(name='minim', dimension=VOLUME, aliases=('min_vol', 'minims'))
+cubic_foot = Unit(name='cubic_foot', dimension=VOLUME, aliases=('ft³', 'cu_ft'))
+cubic_inch = Unit(name='cubic_inch', dimension=VOLUME, aliases=('in³', 'cu_in'))
+cubic_yard = Unit(name='cubic_yard', dimension=VOLUME, aliases=('yd³', 'cu_yd'))
+acre_foot = Unit(name='acre_foot', dimension=VOLUME, aliases=('ac_ft', 'acre_feet'))
+stere = Unit(name='stere', dimension=VOLUME, aliases=('st_vol',))
+imperial_quart = Unit(name='imperial_quart', dimension=VOLUME, aliases=('imp_qt',))
+imperial_fluid_ounce = Unit(name='imperial_fluid_ounce', dimension=VOLUME, aliases=('imp_floz',))
+imperial_gill = Unit(name='imperial_gill', dimension=VOLUME, aliases=('imp_gi',))
+imperial_cup = Unit(name='imperial_cup', dimension=VOLUME, aliases=('imp_cup',))
 
 # Energy
 calorie = Unit(name='calorie', dimension=ENERGY, aliases=('cal', 'calories'))
@@ -183,10 +192,17 @@ btu = Unit(name='btu', dimension=ENERGY, aliases=('BTU',))
 watt_hour = Unit(name='watt_hour', dimension=ENERGY, aliases=('Wh',))
 therm = Unit(name='therm', dimension=ENERGY, aliases=('thm', 'therms'))
 foot_pound = Unit(name='foot_pound', dimension=ENERGY, aliases=('ft_lb', 'ft_lbf'))
+thermochemical_calorie = Unit(name='thermochemical_calorie', dimension=ENERGY, aliases=('cal_th',))
+ton_tnt = Unit(name='ton_tnt', dimension=ENERGY, aliases=('tTNT',))
+tonne_oil_equivalent = Unit(name='tonne_oil_equivalent', dimension=ENERGY, aliases=('toe',))
 
 # Power
 horsepower = Unit(name='horsepower', dimension=POWER, aliases=('hp',))
 volt_ampere = Unit(name='volt_ampere', dimension=POWER, aliases=('VA',))
+metric_horsepower = Unit(name='metric_horsepower', dimension=POWER, aliases=('PS',))
+electrical_horsepower = Unit(name='electrical_horsepower', dimension=POWER, aliases=('hp_e',))
+boiler_horsepower = Unit(name='boiler_horsepower', dimension=POWER, aliases=('hp_boiler',))
+refrigeration_ton = Unit(name='refrigeration_ton', dimension=POWER, aliases=('TR', 'ton_ref'))
 
 # Pressure
 bar = Unit(name='bar', dimension=PRESSURE, aliases=('bar',))
@@ -198,6 +214,9 @@ inch_mercury = Unit(name='inch_mercury', dimension=PRESSURE, aliases=('inHg',))
 centimeter_water = Unit(name='centimeter_water', dimension=PRESSURE, aliases=('cmH2O', 'cmAq'))
 centimeter_mercury = Unit(name='centimeter_mercury', dimension=PRESSURE, aliases=('cmHg',))
 ksi = Unit(name='ksi', dimension=PRESSURE, aliases=('ksi',))
+technical_atmosphere = Unit(name='technical_atmosphere', dimension=PRESSURE, aliases=('at',))
+millimeter_water = Unit(name='millimeter_water', dimension=PRESSURE, aliases=('mmH2O', 'mmAq'))
+inch_water = Unit(name='inch_water', dimension=PRESSURE, aliases=('inH2O', 'inAq'))
 
 # Force
 pound_force = Unit(name='pound_force', dimension=FORCE, aliases=('lbf',))
@@ -205,6 +224,9 @@ kilogram_force = Unit(name='kilogram_force', dimension=FORCE, aliases=('kgf',))
 kip = Unit(name='kip', dimension=FORCE, aliases=('klbf',))
 poundal = Unit(name='poundal', dimension=FORCE, aliases=('pdl',))
 gram_force = Unit(name='gram_force', dimension=FORCE, aliases=('gf',))
+ounce_force = Unit(name='ounce_force', dimension=FORCE, aliases=('ozf',))
+ton_force = Unit(name='ton_force', dimension=FORCE, aliases=('tnf', 'short_ton_force'))
+metric_ton_force = Unit(name='metric_ton_force', dimension=FORCE, aliases=('tf', 'tonne_force'))
 # ----------------------------------------------------------------------
 
 
@@ -256,6 +278,13 @@ denier = Unit(name='denier', dimension=LINEAR_DENSITY, aliases=('den', 'D_tex'))
 
 # Photometry
 foot_candle = Unit(name='foot_candle', dimension=ILLUMINANCE, aliases=('fc', 'ftc'))
+
+# Acceleration
+galileo = Unit(name='galileo', dimension=ACCELERATION, aliases=('Gal',))
+standard_gravity = Unit(name='standard_gravity', dimension=ACCELERATION, aliases=('g0', 'gn'))
+
+# Concentration
+molar = Unit(name='molar', dimension=CONCENTRATION, aliases=('mol/L',))
 # ----------------------------------------------------------------------
 
 

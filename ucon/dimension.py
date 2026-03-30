@@ -626,6 +626,7 @@ ILLUMINANCE = _dim("illuminance", 0, -2, 0, 0, 0, 1, 0, 0)  # J/L²
 CATALYTIC_ACTIVITY = _dim("catalytic_activity", -1, 0, 0, 0, 0, 0, 1, 0)  # N/T
 MOLAR_MASS = _dim("molar_mass", 0, 0, 1, 0, 0, 0, -1, 0)  # M/N
 MOLAR_VOLUME = _dim("molar_volume", 0, 3, 0, 0, 0, 0, -1, 0)  # L³/N
+CONCENTRATION = _dim("concentration", 0, -3, 0, 0, 0, 0, 1, 0)  # N/L³
 
 
 # -----------------------------------------------------------------------------
@@ -824,6 +825,7 @@ def all_dimensions() -> tuple[Dimension, ...]:
         CATALYTIC_ACTIVITY,
         MOLAR_MASS,
         MOLAR_VOLUME,
+        CONCENTRATION,
         # CGS dimensions
         CGS_NONE,
         CGS_LENGTH,
@@ -920,6 +922,7 @@ __all__ = [
     "CATALYTIC_ACTIVITY",
     "MOLAR_MASS",
     "MOLAR_VOLUME",
+    "CONCENTRATION",
     # CGS dimensions
     "CGS_NONE",
     "CGS_LENGTH",
