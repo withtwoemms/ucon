@@ -52,6 +52,64 @@ if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
 
 
+def _parse_factor(value) -> float:
+    """Parse a factor value from TOML.
+
+    Accepts either a numeric value (int/float) or an arithmetic expression
+    string containing integers, ``/``, and ``*``.  This allows TOML files
+    to express exact ratios like ``"1852 / 3600"`` instead of truncated
+    decimals like ``0.514444``.
+
+    Parameters
+    ----------
+    value : int, float, or str
+        The factor as a number or arithmetic expression.
+
+    Returns
+    -------
+    float
+        The evaluated factor.
+
+    Raises
+    ------
+    PackageLoadError
+        If the string is not a valid arithmetic expression.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, str):
+        raise PackageLoadError(f"factor must be a number or expression string, got {type(value).__name__}")
+
+    import ast
+    import operator
+
+    _OPS = {
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.USub: operator.neg,
+    }
+
+    def _eval_node(node):
+        if isinstance(node, ast.Expression):
+            return _eval_node(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return float(node.value)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
+            return _OPS[type(node.op)](_eval_node(node.operand))
+        if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
+            return _OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))
+        raise PackageLoadError(
+            f"Unsupported expression in factor: {value!r}. "
+            "Only numeric literals with * and / are allowed."
+        )
+
+    try:
+        tree = ast.parse(value.strip(), mode='eval')
+        return _eval_node(tree)
+    except SyntaxError:
+        raise PackageLoadError(f"Invalid factor expression: {value!r}")
+
+
 def _get_dimension_map() -> dict[str, "Dimension"]:
     """Build a mapping from dimension names to Dimension objects."""
     from ucon.dimension import Dimension
@@ -253,13 +311,13 @@ def load_package(path: str | Path) -> UnitPackage:
         for u in data.get("units", [])
     )
 
-    # Parse edges
+    # Parse edges (factor supports arithmetic expressions like "1852 / 3600")
     edges = tuple(
         EdgeDef(
             src=e["src"],
             dst=e["dst"],
-            factor=float(e["factor"]),
-            offset=float(e.get("offset", 0.0)),
+            factor=_parse_factor(e["factor"]),
+            offset=_parse_factor(e.get("offset", 0.0)),
         )
         for e in data.get("edges", [])
     )

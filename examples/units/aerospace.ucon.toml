@@ -38,7 +38,7 @@ factor = 1852
 [[edges]]
 src = "knot"
 dst = "meter/second"
-factor = 0.514444
+factor = "1852 / 3600"
 
 [[edges]]
 src = "poundal"
