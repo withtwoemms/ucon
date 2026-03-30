@@ -45,14 +45,16 @@ from ucon.dimension import (
     MAGNETIC_FIELD_STRENGTH,
     ENTROPY, SPECIFIC_HEAT_CAPACITY, THERMAL_CONDUCTIVITY,
     ILLUMINANCE, CATALYTIC_ACTIVITY, MOLAR_MASS, MOLAR_VOLUME, CONCENTRATION,
+    WAVENUMBER, RADIANT_EXPOSURE, ELECTRIC_DIPOLE_MOMENT,
     # CGS dimensions
     CGS_FORCE, CGS_ENERGY, CGS_PRESSURE,
     CGS_DYNAMIC_VISCOSITY, CGS_KINEMATIC_VISCOSITY,
+    CGS_ACCELERATION, CGS_WAVENUMBER, CGS_RADIANT_EXPOSURE,
     # CGS-ESU dimensions
     CGS_ESU_CHARGE, CGS_ESU_CURRENT, CGS_ESU_VOLTAGE,
     CGS_ESU_RESISTANCE, CGS_ESU_CAPACITANCE,
     CGS_ESU_MAGNETIC_FLUX_DENSITY, CGS_ESU_MAGNETIC_FLUX,
-    CGS_ESU_MAGNETIC_FIELD_STRENGTH,
+    CGS_ESU_MAGNETIC_FIELD_STRENGTH, CGS_ESU_ELECTRIC_DIPOLE_MOMENT,
     # Natural-unit dimensions
     NATURAL_ENERGY,
 )
@@ -111,6 +113,10 @@ webers_per_meter = Unit(name='webers_per_meter', dimension=MAGNETIC_PERMEABILITY
 pascal_second = Unit(name='pascal_second', dimension=DYNAMIC_VISCOSITY, aliases=('Pa·s', 'Pa*s'))
 square_meter_per_second = Unit(name='square_meter_per_second', dimension=KINEMATIC_VISCOSITY, aliases=('m²/s', 'm2/s'))
 ampere_per_meter = Unit(name='ampere_per_meter', dimension=MAGNETIC_FIELD_STRENGTH, aliases=('A/m',))
+meter_per_second_squared = Unit(name='meter_per_second_squared', dimension=ACCELERATION, aliases=('m/s²', 'm/s2'))
+reciprocal_meter = Unit(name='reciprocal_meter', dimension=WAVENUMBER, aliases=('m⁻¹', '1/m'))
+joule_per_square_meter = Unit(name='joule_per_square_meter', dimension=RADIANT_EXPOSURE, aliases=('J/m²', 'J/m2'))
+coulomb_meter = Unit(name='coulomb_meter', dimension=ELECTRIC_DIPOLE_MOMENT, aliases=('C·m', 'C*m'))
 # ----------------------------------------------------------------------
 
 
@@ -278,9 +284,16 @@ denier = Unit(name='denier', dimension=LINEAR_DENSITY, aliases=('den', 'D_tex'))
 
 # Photometry
 foot_candle = Unit(name='foot_candle', dimension=ILLUMINANCE, aliases=('fc', 'ftc'))
+phot = Unit(name='phot', dimension=ILLUMINANCE, aliases=('ph',))
+
+# Viscosity
+reyn = Unit(name='reyn', dimension=DYNAMIC_VISCOSITY, aliases=('reyn',))
+
+# Spectroscopy / Radiation (SI-basis)
+jansky = Unit(name='jansky', dimension=RADIANT_EXPOSURE, aliases=('Jy',))
 
 # Acceleration
-galileo = Unit(name='galileo', dimension=ACCELERATION, aliases=('Gal',))
+galileo = Unit(name='galileo', dimension=CGS_ACCELERATION, aliases=('Gal',))
 standard_gravity = Unit(name='standard_gravity', dimension=ACCELERATION, aliases=('g0', 'gn'))
 
 # Concentration
@@ -294,6 +307,8 @@ erg = Unit(name='erg', dimension=CGS_ENERGY, aliases=('erg',))
 barye = Unit(name='barye', dimension=CGS_PRESSURE, aliases=('Ba',))
 poise = Unit(name='poise', dimension=CGS_DYNAMIC_VISCOSITY, aliases=('P',))
 stokes = Unit(name='stokes', dimension=CGS_KINEMATIC_VISCOSITY, aliases=('St',))
+kayser = Unit(name='kayser', dimension=CGS_WAVENUMBER, aliases=('K_wave',))
+langley = Unit(name='langley', dimension=CGS_RADIANT_EXPOSURE, aliases=('Ly_rad',))
 # ----------------------------------------------------------------------
 
 
@@ -306,6 +321,7 @@ statfarad = Unit(name='statfarad', dimension=CGS_ESU_CAPACITANCE, aliases=('stat
 gauss = Unit(name='gauss', dimension=CGS_ESU_MAGNETIC_FLUX_DENSITY, aliases=('G', 'Gs'))
 maxwell = Unit(name='maxwell', dimension=CGS_ESU_MAGNETIC_FLUX, aliases=('Mx',))
 oersted = Unit(name='oersted', dimension=CGS_ESU_MAGNETIC_FIELD_STRENGTH, aliases=('Oe',))
+debye = Unit(name='debye', dimension=CGS_ESU_ELECTRIC_DIPOLE_MOMENT, aliases=('D_dipole',))
 # ----------------------------------------------------------------------
 
 

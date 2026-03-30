@@ -628,6 +628,13 @@ MOLAR_MASS = _dim("molar_mass", 0, 0, 1, 0, 0, 0, -1, 0)  # M/N
 MOLAR_VOLUME = _dim("molar_volume", 0, 3, 0, 0, 0, 0, -1, 0)  # L³/N
 CONCENTRATION = _dim("concentration", 0, -3, 0, 0, 0, 0, 1, 0)  # N/L³
 
+# Spectroscopy / Radiation
+WAVENUMBER = _dim("wavenumber", 0, -1, 0, 0, 0, 0, 0, 0)  # 1/L
+RADIANT_EXPOSURE = _dim("radiant_exposure", -2, 0, 1, 0, 0, 0, 0, 0)  # M/T²
+
+# Electromagnetism (derived)
+ELECTRIC_DIPOLE_MOMENT = _dim("electric_dipole_moment", 1, 1, 0, 1, 0, 0, 0, 0)  # I·T·L
+
 
 # -----------------------------------------------------------------------------
 # CGS Dimensions (Centimetre-Gram-Second)
@@ -664,6 +671,9 @@ CGS_ENERGY = _cgs_dim("cgs_energy", 2, 1, -2)  # M·L²/T² (erg)
 CGS_PRESSURE = _cgs_dim("cgs_pressure", -1, 1, -2)  # M/(L·T²) (barye)
 CGS_DYNAMIC_VISCOSITY = _cgs_dim("cgs_dynamic_viscosity", -1, 1, -1)  # M/(L·T) (poise)
 CGS_KINEMATIC_VISCOSITY = _cgs_dim("cgs_kinematic_viscosity", 2, 0, -1)  # L²/T (stokes)
+CGS_ACCELERATION = _cgs_dim("cgs_acceleration", 1, 0, -2)  # L/T² (galileo)
+CGS_WAVENUMBER = _cgs_dim("cgs_wavenumber", -1, 0, 0)  # 1/L (kayser)
+CGS_RADIANT_EXPOSURE = _cgs_dim("cgs_radiant_exposure", 0, 1, -2)  # M/T² (langley)
 
 
 # -----------------------------------------------------------------------------
@@ -722,6 +732,10 @@ CGS_ESU_MAGNETIC_FIELD_STRENGTH = _cgs_esu_dim(
     "cgs_esu_magnetic_field_strength",
     Fraction(1, 2), Fraction(1, 2), Fraction(-2), Fraction(0),
 )  # oersted: L^(1/2)·M^(1/2)·T^(-2) (from SI_TO_CGS_ESU applied to I/L)
+CGS_ESU_ELECTRIC_DIPOLE_MOMENT = _cgs_esu_dim(
+    "cgs_esu_electric_dipole_moment",
+    Fraction(5, 2), Fraction(1, 2), Fraction(-1), Fraction(0),
+)  # debye: charge·length = L^(5/2)·M^(1/2)·T^(-1)
 
 
 # -----------------------------------------------------------------------------
@@ -826,6 +840,11 @@ def all_dimensions() -> tuple[Dimension, ...]:
         MOLAR_MASS,
         MOLAR_VOLUME,
         CONCENTRATION,
+        # Derived - Spectroscopy / Radiation
+        WAVENUMBER,
+        RADIANT_EXPOSURE,
+        # Derived - Electromagnetism (additional)
+        ELECTRIC_DIPOLE_MOMENT,
         # CGS dimensions
         CGS_NONE,
         CGS_LENGTH,
@@ -837,6 +856,9 @@ def all_dimensions() -> tuple[Dimension, ...]:
         CGS_PRESSURE,
         CGS_DYNAMIC_VISCOSITY,
         CGS_KINEMATIC_VISCOSITY,
+        CGS_ACCELERATION,
+        CGS_WAVENUMBER,
+        CGS_RADIANT_EXPOSURE,
         # CGS-ESU dimensions
         CGS_ESU_CHARGE,
         CGS_ESU_CURRENT,
@@ -846,6 +868,7 @@ def all_dimensions() -> tuple[Dimension, ...]:
         CGS_ESU_MAGNETIC_FLUX_DENSITY,
         CGS_ESU_MAGNETIC_FLUX,
         CGS_ESU_MAGNETIC_FIELD_STRENGTH,
+        CGS_ESU_ELECTRIC_DIPOLE_MOMENT,
         # Natural-unit dimensions
         NATURAL_ENERGY,
     )
@@ -923,6 +946,11 @@ __all__ = [
     "MOLAR_MASS",
     "MOLAR_VOLUME",
     "CONCENTRATION",
+    # Derived dimensions - Spectroscopy / Radiation
+    "WAVENUMBER",
+    "RADIANT_EXPOSURE",
+    # Derived dimensions - Electromagnetism (additional)
+    "ELECTRIC_DIPOLE_MOMENT",
     # CGS dimensions
     "CGS_NONE",
     "CGS_LENGTH",
@@ -934,6 +962,9 @@ __all__ = [
     "CGS_PRESSURE",
     "CGS_DYNAMIC_VISCOSITY",
     "CGS_KINEMATIC_VISCOSITY",
+    "CGS_ACCELERATION",
+    "CGS_WAVENUMBER",
+    "CGS_RADIANT_EXPOSURE",
     # CGS-ESU dimensions
     "CGS_ESU_CHARGE",
     "CGS_ESU_CURRENT",
@@ -943,6 +974,7 @@ __all__ = [
     "CGS_ESU_MAGNETIC_FLUX_DENSITY",
     "CGS_ESU_MAGNETIC_FLUX",
     "CGS_ESU_MAGNETIC_FIELD_STRENGTH",
+    "CGS_ESU_ELECTRIC_DIPOLE_MOMENT",
     # Natural-unit dimensions
     "NATURAL_ENERGY",
 ]

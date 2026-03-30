@@ -1173,12 +1173,32 @@ def _build_standard_graph() -> ConversionGraph:
     # --- Photometry ---
     # 1 foot-candle = 1 lm/ft² = 10.763910417 lux
     graph.add_edge(src=units.foot_candle, dst=units.lux, map=LinearMap(10.763910417))
+    # 1 phot = 1 lm/cm² = 10000 lux (exact)
+    graph.add_edge(src=units.phot, dst=units.lux, map=LinearMap(10000))
+
+    # --- Viscosity ---
+    # 1 reyn = 1 lbf·s/in² = 6894.757 Pa·s (exact, from psi definition)
+    graph.add_edge(src=units.reyn, dst=units.pascal_second, map=LinearMap(6894.757))
+
+    # --- Spectroscopy / Radiation ---
+    # SI bridge: joule_per_square_meter ↔ J/m² (identity)
+    graph.add_edge(src=units.joule_per_square_meter, dst=units.joule / units.meter ** 2, map=LinearMap(1))
+    # 1 jansky = 1e-26 W/(m²·Hz) = 1e-26 J/m² (exact, by IAU definition)
+    graph.add_edge(src=units.jansky, dst=units.joule_per_square_meter, map=LinearMap(1e-26))
+
+    # --- Electric Dipole Moment ---
+    # SI bridge: coulomb_meter ↔ C·m (identity)
+    graph.add_edge(src=units.coulomb_meter, dst=units.coulomb * units.meter, map=LinearMap(1))
 
     # --- Acceleration ---
-    # 1 galileo (Gal) = 0.01 m/s² (exact, CGS unit of acceleration)
-    graph.add_edge(src=units.galileo, dst=units.meter / units.second ** 2, map=LinearMap(0.01))
+    # SI bridge: meter_per_second_squared ↔ m/s² (identity)
+    graph.add_edge(src=units.meter_per_second_squared, dst=units.meter / units.second ** 2, map=LinearMap(1))
     # 1 standard gravity (g₀) = 9.80665 m/s² (exact, by definition)
-    graph.add_edge(src=units.standard_gravity, dst=units.meter / units.second ** 2, map=LinearMap(9.80665))
+    graph.add_edge(src=units.standard_gravity, dst=units.meter_per_second_squared, map=LinearMap(9.80665))
+
+    # --- Wavenumber ---
+    # SI bridge: reciprocal_meter ↔ m⁻¹ (identity)
+    graph.add_edge(src=units.reciprocal_meter, dst=units.meter ** -1, map=LinearMap(1))
 
     # --- Concentration ---
     # 1 molar (M) = 1 mol/L (exact, by definition)
@@ -1249,6 +1269,9 @@ def _build_standard_graph() -> ConversionGraph:
             (units.barye, units.pascal): LinearMap(0.1),
             (units.poise, units.pascal_second): LinearMap(0.1),
             (units.stokes, units.square_meter_per_second): LinearMap(1e-4),
+            (units.galileo, units.meter_per_second_squared): LinearMap(0.01),
+            (units.kayser, units.reciprocal_meter): LinearMap(100),
+            (units.langley, units.joule_per_square_meter): LinearMap(41840),
         },
     )
 
@@ -1264,6 +1287,7 @@ def _build_standard_graph() -> ConversionGraph:
             (units.tesla, units.gauss): LinearMap(1e4),
             (units.weber, units.maxwell): LinearMap(1e8),
             (units.ampere_per_meter, units.oersted): LinearMap(4 * math.pi * 1e-3),
+            (units.coulomb_meter, units.debye): LinearMap(1 / 3.33564095198152e-30),
         },
     )
 
