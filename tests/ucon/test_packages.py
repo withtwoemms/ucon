@@ -334,17 +334,17 @@ class TestWithPackage(unittest.TestCase):
         """with_package() returns new graph, original unchanged."""
         pkg = UnitPackage(
             name='test',
-            units=(UnitDef(name='slug', dimension='mass', aliases=('slug',)),),
+            units=(UnitDef(name='zorkmid', dimension='mass', aliases=('zk',)),),
         )
 
         original = get_default_graph()
         extended = original.with_package(pkg)
 
-        # slug should NOT be in original
-        self.assertIsNone(original.resolve_unit('slug'))
+        # zorkmid should NOT be in original
+        self.assertIsNone(original.resolve_unit('zorkmid'))
 
-        # slug should be in extended
-        self.assertIsNotNone(extended.resolve_unit('slug'))
+        # zorkmid should be in extended
+        self.assertIsNotNone(extended.resolve_unit('zorkmid'))
 
     def test_with_package_composition(self):
         """Multiple with_package() calls compose correctly."""

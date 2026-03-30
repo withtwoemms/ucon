@@ -926,6 +926,16 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.mile, dst=units.foot, map=LinearMap(5280))
     # 1 nautical mile = 1852 m (exact, by international definition)
     graph.add_edge(src=units.nautical_mile, dst=units.meter, map=LinearMap(1852))
+    # 1 fathom = 6 feet (exact, by definition)
+    graph.add_edge(src=units.fathom, dst=units.foot, map=LinearMap(6))
+    # 1 angstrom = 1e-10 m (exact)
+    graph.add_edge(src=units.angstrom, dst=units.meter, map=LinearMap(1e-10))
+    # 1 light year = 9.4607304725808e15 m (IAU definition)
+    graph.add_edge(src=units.light_year, dst=units.meter, map=LinearMap(9.4607304725808e15))
+    # 1 parsec = 3.0856775814913673e16 m (IAU 2015 definition)
+    graph.add_edge(src=units.parsec, dst=units.meter, map=LinearMap(3.0856775814913673e16))
+    # 1 AU = 1.495978707e11 m (exact, IAU 2012 definition)
+    graph.add_edge(src=units.astronomical_unit, dst=units.meter, map=LinearMap(1.495978707e11))
 
     # --- Mass ---
     graph.add_edge(src=units.kilogram, dst=units.gram, map=LinearMap(1000))
@@ -935,6 +945,16 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.metric_ton, dst=units.kilogram, map=LinearMap(1000))
     # 1 dalton = 1.66053906660e-27 kg (CODATA 2018, exact by 2019 SI)
     graph.add_edge(src=units.dalton, dst=units.kilogram, map=LinearMap(1.66053906660e-27))
+    # 1 stone = 14 lb (exact, Imperial definition)
+    graph.add_edge(src=units.stone, dst=units.pound, map=LinearMap(14))
+    # 1 grain = 1/7000 lb (exact, avoirdupois definition)
+    graph.add_edge(src=units.grain, dst=units.pound, map=LinearMap(1/7000))
+    # 1 slug = 14.5939 kg (derived from lbf = slug × ft/s²)
+    graph.add_edge(src=units.slug, dst=units.kilogram, map=LinearMap(14.5939))
+    # 1 carat = 0.2 g (exact, metric carat definition)
+    graph.add_edge(src=units.carat, dst=units.gram, map=LinearMap(0.2))
+    # 1 troy ounce = 31.1035 g (exact: 480 grains)
+    graph.add_edge(src=units.troy_ounce, dst=units.gram, map=LinearMap(31.1035))
 
     # --- Time ---
     graph.add_edge(src=units.second, dst=units.minute, map=LinearMap(1/60))
@@ -976,6 +996,10 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.kilogram_force, dst=units.newton, map=LinearMap(9.80665))
     # 1 dyne = 1e-5 N (CGS unit)
     graph.add_edge(src=units.dyne, dst=units.newton, map=LinearMap(1e-5))
+    # 1 kip = 1000 lbf (kilo-pound force)
+    graph.add_edge(src=units.kip, dst=units.pound_force, map=LinearMap(1000))
+    # 1 poundal = 0.138255 N (ft·lb/s², British absolute unit of force)
+    graph.add_edge(src=units.poundal, dst=units.newton, map=LinearMap(0.138255))
 
     # --- Dynamic Viscosity ---
     # 1 poise = 0.1 Pa·s (CGS unit)
@@ -999,6 +1023,10 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.tablespoon, dst=units.teaspoon, map=LinearMap(3))
     # 1 oil barrel = 42 US gallons (petroleum industry standard)
     graph.add_edge(src=units.barrel, dst=units.gallon, map=LinearMap(42))
+    # 1 imperial gallon = 4.54609 L (exact, by definition)
+    graph.add_edge(src=units.imperial_gallon, dst=units.liter, map=LinearMap(4.54609))
+    # 1 imperial gallon = 8 imperial pints
+    graph.add_edge(src=units.imperial_gallon, dst=units.imperial_pint, map=LinearMap(8))
 
     # --- Energy ---
     graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
@@ -1008,18 +1036,24 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.electron_volt, dst=units.joule, map=LinearMap(1.602176634e-19))
     # 1 erg = 1e-7 J (CGS unit, exact)
     graph.add_edge(src=units.erg, dst=units.joule, map=LinearMap(1e-7))
+    # 1 therm = 1.05506e8 J (US therm, ≈ 100,000 BTU)
+    graph.add_edge(src=units.therm, dst=units.joule, map=LinearMap(1.05506e8))
     # Cross-structure: energy/time → power (enables BTU/h → kW)
     # 1 BTU/h = 1055.06 J/h = 1055.06/3600 W = 0.29307 W
     graph.add_edge(src=units.btu / units.hour, dst=units.watt, map=LinearMap(1055.06 / 3600))
 
     # --- Power ---
     graph.add_edge(src=units.watt, dst=units.horsepower, map=LinearMap(1/745.7))
+    # 1 volt-ampere = 1 watt (apparent power equals real power for resistive loads)
+    graph.add_edge(src=units.volt_ampere, dst=units.watt, map=LinearMap(1))
 
     # --- Area ---
     # 1 acre = 43560 ft² = 4046.8564224 m² (exact)
     graph.add_edge(src=units.acre, dst=units.meter ** 2, map=LinearMap(4046.8564224))
     # 1 hectare = 10000 m²
     graph.add_edge(src=units.hectare, dst=units.meter ** 2, map=LinearMap(10000))
+    # 1 barn = 1e-28 m² (nuclear/particle physics cross-section unit)
+    graph.add_edge(src=units.barn, dst=units.meter ** 2, map=LinearMap(1e-28))
 
     # --- Velocity ---
     # 1 knot = 1 nmi/h = 1852/3600 m/s
@@ -1040,6 +1074,10 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.curie, dst=units.becquerel, map=LinearMap(3.7e10))
     # 1 rem = 0.01 Sv (exact, by definition)
     graph.add_edge(src=units.rem, dst=units.sievert, map=LinearMap(0.01))
+
+    # --- Catalytic Activity ---
+    # 1 enzyme unit (U) = 1/60 µkat = 1.6667e-8 kat
+    graph.add_edge(src=units.enzyme_unit, dst=units.katal, map=LinearMap(1/60e6))
 
     # --- Information ---
     graph.add_edge(src=units.byte, dst=units.bit, map=LinearMap(8))

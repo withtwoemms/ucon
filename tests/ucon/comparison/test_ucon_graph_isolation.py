@@ -45,11 +45,10 @@ def aerospace_package():
     return ucon.UnitPackage(
         name="aerospace",
         units=(
-            ucon.UnitDef(name="slug", dimension="mass", aliases=("slug",)),
-            ucon.UnitDef(name="knot", dimension="velocity", aliases=("kn", "kt")),
+            ucon.UnitDef(name="zorkmid", dimension="mass", aliases=("zk",)),
         ),
         edges=(
-            ucon.EdgeDef(src="slug", dst="kilogram", factor=14.5939),
+            ucon.EdgeDef(src="zorkmid", dst="kilogram", factor=14.5939),
         ),
     )
 
@@ -144,17 +143,17 @@ class TestWithPackageImmutability:
         with ucon.using_graph(nursing_graph):
             assert ucon.get_unit_by_name("drop").name == "drop"
 
-        assert nursing_graph.resolve_unit("slug") is None
+        assert nursing_graph.resolve_unit("zorkmid") is None
 
         # Aerospace graph has 'slug' but not 'drop'
         with ucon.using_graph(aero_graph):
-            assert ucon.get_unit_by_name("slug").name == "slug"
+            assert ucon.get_unit_by_name("zorkmid").name == "zorkmid"
 
         assert aero_graph.resolve_unit("drop") is None
 
         # Base graph has neither
         assert base.resolve_unit("drop") is None
-        assert base.resolve_unit("slug") is None
+        assert base.resolve_unit("zorkmid") is None
 
     def test_both_packages_can_coexist_on_same_base(self):
         """A combined graph can have units from multiple packages."""
@@ -163,7 +162,7 @@ class TestWithPackageImmutability:
 
         with ucon.using_graph(combined):
             assert ucon.get_unit_by_name("drop").name == "drop"
-            assert ucon.get_unit_by_name("slug").name == "slug"
+            assert ucon.get_unit_by_name("zorkmid").name == "zorkmid"
 
 
 # ─────────────────────────────────────────────────────
@@ -205,15 +204,15 @@ class TestUsingGraphContextIsolation:
         # Outer context: brewing only
         with ucon.using_graph(brewing):
             assert ucon.get_unit_by_name("smoot").name == "smoot"
-            assert brewing.resolve_unit("slug") is None
+            assert brewing.resolve_unit("zorkmid") is None
 
             # Inner context: brewing + aerospace
             with ucon.using_graph(brewing_plus_aero):
                 assert ucon.get_unit_by_name("smoot").name == "smoot"
-                assert ucon.get_unit_by_name("slug").name == "slug"
+                assert ucon.get_unit_by_name("zorkmid").name == "zorkmid"
 
             # Back to outer: slug gone, smoot still available
-            assert brewing.resolve_unit("slug") is None
+            assert brewing.resolve_unit("zorkmid") is None
             assert ucon.get_unit_by_name("smoot").name == "smoot"
 
     def test_using_graph_restores_on_exception(self):
@@ -264,18 +263,18 @@ class TestThreadIsolation:
                     results["nursing"] = conv(300)  # 300 gtt → L
 
                     # Should NOT see aerospace units
-                    if nursing.resolve_unit("slug") is not None:
-                        errors["nursing"] = "saw slug (LEAK)"
+                    if nursing.resolve_unit("zorkmid") is not None:
+                        errors["nursing"] = "saw zorkmid (LEAK)"
             except Exception as e:
                 errors["nursing"] = str(e)
 
         def aero_worker():
             try:
                 with ucon.using_graph(aero):
-                    u = ucon.get_unit_by_name("slug")
+                    u = ucon.get_unit_by_name("zorkmid")
                     kg = ucon.get_unit_by_name("kilogram")
                     conv = aero.convert(src=u, dst=kg)
-                    results["aero"] = conv(1)  # 1 slug → kg
+                    results["aero"] = conv(1)  # 1 zorkmid → kg
 
                     # Should NOT see nursing units
                     if aero.resolve_unit("drop") is not None:
@@ -292,7 +291,7 @@ class TestThreadIsolation:
 
         assert not errors, f"Thread errors: {errors}"
         assert abs(results["nursing"] - 0.02) < 0.001  # 300 gtt = 20 mL = 0.02 L
-        assert abs(results["aero"] - 14.5939) < 0.01  # 1 slug = 14.5939 kg
+        assert abs(results["aero"] - 14.5939) < 0.01  # 1 zorkmid = 14.5939 kg
 
     def test_thread_graph_does_not_leak_to_main(self):
         """A thread's using_graph context does not affect the main thread."""
@@ -467,7 +466,7 @@ class TestMultiTenantMCPScenario:
             ),
             threading.Thread(
                 target=agent_request,
-                args=("aerospace", agent_configs["aerospace"], "slug", "kilogram", 2),
+                args=("aerospace", agent_configs["aerospace"], "zorkmid", "kilogram", 2),
             ),
             threading.Thread(
                 target=agent_request,
@@ -482,7 +481,7 @@ class TestMultiTenantMCPScenario:
 
         assert not errors, f"Agent errors: {errors}"
         assert abs(results["nursing"] - 0.02) < 0.001  # 300 gtt = 0.02 L
-        assert abs(results["aerospace"] - 29.1878) < 0.01  # 2 slug = 29.19 kg
+        assert abs(results["aerospace"] - 29.1878) < 0.01  # 2 zorkmid = 29.19 kg
         assert abs(results["standard"] - 328.084) < 0.1  # 100 m = 328.08 ft
 
     def test_agent_graphs_are_reusable_across_requests(self):

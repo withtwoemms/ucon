@@ -89,22 +89,22 @@ class TestGraphLocalResolution(unittest.TestCase):
 
     def test_using_graph_scopes_parsing(self):
         """using_graph() makes graph-local units resolvable via get_unit_by_name()."""
-        custom = Unit(name='slug', dimension=Dimension.mass, aliases=('slug',))
+        custom = Unit(name='zorkmid', dimension=Dimension.mass, aliases=('zk',))
         graph = get_default_graph().copy()
         graph.register_unit(custom)
 
-        # Outside context, slug is unknown
+        # Outside context, zorkmid is unknown
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name('slug')
+            get_unit_by_name('zorkmid')
 
-        # Inside context, slug resolves
+        # Inside context, zorkmid resolves
         with using_graph(graph):
-            resolved = get_unit_by_name('slug')
+            resolved = get_unit_by_name('zorkmid')
             self.assertEqual(resolved, custom)
 
-        # Outside context again, slug is unknown
+        # Outside context again, zorkmid is unknown
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name('slug')
+            get_unit_by_name('zorkmid')
 
     def test_graph_isolation(self):
         """Units registered on one graph are not visible in another."""

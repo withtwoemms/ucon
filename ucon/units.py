@@ -120,11 +120,17 @@ inch = Unit(name='inch', dimension=LENGTH, aliases=('in', 'inches'))
 yard = Unit(name='yard', dimension=LENGTH, aliases=('yd', 'yards'))
 mile = Unit(name='mile', dimension=LENGTH, aliases=('mi', 'miles'))
 nautical_mile = Unit(name='nautical_mile', dimension=LENGTH, aliases=('nmi', 'NM'))
+fathom = Unit(name='fathom', dimension=LENGTH, aliases=('ftm', 'fathoms'))
 
 # Mass
 pound = Unit(name='pound', dimension=MASS, aliases=('lb', 'lbs'))
 ounce = Unit(name='ounce', dimension=MASS, aliases=('oz', 'ounces'))
 metric_ton = Unit(name='metric_ton', dimension=MASS, aliases=('t', 'tonne', 'tonnes'))
+stone = Unit(name='stone', dimension=MASS, aliases=('st',))
+grain = Unit(name='grain', dimension=MASS, aliases=('gr', 'grains'))
+slug = Unit(name='slug', dimension=MASS, aliases=('slug',))
+carat = Unit(name='carat', dimension=MASS, aliases=('ct_mass', 'carats'))
+troy_ounce = Unit(name='troy_ounce', dimension=MASS, aliases=('ozt', 'troy_oz'))
 
 # Temperature
 fahrenheit = Unit(name='fahrenheit', dimension=TEMPERATURE, aliases=('°F', 'degF'))
@@ -139,6 +145,8 @@ fluid_ounce = Unit(name='fluid_ounce', dimension=VOLUME, aliases=('floz', 'fl_oz
 tablespoon = Unit(name='tablespoon', dimension=VOLUME, aliases=('tbsp',))
 teaspoon = Unit(name='teaspoon', dimension=VOLUME, aliases=('tsp',))
 barrel = Unit(name='barrel', dimension=VOLUME, aliases=('bbl', 'barrels'))
+imperial_gallon = Unit(name='imperial_gallon', dimension=VOLUME, aliases=('imp_gal',))
+imperial_pint = Unit(name='imperial_pint', dimension=VOLUME, aliases=('imp_pt',))
 
 # Energy
 calorie = Unit(name='calorie', dimension=ENERGY, aliases=('cal', 'calories'))
@@ -146,9 +154,11 @@ btu = Unit(name='btu', dimension=ENERGY, aliases=('BTU',))
 watt_hour = Unit(name='watt_hour', dimension=ENERGY, aliases=('Wh',))
 electron_volt = Unit(name='electron_volt', dimension=ENERGY, aliases=('eV',))
 erg = Unit(name='erg', dimension=ENERGY, aliases=('erg',))
+therm = Unit(name='therm', dimension=ENERGY, aliases=('thm', 'therms'))
 
 # Power
 horsepower = Unit(name='horsepower', dimension=POWER, aliases=('hp',))
+volt_ampere = Unit(name='volt_ampere', dimension=POWER, aliases=('VA',))
 
 # Pressure
 bar = Unit(name='bar', dimension=PRESSURE, aliases=('bar',))
@@ -162,6 +172,8 @@ inch_mercury = Unit(name='inch_mercury', dimension=PRESSURE, aliases=('inHg',))
 pound_force = Unit(name='pound_force', dimension=FORCE, aliases=('lbf',))
 kilogram_force = Unit(name='kilogram_force', dimension=FORCE, aliases=('kgf',))
 dyne = Unit(name='dyne', dimension=FORCE, aliases=('dyn',))
+kip = Unit(name='kip', dimension=FORCE, aliases=('klbf',))
+poundal = Unit(name='poundal', dimension=FORCE, aliases=('pdl',))
 # ----------------------------------------------------------------------
 
 
@@ -178,8 +190,17 @@ mile_per_hour = Unit(name='mile_per_hour', dimension=VELOCITY, aliases=('mph',))
 
 
 # -- Scientific Units --------------------------------------------------
+# Length
+angstrom = Unit(name='angstrom', dimension=LENGTH, aliases=('Å', 'angstroms'))
+light_year = Unit(name='light_year', dimension=LENGTH, aliases=('ly', 'light_years'))
+parsec = Unit(name='parsec', dimension=LENGTH, aliases=('pc', 'parsecs'))
+astronomical_unit = Unit(name='astronomical_unit', dimension=LENGTH, aliases=('au', 'AU'))
+
 # Mass
 dalton = Unit(name='dalton', dimension=MASS, aliases=('Da', 'u', 'amu'))
+
+# Area
+barn = Unit(name='barn', dimension=AREA, aliases=('b_area',))
 
 # Charge
 ampere_hour = Unit(name='ampere_hour', dimension=CHARGE, aliases=('Ah',))
@@ -190,6 +211,9 @@ gauss = Unit(name='gauss', dimension=MAGNETIC_FLUX_DENSITY, aliases=('G', 'Gs'))
 # Radiation
 curie = Unit(name='curie', dimension=FREQUENCY, aliases=('Ci',))
 rem = Unit(name='rem', dimension=ENERGY, aliases=('rem',))
+
+# Catalytic activity
+enzyme_unit = Unit(name='enzyme_unit', dimension=CATALYTIC_ACTIVITY, aliases=('U', 'IU'))
 # ----------------------------------------------------------------------
 
 
