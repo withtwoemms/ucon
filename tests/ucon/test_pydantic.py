@@ -15,7 +15,7 @@ import json
 import unittest
 
 from ucon import units
-from ucon.core import Number as CoreNumber
+from ucon.quantity import Number as CoreNumber
 
 
 class TestPydanticIntegration(unittest.TestCase):

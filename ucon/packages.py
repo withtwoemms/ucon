@@ -45,10 +45,14 @@ else:
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ucon.dimension import all_dimensions
+import ast
+import operator
+
+from ucon.core import Unit
+from ucon.dimension import Dimension, all_dimensions
+from ucon.maps import AffineMap, LinearMap
 
 if TYPE_CHECKING:
-    from ucon.core import Unit
     from ucon.graph import ConversionGraph
 
 
@@ -80,9 +84,6 @@ def _parse_factor(value) -> float:
     if not isinstance(value, str):
         raise PackageLoadError(f"factor must be a number or expression string, got {type(value).__name__}")
 
-    import ast
-    import operator
-
     _OPS = {
         ast.Mult: operator.mul,
         ast.Div: operator.truediv,
@@ -110,9 +111,8 @@ def _parse_factor(value) -> float:
         raise PackageLoadError(f"Invalid factor expression: {value!r}")
 
 
-def _get_dimension_map() -> dict[str, "Dimension"]:
+def _get_dimension_map() -> dict[str, Dimension]:
     """Build a mapping from dimension names to Dimension objects."""
-    from ucon.dimension import Dimension
     return {d.name: d for d in all_dimensions() if d.name is not None}
 
 
@@ -138,7 +138,7 @@ class UnitDef:
     dimension: str
     aliases: tuple[str, ...] = ()
 
-    def materialize(self) -> 'Unit':
+    def materialize(self) -> Unit:
         """Convert to a Unit object.
 
         Returns
@@ -151,8 +151,6 @@ class UnitDef:
         PackageLoadError
             If the dimension name is invalid.
         """
-        from ucon.core import Unit
-
         dim_map = _get_dimension_map()
         dim = dim_map.get(self.dimension)
         if dim is None:
@@ -202,9 +200,9 @@ class EdgeDef:
         PackageLoadError
             If source or destination unit cannot be resolved.
         """
+        # deferred: packages is loaded before graph and units in ucon.__init__
         from ucon import get_unit_by_name
         from ucon.graph import using_graph
-        from ucon.maps import AffineMap, LinearMap
         from ucon.units import UnknownUnitError
 
         # Resolve units within graph context

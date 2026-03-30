@@ -45,7 +45,8 @@ except ImportError as e:
         "Install with: pip install ucon[pydantic]"
     ) from e
 
-from ucon.core import Dimension, Number as _Number
+from ucon.core import Dimension
+from ucon.quantity import Number as _Number
 from ucon.units import UnknownUnitError, get_unit_by_name
 
 

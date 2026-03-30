@@ -35,7 +35,9 @@ if TYPE_CHECKING:
     import numpy as np
     from numpy.typing import ArrayLike, NDArray
 
-from ucon.core import Unit, UnitProduct, UnitFactor, Scale, Number, _none
+from ucon.core import Unit, UnitProduct, UnitFactor, Scale
+from ucon.quantity import Number, _none
+from ucon.graph import get_default_graph
 
 # Module-level cache for scale factors: (src_unit, dst_unit) -> factor
 _scale_factor_cache: dict[tuple, float] = {}
@@ -630,8 +632,6 @@ class NumberArray:
         >>> heights = NumberArray([1, 2, 3], unit=units.meter)
         >>> heights_ft = heights.to(units.foot)
         """
-        from ucon.graph import get_default_graph
-
         # Check scale factor cache first
         cache_key = (self._unit, target)
         if cache_key in _scale_factor_cache:

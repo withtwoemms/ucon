@@ -12,7 +12,7 @@ including conversions from fraction/percent and uncertainty propagation.
 import unittest
 
 from ucon import Dimension, units
-from ucon.core import Number
+from ucon.quantity import Number
 from ucon.graph import DimensionMismatch
 
 

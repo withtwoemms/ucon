@@ -74,7 +74,6 @@ from ucon.basis.transforms import (
     SI_TO_NATURAL,
 )
 from ucon.core import (
-    DimensionConstraint,
     DimensionNotCovered,
     RebasedUnit,
     Scale,
@@ -82,6 +81,9 @@ from ucon.core import (
     UnitFactor,
     UnitProduct,
     UnitSystem,
+)
+from ucon.quantity import (
+    DimensionConstraint,
     Number,
     Ratio,
 )

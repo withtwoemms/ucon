@@ -13,7 +13,8 @@ import math
 import unittest
 
 from ucon import units, Scale
-from ucon.core import Number, UnitProduct
+from ucon.core import UnitProduct
+from ucon.quantity import Number
 
 
 class TestUncertaintyConstruction(unittest.TestCase):

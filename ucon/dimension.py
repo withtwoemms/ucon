@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import TYPE_CHECKING
 
-from ucon.basis import Basis, BasisComponent, Vector
+from ucon.basis import Basis, BasisComponent, Vector, get_default_basis
 from ucon.basis.builtin import SI
 
 if TYPE_CHECKING:
@@ -238,7 +238,6 @@ class Dimension(metaclass=_DimensionMeta):
         True
         """
         if basis is None:
-            from ucon.basis import get_default_basis
             basis = get_default_basis()
 
         # Build component tuple
@@ -292,7 +291,6 @@ class Dimension(metaclass=_DimensionMeta):
         False
         """
         if basis is None:
-            from ucon.basis import get_default_basis
             basis = get_default_basis()
         if name is None:
             name = tag

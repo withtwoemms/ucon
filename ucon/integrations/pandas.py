@@ -39,7 +39,11 @@ except ImportError:
 if TYPE_CHECKING:
     import pandas as pd
 
-from ucon.core import Unit, UnitProduct, UnitFactor, Scale, Number, _none
+import numpy as np
+
+from ucon.core import Unit, UnitProduct, UnitFactor, Scale
+from ucon.quantity import Number, _none
+from ucon.graph import get_default_graph
 
 
 def _require_pandas() -> None:
@@ -471,7 +475,6 @@ class NumberSeries:
         else:
             rel_b = 0
 
-        import numpy as np
         rel_c = np.sqrt(rel_a**2 + rel_b**2)
         result = abs(a * b) * rel_c
 
@@ -505,7 +508,6 @@ class NumberSeries:
         if ub is None:
             return ua
 
-        import numpy as np
         result = np.sqrt(ua**2 + ub**2)
 
         # Return scalar if both inputs were scalar
@@ -533,8 +535,6 @@ class NumberSeries:
         NumberSeries
             A new NumberSeries with converted values.
         """
-        from ucon.graph import get_default_graph
-
         # Normalize to UnitProduct
         src = self._unit if isinstance(self._unit, UnitProduct) else UnitProduct.from_unit(self._unit)
         dst = target if isinstance(target, UnitProduct) else UnitProduct.from_unit(target)

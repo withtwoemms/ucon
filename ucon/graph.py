@@ -23,6 +23,7 @@ Functions
 """
 from __future__ import annotations
 
+import copy
 import math
 from collections import deque
 from contextlib import contextmanager
@@ -31,7 +32,14 @@ from dataclasses import dataclass, field
 from typing import Union
 
 from ucon.basis import BasisGraph, BasisTransform, NoTransformPath, Vector
-from ucon.basis.transforms import ConstantBoundBasisTransform
+from ucon.basis.graph import _build_standard_basis_graph
+from ucon.basis.transforms import (
+    ConstantBoundBasisTransform,
+    CGS_TO_SI,
+    SI_TO_CGS_ESU,
+    SI_TO_CGS_EMU,
+    SI_TO_NATURAL,
+)
 from ucon.core import (
     Dimension,
     RebasedUnit,
@@ -381,11 +389,9 @@ class ConversionGraph:
         ConversionGraph
             A new graph with copied state.
         """
-        import copy as copy_module
-
         new = ConversionGraph()
-        new._unit_edges = copy_module.deepcopy(self._unit_edges)
-        new._product_edges = copy_module.deepcopy(self._product_edges)
+        new._unit_edges = copy.deepcopy(self._unit_edges)
+        new._product_edges = copy.deepcopy(self._product_edges)
         new._rebased = {k: list(v) for k, v in self._rebased.items()}
         new._name_registry = dict(self._name_registry)
         new._name_registry_cs = dict(self._name_registry_cs)
@@ -414,6 +420,7 @@ class ConversionGraph:
         >>> aero = load_package("aerospace.ucon.toml")
         >>> graph = get_default_graph().with_package(aero)
         """
+        # deferred: graph ↔ packages circular dependency
         from ucon.packages import UnitPackage
 
         new = self.copy()
@@ -439,6 +446,7 @@ class ConversionGraph:
         graph: 'ConversionGraph',
     ) -> bool:
         """Check if a package edge is redundant because the graph can already convert between its endpoints."""
+        # deferred: graph ↔ units circular dependency
         from ucon import get_unit_by_name
         from ucon.units import UnknownUnitError
 
@@ -951,6 +959,7 @@ def using_graph(graph: ConversionGraph):
 
 def _build_standard_graph() -> ConversionGraph:
     """Build the default graph with common conversions."""
+    # deferred: graph ↔ units circular dependency
     from ucon import units
 
     graph = ConversionGraph()
@@ -1263,7 +1272,6 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.byte, dst=units.bit, map=LinearMap(8))
 
     # --- Angle ---
-    import math
     graph.add_edge(src=units.radian, dst=units.degree, map=LinearMap(180 / math.pi))
     graph.add_edge(src=units.degree, dst=units.arcminute, map=LinearMap(60))
     graph.add_edge(src=units.arcminute, dst=units.arcsecond, map=LinearMap(60))
@@ -1310,9 +1318,6 @@ def _build_standard_graph() -> ConversionGraph:
     # -------------------------------------------------------------------------
     # Cross-Basis Edges (CGS/CGS-ESU ↔ SI)
     # -------------------------------------------------------------------------
-    from ucon.basis.graph import _build_standard_basis_graph
-    from ucon.basis.transforms import CGS_TO_SI, SI_TO_CGS_ESU, SI_TO_CGS_EMU, SI_TO_NATURAL
-
     graph._basis_graph = _build_standard_basis_graph()
 
     # CGS mechanical → SI (CGS_TO_SI: src=CGS unit, dst=SI unit)

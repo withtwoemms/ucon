@@ -10,12 +10,22 @@ plus ContextVar-based scoping for default basis and basis graph overrides.
 
 from __future__ import annotations
 
+from collections import deque
 from contextvars import ContextVar
 from contextlib import contextmanager
 
 from ucon.basis import Basis, Vector, NoTransformPath
+from ucon.basis.builtin import SI
 from typing import Union
-from ucon.basis.transforms import BasisTransform, ConstantBoundBasisTransform
+from ucon.basis.transforms import (
+    BasisTransform,
+    ConstantBoundBasisTransform,
+    SI_TO_CGS,
+    SI_TO_CGS_ESU,
+    SI_TO_CGS_EMU,
+    CGS_TO_SI,
+    SI_TO_NATURAL,
+)
 
 _Transform = Union[BasisTransform, ConstantBoundBasisTransform]
 
@@ -98,8 +108,6 @@ class BasisGraph:
         target: Basis,
     ) -> list[BasisTransform] | None:
         """BFS to find shortest transform path."""
-        from collections import deque
-
         if source not in self._edges:
             return None
 
@@ -197,9 +205,6 @@ _default_basis_graph: BasisGraph | None = None
 
 def _build_standard_basis_graph() -> BasisGraph:
     """Build standard basis graph with SI/CGS/CGS-ESU/CGS-EMU/natural transforms."""
-    from ucon.basis.transforms import (
-        SI_TO_CGS, SI_TO_CGS_ESU, SI_TO_CGS_EMU, CGS_TO_SI, SI_TO_NATURAL,
-    )
     graph = BasisGraph()
     graph.add_transform(SI_TO_CGS)
     graph.add_transform(SI_TO_CGS_ESU)
@@ -220,7 +225,6 @@ def get_default_basis() -> Basis:
     Basis
         The active basis for the current context.
     """
-    from ucon.basis.builtin import SI
     return _default_basis.get() or SI
 
 

@@ -34,7 +34,9 @@ except ImportError:
 if TYPE_CHECKING:
     import polars as pl
 
-from ucon.core import Unit, UnitProduct, UnitFactor, Scale, Number, _none
+from ucon.core import Unit, UnitProduct, UnitFactor, Scale
+from ucon.quantity import Number, _none
+from ucon.graph import get_default_graph
 
 
 def _require_polars() -> None:
@@ -536,8 +538,6 @@ class NumberColumn:
         NumberColumn
             A new NumberColumn with converted values.
         """
-        from ucon.graph import get_default_graph
-
         # Normalize to UnitProduct
         src = self._unit if isinstance(self._unit, UnitProduct) else UnitProduct.from_unit(self._unit)
         dst = target if isinstance(target, UnitProduct) else UnitProduct.from_unit(target)

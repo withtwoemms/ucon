@@ -37,7 +37,7 @@ class TestNumberArrayBasic(unittest.TestCase):
 
     def test_default_unit_is_dimensionless(self):
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import _none
+        from ucon.quantity import _none
         arr = NumberArray([1.0, 2.0])
         self.assertEqual(arr.unit, _none)
 
@@ -82,7 +82,7 @@ class TestNumberArrayIndexing(unittest.TestCase):
 
     def test_scalar_index_returns_number(self):
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         elem = arr[0]
         self.assertIsInstance(elem, Number)
@@ -111,7 +111,7 @@ class TestNumberArrayIndexing(unittest.TestCase):
 
     def test_iteration_yields_numbers(self):
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         elements = list(arr)
         self.assertEqual(len(elements), 3)
@@ -253,7 +253,7 @@ class TestNumberArrayUncertaintyPropagation(unittest.TestCase):
 
     def test_multiplication_uncertainty(self):
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         # a = [10, 20] ± 1
         # b = 2 ± 0.1
         # For c = a * b:
@@ -301,7 +301,7 @@ class TestCallableSyntax(unittest.TestCase):
         self.assertIsInstance(arr, NumberArray)
 
     def test_unit_callable_scalar_still_returns_number(self):
-        from ucon.core import Number
+        from ucon.quantity import Number
         n = self.meter(5.0)
         self.assertIsInstance(n, Number)
 
@@ -386,7 +386,7 @@ class TestNumberArrayComparison(unittest.TestCase):
 
     def test_eq_with_number(self):
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         result = arr == n
@@ -525,7 +525,7 @@ class TestNumberArrayReductions(unittest.TestCase):
 
     def test_sum(self):
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0, 4.0], unit=self.meter)
         total = arr.sum()
         self.assertIsInstance(total, Number)
@@ -541,7 +541,7 @@ class TestNumberArrayReductions(unittest.TestCase):
 
     def test_mean(self):
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([2.0, 4.0, 6.0], unit=self.meter)
         avg = arr.mean()
         self.assertIsInstance(avg, Number)
@@ -580,7 +580,7 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     def test_divide_by_number(self):
         """Test NumberArray / Number."""
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([10.0, 20.0, 30.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.second)
         result = arr / n
@@ -589,7 +589,7 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     def test_divide_by_number_with_uncertainty(self):
         """Test NumberArray / Number with uncertainty propagation."""
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
         n = Number(quantity=2.0, unit=self.second, uncertainty=0.1)
         result = arr / n
@@ -622,7 +622,7 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     def test_add_number_to_array(self):
         """Test NumberArray + Number."""
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=10.0, unit=self.meter)
         result = arr + n
@@ -631,7 +631,7 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     def test_add_number_with_uncertainty(self):
         """Test NumberArray + Number with uncertainty."""
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         n = Number(quantity=10.0, unit=self.meter, uncertainty=0.2)
         result = arr + n
@@ -643,7 +643,7 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     def test_radd_number(self):
         """Test Number + NumberArray (radd)."""
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0], unit=self.meter)
         n = Number(quantity=10.0, unit=self.meter)
         result = n + arr  # triggers __radd__
@@ -652,7 +652,7 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     def test_sub_number_from_array(self):
         """Test NumberArray - Number."""
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([10.0, 20.0, 30.0], unit=self.meter)
         n = Number(quantity=5.0, unit=self.meter)
         result = arr - n
@@ -661,7 +661,7 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     def test_rsub_number(self):
         """Test Number - NumberArray (rsub)."""
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0], unit=self.meter)
         n = Number(quantity=10.0, unit=self.meter)
         result = n - arr  # triggers __rsub__
@@ -670,7 +670,7 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     def test_rsub_number_with_uncertainty(self):
         """Test Number - NumberArray with uncertainty."""
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         n = Number(quantity=10.0, unit=self.meter, uncertainty=0.2)
         result = n - arr
@@ -698,7 +698,7 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     def test_multiply_number_by_array(self):
         """Test Number * NumberArray."""
         from ucon.integrations.numpy import NumberArray
-        from ucon.core import Number
+        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.second)
         result = arr * n

@@ -32,11 +32,14 @@ True
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Union
 
+from ucon.quantity import Number
+
 if TYPE_CHECKING:
-    from ucon.core import Number, Unit, UnitProduct
+    from ucon.core import Unit, UnitProduct
     from ucon.dimension import Dimension
 
 
@@ -81,7 +84,6 @@ class Constant:
 
     def as_number(self) -> 'Number':
         """Return as Number for calculations."""
-        from ucon.core import Number
         return Number(
             quantity=self.value,
             unit=self.unit,
@@ -150,6 +152,7 @@ class Constant:
 
 def _build_constants():
     """Build constants after units module is loaded."""
+    # deferred: initialization ordering — units module must be fully loaded first
     from ucon import units
     from ucon.core import Scale
 
@@ -224,7 +227,6 @@ def _build_constants():
     # Derived Constants (Exact, derived from exact constants)
     # -------------------------------------------------------------------------
 
-    import math
     reduced_planck_constant = Constant(
         symbol="ℏ",
         name="reduced Planck constant",

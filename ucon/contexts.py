@@ -31,7 +31,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Union
 
+from ucon import units
 from ucon.core import Unit, UnitProduct
+from ucon.graph import get_default_graph, using_graph
 from ucon.maps import Map, LinearMap, ReciprocalMap
 
 
@@ -100,8 +102,6 @@ def using_context(*contexts: ConversionContext):
     >>> with using_context(spectroscopy, boltzmann):
     ...     result = units.kelvin(300).to(units.joule)
     """
-    from ucon.graph import get_default_graph, using_graph
-
     extended = get_default_graph().copy()
     for ctx in contexts:
         for edge in ctx.edges:
@@ -138,7 +138,6 @@ def _add_context_edge(graph, edge: ContextEdge) -> None:
 
 def _build_spectroscopy() -> ConversionContext:
     """Build the spectroscopy context (c, h, hc relationships)."""
-    from ucon import units
 
     c = 299792458.0             # m/s (exact)
     h = 6.62607015e-34          # J*s (exact)
@@ -178,7 +177,6 @@ def _build_spectroscopy() -> ConversionContext:
 
 def _build_boltzmann() -> ConversionContext:
     """Build the Boltzmann context (k_B relationship)."""
-    from ucon import units
 
     k_B = 1.380649e-23  # J/K (exact)
 

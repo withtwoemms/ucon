@@ -33,6 +33,8 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, List, Tuple, TYPE_CHECKING
 
+from ucon.quantity import Number
+
 if TYPE_CHECKING:
     from ucon.core import Scale, Unit, UnitFactor, UnitProduct
 
@@ -495,7 +497,7 @@ def parse(s: str) -> 'Number':
         >>> parse("100")
         <100>
     """
-    from ucon.core import Number
+    # deferred: parsing ↔ units circular dependency
     from ucon.units import get_unit_by_name, UnknownUnitError
 
     if not s or not s.strip():
