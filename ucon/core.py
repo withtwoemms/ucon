@@ -1369,7 +1369,21 @@ class Number:
         if graph is None:
             graph = get_default_graph()
 
-        conversion_map = graph.convert(src=src, dst=dst)
+        # Pass raw Units to graph.convert() when possible, so the graph
+        # can use _convert_units() which handles cross-basis via rebased units.
+        # UnitProducts only go through _convert_products() which lacks cross-basis support.
+        graph_src: Union[Unit, UnitProduct] = src
+        graph_dst: Union[Unit, UnitProduct] = dst
+        if len(src.factors) == 1:
+            uf, exp = next(iter(src.factors.items()))
+            if exp == 1.0 and uf.scale == Scale.one:
+                graph_src = uf.unit
+        if len(dst.factors) == 1:
+            uf, exp = next(iter(dst.factors.items()))
+            if exp == 1.0 and uf.scale == Scale.one:
+                graph_dst = uf.unit
+
+        conversion_map = graph.convert(src=graph_src, dst=graph_dst)
         # Use raw quantity - the conversion map handles scale via factorwise decomposition
         converted_quantity = conversion_map(self.quantity)
 

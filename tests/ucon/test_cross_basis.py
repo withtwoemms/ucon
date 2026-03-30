@@ -372,5 +372,52 @@ class TestNaturalUnitConversions(unittest.TestCase):
         self.assertAlmostEqual(eh_to_j(1) / ry_to_j(1), 2.0, places=10)
 
 
+class TestCrossBasisCallableAndTo(unittest.TestCase):
+    """Unit.__call__() and Number.to() work for cross-basis units."""
+
+    def test_callable_natural_unit(self):
+        n = units.electron_volt(1)
+        self.assertEqual(n.quantity, 1)
+        self.assertEqual(n.unit.dimension, NATURAL_ENERGY)
+
+    def test_callable_cgs_unit(self):
+        n = units.dyne(1)
+        self.assertEqual(n.quantity, 1)
+        self.assertEqual(n.unit.dimension, CGS_FORCE)
+
+    def test_callable_cgs_esu_unit(self):
+        n = units.gauss(1)
+        self.assertEqual(n.quantity, 1)
+        self.assertEqual(n.unit.dimension, CGS_ESU_MAGNETIC_FLUX_DENSITY)
+
+    def test_number_to_cross_basis_natural(self):
+        result = units.joule(1).to(units.electron_volt)
+        self.assertAlmostEqual(result.quantity, 1 / 1.602176634e-19, places=0)
+
+    def test_number_to_cross_basis_cgs(self):
+        result = units.newton(1).to(units.dyne)
+        self.assertAlmostEqual(result.quantity, 1e5, places=5)
+
+    def test_number_to_cross_basis_cgs_esu(self):
+        result = units.ampere(1).to(units.statampere)
+        self.assertAlmostEqual(result.quantity, 2.99792458e9, places=0)
+
+    def test_number_to_string_cross_basis(self):
+        result = units.joule(1).to("eV")
+        self.assertAlmostEqual(result.quantity, 1 / 1.602176634e-19, places=0)
+
+    def test_cross_basis_roundtrip_via_to(self):
+        original = units.joule(1)
+        via_ev = original.to(units.electron_volt)
+        back = via_ev.to(units.joule)
+        self.assertAlmostEqual(back.quantity, 1.0, places=10)
+
+    def test_cross_basis_roundtrip_cgs_via_to(self):
+        original = units.newton(1)
+        via_dyne = original.to(units.dyne)
+        back = via_dyne.to(units.newton)
+        self.assertAlmostEqual(back.quantity, 1.0, places=10)
+
+
 if __name__ == '__main__':
     unittest.main()

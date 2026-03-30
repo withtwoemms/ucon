@@ -397,18 +397,19 @@ class Dimension(metaclass=_DimensionMeta):
         """
         if not isinstance(other, Dimension):
             return NotImplemented
-        if self.vector.basis != other.vector.basis:
-            raise ValueError(
-                f"Cannot multiply dimensions from different bases: "
-                f"'{self.vector.basis.name}' and '{other.vector.basis.name}'"
-            )
 
-        # Identity: NONE * X = X
+        # Identity: NONE * X = X (before basis check — NONE is universal identity)
         if self == NONE:
             return other
         # Identity: X * NONE = X
         if other == NONE:
             return self
+
+        if self.vector.basis != other.vector.basis:
+            raise ValueError(
+                f"Cannot multiply dimensions from different bases: "
+                f"'{self.vector.basis.name}' and '{other.vector.basis.name}'"
+            )
 
         # Pseudo-dimension combined with pseudo-dimension
         if self.is_pseudo and other.is_pseudo:
@@ -442,15 +443,16 @@ class Dimension(metaclass=_DimensionMeta):
         """
         if not isinstance(other, Dimension):
             return NotImplemented
+
+        # Identity: X / NONE = X (before basis check — NONE is universal identity)
+        if other == NONE:
+            return self
+
         if self.vector.basis != other.vector.basis:
             raise ValueError(
                 f"Cannot divide dimensions from different bases: "
                 f"'{self.vector.basis.name}' and '{other.vector.basis.name}'"
             )
-
-        # Identity: X / NONE = X
-        if other == NONE:
-            return self
 
         # Pseudo-dimension divided by pseudo-dimension
         if self.is_pseudo and other.is_pseudo:

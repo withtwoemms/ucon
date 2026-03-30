@@ -8,7 +8,6 @@ from ucon import units
 from ucon.core import UnitProduct, UnitFactor, Scale, Unit
 from ucon import Dimension
 from ucon.core import Number, Ratio
-from ucon.graph import get_default_graph
 
 
 class TestNumber(unittest.TestCase):
@@ -671,13 +670,6 @@ class TestNumberToStringTarget(unittest.TestCase):
         self.assertAlmostEqual(back.quantity, 2.5, places=6)
 
     def test_to_string_cross_basis(self):
-        """Cross-basis via Number.to() works with graph.convert() path.
-
-        Note: UnitProduct.from_unit() cannot wrap cross-basis units directly
-        because dimension algebra doesn't mix bases. This test verifies the
-        graph-level path works when called through Number.to().
-        """
-        # graph.convert() handles cross-basis; Number.to() delegates
-        graph = get_default_graph()
-        m = graph.convert(src=units.joule, dst=units.electron_volt)
-        self.assertAlmostEqual(m(1), 1 / 1.602176634e-19, places=0)
+        """String target works for cross-basis conversions."""
+        result = units.joule(1).to("eV")
+        self.assertAlmostEqual(result.quantity, 1 / 1.602176634e-19, places=0)
