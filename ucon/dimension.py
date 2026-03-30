@@ -720,6 +720,29 @@ CGS_ESU_MAGNETIC_FIELD_STRENGTH = _cgs_esu_dim(
 )  # oersted: L^(1/2)·M^(1/2)·T^(-2) (from SI_TO_CGS_ESU applied to I/L)
 
 
+# -----------------------------------------------------------------------------
+# Natural-unit dimensions (1D basis: energy)
+# -----------------------------------------------------------------------------
+
+from ucon.basis.builtin import NATURAL  # noqa: E402
+
+
+def _natural_vec(*components: int | Fraction) -> Vector:
+    padded = list(components) + [0] * (1 - len(components))
+    return Vector(NATURAL, tuple(Fraction(c) for c in padded))
+
+
+def _natural_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    vec = _natural_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    _register(dim)
+    _register_attr(dim)
+    return dim
+
+
+NATURAL_ENERGY = _natural_dim("natural_energy", 1)
+
+
 def basis() -> tuple[Dimension, ...]:
     """Return the 8 SI base dimensions in canonical order."""
     return (
@@ -817,6 +840,8 @@ def all_dimensions() -> tuple[Dimension, ...]:
         CGS_ESU_MAGNETIC_FLUX_DENSITY,
         CGS_ESU_MAGNETIC_FLUX,
         CGS_ESU_MAGNETIC_FIELD_STRENGTH,
+        # Natural-unit dimensions
+        NATURAL_ENERGY,
     )
 
 
@@ -910,4 +935,6 @@ __all__ = [
     "CGS_ESU_MAGNETIC_FLUX_DENSITY",
     "CGS_ESU_MAGNETIC_FLUX",
     "CGS_ESU_MAGNETIC_FIELD_STRENGTH",
+    # Natural-unit dimensions
+    "NATURAL_ENERGY",
 ]

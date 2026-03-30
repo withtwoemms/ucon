@@ -18,7 +18,7 @@ from ucon import (
     units,
     using_graph,
 )
-from ucon.basis.builtin import CGS, CGS_ESU, SI
+from ucon.basis.builtin import CGS, CGS_ESU, NATURAL, SI
 from ucon.core import RebasedUnit
 from ucon.dimension import (
     CGS_FORCE,
@@ -34,6 +34,7 @@ from ucon.dimension import (
     CGS_ESU_MAGNETIC_FLUX_DENSITY,
     CGS_ESU_MAGNETIC_FLUX,
     CGS_ESU_MAGNETIC_FIELD_STRENGTH,
+    NATURAL_ENERGY,
     FORCE,
     ENERGY,
     PRESSURE,
@@ -289,6 +290,56 @@ class TestCrossSystemNameResolution(unittest.TestCase):
         with using_graph(graph):
             resolved = get_unit_by_name('Oe')
             self.assertEqual(resolved, units.oersted)
+
+
+class TestNaturalUnitDimensionIsolation(unittest.TestCase):
+    """Natural-unit dimensions are distinct from their SI counterparts."""
+
+    def test_ev_dimension_is_not_si_energy(self):
+        self.assertNotEqual(units.electron_volt.dimension, ENERGY)
+
+    def test_ev_dimension_is_natural_energy(self):
+        self.assertEqual(units.electron_volt.dimension, NATURAL_ENERGY)
+
+    def test_ev_has_natural_basis(self):
+        self.assertEqual(
+            units.electron_volt.dimension.basis, NATURAL,
+            f"electron_volt should have natural basis, got {units.electron_volt.dimension.basis.name}",
+        )
+
+
+class TestNaturalUnitConversions(unittest.TestCase):
+    """Cross-basis natural ↔ SI conversions."""
+
+    def setUp(self):
+        self.graph = get_default_graph()
+
+    def test_joule_to_ev(self):
+        m = self.graph.convert(src=units.joule, dst=units.electron_volt)
+        self.assertAlmostEqual(m(1), 1 / 1.602176634e-19, places=0)
+
+    def test_ev_to_joule(self):
+        m = self.graph.convert(src=units.electron_volt, dst=units.joule)
+        self.assertAlmostEqual(m(1), 1.602176634e-19, places=30)
+
+    def test_ev_joule_roundtrip(self):
+        """1 J → eV → J round-trip preserves value."""
+        fwd = self.graph.convert(src=units.joule, dst=units.electron_volt)
+        rev = self.graph.convert(src=units.electron_volt, dst=units.joule)
+        self.assertAlmostEqual(rev(fwd(1)), 1.0, places=10)
+
+    def test_ev_rebased_unit_exists(self):
+        """joule should have a RebasedUnit for natural bridging."""
+        rebased = self.graph.list_rebased_units()
+        self.assertIn(
+            units.joule, rebased,
+            "joule should have a RebasedUnit for natural-unit bridging",
+        )
+
+    def test_resolve_ev_by_alias(self):
+        with using_graph(self.graph):
+            resolved = get_unit_by_name('eV')
+            self.assertEqual(resolved, units.electron_volt)
 
 
 if __name__ == '__main__':

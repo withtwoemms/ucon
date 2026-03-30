@@ -14,7 +14,10 @@ from contextvars import ContextVar
 from contextlib import contextmanager
 
 from ucon.basis import Basis, Vector, NoTransformPath
-from ucon.basis.transforms import BasisTransform
+from typing import Union
+from ucon.basis.transforms import BasisTransform, ConstantBoundBasisTransform
+
+_Transform = Union[BasisTransform, ConstantBoundBasisTransform]
 
 
 class BasisGraph:
@@ -33,10 +36,10 @@ class BasisGraph:
     """
 
     def __init__(self) -> None:
-        self._edges: dict[Basis, dict[Basis, BasisTransform]] = {}
-        self._cache: dict[tuple[Basis, Basis], BasisTransform] = {}
+        self._edges: dict[Basis, dict[Basis, _Transform]] = {}
+        self._cache: dict[tuple[Basis, Basis], _Transform] = {}
 
-    def add_transform(self, transform: BasisTransform) -> None:
+    def add_transform(self, transform: _Transform) -> None:
         """Register a transform. Does NOT auto-register inverse.
 
         Args:
@@ -193,12 +196,13 @@ _default_basis_graph: BasisGraph | None = None
 
 
 def _build_standard_basis_graph() -> BasisGraph:
-    """Build standard basis graph with SI/CGS/CGS-ESU transforms."""
-    from ucon.basis.transforms import SI_TO_CGS, SI_TO_CGS_ESU, CGS_TO_SI
+    """Build standard basis graph with SI/CGS/CGS-ESU/natural transforms."""
+    from ucon.basis.transforms import SI_TO_CGS, SI_TO_CGS_ESU, CGS_TO_SI, SI_TO_NATURAL
     graph = BasisGraph()
     graph.add_transform(SI_TO_CGS)
     graph.add_transform(SI_TO_CGS_ESU)
     graph.add_transform(CGS_TO_SI)
+    graph.add_transform(SI_TO_NATURAL)
     return graph
 
 

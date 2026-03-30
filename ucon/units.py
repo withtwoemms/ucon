@@ -53,6 +53,8 @@ from ucon.dimension import (
     CGS_ESU_RESISTANCE, CGS_ESU_CAPACITANCE,
     CGS_ESU_MAGNETIC_FLUX_DENSITY, CGS_ESU_MAGNETIC_FLUX,
     CGS_ESU_MAGNETIC_FIELD_STRENGTH,
+    # Natural-unit dimensions
+    NATURAL_ENERGY,
 )
 from ucon.graph import _get_parsing_graph
 from ucon.parsing import parse_unit_expression, ParseError
@@ -177,7 +179,6 @@ minim = Unit(name='minim', dimension=VOLUME, aliases=('min_vol', 'minims'))
 calorie = Unit(name='calorie', dimension=ENERGY, aliases=('cal', 'calories'))
 btu = Unit(name='btu', dimension=ENERGY, aliases=('BTU',))
 watt_hour = Unit(name='watt_hour', dimension=ENERGY, aliases=('Wh',))
-electron_volt = Unit(name='electron_volt', dimension=ENERGY, aliases=('eV',))
 therm = Unit(name='therm', dimension=ENERGY, aliases=('thm', 'therms'))
 foot_pound = Unit(name='foot_pound', dimension=ENERGY, aliases=('ft_lb', 'ft_lbf'))
 
@@ -264,6 +265,11 @@ statfarad = Unit(name='statfarad', dimension=CGS_ESU_CAPACITANCE, aliases=('stat
 gauss = Unit(name='gauss', dimension=CGS_ESU_MAGNETIC_FLUX_DENSITY, aliases=('G', 'Gs'))
 maxwell = Unit(name='maxwell', dimension=CGS_ESU_MAGNETIC_FLUX, aliases=('Mx',))
 oersted = Unit(name='oersted', dimension=CGS_ESU_MAGNETIC_FIELD_STRENGTH, aliases=('Oe',))
+# ----------------------------------------------------------------------
+
+
+# -- Natural Units (native natural basis) ------------------------------
+electron_volt = Unit(name='electron_volt', dimension=NATURAL_ENERGY, aliases=('eV',))
 # ----------------------------------------------------------------------
 
 

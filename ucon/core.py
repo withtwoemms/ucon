@@ -653,7 +653,7 @@ class RebasedUnit:
         The original unit before transformation.
     rebased_dimension : Dimension
         The dimension in the destination system.
-    basis_transform : ucon.basis.BasisTransform
+    basis_transform : ucon.basis.BasisTransform or ucon.basis.transforms.ConstantBoundBasisTransform
         The transform that rebased this unit (from ucon.basis module).
 
     Examples
@@ -670,7 +670,7 @@ class RebasedUnit:
     """
     original: 'Unit'
     rebased_dimension: Dimension
-    basis_transform: 'ucon.basis.BasisTransform'
+    basis_transform: 'ucon.basis.BasisTransform | ucon.basis.transforms.ConstantBoundBasisTransform'
 
     @property
     def dimension(self) -> Dimension:

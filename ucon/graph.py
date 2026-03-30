@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from typing import Union
 
 from ucon.basis import BasisGraph, BasisTransform, NoTransformPath, Vector
+from ucon.basis.transforms import ConstantBoundBasisTransform
 from ucon.core import (
     Dimension,
     RebasedUnit,
@@ -102,7 +103,7 @@ class ConversionGraph:
         src: Union[Unit, UnitProduct],
         dst: Union[Unit, UnitProduct],
         map: Map,
-        basis_transform: BasisTransform | None = None,
+        basis_transform: BasisTransform | ConstantBoundBasisTransform | None = None,
     ) -> None:
         """Register a conversion edge. Also registers the inverse.
 
@@ -114,7 +115,7 @@ class ConversionGraph:
             Destination unit expression.
         map : Map
             The conversion morphism (src → dst).
-        basis_transform : BasisTransform, optional
+        basis_transform : BasisTransform or ConstantBoundBasisTransform, optional
             If provided, creates a cross-basis edge. The src unit is rebased
             to the dst's dimension and the edge connects the rebased unit
             to dst.
@@ -209,7 +210,7 @@ class ConversionGraph:
         src: Unit,
         dst: Unit,
         map: Map,
-        basis_transform: BasisTransform,
+        basis_transform: BasisTransform | ConstantBoundBasisTransform,
     ) -> None:
         """Add cross-basis edge between Units via BasisTransform.
 
@@ -242,14 +243,14 @@ class ConversionGraph:
     def connect_systems(
         self,
         *,
-        basis_transform: BasisTransform,
+        basis_transform: BasisTransform | ConstantBoundBasisTransform,
         edges: dict[tuple[Unit, Unit], Map],
     ) -> None:
         """Bulk-add edges between systems.
 
         Parameters
         ----------
-        basis_transform : BasisTransform
+        basis_transform : BasisTransform or ConstantBoundBasisTransform
             The transform bridging the two systems.
         edges : dict
             Mapping from (src_unit, dst_unit) to Map.
@@ -1066,8 +1067,6 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
     graph.add_edge(src=units.joule, dst=units.btu, map=LinearMap(1/1055.06))
     graph.add_edge(src=units.joule, dst=units.watt_hour, map=LinearMap(1/3600))  # 1 Wh = 3600 J
-    # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)
-    graph.add_edge(src=units.electron_volt, dst=units.joule, map=LinearMap(1.602176634e-19))
     # 1 therm = 1.05506e8 J (US therm, ≈ 100,000 BTU)
     graph.add_edge(src=units.therm, dst=units.joule, map=LinearMap(1.05506e8))
     # 1 foot-pound = 1.3558179483314 J (exact, lbf × ft)
@@ -1163,7 +1162,7 @@ def _build_standard_graph() -> ConversionGraph:
     # Cross-Basis Edges (CGS/CGS-ESU ↔ SI)
     # -------------------------------------------------------------------------
     from ucon.basis.graph import _build_standard_basis_graph
-    from ucon.basis.transforms import CGS_TO_SI, SI_TO_CGS_ESU
+    from ucon.basis.transforms import CGS_TO_SI, SI_TO_CGS_ESU, SI_TO_NATURAL
 
     graph._basis_graph = _build_standard_basis_graph()
 
@@ -1191,6 +1190,15 @@ def _build_standard_graph() -> ConversionGraph:
             (units.tesla, units.gauss): LinearMap(1e4),
             (units.weber, units.maxwell): LinearMap(1e8),
             (units.ampere_per_meter, units.oersted): LinearMap(4 * math.pi * 1e-3),
+        },
+    )
+
+    # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
+    # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)
+    graph.connect_systems(
+        basis_transform=SI_TO_NATURAL,
+        edges={
+            (units.joule, units.electron_volt): LinearMap(1 / 1.602176634e-19),
         },
     )
 
