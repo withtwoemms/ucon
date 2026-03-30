@@ -420,11 +420,37 @@ class ConversionGraph:
             unit = unit_def.materialize()
             new.register_unit(unit)
 
-        # Materialize and add edges (resolved within new graph context)
+        # Materialize and add edges (resolved within new graph context).
+        # Skip edges whose endpoints are already convertible in the graph
+        # (e.g., a package defines knot→m/s but the built-in graph already has it).
         for edge_def in package.edges:
+            if self._package_edge_already_covered(edge_def, new):
+                continue
             edge_def.materialize(new)
 
         return new
+
+    @staticmethod
+    def _package_edge_already_covered(
+        edge_def: 'EdgeDef',
+        graph: 'ConversionGraph',
+    ) -> bool:
+        """Check if a package edge is redundant because the graph can already convert between its endpoints."""
+        from ucon import get_unit_by_name
+        from ucon.units import UnknownUnitError
+
+        with using_graph(graph):
+            try:
+                src_unit = get_unit_by_name(edge_def.src)
+                dst_unit = get_unit_by_name(edge_def.dst)
+            except UnknownUnitError:
+                return False  # Can't resolve — let materialize handle the error
+
+        try:
+            graph.convert(src=src_unit, dst=dst_unit)
+            return True  # Path already exists
+        except (ConversionNotFound, DimensionMismatch):
+            return False
 
     # ------------- Internal Helpers ------------------------------------------
 
@@ -898,16 +924,28 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.foot, dst=units.inch, map=LinearMap(12))
     graph.add_edge(src=units.foot, dst=units.yard, map=LinearMap(1/3))
     graph.add_edge(src=units.mile, dst=units.foot, map=LinearMap(5280))
+    # 1 nautical mile = 1852 m (exact, by international definition)
+    graph.add_edge(src=units.nautical_mile, dst=units.meter, map=LinearMap(1852))
 
     # --- Mass ---
     graph.add_edge(src=units.kilogram, dst=units.gram, map=LinearMap(1000))
     graph.add_edge(src=units.kilogram, dst=units.pound, map=LinearMap(2.20462))
     graph.add_edge(src=units.pound, dst=units.ounce, map=LinearMap(16))
+    # 1 metric ton = 1000 kg
+    graph.add_edge(src=units.metric_ton, dst=units.kilogram, map=LinearMap(1000))
+    # 1 dalton = 1.66053906660e-27 kg (CODATA 2018, exact by 2019 SI)
+    graph.add_edge(src=units.dalton, dst=units.kilogram, map=LinearMap(1.66053906660e-27))
 
     # --- Time ---
     graph.add_edge(src=units.second, dst=units.minute, map=LinearMap(1/60))
     graph.add_edge(src=units.minute, dst=units.hour, map=LinearMap(1/60))
     graph.add_edge(src=units.hour, dst=units.day, map=LinearMap(1/24))
+    # 1 week = 7 days
+    graph.add_edge(src=units.week, dst=units.day, map=LinearMap(7))
+    # 1 year = 365.25 days (Julian year, standard in astronomy and SI)
+    graph.add_edge(src=units.year, dst=units.day, map=LinearMap(365.25))
+    # 1 month = 1/12 year (mean calendar month)
+    graph.add_edge(src=units.year, dst=units.month, map=LinearMap(12))
 
     # --- Temperature ---
     # C → K: K = C + 273.15
@@ -952,17 +990,56 @@ def _build_standard_graph() -> ConversionGraph:
     # Cross-dimension: volume → length³ (enables gal/min → m³/h)
     # 1 L = 0.001 m³
     graph.add_edge(src=units.liter, dst=units.meter ** 3, map=LinearMap(0.001))
+    # US Customary volume chain: gallon → quart → pint → cup → floz → tbsp → tsp
+    graph.add_edge(src=units.gallon, dst=units.quart, map=LinearMap(4))
+    graph.add_edge(src=units.quart, dst=units.pint_volume, map=LinearMap(2))
+    graph.add_edge(src=units.pint_volume, dst=units.cup, map=LinearMap(2))
+    graph.add_edge(src=units.cup, dst=units.fluid_ounce, map=LinearMap(8))
+    graph.add_edge(src=units.fluid_ounce, dst=units.tablespoon, map=LinearMap(2))
+    graph.add_edge(src=units.tablespoon, dst=units.teaspoon, map=LinearMap(3))
+    # 1 oil barrel = 42 US gallons (petroleum industry standard)
+    graph.add_edge(src=units.barrel, dst=units.gallon, map=LinearMap(42))
 
     # --- Energy ---
     graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
     graph.add_edge(src=units.joule, dst=units.btu, map=LinearMap(1/1055.06))
     graph.add_edge(src=units.joule, dst=units.watt_hour, map=LinearMap(1/3600))  # 1 Wh = 3600 J
+    # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)
+    graph.add_edge(src=units.electron_volt, dst=units.joule, map=LinearMap(1.602176634e-19))
+    # 1 erg = 1e-7 J (CGS unit, exact)
+    graph.add_edge(src=units.erg, dst=units.joule, map=LinearMap(1e-7))
     # Cross-structure: energy/time → power (enables BTU/h → kW)
     # 1 BTU/h = 1055.06 J/h = 1055.06/3600 W = 0.29307 W
     graph.add_edge(src=units.btu / units.hour, dst=units.watt, map=LinearMap(1055.06 / 3600))
 
     # --- Power ---
     graph.add_edge(src=units.watt, dst=units.horsepower, map=LinearMap(1/745.7))
+
+    # --- Area ---
+    # 1 acre = 43560 ft² = 4046.8564224 m² (exact)
+    graph.add_edge(src=units.acre, dst=units.meter ** 2, map=LinearMap(4046.8564224))
+    # 1 hectare = 10000 m²
+    graph.add_edge(src=units.hectare, dst=units.meter ** 2, map=LinearMap(10000))
+
+    # --- Velocity ---
+    # 1 knot = 1 nmi/h = 1852/3600 m/s
+    graph.add_edge(src=units.knot, dst=units.meter / units.second, map=LinearMap(1852 / 3600))
+    # 1 mph = 1609.344/3600 m/s
+    graph.add_edge(src=units.mile_per_hour, dst=units.meter / units.second, map=LinearMap(1609.344 / 3600))
+
+    # --- Charge ---
+    # 1 Ah = 3600 C
+    graph.add_edge(src=units.ampere_hour, dst=units.coulomb, map=LinearMap(3600))
+
+    # --- Magnetic flux density ---
+    # 1 gauss = 1e-4 tesla (CGS unit, exact)
+    graph.add_edge(src=units.gauss, dst=units.tesla, map=LinearMap(1e-4))
+
+    # --- Radiation ---
+    # 1 curie = 3.7e10 Bq (exact, by definition)
+    graph.add_edge(src=units.curie, dst=units.becquerel, map=LinearMap(3.7e10))
+    # 1 rem = 0.01 Sv (exact, by definition)
+    graph.add_edge(src=units.rem, dst=units.sievert, map=LinearMap(0.01))
 
     # --- Information ---
     graph.add_edge(src=units.byte, dst=units.bit, map=LinearMap(8))
