@@ -993,6 +993,10 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.year, dst=units.day, map=LinearMap(365.25))
     # 1 month = 1/12 year (mean calendar month)
     graph.add_edge(src=units.year, dst=units.month, map=LinearMap(12))
+    # 1 fortnight = 14 days (exact)
+    graph.add_edge(src=units.fortnight, dst=units.day, map=LinearMap(14))
+    # 1 shake = 1e-8 s (nuclear physics time unit)
+    graph.add_edge(src=units.shake, dst=units.second, map=LinearMap(1e-8))
 
     # --- Temperature ---
     # C → K: K = C + 273.15
@@ -1015,6 +1019,12 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.millimeter_mercury, dst=units.torr, map=LinearMap(1.0))
     # 1 inHg = 3386.389 Pa
     graph.add_edge(src=units.inch_mercury, dst=units.pascal, map=LinearMap(3386.389))
+    # 1 cmH₂O = 98.0665 Pa (conventional, at 4°C)
+    graph.add_edge(src=units.centimeter_water, dst=units.pascal, map=LinearMap(98.0665))
+    # 1 cmHg = 1333.22 Pa (conventional)
+    graph.add_edge(src=units.centimeter_mercury, dst=units.pascal, map=LinearMap(1333.22))
+    # 1 ksi = 1000 psi = 6.894757e6 Pa
+    graph.add_edge(src=units.ksi, dst=units.psi, map=LinearMap(1000))
 
     # --- Force ---
     # 1 lbf = 4.4482216152605 N (exact, from lb_m × g_n)
@@ -1110,6 +1120,16 @@ def _build_standard_graph() -> ConversionGraph:
     # 1 enzyme unit (U) = 1/60 µkat = 1.6667e-8 kat
     graph.add_edge(src=units.enzyme_unit, dst=units.katal, map=LinearMap(1/60e6))
 
+    # --- Textile (linear density) ---
+    # 1 tex = 1 g/1000m = 1e-6 kg/m
+    graph.add_edge(src=units.tex, dst=units.gram / units.meter, map=LinearMap(1/1000))
+    # 1 denier = 1 g/9000m = 1/9 tex
+    graph.add_edge(src=units.denier, dst=units.tex, map=LinearMap(1/9))
+
+    # --- Photometry ---
+    # 1 foot-candle = 1 lm/ft² = 10.763910417 lux
+    graph.add_edge(src=units.foot_candle, dst=units.lux, map=LinearMap(10.763910417))
+
     # --- Information ---
     graph.add_edge(src=units.byte, dst=units.bit, map=LinearMap(8))
 
@@ -1195,10 +1215,14 @@ def _build_standard_graph() -> ConversionGraph:
 
     # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
     # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)
+    # 1 Eh = 4.3597447222071e-18 J (CODATA 2018 hartree energy)
+    # 1 Ry = 2.1798723611035e-18 J (= 0.5 Eh, by definition)
     graph.connect_systems(
         basis_transform=SI_TO_NATURAL,
         edges={
             (units.joule, units.electron_volt): LinearMap(1 / 1.602176634e-19),
+            (units.joule, units.hartree): LinearMap(1 / 4.3597447222071e-18),
+            (units.joule, units.rydberg): LinearMap(1 / 2.1798723611035e-18),
         },
     )
 

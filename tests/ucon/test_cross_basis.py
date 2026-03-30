@@ -307,6 +307,14 @@ class TestNaturalUnitDimensionIsolation(unittest.TestCase):
             f"electron_volt should have natural basis, got {units.electron_volt.dimension.basis.name}",
         )
 
+    def test_hartree_has_natural_basis(self):
+        self.assertEqual(units.hartree.dimension, NATURAL_ENERGY)
+        self.assertEqual(units.hartree.dimension.basis, NATURAL)
+
+    def test_rydberg_has_natural_basis(self):
+        self.assertEqual(units.rydberg.dimension, NATURAL_ENERGY)
+        self.assertEqual(units.rydberg.dimension.basis, NATURAL)
+
 
 class TestNaturalUnitConversions(unittest.TestCase):
     """Cross-basis natural ↔ SI conversions."""
@@ -340,6 +348,28 @@ class TestNaturalUnitConversions(unittest.TestCase):
         with using_graph(self.graph):
             resolved = get_unit_by_name('eV')
             self.assertEqual(resolved, units.electron_volt)
+
+    def test_hartree_to_joule(self):
+        m = self.graph.convert(src=units.hartree, dst=units.joule)
+        self.assertAlmostEqual(m(1), 4.3597447222071e-18, places=30)
+
+    def test_rydberg_to_joule(self):
+        m = self.graph.convert(src=units.rydberg, dst=units.joule)
+        self.assertAlmostEqual(m(1), 2.1798723611035e-18, places=30)
+
+    def test_hartree_to_ev(self):
+        m = self.graph.convert(src=units.hartree, dst=units.electron_volt)
+        self.assertAlmostEqual(m(1), 27.211386, places=4)
+
+    def test_rydberg_to_ev(self):
+        m = self.graph.convert(src=units.rydberg, dst=units.electron_volt)
+        self.assertAlmostEqual(m(1), 13.605693, places=4)
+
+    def test_hartree_rydberg_ratio(self):
+        """1 Eh = 2 Ry by definition."""
+        eh_to_j = self.graph.convert(src=units.hartree, dst=units.joule)
+        ry_to_j = self.graph.convert(src=units.rydberg, dst=units.joule)
+        self.assertAlmostEqual(eh_to_j(1) / ry_to_j(1), 2.0, places=10)
 
 
 if __name__ == '__main__':

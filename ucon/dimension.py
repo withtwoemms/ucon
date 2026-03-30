@@ -589,6 +589,7 @@ ANGULAR_MOMENTUM = _dim("angular_momentum", -1, 2, 1, 0, 0, 0, 0, 0)  # M·L²/T
 AREA = _dim("area", 0, 2, 0, 0, 0, 0, 0, 0)  # L²
 VOLUME = _dim("volume", 0, 3, 0, 0, 0, 0, 0, 0)  # L³
 DENSITY = _dim("density", 0, -3, 1, 0, 0, 0, 0, 0)  # M/L³
+LINEAR_DENSITY = _dim("linear_density", 0, -1, 1, 0, 0, 0, 0, 0)  # M/L
 PRESSURE = _dim("pressure", -2, -1, 1, 0, 0, 0, 0, 0)  # M/(L·T²)
 FREQUENCY = _dim("frequency", -1, 0, 0, 0, 0, 0, 0, 0)  # 1/T
 DYNAMIC_VISCOSITY = _dim("dynamic_viscosity", -1, -1, 1, 0, 0, 0, 0, 0)  # M/(L·T)
@@ -790,6 +791,7 @@ def all_dimensions() -> tuple[Dimension, ...]:
         AREA,
         VOLUME,
         DENSITY,
+        LINEAR_DENSITY,
         PRESSURE,
         FREQUENCY,
         DYNAMIC_VISCOSITY,
@@ -885,6 +887,7 @@ __all__ = [
     "AREA",
     "VOLUME",
     "DENSITY",
+    "LINEAR_DENSITY",
     "PRESSURE",
     "FREQUENCY",
     "DYNAMIC_VISCOSITY",

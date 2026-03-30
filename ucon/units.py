@@ -38,7 +38,7 @@ from ucon.dimension import (
     ANGLE, SOLID_ANGLE, RATIO, COUNT,
     VELOCITY, ACCELERATION, FORCE, ENERGY, POWER,
     MOMENTUM, ANGULAR_MOMENTUM, AREA, VOLUME, DENSITY, PRESSURE, FREQUENCY,
-    DYNAMIC_VISCOSITY, KINEMATIC_VISCOSITY, GRAVITATION,
+    DYNAMIC_VISCOSITY, KINEMATIC_VISCOSITY, LINEAR_DENSITY, GRAVITATION,
     CHARGE, VOLTAGE, RESISTANCE, RESISTIVITY, CONDUCTANCE, CONDUCTIVITY,
     CAPACITANCE, INDUCTANCE, MAGNETIC_FLUX, MAGNETIC_FLUX_DENSITY,
     MAGNETIC_PERMEABILITY, PERMITTIVITY, ELECTRIC_FIELD_STRENGTH,
@@ -122,6 +122,8 @@ day = Unit(name='day', dimension=TIME, aliases=('d',))
 week = Unit(name='week', dimension=TIME, aliases=('wk', 'weeks'))
 year = Unit(name='year', dimension=TIME, aliases=('yr', 'years'))
 month = Unit(name='month', dimension=TIME, aliases=('mo', 'months'))
+fortnight = Unit(name='fortnight', dimension=TIME, aliases=('fn', 'fortnights'))
+shake = Unit(name='shake', dimension=TIME, aliases=('shakes',))
 # ----------------------------------------------------------------------
 
 
@@ -193,6 +195,9 @@ atmosphere = Unit(name='atmosphere', dimension=PRESSURE, aliases=('atm',))
 torr = Unit(name='torr', dimension=PRESSURE, aliases=('Torr',))
 millimeter_mercury = Unit(name='millimeter_mercury', dimension=PRESSURE, aliases=('mmHg',))
 inch_mercury = Unit(name='inch_mercury', dimension=PRESSURE, aliases=('inHg',))
+centimeter_water = Unit(name='centimeter_water', dimension=PRESSURE, aliases=('cmH2O', 'cmAq'))
+centimeter_mercury = Unit(name='centimeter_mercury', dimension=PRESSURE, aliases=('cmHg',))
+ksi = Unit(name='ksi', dimension=PRESSURE, aliases=('ksi',))
 
 # Force
 pound_force = Unit(name='pound_force', dimension=FORCE, aliases=('lbf',))
@@ -244,6 +249,13 @@ enzyme_unit = Unit(name='enzyme_unit', dimension=CATALYTIC_ACTIVITY, aliases=('U
 # Typography
 point_typo = Unit(name='point', dimension=LENGTH, aliases=('pt_typo',))
 pica = Unit(name='pica', dimension=LENGTH, aliases=('pica',))
+
+# Textile (linear density)
+tex = Unit(name='tex', dimension=LINEAR_DENSITY, aliases=('tex',))
+denier = Unit(name='denier', dimension=LINEAR_DENSITY, aliases=('den', 'D_tex'))
+
+# Photometry
+foot_candle = Unit(name='foot_candle', dimension=ILLUMINANCE, aliases=('fc', 'ftc'))
 # ----------------------------------------------------------------------
 
 
@@ -270,6 +282,8 @@ oersted = Unit(name='oersted', dimension=CGS_ESU_MAGNETIC_FIELD_STRENGTH, aliase
 
 # -- Natural Units (native natural basis) ------------------------------
 electron_volt = Unit(name='electron_volt', dimension=NATURAL_ENERGY, aliases=('eV',))
+hartree = Unit(name='hartree', dimension=NATURAL_ENERGY, aliases=('Eh', 'Ha'))
+rydberg = Unit(name='rydberg', dimension=NATURAL_ENERGY, aliases=('Ry',))
 # ----------------------------------------------------------------------
 
 
