@@ -121,6 +121,13 @@ yard = Unit(name='yard', dimension=LENGTH, aliases=('yd', 'yards'))
 mile = Unit(name='mile', dimension=LENGTH, aliases=('mi', 'miles'))
 nautical_mile = Unit(name='nautical_mile', dimension=LENGTH, aliases=('nmi', 'NM'))
 fathom = Unit(name='fathom', dimension=LENGTH, aliases=('ftm', 'fathoms'))
+furlong = Unit(name='furlong', dimension=LENGTH, aliases=('fur', 'furlongs'))
+chain = Unit(name='chain', dimension=LENGTH, aliases=('ch', 'chains'))
+rod = Unit(name='rod', dimension=LENGTH, aliases=('rd', 'rods', 'perch', 'pole'))
+mil = Unit(name='mil', dimension=LENGTH, aliases=('thou',))
+hand = Unit(name='hand', dimension=LENGTH, aliases=('hh', 'hands'))
+league = Unit(name='league', dimension=LENGTH, aliases=('lea', 'leagues'))
+cable = Unit(name='cable', dimension=LENGTH, aliases=('cables',))
 
 # Mass
 pound = Unit(name='pound', dimension=MASS, aliases=('lb', 'lbs'))
@@ -131,6 +138,10 @@ grain = Unit(name='grain', dimension=MASS, aliases=('gr', 'grains'))
 slug = Unit(name='slug', dimension=MASS, aliases=('slug',))
 carat = Unit(name='carat', dimension=MASS, aliases=('ct_mass', 'carats'))
 troy_ounce = Unit(name='troy_ounce', dimension=MASS, aliases=('ozt', 'troy_oz'))
+long_ton = Unit(name='long_ton', dimension=MASS, aliases=('long_tons', 'imperial_ton'))
+short_ton = Unit(name='short_ton', dimension=MASS, aliases=('short_tons', 'US_ton'))
+dram = Unit(name='dram', dimension=MASS, aliases=('dr', 'drams'))
+pennyweight = Unit(name='pennyweight', dimension=MASS, aliases=('dwt', 'pennyweights'))
 
 # Temperature
 fahrenheit = Unit(name='fahrenheit', dimension=TEMPERATURE, aliases=('°F', 'degF'))
@@ -147,6 +158,10 @@ teaspoon = Unit(name='teaspoon', dimension=VOLUME, aliases=('tsp',))
 barrel = Unit(name='barrel', dimension=VOLUME, aliases=('bbl', 'barrels'))
 imperial_gallon = Unit(name='imperial_gallon', dimension=VOLUME, aliases=('imp_gal',))
 imperial_pint = Unit(name='imperial_pint', dimension=VOLUME, aliases=('imp_pt',))
+bushel = Unit(name='bushel', dimension=VOLUME, aliases=('bu', 'bushels'))
+peck = Unit(name='peck', dimension=VOLUME, aliases=('pk', 'pecks'))
+gill = Unit(name='gill', dimension=VOLUME, aliases=('gi', 'gills'))
+minim = Unit(name='minim', dimension=VOLUME, aliases=('min_vol', 'minims'))
 
 # Energy
 calorie = Unit(name='calorie', dimension=ENERGY, aliases=('cal', 'calories'))
@@ -155,6 +170,7 @@ watt_hour = Unit(name='watt_hour', dimension=ENERGY, aliases=('Wh',))
 electron_volt = Unit(name='electron_volt', dimension=ENERGY, aliases=('eV',))
 erg = Unit(name='erg', dimension=ENERGY, aliases=('erg',))
 therm = Unit(name='therm', dimension=ENERGY, aliases=('thm', 'therms'))
+foot_pound = Unit(name='foot_pound', dimension=ENERGY, aliases=('ft_lb', 'ft_lbf'))
 
 # Power
 horsepower = Unit(name='horsepower', dimension=POWER, aliases=('hp',))
@@ -174,6 +190,7 @@ kilogram_force = Unit(name='kilogram_force', dimension=FORCE, aliases=('kgf',))
 dyne = Unit(name='dyne', dimension=FORCE, aliases=('dyn',))
 kip = Unit(name='kip', dimension=FORCE, aliases=('klbf',))
 poundal = Unit(name='poundal', dimension=FORCE, aliases=('pdl',))
+gram_force = Unit(name='gram_force', dimension=FORCE, aliases=('gf',))
 # ----------------------------------------------------------------------
 
 
@@ -211,9 +228,17 @@ gauss = Unit(name='gauss', dimension=MAGNETIC_FLUX_DENSITY, aliases=('G', 'Gs'))
 # Radiation
 curie = Unit(name='curie', dimension=FREQUENCY, aliases=('Ci',))
 rem = Unit(name='rem', dimension=ENERGY, aliases=('rem',))
+rad_dose = Unit(name='rad_dose', dimension=ENERGY, aliases=('rad_absorbed',))
+
+# Magnetic flux (CGS)
+maxwell = Unit(name='maxwell', dimension=MAGNETIC_FLUX, aliases=('Mx',))
 
 # Catalytic activity
 enzyme_unit = Unit(name='enzyme_unit', dimension=CATALYTIC_ACTIVITY, aliases=('U', 'IU'))
+
+# Typography
+point_typo = Unit(name='point', dimension=LENGTH, aliases=('pt_typo',))
+pica = Unit(name='pica', dimension=LENGTH, aliases=('pica',))
 # ----------------------------------------------------------------------
 
 

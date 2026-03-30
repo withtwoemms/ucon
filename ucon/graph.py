@@ -936,6 +936,24 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.parsec, dst=units.meter, map=LinearMap(3.0856775814913673e16))
     # 1 AU = 1.495978707e11 m (exact, IAU 2012 definition)
     graph.add_edge(src=units.astronomical_unit, dst=units.meter, map=LinearMap(1.495978707e11))
+    # 1 furlong = 201.168 m (exact, 660 feet)
+    graph.add_edge(src=units.furlong, dst=units.meter, map=LinearMap(201.168))
+    # 1 chain = 20.1168 m (exact, 66 feet, Gunter's chain)
+    graph.add_edge(src=units.chain, dst=units.meter, map=LinearMap(20.1168))
+    # 1 rod = 5.0292 m (exact, 16.5 feet, aka perch/pole)
+    graph.add_edge(src=units.rod, dst=units.meter, map=LinearMap(5.0292))
+    # 1 mil = 1/1000 inch = 2.54e-5 m (exact)
+    graph.add_edge(src=units.mil, dst=units.inch, map=LinearMap(1/1000))
+    # 1 hand = 4 inches = 0.1016 m (exact, equestrian)
+    graph.add_edge(src=units.hand, dst=units.inch, map=LinearMap(4))
+    # 1 league = 3 miles (statute league)
+    graph.add_edge(src=units.league, dst=units.mile, map=LinearMap(3))
+    # 1 cable = 1/10 nautical mile = 185.2 m
+    graph.add_edge(src=units.cable, dst=units.nautical_mile, map=LinearMap(1/10))
+    # 1 typographic point = 1/72 inch (PostScript/DTP point, exact)
+    graph.add_edge(src=units.point_typo, dst=units.inch, map=LinearMap(1/72))
+    # 1 pica = 12 points
+    graph.add_edge(src=units.pica, dst=units.point_typo, map=LinearMap(12))
 
     # --- Mass ---
     graph.add_edge(src=units.kilogram, dst=units.gram, map=LinearMap(1000))
@@ -955,6 +973,14 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.carat, dst=units.gram, map=LinearMap(0.2))
     # 1 troy ounce = 31.1035 g (exact: 480 grains)
     graph.add_edge(src=units.troy_ounce, dst=units.gram, map=LinearMap(31.1035))
+    # 1 long ton = 2240 lb (Imperial ton)
+    graph.add_edge(src=units.long_ton, dst=units.pound, map=LinearMap(2240))
+    # 1 short ton = 2000 lb (US ton)
+    graph.add_edge(src=units.short_ton, dst=units.pound, map=LinearMap(2000))
+    # 1 dram = 1/16 ounce = 1/256 pound (avoirdupois)
+    graph.add_edge(src=units.dram, dst=units.ounce, map=LinearMap(1/16))
+    # 1 pennyweight = 24 grains = 1.55517384 g (Troy)
+    graph.add_edge(src=units.pennyweight, dst=units.grain, map=LinearMap(24))
 
     # --- Time ---
     graph.add_edge(src=units.second, dst=units.minute, map=LinearMap(1/60))
@@ -1000,6 +1026,8 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.kip, dst=units.pound_force, map=LinearMap(1000))
     # 1 poundal = 0.138255 N (ft·lb/s², British absolute unit of force)
     graph.add_edge(src=units.poundal, dst=units.newton, map=LinearMap(0.138255))
+    # 1 gram-force = 9.80665e-3 N (exact, by definition of standard gravity)
+    graph.add_edge(src=units.gram_force, dst=units.newton, map=LinearMap(9.80665e-3))
 
     # --- Dynamic Viscosity ---
     # 1 poise = 0.1 Pa·s (CGS unit)
@@ -1027,6 +1055,14 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.imperial_gallon, dst=units.liter, map=LinearMap(4.54609))
     # 1 imperial gallon = 8 imperial pints
     graph.add_edge(src=units.imperial_gallon, dst=units.imperial_pint, map=LinearMap(8))
+    # 1 US bushel = 35.23907016688 L (exact, dry measure)
+    graph.add_edge(src=units.bushel, dst=units.liter, map=LinearMap(35.23907016688))
+    # 1 peck = 1/4 bushel
+    graph.add_edge(src=units.bushel, dst=units.peck, map=LinearMap(4))
+    # 1 gill = 1/4 US pint = 0.118294 L (US gill)
+    graph.add_edge(src=units.pint_volume, dst=units.gill, map=LinearMap(4))
+    # 1 minim = 1/480 US fluid ounce = 6.161152e-5 L
+    graph.add_edge(src=units.fluid_ounce, dst=units.minim, map=LinearMap(480))
 
     # --- Energy ---
     graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
@@ -1038,6 +1074,8 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.erg, dst=units.joule, map=LinearMap(1e-7))
     # 1 therm = 1.05506e8 J (US therm, ≈ 100,000 BTU)
     graph.add_edge(src=units.therm, dst=units.joule, map=LinearMap(1.05506e8))
+    # 1 foot-pound = 1.3558179483314 J (exact, lbf × ft)
+    graph.add_edge(src=units.foot_pound, dst=units.joule, map=LinearMap(1.3558179483314))
     # Cross-structure: energy/time → power (enables BTU/h → kW)
     # 1 BTU/h = 1055.06 J/h = 1055.06/3600 W = 0.29307 W
     graph.add_edge(src=units.btu / units.hour, dst=units.watt, map=LinearMap(1055.06 / 3600))
@@ -1068,12 +1106,16 @@ def _build_standard_graph() -> ConversionGraph:
     # --- Magnetic flux density ---
     # 1 gauss = 1e-4 tesla (CGS unit, exact)
     graph.add_edge(src=units.gauss, dst=units.tesla, map=LinearMap(1e-4))
+    # 1 maxwell = 1e-8 Wb (CGS magnetic flux unit, exact)
+    graph.add_edge(src=units.maxwell, dst=units.weber, map=LinearMap(1e-8))
 
     # --- Radiation ---
     # 1 curie = 3.7e10 Bq (exact, by definition)
     graph.add_edge(src=units.curie, dst=units.becquerel, map=LinearMap(3.7e10))
     # 1 rem = 0.01 Sv (exact, by definition)
     graph.add_edge(src=units.rem, dst=units.sievert, map=LinearMap(0.01))
+    # 1 rad (absorbed dose) = 0.01 Gy (exact, by definition)
+    graph.add_edge(src=units.rad_dose, dst=units.gray, map=LinearMap(0.01))
 
     # --- Catalytic Activity ---
     # 1 enzyme unit (U) = 1/60 µkat = 1.6667e-8 kat
