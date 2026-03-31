@@ -49,14 +49,16 @@ if TYPE_CHECKING:
 # Registry for dimension resolution
 # -----------------------------------------------------------------------------
 
-_REGISTRY: dict[tuple[Basis, tuple[Fraction, ...]], "Dimension"] = {}
+_REGISTRY: dict[Vector, "Dimension"] = {}
+_DIM_MUL_CACHE: dict[tuple[int, int], "Dimension"] = {}
+_DIM_DIV_CACHE: dict[tuple[int, int], "Dimension"] = {}
+_DIM_POW_CACHE: dict[tuple[int, object], "Dimension"] = {}
 
 
 def _register(dim: "Dimension") -> "Dimension":
     """Register a dimension for resolution by vector."""
     if dim.tag is None:  # Don't register pseudo-dimensions
-        key = (dim.vector.basis, dim.vector.components)
-        _REGISTRY[key] = dim
+        _REGISTRY[dim.vector] = dim
     return dim
 
 
@@ -83,16 +85,14 @@ def resolve(vector: Vector) -> "Dimension":
     >>> resolve(v)
     Dimension(velocity)
     """
-    key = (vector.basis, vector.components)
-    if key in _REGISTRY:
-        return _REGISTRY[key]
+    if vector in _REGISTRY:
+        return _REGISTRY[vector]
 
     # Zero vector always resolves to NONE
     if vector.is_dimensionless():
-        # Return the registered NONE for this basis if available
-        none_key = (vector.basis, tuple(Fraction(0) for _ in vector.components))
-        if none_key in _REGISTRY:
-            return _REGISTRY[none_key]
+        none_vector = Vector(vector.basis, tuple(0 for _ in vector.components))
+        if none_vector in _REGISTRY:
+            return _REGISTRY[none_vector]
 
     # Create a derived dimension
     name = _vector_to_dim_expr(vector)
@@ -118,7 +118,7 @@ def _vector_to_dim_expr(v: Vector) -> str:
             continue
 
         name = comp.name
-        exp_val = int(exp) if exp.denominator == 1 else float(exp)
+        exp_val = int(exp) if isinstance(exp, int) or (isinstance(exp, Fraction) and exp.denominator == 1) else float(exp)
         abs_exp = abs(exp_val)
 
         token = name if abs_exp == 1 else f"{name}^{abs_exp}"
@@ -250,7 +250,7 @@ class Dimension(metaclass=_DimensionMeta):
             exp = components.get(comp.name, 0)
             if exp == 0 and comp.symbol is not None:
                 exp = components.get(comp.symbol, 0)
-            exponents.append(Fraction(exp))
+            exponents.append(exp if isinstance(exp, (int, Fraction)) else Fraction(exp))
 
         vector = Vector(basis, tuple(exponents))
         return cls(vector=vector, name=name, symbol=symbol)
@@ -399,38 +399,44 @@ class Dimension(metaclass=_DimensionMeta):
         if not isinstance(other, Dimension):
             return NotImplemented
 
+        cache_key = (id(self), id(other))
+        cached = _DIM_MUL_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
         # Identity: NONE * X = X (before basis check — NONE is universal identity)
         if self == NONE:
-            return other
+            result = other
         # Identity: X * NONE = X
-        if other == NONE:
-            return self
-
-        if self.vector.basis != other.vector.basis:
+        elif other == NONE:
+            result = self
+        elif self.vector.basis != other.vector.basis:
             raise ValueError(
                 f"Cannot multiply dimensions from different bases: "
                 f"'{self.vector.basis.name}' and '{other.vector.basis.name}'"
             )
-
         # Pseudo-dimension combined with pseudo-dimension
-        if self.is_pseudo and other.is_pseudo:
+        elif self.is_pseudo and other.is_pseudo:
             # Same pseudo-dimension: return self
             if self == other:
-                return self
-            # Different pseudo-dimensions can't combine
-            raise TypeError(
-                f"Cannot multiply different pseudo-dimensions: {self.name} and {other.name}"
-            )
-
+                result = self
+            else:
+                # Different pseudo-dimensions can't combine
+                raise TypeError(
+                    f"Cannot multiply different pseudo-dimensions: {self.name} and {other.name}"
+                )
         # Pseudo-dimension combined with regular dimension:
         # The pseudo-dimension acts like NONE (zero vector)
-        if self.is_pseudo:
-            return other  # ANGLE * MASS = MASS
-        if other.is_pseudo:
-            return self   # MASS * ANGLE = MASS
+        elif self.is_pseudo:
+            result = other  # ANGLE * MASS = MASS
+        elif other.is_pseudo:
+            result = self   # MASS * ANGLE = MASS
+        else:
+            new_vector = self.vector * other.vector
+            result = resolve(new_vector)
 
-        new_vector = self.vector * other.vector
-        return resolve(new_vector)
+        _DIM_MUL_CACHE[cache_key] = result
+        return result
 
     def __truediv__(self, other: "Dimension") -> "Dimension":
         """Divide dimensions (subtract exponent vectors).
@@ -445,38 +451,41 @@ class Dimension(metaclass=_DimensionMeta):
         if not isinstance(other, Dimension):
             return NotImplemented
 
+        cache_key = (id(self), id(other))
+        cached = _DIM_DIV_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
         # Identity: X / NONE = X (before basis check — NONE is universal identity)
         if other == NONE:
-            return self
-
-        if self.vector.basis != other.vector.basis:
+            result = self
+        elif self.vector.basis != other.vector.basis:
             raise ValueError(
                 f"Cannot divide dimensions from different bases: "
                 f"'{self.vector.basis.name}' and '{other.vector.basis.name}'"
             )
-
         # Pseudo-dimension divided by pseudo-dimension
-        if self.is_pseudo and other.is_pseudo:
+        elif self.is_pseudo and other.is_pseudo:
             # Same pseudo-dimension: returns NONE (0/0 case, but semantically X/X = 1)
             if self == other:
-                return NONE
-            # Different pseudo-dimensions can't divide
-            raise TypeError(
-                f"Cannot divide different pseudo-dimensions: {self.name} and {other.name}"
-            )
-
+                result = NONE
+            else:
+                # Different pseudo-dimensions can't divide
+                raise TypeError(
+                    f"Cannot divide different pseudo-dimensions: {self.name} and {other.name}"
+                )
         # Regular divided by pseudo: pseudo acts like NONE
-        if other.is_pseudo:
-            return self   # MASS / ANGLE = MASS
-
+        elif other.is_pseudo:
+            result = self   # MASS / ANGLE = MASS
         # Pseudo divided by regular: pseudo acts like NONE
-        if self.is_pseudo:
-            # ANGLE / MASS would give 1/MASS, but ANGLE has zero vector
-            # So this returns 1/MASS
-            return resolve(self.vector / other.vector)
+        elif self.is_pseudo:
+            result = resolve(self.vector / other.vector)
+        else:
+            new_vector = self.vector / other.vector
+            result = resolve(new_vector)
 
-        new_vector = self.vector / other.vector
-        return resolve(new_vector)
+        _DIM_DIV_CACHE[cache_key] = result
+        return result
 
     def __pow__(self, power: int | float | Fraction) -> "Dimension":
         """Raise dimension to a power (multiply exponent vector by scalar).
@@ -490,13 +499,21 @@ class Dimension(metaclass=_DimensionMeta):
         if power == 0:
             return NONE
 
+        cache_key = (id(self), power)
+        cached = _DIM_POW_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
         # Pseudo-dimensions are invariant under exponentiation
         # This allows expressions like mg/ea (COUNT ** -1) to work
         if self.is_pseudo:
-            return self
+            result = self
+        else:
+            new_vector = self.vector ** power
+            result = resolve(new_vector)
 
-        new_vector = self.vector ** power
-        return resolve(new_vector)
+        _DIM_POW_CACHE[cache_key] = result
+        return result
 
     # -------------------------------------------------------------------------
     # Comparison & Hashing
@@ -549,7 +566,7 @@ def _vec(*components: int | Fraction) -> Vector:
     """Shorthand for creating an SI vector with 8 components."""
     # Pad with zeros if needed
     padded = list(components) + [0] * (8 - len(components))
-    return Vector(SI, tuple(Fraction(c) for c in padded))
+    return Vector(SI, tuple(padded))
 
 
 def _dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
@@ -648,7 +665,7 @@ from ucon.basis.builtin import CGS  # noqa: E402
 def _cgs_vec(*components: int | Fraction) -> Vector:
     """Shorthand for creating a CGS vector with 3 components (L, M, T)."""
     padded = list(components) + [0] * (3 - len(components))
-    return Vector(CGS, tuple(Fraction(c) for c in padded))
+    return Vector(CGS, tuple(padded))
 
 
 def _cgs_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
@@ -688,7 +705,7 @@ from ucon.basis.builtin import CGS_ESU  # noqa: E402
 def _cgs_esu_vec(*components: int | Fraction) -> Vector:
     """Shorthand for creating a CGS-ESU vector with 4 components (L, M, T, Q)."""
     padded = list(components) + [0] * (4 - len(components))
-    return Vector(CGS_ESU, tuple(Fraction(c) for c in padded))
+    return Vector(CGS_ESU, tuple(padded))
 
 
 def _cgs_esu_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
@@ -798,7 +815,7 @@ from ucon.basis.builtin import NATURAL  # noqa: E402
 
 def _natural_vec(*components: int | Fraction) -> Vector:
     padded = list(components) + [0] * (1 - len(components))
-    return Vector(NATURAL, tuple(Fraction(c) for c in padded))
+    return Vector(NATURAL, tuple(padded))
 
 
 def _natural_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:

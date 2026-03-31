@@ -178,7 +178,7 @@ class Basis:
         Returns:
             A Vector with all components set to Fraction(0).
         """
-        return Vector(self, tuple(Fraction(0) for _ in self._components))
+        return Vector(self, tuple(0 for _ in self._components))
 
 
 @dataclass(frozen=True)
@@ -198,7 +198,7 @@ class Vector:
     """
 
     basis: Basis
-    components: tuple[Fraction, ...]
+    components: tuple[int | Fraction, ...]
 
     def __post_init__(self) -> None:
         if len(self.components) != len(self.basis):
@@ -258,8 +258,13 @@ class Vector:
             tuple(a - b for a, b in zip(self.components, other.components)),
         )
 
-    def __pow__(self, exponent: int | Fraction) -> "Vector":
+    def __pow__(self, exponent: int | float | Fraction) -> "Vector":
         """Raise dimension to a power (multiply all exponents)."""
+        if isinstance(exponent, int):
+            return Vector(
+                self.basis,
+                tuple(c * exponent for c in self.components),
+            )
         exp = Fraction(exponent)
         return Vector(
             self.basis,
