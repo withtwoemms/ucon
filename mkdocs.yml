@@ -54,6 +54,7 @@ nav:
     - Config Safety: guides/dimensional-safety-config.md
     - Dimensional Analysis: guides/dimensional-analysis.md
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
+    - Conversion Contexts: guides/conversion-contexts.md
     - Natural Units: guides/natural-units.md
     - MCP Server:
       - external/ucon-tools/docs/guides/mcp-server/index.md
@@ -80,6 +81,7 @@ nav:
   - Reference:
     - reference/index.md
     - API: reference/api.md
+    - Performance: reference/performance.md
     - Units & Dimensions: reference/units-and-dimensions.md
     - MCP Tools: external/ucon-tools/docs/reference/mcp-tools.md
     - Scales & Prefixes: reference/scales-and-prefixes.md
@@ -99,6 +101,10 @@ nav:
       - ucon.packages: reference/modules/packages.md
       - ucon.parsing: reference/modules/parsing.md
       - ucon.units: reference/modules/units.md
+      - ucon.integrations.numpy: reference/modules/integrations-numpy.md
+      - ucon.integrations.pandas: reference/modules/integrations-pandas.md
+      - ucon.integrations.polars: reference/modules/integrations-polars.md
+      - ucon.integrations.pydantic: reference/modules/integrations-pydantic.md
   - Architecture:
     - architecture/index.md
     - Design Principles: architecture/design-principles.md

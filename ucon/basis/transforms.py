@@ -43,8 +43,8 @@ class BasisTransform:
         source: The source basis.
         target: The target basis.
         matrix: Transformation matrix as tuple of tuples. Shape is
-            (len(source), len(target)). Entry [i][j] is the coefficient
-            of target component j when transforming source component i.
+            (len(source), len(target)). Entry ``[i][j]`` is the coefficient
+            of target component ``j`` when transforming source component ``i``.
 
     Raises:
         ValueError: If matrix dimensions don't match basis dimensions.

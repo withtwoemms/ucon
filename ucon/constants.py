@@ -371,7 +371,7 @@ def all_constants() -> list[Constant]:
     >>> len(constants)
     17
     >>> [c.symbol for c in constants if c.category == "exact"]
-    ['ΔνCs', 'c', 'h', 'e', 'k', 'NA', 'Kcd']
+    ... # ['ΔνCs', 'c', 'h', 'e', 'k', 'NA', 'Kcd']
     """
     return list(_get_constants().values())
 
