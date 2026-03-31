@@ -53,6 +53,17 @@ from ucon.core import (
 )
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
 
+__all__ = [
+    'ConversionGraph',
+    'DimensionMismatch',
+    'ConversionNotFound',
+    'CyclicInconsistency',
+    'get_default_graph',
+    'set_default_graph',
+    'reset_default_graph',
+    'using_graph',
+]
+
 
 class DimensionMismatch(Exception):
     """Raised when attempting to convert between incompatible dimensions."""

@@ -95,6 +95,7 @@ from ucon.checking import enforce_dimensions
 from ucon.graph import (
     ConversionGraph,
     ConversionNotFound,
+    CyclicInconsistency,
     DimensionMismatch,
     get_default_graph,
     reset_default_graph,
@@ -104,10 +105,12 @@ from ucon.graph import (
 from ucon.contexts import (
     ContextEdge,
     ConversionContext,
+    boltzmann,
+    spectroscopy,
     using_context,
 )
 from ucon.packages import EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
-from ucon.resolver import get_unit_by_name
+from ucon.resolver import get_unit_by_name, register_unit
 from ucon.parsing import ParseError, parse
 
 
@@ -143,11 +146,14 @@ __all__ = [
     # Contexts
     'ContextEdge',
     'ConversionContext',
+    'boltzmann',
+    'spectroscopy',
     'using_context',
     # Core types
     'Constant',
     'ConversionGraph',
     'ConversionNotFound',
+    'CyclicInconsistency',
     'DimensionConstraint',
     'Dimension',
     'DimensionMismatch',
@@ -172,6 +178,7 @@ __all__ = [
     'enforce_dimensions',
     'get_default_graph',
     'get_unit_by_name',
+    'register_unit',
     'load_package',
     'parse',
     'reset_default_graph',

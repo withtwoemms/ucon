@@ -9,4 +9,4 @@ All types moved to :mod:`ucon.core`.
 """
 from ucon.core import DimensionConstraint, Number, Ratio, _none, _Quantifiable
 
-__all__ = ['DimensionConstraint', 'Number', 'Ratio', '_Quantifiable', '_none']
+__all__ = ['DimensionConstraint', 'Number', 'Ratio']

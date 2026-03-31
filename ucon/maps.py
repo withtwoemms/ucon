@@ -24,6 +24,16 @@ scalar operations use the standard library `math` module.
 """
 from __future__ import annotations
 
+__all__ = [
+    'Map',
+    'LinearMap',
+    'AffineMap',
+    'LogMap',
+    'ExpMap',
+    'ReciprocalMap',
+    'ComposedMap',
+]
+
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
