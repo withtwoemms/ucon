@@ -380,6 +380,12 @@ class Unit:
     dimension: Dimension = field(default=NONE)
     aliases: tuple[str, ...] = ()
 
+    def __post_init__(self):
+        object.__setattr__(
+            self, '_hash_cache',
+            hash((self.name, self._norm(self.aliases), self.dimension)),
+        )
+
     # ----------------- symbolic helpers -----------------
 
     @staticmethod
@@ -522,13 +528,7 @@ class Unit:
         )
 
     def __hash__(self):
-        return hash(
-            (
-                self.name,
-                self._norm(self.aliases),
-                self.dimension,
-            )
-        )
+        return self._hash_cache
 
     # ----------------- representation -----------------
 
@@ -733,6 +733,9 @@ class UnitFactor:
     unit: "Unit"
     scale: "Scale"
 
+    def __post_init__(self):
+        object.__setattr__(self, '_hash_cache', hash(self.unit))
+
     # ------------- Projections (Unit-like surface) -------------------------
 
     @property
@@ -770,7 +773,7 @@ class UnitFactor:
     def __hash__(self) -> int:
         # Important: share hash space with the underlying Unit so that
         # lookups by Unit (e.g., factors[unit]) work against UnitFactor keys.
-        return hash(self.unit)
+        return self._hash_cache
 
     def __eq__(self, other):
         # UnitFactor vs UnitFactor → structural equality

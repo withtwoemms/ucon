@@ -204,6 +204,9 @@ class Dimension(metaclass=_DimensionMeta):
     symbol: str | None = None
     tag: str | None = None
 
+    def __post_init__(self):
+        object.__setattr__(self, '_hash_cache', hash((self.vector, self.tag)))
+
     @classmethod
     def from_components(
         cls,
@@ -521,7 +524,7 @@ class Dimension(metaclass=_DimensionMeta):
 
     def __hash__(self) -> int:
         """Hash based on vector and tag for pseudo-dimensions."""
-        return hash((self.vector, self.tag))
+        return self._hash_cache
 
     def __bool__(self) -> bool:
         """False for NONE (dimensionless with no tag), True otherwise."""

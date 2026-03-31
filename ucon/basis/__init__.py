@@ -206,6 +206,7 @@ class Vector:
                 f"Vector has {len(self.components)} components but "
                 f"basis '{self.basis.name}' has {len(self.basis)}"
             )
+        object.__setattr__(self, '_hash_cache', hash((self.basis, self.components)))
 
     def __getitem__(self, key: str | int) -> Fraction:
         """Get a component by name, symbol, or index.
@@ -278,7 +279,7 @@ class Vector:
         return self.basis == other.basis and self.components == other.components
 
     def __hash__(self) -> int:
-        return hash((self.basis, self.components))
+        return self._hash_cache
 
 
 # -----------------------------------------------------------------------------
