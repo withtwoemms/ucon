@@ -23,6 +23,7 @@ Task-oriented guides for common use cases.
 
 - **[Dimensional Analysis](dimensional-analysis.md)** - Step-by-step factor-label calculations
 - **[Custom Units & Graphs](custom-units-and-graphs.md)** - Define domain-specific units
+- **[Conversion Contexts](conversion-contexts.md)** - Cross-dimensional conversions (spectroscopy, Boltzmann)
 - **[Natural Units](natural-units.md)** - Particle physics natural units (c = h_bar = k_B = 1)
 
 ## Domain Walkthroughs
