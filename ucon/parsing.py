@@ -34,17 +34,10 @@ from enum import Enum, auto
 from typing import Callable, Dict, List, Tuple, TYPE_CHECKING
 
 from ucon.core import UnknownUnitError
-from ucon.quantity import Number
+from ucon.core import Number
 
 if TYPE_CHECKING:
     from ucon.core import Scale, Unit, UnitFactor, UnitProduct
-
-
-# --------------------------------------------------------------------------------------
-# Dependency Injection Hooks (wired by ucon.__init__)
-# --------------------------------------------------------------------------------------
-
-_resolve_unit = None  # (name: str) -> Unit | UnitProduct
 
 
 class _TokenType(Enum):
@@ -508,6 +501,8 @@ def parse(s: str) -> 'Number':
     if not s or not s.strip():
         raise ValueError("Cannot parse empty string")
 
+    from ucon.resolver import get_unit_by_name
+
     s = s.strip()
 
     # Try "value unit ± uncertainty unit" format first
@@ -517,7 +512,7 @@ def parse(s: str) -> 'Number':
         unit_str = unc_with_unit.group("unit1").strip()
         uncertainty = float(unc_with_unit.group("uncertainty"))
 
-        unit = _resolve_unit(unit_str)
+        unit = get_unit_by_name(unit_str)
         return Number(quantity=value, unit=unit, uncertainty=uncertainty)
 
     # Standard quantity pattern
@@ -553,7 +548,7 @@ def parse(s: str) -> 'Number':
 
     # Parse unit (or return dimensionless)
     if unit_str:
-        unit = _resolve_unit(unit_str)
+        unit = get_unit_by_name(unit_str)
     else:
         unit = None  # Number will use dimensionless default
 

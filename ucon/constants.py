@@ -37,18 +37,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Union
 
 from ucon.core import Scale
-from ucon.quantity import Number
+from ucon.core import Number
 
 if TYPE_CHECKING:
     from ucon.core import Unit, UnitProduct
     from ucon.dimension import Dimension
-
-
-# --------------------------------------------------------------------------------------
-# Dependency Injection Hooks (wired by ucon.__init__)
-# --------------------------------------------------------------------------------------
-
-_get_units_module = None  # () -> module
 
 
 @dataclass(frozen=True)
@@ -160,7 +153,7 @@ class Constant:
 
 def _build_constants():
     """Build constants after units module is loaded."""
-    units = _get_units_module()
+    from ucon import units
 
     # -------------------------------------------------------------------------
     # SI Defining Constants (Exact)

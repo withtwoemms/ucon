@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     import polars as pl
 
 from ucon.core import Unit, UnitProduct, UnitFactor, Scale
-from ucon.quantity import Number, _none
+from ucon.core import Number, _none
 from ucon.graph import get_default_graph
 
 

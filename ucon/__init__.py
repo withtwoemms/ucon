@@ -74,7 +74,10 @@ from ucon.basis.transforms import (
     SI_TO_NATURAL,
 )
 from ucon.core import (
+    DimensionConstraint,
     DimensionNotCovered,
+    Number,
+    Ratio,
     RebasedUnit,
     Scale,
     Unit,
@@ -82,11 +85,6 @@ from ucon.core import (
     UnitProduct,
     UnitSystem,
     UnknownUnitError,
-)
-from ucon.quantity import (
-    DimensionConstraint,
-    Number,
-    Ratio,
 )
 from ucon.dimension import (
     Dimension,
@@ -109,45 +107,8 @@ from ucon.contexts import (
     using_context,
 )
 from ucon.packages import EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
-from ucon.units import get_unit_by_name
+from ucon.resolver import get_unit_by_name
 from ucon.parsing import ParseError, parse
-
-
-# =============================================================================
-# Wire dependency-injection hooks (eliminates all circular imports)
-# =============================================================================
-
-import ucon.core as _core
-import ucon.quantity as _quantity
-import ucon.graph as _graph
-import ucon.parsing as _parsing
-import ucon.packages as _packages
-import ucon.constants as _constants
-
-# core: Unit/UnitProduct.__call__ → Number and NumberArray
-_core._number_factory = lambda q, u, unc: Number(quantity=q, unit=u, uncertainty=unc)
-try:
-    from ucon.integrations.numpy import NumberArray as _NumberArray
-    _core._array_factory = lambda q, u, unc: _NumberArray(quantities=q, unit=u, uncertainty=unc)
-except ImportError:
-    pass
-
-# quantity: Number.to() string resolution
-_quantity._get_unit_by_name = get_unit_by_name
-
-# graph: standard graph builder + unit name resolution
-_graph._build_standard_units = _graph._build_standard_edges
-_graph._resolve_unit_by_name = get_unit_by_name
-
-# parsing: unit name resolution
-_parsing._resolve_unit = get_unit_by_name
-
-# packages: unit name resolution + graph context manager
-_packages._resolve_unit_by_name = get_unit_by_name
-_packages._using_graph = using_graph
-
-# constants: units module access
-_constants._get_units_module = lambda: units
 
 
 __all__ = [

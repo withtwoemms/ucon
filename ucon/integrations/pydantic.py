@@ -46,8 +46,9 @@ except ImportError as e:
     ) from e
 
 from ucon.core import Dimension
-from ucon.quantity import Number as _Number
-from ucon.units import UnknownUnitError, get_unit_by_name
+from ucon.core import Number as _Number
+from ucon.core import UnknownUnitError
+from ucon.resolver import get_unit_by_name
 
 
 def _validate_number(v: Any) -> _Number:

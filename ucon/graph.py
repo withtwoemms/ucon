@@ -54,14 +54,6 @@ from ucon.core import (
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
 
 
-# --------------------------------------------------------------------------------------
-# Dependency Injection Hooks (wired by ucon.__init__)
-# --------------------------------------------------------------------------------------
-
-_build_standard_units = None   # (graph: ConversionGraph) -> None
-_resolve_unit_by_name = None   # (name: str) -> Unit | UnitProduct
-
-
 class DimensionMismatch(Exception):
     """Raised when attempting to convert between incompatible dimensions."""
     pass
@@ -454,10 +446,11 @@ class ConversionGraph:
         graph: 'ConversionGraph',
     ) -> bool:
         """Check if a package edge is redundant because the graph can already convert between its endpoints."""
+        from ucon.resolver import get_unit_by_name
         with using_graph(graph):
             try:
-                src_unit = _resolve_unit_by_name(edge_def.src)
-                dst_unit = _resolve_unit_by_name(edge_def.dst)
+                src_unit = get_unit_by_name(edge_def.src)
+                dst_unit = get_unit_by_name(edge_def.dst)
             except UnknownUnitError:
                 return False  # Can't resolve — let materialize handle the error
 
@@ -949,7 +942,7 @@ def using_graph(graph: ConversionGraph):
 def _build_standard_graph() -> ConversionGraph:
     """Build the default graph with common conversions."""
     graph = ConversionGraph()
-    _build_standard_units(graph)
+    _build_standard_edges(graph)
     return graph
 
 

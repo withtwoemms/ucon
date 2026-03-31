@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from numpy.typing import ArrayLike, NDArray
 
 from ucon.core import Unit, UnitProduct, UnitFactor, Scale
-from ucon.quantity import Number, _none
+from ucon.core import Number, _none
 from ucon.graph import get_default_graph
 
 # Module-level cache for scale factors: (src_unit, dst_unit) -> factor

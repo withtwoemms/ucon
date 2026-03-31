@@ -56,14 +56,6 @@ if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
 
 
-# --------------------------------------------------------------------------------------
-# Dependency Injection Hooks (wired by ucon.__init__)
-# --------------------------------------------------------------------------------------
-
-_resolve_unit_by_name = None  # (name: str) -> Unit | UnitProduct
-_using_graph = None           # (graph) -> context manager
-
-
 def _parse_factor(value) -> float:
     """Parse a factor value from TOML.
 
@@ -209,16 +201,18 @@ class EdgeDef:
             If source or destination unit cannot be resolved.
         """
         # Resolve units within graph context
-        with _using_graph(graph):
+        from ucon.resolver import get_unit_by_name
+        from ucon.graph import using_graph
+        with using_graph(graph):
             try:
-                src_unit = _resolve_unit_by_name(self.src)
+                src_unit = get_unit_by_name(self.src)
             except UnknownUnitError:
                 raise PackageLoadError(
                     f"Cannot resolve source unit '{self.src}' in edge"
                 )
 
             try:
-                dst_unit = _resolve_unit_by_name(self.dst)
+                dst_unit = get_unit_by_name(self.dst)
             except UnknownUnitError:
                 raise PackageLoadError(
                     f"Cannot resolve destination unit '{self.dst}' in edge"

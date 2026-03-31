@@ -25,7 +25,7 @@ else:
     from typing_extensions import Annotated, get_type_hints, get_args, get_origin
 
 from ucon.core import Dimension, Unit, UnitProduct
-from ucon.quantity import Number, DimensionConstraint
+from ucon.core import Number, DimensionConstraint
 
 
 def _get_dimension(n: Number) -> Dimension:
