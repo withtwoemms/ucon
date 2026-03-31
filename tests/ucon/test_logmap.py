@@ -12,7 +12,7 @@ forward transforms, derivatives, inverses, and composition.
 import math
 import unittest
 
-from ucon.maps import LogMap, ExpMap, AffineMap, ComposedMap
+from ucon.maps import LogMap, ExpMap, AffineMap, LinearMap, ReciprocalMap, ComposedMap
 
 
 class TestLogMapBasic(unittest.TestCase):
@@ -283,6 +283,157 @@ class TestLogMapComposition(unittest.TestCase):
         self.assertAlmostEqual(inv(2), 0.99)
         self.assertAlmostEqual(inv(3), 0.999)
         self.assertAlmostEqual(inv(5), 0.99999)
+
+
+class TestReciprocalMap(unittest.TestCase):
+    """Test ReciprocalMap (inversely proportional: y = a/x)."""
+
+    def test_call_scalar(self):
+        """ReciprocalMap(c)(x) = c/x."""
+        m = ReciprocalMap(300e6)
+        self.assertAlmostEqual(m(1.5e14), 300e6 / 1.5e14)
+
+    def test_call_another_value(self):
+        """ReciprocalMap works for various inputs."""
+        m = ReciprocalMap(100)
+        self.assertAlmostEqual(m(4), 25.0)
+        self.assertAlmostEqual(m(25), 4.0)
+
+    def test_inverse_is_self(self):
+        """ReciprocalMap is self-inverse (roundtrip)."""
+        m = ReciprocalMap(299792458.0)
+        inv = m.inverse()
+        self.assertIsInstance(inv, ReciprocalMap)
+        self.assertAlmostEqual(inv(m(42.0)), 42.0)
+
+    def test_matmul_with_linear(self):
+        """ReciprocalMap @ LinearMap returns ComposedMap."""
+        r = ReciprocalMap(100)
+        l = LinearMap(2.0)
+        composed = r @ l
+        self.assertIsInstance(composed, ComposedMap)
+        # composed(5) = ReciprocalMap(100)(LinearMap(2)(5)) = 100 / (2*5) = 10
+        self.assertAlmostEqual(composed(5.0), 10.0)
+
+    def test_matmul_non_map_returns_not_implemented(self):
+        """ReciprocalMap @ non-Map returns NotImplemented."""
+        r = ReciprocalMap(100)
+        result = r.__matmul__(42)
+        self.assertIs(result, NotImplemented)
+
+    def test_pow_one(self):
+        """ReciprocalMap ** 1 returns self."""
+        m = ReciprocalMap(100)
+        self.assertIs(m ** 1, m)
+
+    def test_pow_neg1(self):
+        """ReciprocalMap ** -1 returns inverse."""
+        m = ReciprocalMap(100)
+        inv = m ** -1
+        self.assertIsInstance(inv, ReciprocalMap)
+
+    def test_pow_invalid_raises(self):
+        """ReciprocalMap ** 2 raises ValueError."""
+        m = ReciprocalMap(100)
+        with self.assertRaises(ValueError):
+            m ** 2
+
+    def test_derivative(self):
+        """ReciprocalMap derivative: -a/x^2."""
+        m = ReciprocalMap(100)
+        self.assertAlmostEqual(m.derivative(5.0), -100 / 25.0)
+
+    def test_derivative_large_x(self):
+        """Derivative at large x is small."""
+        m = ReciprocalMap(100)
+        self.assertAlmostEqual(m.derivative(1000.0), -100 / 1e6)
+
+    def test_is_identity_false(self):
+        """ReciprocalMap is never identity."""
+        self.assertFalse(ReciprocalMap(1.0).is_identity())
+        self.assertFalse(ReciprocalMap(100).is_identity())
+
+    def test_invertible_true(self):
+        """ReciprocalMap is invertible when a != 0."""
+        self.assertTrue(ReciprocalMap(100).invertible)
+
+    def test_invertible_false(self):
+        """ReciprocalMap is not invertible when a == 0."""
+        self.assertFalse(ReciprocalMap(0).invertible)
+
+
+class TestExpMapComposition(unittest.TestCase):
+    """Test ExpMap composition and power branches."""
+
+    def test_matmul_non_map_returns_not_implemented(self):
+        """ExpMap @ non-Map returns NotImplemented."""
+        e = ExpMap()
+        result = e.__matmul__(42)
+        self.assertIs(result, NotImplemented)
+
+    def test_matmul_returns_composed_map(self):
+        """ExpMap @ LinearMap returns ComposedMap."""
+        e = ExpMap()
+        l = LinearMap(2.0)
+        composed = e @ l
+        self.assertIsInstance(composed, ComposedMap)
+        # composed(3) = ExpMap()(LinearMap(2)(3)) = 10^(2*3) = 10^6
+        self.assertAlmostEqual(composed(3), 1e6)
+
+    def test_pow_1_returns_self(self):
+        """ExpMap ** 1 returns self."""
+        e = ExpMap()
+        self.assertIs(e ** 1, e)
+
+    def test_pow_neg1_returns_inverse(self):
+        """ExpMap ** -1 returns inverse LogMap."""
+        e = ExpMap()
+        inv = e ** -1
+        self.assertIsInstance(inv, LogMap)
+
+    def test_pow_invalid_raises(self):
+        """ExpMap ** 2 raises ValueError."""
+        e = ExpMap()
+        with self.assertRaises(ValueError):
+            e ** 2
+
+
+class TestAffineMapComposedFallback(unittest.TestCase):
+    """Test AffineMap falls back to ComposedMap for non-linear/affine."""
+
+    def test_affine_matmul_logmap_returns_composed(self):
+        """AffineMap @ LogMap returns ComposedMap."""
+        a = AffineMap(2.0, 5.0)
+        l = LogMap(scale=10)
+        composed = a @ l
+        self.assertIsInstance(composed, ComposedMap)
+        # composed(100) = AffineMap(2,5)(LogMap(10)(100)) = 2 * 20 + 5 = 45
+        self.assertAlmostEqual(composed(100), 45.0)
+
+    def test_affine_matmul_reciprocal_returns_composed(self):
+        """AffineMap @ ReciprocalMap returns ComposedMap."""
+        a = AffineMap(1.0, 10.0)
+        r = ReciprocalMap(100)
+        composed = a @ r
+        self.assertIsInstance(composed, ComposedMap)
+        # composed(5) = AffineMap(1,10)(ReciprocalMap(100)(5)) = 1 * 20 + 10 = 30
+        self.assertAlmostEqual(composed(5), 30.0)
+
+    def test_affine_matmul_non_map_returns_not_implemented(self):
+        """AffineMap @ non-Map returns NotImplemented."""
+        a = AffineMap(2.0, 5.0)
+        result = a.__matmul__("not a map")
+        self.assertIs(result, NotImplemented)
+
+
+class TestLogMapComposedFallback(unittest.TestCase):
+    """Test LogMap falls back to ComposedMap for non-Map."""
+
+    def test_logmap_matmul_non_map_returns_not_implemented(self):
+        """LogMap @ non-Map returns NotImplemented."""
+        l = LogMap()
+        result = l.__matmul__(42)
+        self.assertIs(result, NotImplemented)
 
 
 if __name__ == '__main__':

@@ -869,3 +869,134 @@ class TestBasisGraph:
 
         # Both directions work
         assert graph.are_connected(cgs_basis, cgs_basis)
+
+
+# -----------------------------------------------------------------------------
+# BasisTransform Validation & Display Tests
+# -----------------------------------------------------------------------------
+
+
+class TestBasisTransformValidation:
+    """Test BasisTransform matrix validation."""
+
+    def test_matrix_row_count_mismatch_raises(self):
+        """GIVEN wrong number of matrix rows, THEN raises ValueError."""
+        L = BasisComponent("length", symbol="L")
+        M = BasisComponent("mass", symbol="M")
+        basis = Basis("test", (L, M))
+        # 3 rows for a 2-component basis
+        bad_matrix = (
+            (Fraction(1), Fraction(0)),
+            (Fraction(0), Fraction(1)),
+            (Fraction(1), Fraction(1)),
+        )
+        with pytest.raises(ValueError, match="rows"):
+            BasisTransform(basis, basis, bad_matrix)
+
+    def test_matrix_column_count_mismatch_raises(self):
+        """GIVEN wrong number of columns in a row, THEN raises ValueError."""
+        L = BasisComponent("length", symbol="L")
+        M = BasisComponent("mass", symbol="M")
+        basis = Basis("test", (L, M))
+        # First row has 3 columns instead of 2
+        bad_matrix = (
+            (Fraction(1), Fraction(0), Fraction(0)),
+            (Fraction(0), Fraction(1)),
+        )
+        with pytest.raises(ValueError, match="columns"):
+            BasisTransform(basis, basis, bad_matrix)
+
+
+class TestBasisTransformDisplay:
+    """Test __repr__ and __str__ for BasisTransform."""
+
+    def test_repr(self):
+        """GIVEN a transform, THEN repr shows source -> target."""
+        L = BasisComponent("length", symbol="L")
+        M = BasisComponent("mass", symbol="M")
+        source = Basis("SI", (L, M))
+        target = Basis("CGS", (L, M))
+        matrix = (
+            (Fraction(1), Fraction(0)),
+            (Fraction(0), Fraction(1)),
+        )
+        t = BasisTransform(source, target, matrix)
+        r = repr(t)
+        assert "SI" in r
+        assert "CGS" in r
+        assert "->" in r
+
+    def test_str_matrix_visualization(self):
+        """GIVEN a transform, THEN str shows formatted matrix with headers."""
+        L = BasisComponent("length", symbol="L")
+        M = BasisComponent("mass", symbol="M")
+        basis = Basis("SI", (L, M))
+        matrix = (
+            (Fraction(1), Fraction(0)),
+            (Fraction(0), Fraction(1)),
+        )
+        t = BasisTransform(basis, basis, matrix)
+        s = str(t)
+        # Should include basis name and component symbols
+        assert "SI" in s
+        assert "L" in s
+        assert "M" in s
+
+    def test_str_fraction_display(self):
+        """GIVEN a matrix with fractions, THEN str displays them correctly."""
+        L = BasisComponent("length", symbol="L")
+        basis = Basis("test", (L,))
+        matrix = ((Fraction(3, 2),),)
+        t = BasisTransform(basis, basis, matrix)
+        s = str(t)
+        assert "3/2" in s
+
+    def test_str_zero_display(self):
+        """GIVEN a matrix with zeros, THEN str shows dots."""
+        L = BasisComponent("length", symbol="L")
+        M = BasisComponent("mass", symbol="M")
+        basis = Basis("test", (L, M))
+        matrix = (
+            (Fraction(1), Fraction(0)),
+            (Fraction(0), Fraction(1)),
+        )
+        t = BasisTransform(basis, basis, matrix)
+        s = str(t)
+        assert "." in s
+
+
+class TestBasisTransformIsIdentity:
+    """Test is_identity() method."""
+
+    def test_identity_true(self):
+        """GIVEN identity matrix same basis, THEN is_identity returns True."""
+        L = BasisComponent("length", symbol="L")
+        M = BasisComponent("mass", symbol="M")
+        basis = Basis("SI", (L, M))
+        t = BasisTransform.identity(basis)
+        assert t.is_identity() is True
+
+    def test_different_bases_false(self):
+        """GIVEN transform between different bases, THEN is_identity False."""
+        L = BasisComponent("length", symbol="L")
+        M = BasisComponent("mass", symbol="M")
+        source = Basis("SI", (L, M))
+        target = Basis("CGS", (L, M))
+        matrix = (
+            (Fraction(1), Fraction(0)),
+            (Fraction(0), Fraction(1)),
+        )
+        t = BasisTransform(source, target, matrix)
+        assert t.is_identity() is False
+
+    def test_non_identity_matrix_false(self):
+        """GIVEN non-identity matrix, THEN is_identity returns False."""
+        L = BasisComponent("length", symbol="L")
+        M = BasisComponent("mass", symbol="M")
+        basis = Basis("test", (L, M))
+        matrix = (
+            (Fraction(2), Fraction(0)),
+            (Fraction(0), Fraction(1)),
+        )
+        t = BasisTransform(basis, basis, matrix)
+        assert t.is_identity() is False

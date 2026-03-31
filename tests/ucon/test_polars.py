@@ -685,5 +685,90 @@ class TestNumberColumnProperties(unittest.TestCase):
         self.assertIsNotNone(dim)
 
 
+@unittest.skipUnless(HAS_POLARS, "Polars not installed")
+class TestNumberColumnNotImplemented(unittest.TestCase):
+    """Test NotImplemented return for unsupported operand types."""
+
+    def setUp(self):
+        from ucon import units
+        from ucon.integrations.polars import NumberColumn
+        self.meter = units.meter
+        self.nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+
+    def test_mul_unsupported(self):
+        result = self.nc.__mul__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_truediv_unsupported(self):
+        result = self.nc.__truediv__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_add_unsupported(self):
+        result = self.nc.__add__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_sub_unsupported(self):
+        result = self.nc.__sub__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_eq_unsupported(self):
+        result = self.nc.__eq__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_lt_unsupported(self):
+        result = self.nc.__lt__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_le_unsupported(self):
+        result = self.nc.__le__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_gt_unsupported(self):
+        result = self.nc.__gt__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_ge_unsupported(self):
+        result = self.nc.__ge__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_ne_unsupported(self):
+        result = self.nc.__ne__("string")
+        self.assertIs(result, NotImplemented)
+
+
+@unittest.skipUnless(HAS_POLARS, "Polars not installed")
+class TestNumberColumnUncertaintyEdgeCases(unittest.TestCase):
+    """Test uncertainty propagation edge cases."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+
+    def test_mul_both_no_uncertainty(self):
+        """Multiplying columns with no uncertainty returns no uncertainty."""
+        from ucon.integrations.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0]), unit=self.meter)
+        result = a * 2
+        self.assertIsNone(result.uncertainty)
+
+    def test_add_one_uncertainty_one_none(self):
+        """Adding columns where one has uncertainty propagates it."""
+        from ucon.integrations.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0]), unit=self.meter, uncertainty=0.1)
+        b = NumberColumn(pl.Series([3.0, 4.0]), unit=self.meter)
+        result = a + b
+        self.assertIsNotNone(result.uncertainty)
+
+    def test_to_list(self):
+        """to_list() returns list of Number instances."""
+        from ucon.integrations.polars import NumberColumn
+        from ucon import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = nc.to_list()
+        self.assertEqual(len(result), 3)
+        self.assertIsInstance(result[0], Number)
+        self.assertEqual(result[0].quantity, 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()
