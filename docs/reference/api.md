@@ -675,6 +675,10 @@ ft_to_m(3.28084)  # ~1.0
 f_to_c = c_to_f.inverse()
 f_to_c(212)  # 100.0
 
+# ReciprocalMap is self-inverse: if f = c/λ, then λ = c/f
+freq_to_lambda = lambda_to_freq.inverse()
+freq_to_lambda(5.996e14)  # ~500e-9 (back to 500 nm)
+
 dbm_to_w = w_to_dbm.inverse()  # returns ExpMap
 dbm_to_w(30)  # 1.0
 ```
@@ -709,6 +713,45 @@ m.derivative(1.0)  # 3.28084 (constant for linear)
 log_m = LogMap(scale=10)
 log_m.derivative(100)  # 10 / (100 * ln(10)) ≈ 0.0434
 ```
+
+### Worked Example: ReciprocalMap in Spectroscopy
+
+`ReciprocalMap` models inversely proportional physical relationships
+where `y = constant / x`. The canonical example is the wavelength–frequency
+relation `f = c / λ`.
+
+```python
+from ucon.maps import ReciprocalMap, LinearMap
+
+c = 299792458.0   # speed of light (m/s)
+h = 6.62607015e-34  # Planck constant (J·s)
+
+# Wavelength (m) → frequency (Hz): f = c / λ
+wl_to_freq = ReciprocalMap(c)
+
+# Green light at 532 nm (Nd:YAG laser second harmonic)
+freq = wl_to_freq(532e-9)       # 5.635e14 Hz
+
+# Self-inverse: frequency → wavelength uses the same constant
+freq_to_wl = wl_to_freq.inverse()
+freq_to_wl(freq)                 # 532e-9 m (round-trips exactly)
+
+# Chain with LinearMap for frequency → energy: E = h * f
+freq_to_energy = LinearMap(h)
+energy = freq_to_energy(freq)    # 3.734e-19 J (one green photon)
+
+# Compose: wavelength → energy in one step via E = hc / λ
+wl_to_energy = ReciprocalMap(c * h)
+wl_to_energy(532e-9)             # 3.734e-19 J
+
+# Uncertainty propagation: d/dx[a/x] = -a/x²
+wl_to_freq.derivative(532e-9)    # -1.059e+21 Hz/m
+```
+
+These maps are what the built-in `spectroscopy` context uses internally.
+For end-user conversions, prefer `using_context(spectroscopy)` over
+constructing maps directly — see the
+[Conversion Contexts](../guides/conversion-contexts.md) guide.
 
 ---
 
