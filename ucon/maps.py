@@ -146,9 +146,13 @@ class LinearMap(Map):
         """Derivative of y = a*x is a (constant)."""
         return self.a
 
+    _identity_instance: LinearMap | None = None
+
     @classmethod
     def identity(cls) -> LinearMap:
-        return cls(1.0)
+        if cls._identity_instance is None:
+            cls._identity_instance = cls(1.0)
+        return cls._identity_instance
 
 
 @dataclass(frozen=True)

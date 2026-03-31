@@ -818,6 +818,37 @@ class UnitProduct:
         self.name = ""
         self.aliases = ()
 
+        # --- Fast path: single factor, no nesting ---
+        if len(factors) == 1:
+            key, exp = next(iter(factors.items()))
+            if not isinstance(key, UnitProduct):
+                if isinstance(key, Unit) and not isinstance(key, UnitFactor):
+                    key = UnitFactor(key, Scale.one)
+                if isinstance(key, UnitFactor) and key.dimension != NONE and abs(exp) > 1e-12:
+                    self.factors = {key: exp}
+                    self._residual_scale_factor = 1.0
+                    self.dimension = key.dimension ** exp
+                    return
+
+        # --- Fast path: two factors, no nesting, no cancellation ---
+        if len(factors) == 2:
+            items = list(factors.items())
+            k0, e0 = items[0]
+            k1, e1 = items[1]
+            if not isinstance(k0, UnitProduct) and not isinstance(k1, UnitProduct):
+                if isinstance(k0, Unit) and not isinstance(k0, UnitFactor):
+                    k0 = UnitFactor(k0, Scale.one)
+                if isinstance(k1, Unit) and not isinstance(k1, UnitFactor):
+                    k1 = UnitFactor(k1, Scale.one)
+                if (isinstance(k0, UnitFactor) and isinstance(k1, UnitFactor)
+                        and k0.dimension != NONE and k1.dimension != NONE
+                        and abs(e0) > 1e-12 and abs(e1) > 1e-12
+                        and k0 != k1):
+                    self.factors = {k0: e0, k1: e1}
+                    self._residual_scale_factor = 1.0
+                    self.dimension = (k0.dimension ** e0) * (k1.dimension ** e1)
+                    return
+
         merged: dict[UnitFactor, float] = {}
 
         # -----------------------------------------------------
@@ -1021,10 +1052,18 @@ class UnitProduct:
 
     # ------------- Helpers ---------------------------------------------------
 
+    _from_unit_cache: dict[int, 'UnitProduct'] = {}
+
     @classmethod
     def from_unit(cls, unit: Unit) -> 'UnitProduct':
-        """Wrap a plain Unit as a UnitProduct with Scale.one."""
-        return cls({UnitFactor(unit, Scale.one): 1})
+        """Wrap a plain Unit as a UnitProduct with Scale.one (cached)."""
+        uid = id(unit)
+        cached = cls._from_unit_cache.get(uid)
+        if cached is not None:
+            return cached
+        result = cls({UnitFactor(unit, Scale.one): 1})
+        cls._from_unit_cache[uid] = result
+        return result
 
     def factors_by_dimension(self) -> dict[Dimension, tuple[UnitFactor, float]]:
         """Group factors by dimension.
@@ -1373,7 +1412,37 @@ class Number:
             from ucon.resolver import get_unit_by_name
             target = get_unit_by_name(target)
 
-        # Wrap plain Units as UnitProducts for uniform handling
+        # --- Fast path: plain Unit → plain Unit (no UnitProduct wrapping) ---
+        src_unit = self.unit
+        dst_unit = target
+
+        src_is_plain = isinstance(src_unit, Unit) and not isinstance(src_unit, UnitProduct)
+        dst_is_plain = isinstance(dst_unit, Unit) and not isinstance(dst_unit, UnitProduct)
+
+        if not src_is_plain and isinstance(src_unit, UnitProduct) and len(src_unit.factors) == 1:
+            uf, exp = next(iter(src_unit.factors.items()))
+            if exp == 1.0 and uf.scale == Scale.one:
+                src_is_plain = True
+                src_unit = uf.unit
+
+        if not dst_is_plain and isinstance(dst_unit, UnitProduct) and len(dst_unit.factors) == 1:
+            uf, exp = next(iter(dst_unit.factors.items()))
+            if exp == 1.0 and uf.scale == Scale.one:
+                dst_is_plain = True
+                dst_unit = uf.unit
+
+        if src_is_plain and dst_is_plain and src_unit != dst_unit:
+            if graph is None:
+                from ucon.graph import get_default_graph
+                graph = get_default_graph()
+            conversion_map = graph.convert(src=src_unit, dst=dst_unit)
+            converted = conversion_map(self.quantity)
+            new_unc = None
+            if self.uncertainty is not None:
+                new_unc = abs(conversion_map.derivative(self.quantity)) * self.uncertainty
+            return Number(quantity=converted, unit=target, uncertainty=new_unc)
+
+        # --- General path: wrap into UnitProducts ---
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
         dst = target if isinstance(target, UnitProduct) else UnitProduct.from_unit(target)
 
@@ -1432,6 +1501,12 @@ class Number:
         """Check if conversion is just a scale change (same base units)."""
         if len(src.factors) != len(dst.factors):
             return False
+
+        # Single-factor fast path: avoid building two dicts
+        if len(src.factors) == 1:
+            sf, se = next(iter(src.factors.items()))
+            df, de = next(iter(dst.factors.items()))
+            return sf.unit == df.unit and abs(se - de) < 1e-12
 
         src_by_dim = {}
         dst_by_dim = {}
