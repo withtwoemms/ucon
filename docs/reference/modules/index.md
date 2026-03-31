@@ -17,6 +17,13 @@ For a curated overview with examples, see the [API Reference](../api.md).
 - **[ucon.packages](packages.md)** --- Unit package loading from TOML
 - **[ucon.contexts](contexts.md)** --- Cross-dimensional conversion contexts (spectroscopy, boltzmann)
 
+## Integrations
+
+- **[ucon.integrations.numpy](integrations-numpy.md)** --- NumPy array support (NumberArray)
+- **[ucon.integrations.pandas](integrations-pandas.md)** --- Pandas integration (NumberSeries)
+- **[ucon.integrations.polars](integrations-polars.md)** --- Polars integration (NumberColumn)
+- **[ucon.integrations.pydantic](integrations-pydantic.md)** --- Pydantic v2 integration
+
 ## Basis
 
 - **[ucon.basis](basis.md)** --- Basis, BasisComponent, Vector
