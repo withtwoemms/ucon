@@ -16,6 +16,7 @@ Classes
 - :class:`AffineMap` — y = a * x + b
 - :class:`LogMap` — y = scale * log_base(x) + offset
 - :class:`ExpMap` — y = base^(scale * x + offset)
+- :class:`ReciprocalMap` — y = a / x (inversely proportional)
 - :class:`ComposedMap` — Generic composition fallback: g(f(x))
 
 All maps support both scalar and numpy array inputs. NumPy is optional;
@@ -23,58 +24,58 @@ scalar operations use the standard library `math` module.
 """
 from __future__ import annotations
 
+__all__ = [
+    'Map',
+    'LinearMap',
+    'AffineMap',
+    'LogMap',
+    'ExpMap',
+    'ReciprocalMap',
+    'ComposedMap',
+]
+
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, TYPE_CHECKING
 
-if TYPE_CHECKING:
+try:
     import numpy as np
+    _HAS_NUMPY = True
+except ImportError:
+    np = None  # type: ignore[assignment]
+    _HAS_NUMPY = False
+
+if TYPE_CHECKING:
     from numpy.typing import NDArray
     Numeric = Union[float, NDArray[np.floating]]
 
 
 def _is_array(x) -> bool:
     """Check if x is a numpy array."""
-    try:
-        import numpy as np
-        return isinstance(x, np.ndarray)
-    except ImportError:
-        return False
+    return _HAS_NUMPY and isinstance(x, np.ndarray)
 
 
 def _log(x, base: float):
     """Logarithm that works with both scalars and numpy arrays."""
-    try:
-        import numpy as np
-        if isinstance(x, np.ndarray):
-            return np.log(x) / np.log(base)
-    except ImportError:
-        pass
+    if _HAS_NUMPY and isinstance(x, np.ndarray):
+        return np.log(x) / np.log(base)
     return math.log(x, base)
 
 
 def _exp(base: float, x):
     """Exponentiation that works with both scalars and numpy arrays."""
-    try:
-        import numpy as np
-        if isinstance(x, np.ndarray):
-            return np.power(base, x)
-    except ImportError:
-        pass
+    if _HAS_NUMPY and isinstance(x, np.ndarray):
+        return np.power(base, x)
     return base ** x
 
 
 def _validate_positive(x, name: str = "x") -> None:
     """Validate that x is positive (for logarithm arguments)."""
-    try:
-        import numpy as np
-        if isinstance(x, np.ndarray):
-            if np.any(x <= 0):
-                raise ValueError(f"Logarithm argument must be positive")
-            return
-    except ImportError:
-        pass
+    if _HAS_NUMPY and isinstance(x, np.ndarray):
+        if np.any(x <= 0):
+            raise ValueError(f"Logarithm argument must be positive")
+        return
     if x <= 0:
         raise ValueError(f"Logarithm argument must be positive, got {x}")
 
@@ -155,9 +156,13 @@ class LinearMap(Map):
         """Derivative of y = a*x is a (constant)."""
         return self.a
 
+    _identity_instance: LinearMap | None = None
+
     @classmethod
     def identity(cls) -> LinearMap:
-        return cls(1.0)
+        if cls._identity_instance is None:
+            cls._identity_instance = cls(1.0)
+        return cls._identity_instance
 
 
 @dataclass(frozen=True)
@@ -346,6 +351,58 @@ class ExpMap(Map):
 
     def is_identity(self, tol: float = 1e-9) -> bool:
         return False  # Exponential is never identity
+
+
+@dataclass(frozen=True)
+class ReciprocalMap(Map):
+    """Inversely proportional map: ``y = a / x``.
+
+    Used for cross-dimensional conversions where quantities are inversely
+    related through a physical constant (e.g., wavelength and frequency
+    via ``c = λν``).
+
+    Parameters
+    ----------
+    a : float
+        The constant of proportionality.
+    """
+
+    a: float
+
+    def __call__(self, x):
+        """Apply the inverse map. Works with scalars and numpy arrays."""
+        if _is_array(x):
+            return self.a / x
+        return self.a / x
+
+    @property
+    def invertible(self) -> bool:
+        return self.a != 0
+
+    def inverse(self) -> 'ReciprocalMap':
+        """ReciprocalMap is self-inverse: if y = a/x, then x = a/y."""
+        return ReciprocalMap(self.a)
+
+    def __matmul__(self, other: Map) -> Map:
+        if not isinstance(other, Map):
+            return NotImplemented
+        return ComposedMap(self, other)
+
+    def __pow__(self, exp: float) -> Map:
+        if exp == 1:
+            return self
+        if exp == -1:
+            return self.inverse()
+        raise ValueError("ReciprocalMap only supports exp=1 or exp=-1")
+
+    def derivative(self, x):
+        """Derivative: d/dx[a/x] = -a/x². Works with scalars and numpy arrays."""
+        if _is_array(x):
+            return -self.a / (x * x)
+        return -self.a / (x * x)
+
+    def is_identity(self, tol: float = 1e-9) -> bool:
+        return False  # Inverse proportionality is never identity
 
 
 @dataclass(frozen=True)

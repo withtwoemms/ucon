@@ -19,10 +19,11 @@ Functions
 - :func:`set_default_graph` — Replace the default graph.
 - :func:`reset_default_graph` — Reset to standard graph on next access.
 - :func:`using_graph` — Context manager for scoped graph override.
-- :func:`get_parsing_graph` — Get the graph for name resolution during parsing.
+- :func:`ucon.core._get_parsing_graph` — Get the graph for name resolution during parsing.
 """
 from __future__ import annotations
 
+import copy
 import math
 from collections import deque
 from contextlib import contextmanager
@@ -31,6 +32,14 @@ from dataclasses import dataclass, field
 from typing import Union
 
 from ucon.basis import BasisGraph, BasisTransform, NoTransformPath, Vector
+from ucon.basis.graph import _build_standard_basis_graph
+from ucon.basis.transforms import (
+    ConstantBoundBasisTransform,
+    CGS_TO_SI,
+    SI_TO_CGS_ESU,
+    SI_TO_CGS_EMU,
+    SI_TO_NATURAL,
+)
 from ucon.core import (
     Dimension,
     RebasedUnit,
@@ -38,8 +47,22 @@ from ucon.core import (
     UnitFactor,
     UnitProduct,
     Scale,
+    UnknownUnitError,
+    _get_parsing_graph,
+    _parsing_graph,
 )
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
+
+__all__ = [
+    'ConversionGraph',
+    'DimensionMismatch',
+    'ConversionNotFound',
+    'CyclicInconsistency',
+    'get_default_graph',
+    'set_default_graph',
+    'reset_default_graph',
+    'using_graph',
+]
 
 
 class DimensionMismatch(Exception):
@@ -78,8 +101,8 @@ class ConversionGraph:
     # Edges between UnitProducts (keyed by frozen factor representation)
     _product_edges: dict[tuple, dict[tuple, Map]] = field(default_factory=dict)
 
-    # Rebased units: original unit → RebasedUnit (for cross-basis edges)
-    _rebased: dict[Unit, RebasedUnit] = field(default_factory=dict)
+    # Rebased units: original unit → list of RebasedUnits (one per target basis)
+    _rebased: dict[Unit, list[RebasedUnit]] = field(default_factory=dict)
 
     # Graph-local name resolution (case-insensitive keys)
     _name_registry: dict[str, Unit] = field(default_factory=dict)
@@ -102,7 +125,7 @@ class ConversionGraph:
         src: Union[Unit, UnitProduct],
         dst: Union[Unit, UnitProduct],
         map: Map,
-        basis_transform: BasisTransform | None = None,
+        basis_transform: BasisTransform | ConstantBoundBasisTransform | None = None,
     ) -> None:
         """Register a conversion edge. Also registers the inverse.
 
@@ -114,7 +137,7 @@ class ConversionGraph:
             Destination unit expression.
         map : Map
             The conversion morphism (src → dst).
-        basis_transform : BasisTransform, optional
+        basis_transform : BasisTransform or ConstantBoundBasisTransform, optional
             If provided, creates a cross-basis edge. The src unit is rebased
             to the dst's dimension and the edge connects the rebased unit
             to dst.
@@ -209,7 +232,7 @@ class ConversionGraph:
         src: Unit,
         dst: Unit,
         map: Map,
-        basis_transform: BasisTransform,
+        basis_transform: BasisTransform | ConstantBoundBasisTransform,
     ) -> None:
         """Add cross-basis edge between Units via BasisTransform.
 
@@ -231,7 +254,7 @@ class ConversionGraph:
             rebased_dimension=dst.dimension,
             basis_transform=basis_transform,
         )
-        self._rebased[src] = rebased
+        self._rebased.setdefault(src, []).append(rebased)
 
         # Store edge from rebased to dst (same dimension now)
         dim = dst.dimension
@@ -242,14 +265,14 @@ class ConversionGraph:
     def connect_systems(
         self,
         *,
-        basis_transform: BasisTransform,
+        basis_transform: BasisTransform | ConstantBoundBasisTransform,
         edges: dict[tuple[Unit, Unit], Map],
     ) -> None:
         """Bulk-add edges between systems.
 
         Parameters
         ----------
-        basis_transform : BasisTransform
+        basis_transform : BasisTransform or ConstantBoundBasisTransform
             The transform bridging the two systems.
         edges : dict
             Mapping from (src_unit, dst_unit) to Map.
@@ -262,15 +285,15 @@ class ConversionGraph:
                 basis_transform=basis_transform,
             )
 
-    def list_rebased_units(self) -> dict[Unit, RebasedUnit]:
+    def list_rebased_units(self) -> dict[Unit, list[RebasedUnit]]:
         """Return all rebased units in the graph.
 
         Returns
         -------
-        dict[Unit, RebasedUnit]
-            Mapping from original unit to its RebasedUnit.
+        dict[Unit, list[RebasedUnit]]
+            Mapping from original unit to its RebasedUnit(s).
         """
-        return dict(self._rebased)
+        return {k: list(v) for k, v in self._rebased.items()}
 
     def list_transforms(self) -> list[BasisTransform]:
         """Return all BasisTransforms active in the graph.
@@ -282,11 +305,12 @@ class ConversionGraph:
         """
         seen = set()
         result = []
-        for rebased in self._rebased.values():
-            bt = rebased.basis_transform
-            if id(bt) not in seen:
-                seen.add(id(bt))
-                result.append(bt)
+        for rebased_list in self._rebased.values():
+            for rebased in rebased_list:
+                bt = rebased.basis_transform
+                if id(bt) not in seen:
+                    seen.add(id(bt))
+                    result.append(bt)
         return result
 
     def edges_for_transform(self, transform: BasisTransform) -> list[tuple[Unit, Unit]]:
@@ -303,14 +327,15 @@ class ConversionGraph:
             List of (original_unit, destination_unit) pairs.
         """
         result = []
-        for original, rebased in self._rebased.items():
-            if rebased.basis_transform == transform:
-                # Find the destination unit (the one the rebased unit connects to)
-                dim = rebased.dimension
-                if dim in self._unit_edges and rebased in self._unit_edges[dim]:
-                    for dst in self._unit_edges[dim][rebased]:
-                        if not isinstance(dst, RebasedUnit):
-                            result.append((original, dst))
+        for original, rebased_list in self._rebased.items():
+            for rebased in rebased_list:
+                if rebased.basis_transform == transform:
+                    # Find the destination unit (the one the rebased unit connects to)
+                    dim = rebased.dimension
+                    if dim in self._unit_edges and rebased in self._unit_edges[dim]:
+                        for dst in self._unit_edges[dim][rebased]:
+                            if not isinstance(dst, RebasedUnit):
+                                result.append((original, dst))
         return result
 
     # ------------- Name Resolution --------------------------------------------
@@ -378,12 +403,10 @@ class ConversionGraph:
         ConversionGraph
             A new graph with copied state.
         """
-        import copy as copy_module
-
         new = ConversionGraph()
-        new._unit_edges = copy_module.deepcopy(self._unit_edges)
-        new._product_edges = copy_module.deepcopy(self._product_edges)
-        new._rebased = dict(self._rebased)
+        new._unit_edges = copy.deepcopy(self._unit_edges)
+        new._product_edges = copy.deepcopy(self._product_edges)
+        new._rebased = {k: list(v) for k, v in self._rebased.items()}
         new._name_registry = dict(self._name_registry)
         new._name_registry_cs = dict(self._name_registry_cs)
         new._basis_graph = self._basis_graph  # BasisGraph is immutable, share reference
@@ -411,8 +434,6 @@ class ConversionGraph:
         >>> aero = load_package("aerospace.ucon.toml")
         >>> graph = get_default_graph().with_package(aero)
         """
-        from ucon.packages import UnitPackage
-
         new = self.copy()
 
         # Materialize and register units first
@@ -420,11 +441,35 @@ class ConversionGraph:
             unit = unit_def.materialize()
             new.register_unit(unit)
 
-        # Materialize and add edges (resolved within new graph context)
+        # Materialize and add edges (resolved within new graph context).
+        # Skip edges whose endpoints are already convertible in the graph
+        # (e.g., a package defines knot→m/s but the built-in graph already has it).
         for edge_def in package.edges:
+            if self._package_edge_already_covered(edge_def, new):
+                continue
             edge_def.materialize(new)
 
         return new
+
+    @staticmethod
+    def _package_edge_already_covered(
+        edge_def: 'EdgeDef',
+        graph: 'ConversionGraph',
+    ) -> bool:
+        """Check if a package edge is redundant because the graph can already convert between its endpoints."""
+        from ucon.resolver import get_unit_by_name
+        with using_graph(graph):
+            try:
+                src_unit = get_unit_by_name(edge_def.src)
+                dst_unit = get_unit_by_name(edge_def.dst)
+            except UnknownUnitError:
+                return False  # Can't resolve — let materialize handle the error
+
+        try:
+            graph.convert(src=src_unit, dst=dst_unit)
+            return True  # Path already exists
+        except (ConversionNotFound, DimensionMismatch):
+            return False
 
     # ------------- Internal Helpers ------------------------------------------
 
@@ -510,20 +555,26 @@ class ConversionGraph:
 
         # Check if src has a rebased version that can reach dst
         if src in self._rebased:
-            rebased = self._rebased[src]
-            if rebased.dimension == dst.dimension:
-                # Convert via the rebased unit
-                return self._bfs_convert(start=rebased, target=dst, dim=dst.dimension)
+            for rebased in self._rebased[src]:
+                if rebased.dimension == dst.dimension:
+                    # Convert via the rebased unit
+                    return self._bfs_convert(start=rebased, target=dst, dim=dst.dimension)
 
         # Check if dst has a rebased version (inverse conversion)
         if dst in self._rebased:
-            rebased_dst = self._rebased[dst]
-            if rebased_dst.dimension == src.dimension:
-                # Convert from src to the rebased dst
-                return self._bfs_convert(start=src, target=rebased_dst, dim=src.dimension)
+            for rebased_dst in self._rebased[dst]:
+                if rebased_dst.dimension == src.dimension:
+                    # Convert from src to the rebased dst
+                    return self._bfs_convert(start=src, target=rebased_dst, dim=src.dimension)
 
         # Check for dimension mismatch
         if src.dimension != dst.dimension:
+            # Try cross-dimensional BFS (context edges span dimensions)
+            try:
+                return self._bfs_convert_cross_dimensional(start=src, target=dst)
+            except ConversionNotFound:
+                pass
+
             # If BasisGraph is available, check if cross-basis conversion is possible
             if self._basis_graph is not None:
                 src_basis = src.dimension.vector.basis
@@ -572,6 +623,39 @@ class ConversionGraph:
                 queue.append(neighbor)
 
         raise ConversionNotFound(f"No path from {start} to {target}")
+
+    def _bfs_convert_cross_dimensional(self, *, start, target) -> Map:
+        """BFS across ALL dimension partitions.
+
+        Used for context edges that span dimensions (e.g., meter -> hertz
+        in a spectroscopy context). Searches every dimension partition
+        for edges from the current node.
+        """
+        visited: dict = {start: LinearMap.identity()}
+        queue = deque([start])
+
+        while queue:
+            current = queue.popleft()
+            current_map = visited[current]
+
+            for dim, dim_edges in self._unit_edges.items():
+                if current not in dim_edges:
+                    continue
+                for neighbor, edge_map in dim_edges[current].items():
+                    if neighbor in visited:
+                        continue
+
+                    composed = edge_map @ current_map
+                    visited[neighbor] = composed
+
+                    if neighbor == target:
+                        return composed
+
+                    queue.append(neighbor)
+
+        raise ConversionNotFound(
+            f"No cross-dimensional path from {start} to {target}"
+        )
 
     def _bfs_product_path(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
         """
@@ -791,7 +875,6 @@ class ConversionGraph:
 
 _default_graph: ConversionGraph | None = None
 _graph_context: ContextVar[ConversionGraph | None] = ContextVar("graph", default=None)
-_parsing_graph: ContextVar[ConversionGraph | None] = ContextVar("parsing_graph", default=None)
 
 
 def get_default_graph() -> ConversionGraph:
@@ -814,29 +897,25 @@ def get_default_graph() -> ConversionGraph:
 
 
 def set_default_graph(graph: ConversionGraph) -> None:
-    """Replace the module-level default graph."""
+    """Replace the module-level default graph.
+
+    Parameters
+    ----------
+    graph : ConversionGraph
+        The new default conversion graph.
+    """
     global _default_graph
     _default_graph = graph
 
 
 def reset_default_graph() -> None:
-    """Reset to standard graph on next access."""
+    """Reset to the standard graph on next access.
+
+    The standard graph (with all built-in unit conversions) is lazily
+    rebuilt when :func:`get_default_graph` is next called.
+    """
     global _default_graph
     _default_graph = None
-
-
-def get_parsing_graph() -> ConversionGraph | None:
-    """Get the graph to use for name resolution during parsing.
-
-    Returns the context-local parsing graph if set, otherwise None.
-    Used by _lookup_factor() to check graph-local registry first.
-
-    Returns
-    -------
-    ConversionGraph | None
-        The parsing graph, or None if not in a using_graph() context.
-    """
-    return _parsing_graph.get()
 
 
 @contextmanager
@@ -873,9 +952,16 @@ def using_graph(graph: ConversionGraph):
 
 def _build_standard_graph() -> ConversionGraph:
     """Build the default graph with common conversions."""
-    from ucon import units
-
     graph = ConversionGraph()
+    _build_standard_edges(graph)
+    return graph
+
+
+def _build_standard_edges(graph: ConversionGraph) -> None:
+    """Populate standard conversion edges. Called from __init__.py hook wiring."""
+    # Import units module — safe because this function is only called after
+    # all modules are fully loaded via the hook wiring in ucon.__init__.
+    from ucon import units
 
     # Register all standard units for graph-local name resolution
     for name in dir(units):
@@ -888,16 +974,78 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.foot, dst=units.inch, map=LinearMap(12))
     graph.add_edge(src=units.foot, dst=units.yard, map=LinearMap(1/3))
     graph.add_edge(src=units.mile, dst=units.foot, map=LinearMap(5280))
+    # 1 nautical mile = 1852 m (exact, by international definition)
+    graph.add_edge(src=units.nautical_mile, dst=units.meter, map=LinearMap(1852))
+    # 1 fathom = 6 feet (exact, by definition)
+    graph.add_edge(src=units.fathom, dst=units.foot, map=LinearMap(6))
+    # 1 angstrom = 1e-10 m (exact)
+    graph.add_edge(src=units.angstrom, dst=units.meter, map=LinearMap(1e-10))
+    # 1 light year = 9.4607304725808e15 m (IAU definition)
+    graph.add_edge(src=units.light_year, dst=units.meter, map=LinearMap(9.4607304725808e15))
+    # 1 parsec = 3.0856775814913673e16 m (IAU 2015 definition)
+    graph.add_edge(src=units.parsec, dst=units.meter, map=LinearMap(3.0856775814913673e16))
+    # 1 AU = 1.495978707e11 m (exact, IAU 2012 definition)
+    graph.add_edge(src=units.astronomical_unit, dst=units.meter, map=LinearMap(1.495978707e11))
+    # 1 furlong = 201.168 m (exact, 660 feet)
+    graph.add_edge(src=units.furlong, dst=units.meter, map=LinearMap(201.168))
+    # 1 chain = 20.1168 m (exact, 66 feet, Gunter's chain)
+    graph.add_edge(src=units.chain, dst=units.meter, map=LinearMap(20.1168))
+    # 1 rod = 5.0292 m (exact, 16.5 feet, aka perch/pole)
+    graph.add_edge(src=units.rod, dst=units.meter, map=LinearMap(5.0292))
+    # 1 mil = 1/1000 inch = 2.54e-5 m (exact)
+    graph.add_edge(src=units.mil, dst=units.inch, map=LinearMap(1/1000))
+    # 1 hand = 4 inches = 0.1016 m (exact, equestrian)
+    graph.add_edge(src=units.hand, dst=units.inch, map=LinearMap(4))
+    # 1 league = 3 miles (statute league)
+    graph.add_edge(src=units.league, dst=units.mile, map=LinearMap(3))
+    # 1 cable = 1/10 nautical mile = 185.2 m
+    graph.add_edge(src=units.cable, dst=units.nautical_mile, map=LinearMap(1/10))
+    # 1 typographic point = 1/72 inch (PostScript/DTP point, exact)
+    graph.add_edge(src=units.point_typo, dst=units.inch, map=LinearMap(1/72))
+    # 1 pica = 12 points
+    graph.add_edge(src=units.pica, dst=units.point_typo, map=LinearMap(12))
 
     # --- Mass ---
     graph.add_edge(src=units.kilogram, dst=units.gram, map=LinearMap(1000))
     graph.add_edge(src=units.kilogram, dst=units.pound, map=LinearMap(2.20462))
     graph.add_edge(src=units.pound, dst=units.ounce, map=LinearMap(16))
+    # 1 metric ton = 1000 kg
+    graph.add_edge(src=units.metric_ton, dst=units.kilogram, map=LinearMap(1000))
+    # 1 dalton = 1.66053906660e-27 kg (CODATA 2018, exact by 2019 SI)
+    graph.add_edge(src=units.dalton, dst=units.kilogram, map=LinearMap(1.66053906660e-27))
+    # 1 stone = 14 lb (exact, Imperial definition)
+    graph.add_edge(src=units.stone, dst=units.pound, map=LinearMap(14))
+    # 1 grain = 1/7000 lb (exact, avoirdupois definition)
+    graph.add_edge(src=units.grain, dst=units.pound, map=LinearMap(1/7000))
+    # 1 slug = 14.5939 kg (derived from lbf = slug × ft/s²)
+    graph.add_edge(src=units.slug, dst=units.kilogram, map=LinearMap(14.5939))
+    # 1 carat = 0.2 g (exact, metric carat definition)
+    graph.add_edge(src=units.carat, dst=units.gram, map=LinearMap(0.2))
+    # 1 troy ounce = 31.1035 g (exact: 480 grains)
+    graph.add_edge(src=units.troy_ounce, dst=units.gram, map=LinearMap(31.1035))
+    # 1 long ton = 2240 lb (Imperial ton)
+    graph.add_edge(src=units.long_ton, dst=units.pound, map=LinearMap(2240))
+    # 1 short ton = 2000 lb (US ton)
+    graph.add_edge(src=units.short_ton, dst=units.pound, map=LinearMap(2000))
+    # 1 dram = 1/16 ounce = 1/256 pound (avoirdupois)
+    graph.add_edge(src=units.dram, dst=units.ounce, map=LinearMap(1/16))
+    # 1 pennyweight = 24 grains = 1.55517384 g (Troy)
+    graph.add_edge(src=units.pennyweight, dst=units.grain, map=LinearMap(24))
 
     # --- Time ---
     graph.add_edge(src=units.second, dst=units.minute, map=LinearMap(1/60))
     graph.add_edge(src=units.minute, dst=units.hour, map=LinearMap(1/60))
     graph.add_edge(src=units.hour, dst=units.day, map=LinearMap(1/24))
+    # 1 week = 7 days
+    graph.add_edge(src=units.week, dst=units.day, map=LinearMap(7))
+    # 1 year = 365.25 days (Julian year, standard in astronomy and SI)
+    graph.add_edge(src=units.year, dst=units.day, map=LinearMap(365.25))
+    # 1 month = 1/12 year (mean calendar month)
+    graph.add_edge(src=units.year, dst=units.month, map=LinearMap(12))
+    # 1 fortnight = 14 days (exact)
+    graph.add_edge(src=units.fortnight, dst=units.day, map=LinearMap(14))
+    # 1 shake = 1e-8 s (nuclear physics time unit)
+    graph.add_edge(src=units.shake, dst=units.second, map=LinearMap(1e-8))
 
     # --- Temperature ---
     # C → K: K = C + 273.15
@@ -906,6 +1054,8 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.fahrenheit, dst=units.celsius, map=AffineMap(5/9, -32 * 5/9))
     # K → °R: °R = K × 9/5 (both absolute scales, same zero point)
     graph.add_edge(src=units.kelvin, dst=units.rankine, map=LinearMap(9/5))
+    # Ré → °C: °C = °Ré × 5/4 (same zero point: water freezing = 0)
+    graph.add_edge(src=units.reaumur, dst=units.celsius, map=LinearMap(5/4))
 
     # --- Pressure ---
     # 1 Pa = 0.00001 bar, so 1 bar = 100000 Pa
@@ -920,45 +1070,207 @@ def _build_standard_graph() -> ConversionGraph:
     graph.add_edge(src=units.millimeter_mercury, dst=units.torr, map=LinearMap(1.0))
     # 1 inHg = 3386.389 Pa
     graph.add_edge(src=units.inch_mercury, dst=units.pascal, map=LinearMap(3386.389))
+    # 1 cmH₂O = 98.0665 Pa (conventional, at 4°C)
+    graph.add_edge(src=units.centimeter_water, dst=units.pascal, map=LinearMap(98.0665))
+    # 1 cmHg = 1333.22 Pa (conventional)
+    graph.add_edge(src=units.centimeter_mercury, dst=units.pascal, map=LinearMap(1333.22))
+    # 1 ksi = 1000 psi = 6.894757e6 Pa
+    graph.add_edge(src=units.ksi, dst=units.psi, map=LinearMap(1000))
+    # 1 technical atmosphere (at) = 98066.5 Pa (exact, 1 kgf/cm²)
+    graph.add_edge(src=units.technical_atmosphere, dst=units.pascal, map=LinearMap(98066.5))
+    # 1 mmH₂O = 9.80665 Pa (conventional, at 4°C)
+    graph.add_edge(src=units.millimeter_water, dst=units.pascal, map=LinearMap(9.80665))
+    # 1 inH₂O = 249.08891 Pa (conventional, at 4°C, 25.4 mm × 9.80665)
+    graph.add_edge(src=units.inch_water, dst=units.pascal, map=LinearMap(249.08891))
 
     # --- Force ---
     # 1 lbf = 4.4482216152605 N (exact, from lb_m × g_n)
     graph.add_edge(src=units.pound_force, dst=units.newton, map=LinearMap(4.4482216152605))
     # 1 kgf = 9.80665 N (exact, by definition)
     graph.add_edge(src=units.kilogram_force, dst=units.newton, map=LinearMap(9.80665))
-    # 1 dyne = 1e-5 N (CGS unit)
-    graph.add_edge(src=units.dyne, dst=units.newton, map=LinearMap(1e-5))
+    # 1 kip = 1000 lbf (kilo-pound force)
+    graph.add_edge(src=units.kip, dst=units.pound_force, map=LinearMap(1000))
+    # 1 poundal = 0.138255 N (ft·lb/s², British absolute unit of force)
+    graph.add_edge(src=units.poundal, dst=units.newton, map=LinearMap(0.138255))
+    # 1 gram-force = 9.80665e-3 N (exact, by definition of standard gravity)
+    graph.add_edge(src=units.gram_force, dst=units.newton, map=LinearMap(9.80665e-3))
+    # 1 ounce-force = 0.27801385095378125 N (exact, 1/16 lbf)
+    graph.add_edge(src=units.ounce_force, dst=units.newton, map=LinearMap(0.27801385095378125))
+    # 1 short ton-force = 8896.443230521 N (exact, 2000 lbf)
+    graph.add_edge(src=units.ton_force, dst=units.newton, map=LinearMap(8896.443230521))
+    # 1 metric ton-force = 9806.65 N (exact, 1000 kgf)
+    graph.add_edge(src=units.metric_ton_force, dst=units.newton, map=LinearMap(9806.65))
 
     # --- Dynamic Viscosity ---
-    # 1 poise = 0.1 Pa·s (CGS unit)
-    graph.add_edge(src=units.poise, dst=units.pascal * units.second, map=LinearMap(0.1))
+    # SI equivalence: pascal_second ↔ Pa·s (identity)
+    graph.add_edge(src=units.pascal_second, dst=units.pascal * units.second, map=LinearMap(1))
 
     # --- Kinematic Viscosity ---
-    # 1 stokes = 1e-4 m²/s (CGS unit)
-    graph.add_edge(src=units.stokes, dst=units.meter ** 2 / units.second, map=LinearMap(1e-4))
+    # SI equivalence: square_meter_per_second ↔ m²/s (identity)
+    graph.add_edge(src=units.square_meter_per_second, dst=units.meter ** 2 / units.second, map=LinearMap(1))
 
     # --- Volume ---
     graph.add_edge(src=units.liter, dst=units.gallon, map=LinearMap(0.264172))
     # Cross-dimension: volume → length³ (enables gal/min → m³/h)
     # 1 L = 0.001 m³
     graph.add_edge(src=units.liter, dst=units.meter ** 3, map=LinearMap(0.001))
+    # US Customary volume chain: gallon → quart → pint → cup → floz → tbsp → tsp
+    graph.add_edge(src=units.gallon, dst=units.quart, map=LinearMap(4))
+    graph.add_edge(src=units.quart, dst=units.pint_volume, map=LinearMap(2))
+    graph.add_edge(src=units.pint_volume, dst=units.cup, map=LinearMap(2))
+    graph.add_edge(src=units.cup, dst=units.fluid_ounce, map=LinearMap(8))
+    graph.add_edge(src=units.fluid_ounce, dst=units.tablespoon, map=LinearMap(2))
+    graph.add_edge(src=units.tablespoon, dst=units.teaspoon, map=LinearMap(3))
+    # 1 oil barrel = 42 US gallons (petroleum industry standard)
+    graph.add_edge(src=units.barrel, dst=units.gallon, map=LinearMap(42))
+    # 1 imperial gallon = 4.54609 L (exact, by definition)
+    graph.add_edge(src=units.imperial_gallon, dst=units.liter, map=LinearMap(4.54609))
+    # 1 imperial gallon = 8 imperial pints
+    graph.add_edge(src=units.imperial_gallon, dst=units.imperial_pint, map=LinearMap(8))
+    # 1 US bushel = 35.23907016688 L (exact, dry measure)
+    graph.add_edge(src=units.bushel, dst=units.liter, map=LinearMap(35.23907016688))
+    # 1 peck = 1/4 bushel
+    graph.add_edge(src=units.bushel, dst=units.peck, map=LinearMap(4))
+    # 1 gill = 1/4 US pint = 0.118294 L (US gill)
+    graph.add_edge(src=units.pint_volume, dst=units.gill, map=LinearMap(4))
+    # 1 minim = 1/480 US fluid ounce = 6.161152e-5 L
+    graph.add_edge(src=units.fluid_ounce, dst=units.minim, map=LinearMap(480))
+    # 1 cubic foot = 28.316846592 L (exact)
+    graph.add_edge(src=units.cubic_foot, dst=units.liter, map=LinearMap(28.316846592))
+    # 1 cubic inch = 16.387064 mL = 0.016387064 L (exact)
+    graph.add_edge(src=units.cubic_inch, dst=units.liter, map=LinearMap(0.016387064))
+    # 1 cubic yard = 764.554857984 L (exact, 27 ft³)
+    graph.add_edge(src=units.cubic_yard, dst=units.liter, map=LinearMap(764.554857984))
+    # 1 acre-foot = 1233481.83754752 L (exact, 43560 ft³)
+    graph.add_edge(src=units.acre_foot, dst=units.liter, map=LinearMap(1233481.83754752))
+    # 1 stere = 1 m³ = 1000 L (exact, by definition)
+    graph.add_edge(src=units.stere, dst=units.liter, map=LinearMap(1000))
+    # 1 imperial quart = 1.1365225 L (exact, 1/4 imperial gallon)
+    graph.add_edge(src=units.imperial_quart, dst=units.liter, map=LinearMap(1.1365225))
+    # 1 imperial fluid ounce = 28.4130625 mL (exact, 1/20 imperial pint)
+    graph.add_edge(src=units.imperial_fluid_ounce, dst=units.liter, map=LinearMap(0.0284130625))
+    # 1 imperial gill = 142.0653125 mL (exact, 1/4 imperial pint)
+    graph.add_edge(src=units.imperial_gill, dst=units.liter, map=LinearMap(0.1420653125))
+    # 1 imperial cup = 284.130625 mL (exact, 1/2 imperial pint)
+    graph.add_edge(src=units.imperial_cup, dst=units.liter, map=LinearMap(0.284130625))
 
     # --- Energy ---
     graph.add_edge(src=units.joule, dst=units.calorie, map=LinearMap(1/4.184))
     graph.add_edge(src=units.joule, dst=units.btu, map=LinearMap(1/1055.06))
     graph.add_edge(src=units.joule, dst=units.watt_hour, map=LinearMap(1/3600))  # 1 Wh = 3600 J
+    # 1 therm = 1.05506e8 J (US therm, ≈ 100,000 BTU)
+    graph.add_edge(src=units.therm, dst=units.joule, map=LinearMap(1.05506e8))
+    # 1 foot-pound = 1.3558179483314 J (exact, lbf × ft)
+    graph.add_edge(src=units.foot_pound, dst=units.joule, map=LinearMap(1.3558179483314))
+    # 1 thermochemical calorie = 4.184 J (exact, by definition)
+    graph.add_edge(src=units.thermochemical_calorie, dst=units.joule, map=LinearMap(4.184))
+    # 1 ton of TNT = 4.184e9 J (exact, by convention)
+    graph.add_edge(src=units.ton_tnt, dst=units.joule, map=LinearMap(4.184e9))
+    # 1 tonne of oil equivalent = 4.1868e10 J (IEA/ISO definition)
+    graph.add_edge(src=units.tonne_oil_equivalent, dst=units.joule, map=LinearMap(4.1868e10))
     # Cross-structure: energy/time → power (enables BTU/h → kW)
     # 1 BTU/h = 1055.06 J/h = 1055.06/3600 W = 0.29307 W
     graph.add_edge(src=units.btu / units.hour, dst=units.watt, map=LinearMap(1055.06 / 3600))
 
     # --- Power ---
     graph.add_edge(src=units.watt, dst=units.horsepower, map=LinearMap(1/745.7))
+    # 1 volt-ampere = 1 watt (apparent power equals real power for resistive loads)
+    graph.add_edge(src=units.volt_ampere, dst=units.watt, map=LinearMap(1))
+    # 1 metric horsepower (PS) = 735.49875 W (exact, by DIN definition)
+    graph.add_edge(src=units.metric_horsepower, dst=units.watt, map=LinearMap(735.49875))
+    # 1 electrical horsepower = 746 W (exact, by definition)
+    graph.add_edge(src=units.electrical_horsepower, dst=units.watt, map=LinearMap(746))
+    # 1 boiler horsepower = 9809.5 W (ASME definition)
+    graph.add_edge(src=units.boiler_horsepower, dst=units.watt, map=LinearMap(9809.5))
+    # 1 refrigeration ton = 3516.8525 W (12000 BTU/h, exact)
+    graph.add_edge(src=units.refrigeration_ton, dst=units.watt, map=LinearMap(3516.8525))
+
+    # --- Area ---
+    # 1 acre = 43560 ft² = 4046.8564224 m² (exact)
+    graph.add_edge(src=units.acre, dst=units.meter ** 2, map=LinearMap(4046.8564224))
+    # 1 hectare = 10000 m²
+    graph.add_edge(src=units.hectare, dst=units.meter ** 2, map=LinearMap(10000))
+    # 1 barn = 1e-28 m² (nuclear/particle physics cross-section unit)
+    graph.add_edge(src=units.barn, dst=units.meter ** 2, map=LinearMap(1e-28))
+
+    # --- Velocity ---
+    # 1 knot = 1 nmi/h = 1852/3600 m/s
+    graph.add_edge(src=units.knot, dst=units.meter / units.second, map=LinearMap(1852 / 3600))
+    # 1 mph = 1609.344/3600 m/s
+    graph.add_edge(src=units.mile_per_hour, dst=units.meter / units.second, map=LinearMap(1609.344 / 3600))
+
+    # --- Charge ---
+    # 1 Ah = 3600 C
+    graph.add_edge(src=units.ampere_hour, dst=units.coulomb, map=LinearMap(3600))
+
+    # --- Radiation ---
+    # 1 curie = 3.7e10 Bq (exact, by definition)
+    graph.add_edge(src=units.curie, dst=units.becquerel, map=LinearMap(3.7e10))
+    # 1 rem = 0.01 Sv (exact, by definition)
+    graph.add_edge(src=units.rem, dst=units.sievert, map=LinearMap(0.01))
+    # 1 rad (absorbed dose) = 0.01 Gy (exact, by definition)
+    graph.add_edge(src=units.rad_dose, dst=units.gray, map=LinearMap(0.01))
+    # Radiation exposure: 1 R = 2.58e-4 C/kg (exact, ICRU definition)
+    graph.add_edge(src=units.coulomb_per_kilogram, dst=units.coulomb / units.kilogram, map=LinearMap(1))
+    graph.add_edge(src=units.roentgen, dst=units.coulomb_per_kilogram, map=LinearMap(2.58e-4))
+
+    # --- Historical Electrical ---
+    # Pre-1948 "international" electrical units (based on physical standards)
+    # 1 international ampere = 1.000022 A (silver voltameter definition)
+    graph.add_edge(src=units.international_ampere, dst=units.ampere, map=LinearMap(1.000022))
+    # 1 international volt = 1.00034 V (Weston cell definition)
+    graph.add_edge(src=units.international_volt, dst=units.volt, map=LinearMap(1.00034))
+    # 1 international ohm = 1.00049 Ω (mercury column definition)
+    graph.add_edge(src=units.international_ohm, dst=units.ohm, map=LinearMap(1.00049))
+
+    # --- Catalytic Activity ---
+    # 1 enzyme unit (U) = 1/60 µkat = 1.6667e-8 kat
+    graph.add_edge(src=units.enzyme_unit, dst=units.katal, map=LinearMap(1/60e6))
+
+    # --- Textile (linear density) ---
+    # 1 tex = 1 g/1000m = 1e-6 kg/m
+    graph.add_edge(src=units.tex, dst=units.gram / units.meter, map=LinearMap(1/1000))
+    # 1 denier = 1 g/9000m = 1/9 tex
+    graph.add_edge(src=units.denier, dst=units.tex, map=LinearMap(1/9))
+
+    # --- Photometry ---
+    # 1 foot-candle = 1 lm/ft² = 10.763910417 lux
+    graph.add_edge(src=units.foot_candle, dst=units.lux, map=LinearMap(10.763910417))
+    # 1 phot = 1 lm/cm² = 10000 lux (exact)
+    graph.add_edge(src=units.phot, dst=units.lux, map=LinearMap(10000))
+
+    # --- Viscosity ---
+    # 1 reyn = 1 lbf·s/in² = 6894.757 Pa·s (exact, from psi definition)
+    graph.add_edge(src=units.reyn, dst=units.pascal_second, map=LinearMap(6894.757))
+
+    # --- Spectroscopy / Radiation ---
+    # SI bridge: joule_per_square_meter ↔ J/m² (identity)
+    graph.add_edge(src=units.joule_per_square_meter, dst=units.joule / units.meter ** 2, map=LinearMap(1))
+    # 1 jansky = 1e-26 W/(m²·Hz) = 1e-26 J/m² (exact, by IAU definition)
+    graph.add_edge(src=units.jansky, dst=units.joule_per_square_meter, map=LinearMap(1e-26))
+
+    # --- Electric Dipole Moment ---
+    # SI bridge: coulomb_meter ↔ C·m (identity)
+    graph.add_edge(src=units.coulomb_meter, dst=units.coulomb * units.meter, map=LinearMap(1))
+
+    # --- Acceleration ---
+    # SI bridge: meter_per_second_squared ↔ m/s² (identity)
+    graph.add_edge(src=units.meter_per_second_squared, dst=units.meter / units.second ** 2, map=LinearMap(1))
+    # 1 standard gravity (g₀) = 9.80665 m/s² (exact, by definition)
+    graph.add_edge(src=units.standard_gravity, dst=units.meter_per_second_squared, map=LinearMap(9.80665))
+
+    # --- Wavenumber ---
+    # SI bridge: reciprocal_meter ↔ m⁻¹ (identity)
+    graph.add_edge(src=units.reciprocal_meter, dst=units.meter ** -1, map=LinearMap(1))
+
+    # --- Concentration ---
+    # 1 molar (M) = 1 mol/L (exact, by definition)
+    graph.add_edge(src=units.molar, dst=units.mole / units.liter, map=LinearMap(1))
 
     # --- Information ---
     graph.add_edge(src=units.byte, dst=units.bit, map=LinearMap(8))
 
     # --- Angle ---
-    import math
     graph.add_edge(src=units.radian, dst=units.degree, map=LinearMap(180 / math.pi))
     graph.add_edge(src=units.degree, dst=units.arcminute, map=LinearMap(60))
     graph.add_edge(src=units.arcminute, dst=units.arcsecond, map=LinearMap(60))
@@ -1002,4 +1314,66 @@ def _build_standard_graph() -> ConversionGraph:
         map=LogMap(scale=-1, base=10, reference=1.0),
     )
 
-    return graph
+    # -------------------------------------------------------------------------
+    # Cross-Basis Edges (CGS/CGS-ESU ↔ SI)
+    # -------------------------------------------------------------------------
+    graph._basis_graph = _build_standard_basis_graph()
+
+    # CGS mechanical → SI (CGS_TO_SI: src=CGS unit, dst=SI unit)
+    graph.connect_systems(
+        basis_transform=CGS_TO_SI,
+        edges={
+            (units.dyne, units.newton): LinearMap(1e-5),
+            (units.erg, units.joule): LinearMap(1e-7),
+            (units.barye, units.pascal): LinearMap(0.1),
+            (units.poise, units.pascal_second): LinearMap(0.1),
+            (units.stokes, units.square_meter_per_second): LinearMap(1e-4),
+            (units.galileo, units.meter_per_second_squared): LinearMap(0.01),
+            (units.kayser, units.reciprocal_meter): LinearMap(100),
+            (units.langley, units.joule_per_square_meter): LinearMap(41840),
+        },
+    )
+
+    # CGS-ESU electromagnetic ↔ SI (SI_TO_CGS_ESU: src=SI unit, dst=CGS-ESU unit)
+    graph.connect_systems(
+        basis_transform=SI_TO_CGS_ESU,
+        edges={
+            (units.ampere, units.statampere): LinearMap(2.99792458e9),
+            (units.coulomb, units.statcoulomb): LinearMap(2.99792458e9),
+            (units.volt, units.statvolt): LinearMap(1 / 2.99792458e2),
+            (units.ohm, units.statohm): LinearMap(1 / 8.9875517873681764e11),
+            (units.farad, units.statfarad): LinearMap(8.9875517873681764e11),
+            (units.tesla, units.gauss): LinearMap(1e4),
+            (units.weber, units.maxwell): LinearMap(1e8),
+            (units.ampere_per_meter, units.oersted): LinearMap(4 * math.pi * 1e-3),
+            (units.coulomb_meter, units.debye): LinearMap(1 / 3.33564095198152e-30),
+        },
+    )
+
+    # CGS-EMU electromagnetic ↔ SI (SI_TO_CGS_EMU: src=SI unit, dst=CGS-EMU unit)
+    graph.connect_systems(
+        basis_transform=SI_TO_CGS_EMU,
+        edges={
+            (units.ampere, units.biot): LinearMap(0.1),          # 1 A = 0.1 Bi
+            (units.coulomb, units.abcoulomb): LinearMap(0.1),    # 1 C = 0.1 abC
+            (units.volt, units.abvolt): LinearMap(1e8),          # 1 V = 1e8 abV
+            (units.ohm, units.abohm): LinearMap(1e9),            # 1 Ω = 1e9 abΩ
+            (units.farad, units.abfarad): LinearMap(1e-9),       # 1 F = 1e-9 abF
+            (units.henry, units.abhenry): LinearMap(1e9),        # 1 H = 1e9 abH
+        },
+    )
+    # Gilbert: 1 Gb = 1/(4π) biot (magnetomotive force)
+    graph.add_edge(src=units.gilbert, dst=units.biot, map=LinearMap(1 / (4 * math.pi)))
+
+    # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
+    # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)
+    # 1 Eh = 4.3597447222071e-18 J (CODATA 2018 hartree energy)
+    # 1 Ry = 2.1798723611035e-18 J (= 0.5 Eh, by definition)
+    graph.connect_systems(
+        basis_transform=SI_TO_NATURAL,
+        edges={
+            (units.joule, units.electron_volt): LinearMap(1 / 1.602176634e-19),
+            (units.joule, units.hartree): LinearMap(1 / 4.3597447222071e-18),
+            (units.joule, units.rydberg): LinearMap(1 / 2.1798723611035e-18),
+        },
+    )

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ConstantAwareBasisTransform Demo: Classical Elemental Units
+ConstantBoundBasisTransform Demo: Classical Elemental Units
 
 A fantasy unit system based on classical elements where dimensions are
 FUNDAMENTALLY different from SI - not just scaled versions.
@@ -28,7 +28,7 @@ Key Features:
 
 3. NON-SQUARE MATRIX: 5 elemental dimensions -> 4 SI dimensions
 
-This demonstrates ConstantAwareBasisTransform with true dimensional complexity.
+This demonstrates ConstantBoundBasisTransform with true dimensional complexity.
 """
 
 from fractions import Fraction
@@ -36,7 +36,7 @@ from fractions import Fraction
 from ucon.basis import (
     Basis,
     BasisComponent,
-    ConstantAwareBasisTransform,
+    ConstantBoundBasisTransform,
     ConstantBinding,
     LossyProjection,
     Vector,
@@ -134,7 +134,7 @@ bridge elemental essences to mundane physics:
 """)
 
     # =========================================================================
-    # PART 3: Build the ConstantAwareBasisTransform
+    # PART 3: Build the ConstantBoundBasisTransform
     # =========================================================================
     print("=" * 70)
     print("PART 3: The Elemental Transform Matrix")
@@ -175,7 +175,7 @@ bridge elemental essences to mundane physics:
         # NOTE: No binding for Aether - it has no physical representation!
     )
 
-    ELEMENTAL_TO_SI = ConstantAwareBasisTransform(
+    ELEMENTAL_TO_SI = ConstantBoundBasisTransform(
         source=ELEMENTAL,
         target=SI_MECH,
         matrix=(

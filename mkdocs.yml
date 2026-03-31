@@ -54,6 +54,7 @@ nav:
     - Config Safety: guides/dimensional-safety-config.md
     - Dimensional Analysis: guides/dimensional-analysis.md
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
+    - Conversion Contexts: guides/conversion-contexts.md
     - Natural Units: guides/natural-units.md
     - MCP Server:
       - external/ucon-tools/docs/guides/mcp-server/index.md
@@ -62,6 +63,10 @@ nav:
     - Domain Walkthroughs:
       - guides/domain-walkthroughs/index.md
       - Nursing Dosage: guides/domain-walkthroughs/nursing-dosage.md
+      - Chemical Engineering: guides/domain-walkthroughs/chemical-engineering.md
+      - Aerospace: guides/domain-walkthroughs/aerospace.md
+      - Finance: guides/domain-walkthroughs/finance.md
+      - Electrical Engineering: guides/domain-walkthroughs/electrical-engineering.md
     - Domain-Specific Bases:
       - guides/domain-bases/index.md
       - Radiation Dosimetry: guides/domain-bases/radiation-dosimetry.md
@@ -76,9 +81,30 @@ nav:
   - Reference:
     - reference/index.md
     - API: reference/api.md
+    - Performance: reference/performance.md
     - Units & Dimensions: reference/units-and-dimensions.md
     - MCP Tools: external/ucon-tools/docs/reference/mcp-tools.md
     - Scales & Prefixes: reference/scales-and-prefixes.md
+    - Module Reference:
+      - reference/modules/index.md
+      - ucon.basis: reference/modules/basis.md
+      - ucon.basis.builtin: reference/modules/basis-builtin.md
+      - ucon.basis.transforms: reference/modules/basis-transforms.md
+      - ucon.basis.graph: reference/modules/basis-graph.md
+      - ucon.checking: reference/modules/checking.md
+      - ucon.constants: reference/modules/constants.md
+      - ucon.contexts: reference/modules/contexts.md
+      - ucon.core: reference/modules/core.md
+      - ucon.dimension: reference/modules/dimension.md
+      - ucon.graph: reference/modules/graph.md
+      - ucon.maps: reference/modules/maps.md
+      - ucon.packages: reference/modules/packages.md
+      - ucon.parsing: reference/modules/parsing.md
+      - ucon.units: reference/modules/units.md
+      - ucon.integrations.numpy: reference/modules/integrations-numpy.md
+      - ucon.integrations.pandas: reference/modules/integrations-pandas.md
+      - ucon.integrations.polars: reference/modules/integrations-polars.md
+      - ucon.integrations.pydantic: reference/modules/integrations-pydantic.md
   - Architecture:
     - architecture/index.md
     - Design Principles: architecture/design-principles.md

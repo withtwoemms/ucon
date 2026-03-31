@@ -26,20 +26,22 @@ from typing import Union, TYPE_CHECKING, Iterator, Optional
 
 try:
     import polars as pl
-    HAS_POLARS = True
+    _HAS_POLARS = True
 except ImportError:
-    HAS_POLARS = False
+    _HAS_POLARS = False
     pl = None  # type: ignore
 
 if TYPE_CHECKING:
     import polars as pl
 
-from ucon.core import Unit, UnitProduct, UnitFactor, Scale, Number, _none
+from ucon.core import Unit, UnitProduct, UnitFactor, Scale
+from ucon.core import Number, _none
+from ucon.graph import get_default_graph
 
 
 def _require_polars() -> None:
     """Raise ImportError if polars is not available."""
-    if not HAS_POLARS:
+    if not _HAS_POLARS:
         raise ImportError(
             "Polars is required for NumberColumn. "
             "Install with: pip install ucon[polars]"
@@ -536,8 +538,6 @@ class NumberColumn:
         NumberColumn
             A new NumberColumn with converted values.
         """
-        from ucon.graph import get_default_graph
-
         # Normalize to UnitProduct
         src = self._unit if isinstance(self._unit, UnitProduct) else UnitProduct.from_unit(self._unit)
         dst = target if isinstance(target, UnitProduct) else UnitProduct.from_unit(target)
@@ -654,4 +654,4 @@ class NumberColumn:
 
 
 # Export check
-__all__ = ['NumberColumn', 'HAS_POLARS']
+__all__ = ['NumberColumn']

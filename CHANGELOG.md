@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-03-31
+
+### Added
+
+- `ReciprocalMap(a)` conversion map for inversely proportional relationships (`y = a / x`)
+  - Self-inverse: `ReciprocalMap(a).inverse()` returns `ReciprocalMap(a)`
+  - Used for spectroscopy conversions (e.g., frequency = c / wavelength)
+- EXPOSURE dimension (`I·T/M`) and roentgen unit (`R_exp`) for radiation exposure
+  - `coulomb_per_kilogram` bridge unit with `C/kg` alias
+  - 1 R = 2.58e-4 C/kg conversion edge
+- CGS-EMU electromagnetic unit system
+  - `SI_TO_CGS_EMU` basis transform mapping SI current to `L^(1/2)·M^(1/2)·T^(-1)` in CGS
+  - 6 CGS-EMU dimensions: `CGS_EMU_CURRENT`, `CGS_EMU_CHARGE`, `CGS_EMU_VOLTAGE`, `CGS_EMU_RESISTANCE`, `CGS_EMU_CAPACITANCE`, `CGS_EMU_INDUCTANCE`
+  - 7 CGS-EMU units: `biot` (abampere), `abcoulomb`, `abvolt`, `abohm`, `abfarad`, `abhenry`, `gilbert`
+  - Cross-basis edges: ampere↔biot, coulomb↔abcoulomb, volt↔abvolt, ohm↔abohm, farad↔abfarad, henry↔abhenry
+- `ConversionContext` for scoped cross-dimensional conversions (`ucon/contexts.py`)
+  - `ContextEdge` dataclass for cross-dimensional edge specifications
+  - `using_context()` context manager that copies the graph, injects context edges, and scopes via `using_graph()`
+  - Built-in `spectroscopy` context: wavelength/frequency/energy via c and h
+  - Built-in `boltzmann` context: temperature/energy via k_B
+  - Cross-dimensional BFS fallback in `ConversionGraph._bfs_convert_cross_dimensional()`
+- Réaumur temperature scale (`reaumur`, aliases: `°Ré`, `degRe`)
+  - 1 °Ré = 1.25 °C conversion edge
+- Historical electrical units
+  - `international_ampere` (`A_int`): 1 A_int = 1.000022 A
+  - `international_volt` (`V_int`): 1 V_int = 1.00034 V
+  - `international_ohm` (`ohm_int`): 1 Ω_int = 1.00049 Ω
+- `CyclicInconsistency`, `spectroscopy`, `boltzmann`, `register_unit` exported from top-level package
+- `__all__` declarations for `ucon.maps` and `ucon.graph`
+- `SECURITY.md` vulnerability disclosure policy
+- `SUPPORT.md` semantic versioning, LTS, and backward-compatibility policy
+
+### Changed
+
+- `ConversionGraph._rebased` changed from `dict[Unit, RebasedUnit]` to `dict[Unit, list[RebasedUnit]]`
+  - Fixes collision when multiple basis transforms register rebased entries for the same source unit (e.g., CGS-ESU and CGS-EMU both rebasing `ampere`)
+  - `list_rebased_units()` now returns `dict[Unit, list[RebasedUnit]]`
+- Scalar conversion performance: 5–50x faster than v0.11.0 across all benchmarks
+  - Fast paths in `UnitProduct.__init__` for single-factor and two-factor cases
+  - Cached `UnitProduct.from_unit()` results
+  - Plain-Unit fast path in `Number.to()` bypassing UnitProduct wrapping
+  - Hash caching on `Vector`, `Dimension`, `Unit`, `UnitFactor`
+  - Dimension algebra caching (`__mul__`, `__truediv__`, `__pow__`)
+  - `Vector` components use `int` instead of `Fraction` for common cases
+- Removed `_Quantifiable` and `_none` from `ucon.quantity.__all__`
+
 ## [0.11.0] - 2026-03-28
 
 ### Changed
@@ -14,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ucon.basis` is now a subpackage (`ucon/basis/`) with four modules:
   - `ucon.basis` (`__init__.py`) — core types: `Basis`, `BasisComponent`, `Vector`, `LossyProjection`, `NoTransformPath`
   - `ucon.basis.builtin` — shipped basis instances: `SI`, `CGS`, `CGS_ESU`, `NATURAL`
-  - `ucon.basis.transforms` — transform types and instances: `BasisTransform`, `ConstantAwareBasisTransform`, `ConstantBinding`, `SI_TO_CGS`, `CGS_TO_SI`, `SI_TO_CGS_ESU`, `SI_TO_NATURAL`, `NATURAL_TO_SI`
+  - `ucon.basis.transforms` — transform types and instances: `BasisTransform`, `ConstantBoundBasisTransform`, `ConstantBinding`, `SI_TO_CGS`, `CGS_TO_SI`, `SI_TO_CGS_ESU`, `SI_TO_NATURAL`, `NATURAL_TO_SI`
   - `ucon.basis.graph` — registry and context scoping: `BasisGraph`, `get_default_basis()`, `get_basis_graph()`, `using_basis()`, `using_basis_graph()`
   - All symbols remain importable from `ucon.basis` and `ucon` via re-exports
 - Integration modules moved to `ucon.integrations` subpackage:
@@ -100,7 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Natural units support with `ConstantAwareBasisTransform` (#206)
+- Natural units support with `ConstantBoundBasisTransform` (#206)
   - `NATURAL` basis where c = ℏ = k_B = 1 (all quantities reduce to powers of energy)
   - `SI_TO_NATURAL` transform maps SI dimensions to natural units (e.g., velocity → dimensionless)
   - `NATURAL_TO_SI` inverse transform with constant bindings for reconstruction
@@ -527,7 +573,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.11.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/withtwoemms/ucon/compare/0.11.0...1.0.0
 [0.11.0]: https://github.com/withtwoemms/ucon/compare/0.10.1...0.11.0
 [0.10.1]: https://github.com/withtwoemms/ucon/compare/0.10.0...0.10.1
 [0.10.0]: https://github.com/withtwoemms/ucon/compare/0.9.4...0.10.0

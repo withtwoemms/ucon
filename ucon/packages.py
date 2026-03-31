@@ -45,16 +45,76 @@ else:
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ucon.dimension import all_dimensions
+import ast
+import operator
+
+from ucon.core import Unit, UnknownUnitError
+from ucon.dimension import Dimension, all_dimensions
+from ucon.maps import AffineMap, LinearMap
 
 if TYPE_CHECKING:
-    from ucon.core import Unit
     from ucon.graph import ConversionGraph
 
 
-def _get_dimension_map() -> dict[str, "Dimension"]:
+def _parse_factor(value) -> float:
+    """Parse a factor value from TOML.
+
+    Accepts either a numeric value (int/float) or an arithmetic expression
+    string containing integers, ``/``, and ``*``.  This allows TOML files
+    to express exact ratios like ``"1852 / 3600"`` instead of truncated
+    decimals like ``0.514444``.
+
+    Parameters
+    ----------
+    value : int, float, or str
+        The factor as a number or arithmetic expression.
+
+    Returns
+    -------
+    float
+        The evaluated factor.
+
+    Raises
+    ------
+    PackageLoadError
+        If the string is not a valid arithmetic expression.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, str):
+        raise PackageLoadError(f"factor must be a number or expression string, got {type(value).__name__}")
+
+    _OPS = {
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.USub: operator.neg,
+    }
+
+    def _eval_node(node):
+        if isinstance(node, ast.Expression):
+            return _eval_node(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return float(node.value)
+        if hasattr(ast, 'Num') and isinstance(node, ast.Num):  # Python 3.7 compat
+            return float(node.n)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
+            return _OPS[type(node.op)](_eval_node(node.operand))
+        if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
+            return _OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))
+        raise PackageLoadError(
+            f"Unsupported expression in factor: {value!r}. "
+            "Only numeric literals with * and / are allowed."
+        )
+
+    try:
+        tree = ast.parse(value.strip(), mode='eval')
+        return _eval_node(tree)
+    except SyntaxError:
+        raise PackageLoadError(f"Invalid factor expression: {value!r}")
+
+
+def _get_dimension_map() -> dict[str, Dimension]:
     """Build a mapping from dimension names to Dimension objects."""
-    from ucon.dimension import Dimension
     return {d.name: d for d in all_dimensions() if d.name is not None}
 
 
@@ -80,7 +140,7 @@ class UnitDef:
     dimension: str
     aliases: tuple[str, ...] = ()
 
-    def materialize(self) -> 'Unit':
+    def materialize(self) -> Unit:
         """Convert to a Unit object.
 
         Returns
@@ -93,8 +153,6 @@ class UnitDef:
         PackageLoadError
             If the dimension name is invalid.
         """
-        from ucon.core import Unit
-
         dim_map = _get_dimension_map()
         dim = dim_map.get(self.dimension)
         if dim is None:
@@ -144,12 +202,9 @@ class EdgeDef:
         PackageLoadError
             If source or destination unit cannot be resolved.
         """
-        from ucon import get_unit_by_name
-        from ucon.graph import using_graph
-        from ucon.maps import AffineMap, LinearMap
-        from ucon.units import UnknownUnitError
-
         # Resolve units within graph context
+        from ucon.resolver import get_unit_by_name
+        from ucon.graph import using_graph
         with using_graph(graph):
             try:
                 src_unit = get_unit_by_name(self.src)
@@ -253,13 +308,13 @@ def load_package(path: str | Path) -> UnitPackage:
         for u in data.get("units", [])
     )
 
-    # Parse edges
+    # Parse edges (factor supports arithmetic expressions like "1852 / 3600")
     edges = tuple(
         EdgeDef(
             src=e["src"],
             dst=e["dst"],
-            factor=float(e["factor"]),
-            offset=float(e.get("offset", 0.0)),
+            factor=_parse_factor(e["factor"]),
+            offset=_parse_factor(e.get("offset", 0.0)),
         )
         for e in data.get("edges", [])
     )

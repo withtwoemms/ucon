@@ -26,16 +26,18 @@ from typing import Union, TYPE_CHECKING, Iterator, Any
 
 try:
     import numpy as np
-    HAS_NUMPY = True
+    _HAS_NUMPY = True
 except ImportError:
-    HAS_NUMPY = False
+    _HAS_NUMPY = False
     np = None  # type: ignore
 
 if TYPE_CHECKING:
     import numpy as np
     from numpy.typing import ArrayLike, NDArray
 
-from ucon.core import Unit, UnitProduct, UnitFactor, Scale, Number, _none
+from ucon.core import Unit, UnitProduct, UnitFactor, Scale
+from ucon.core import Number, _none
+from ucon.graph import get_default_graph
 
 # Module-level cache for scale factors: (src_unit, dst_unit) -> factor
 _scale_factor_cache: dict[tuple, float] = {}
@@ -49,7 +51,7 @@ _unit_div_cache: dict[tuple, 'UnitProduct'] = {}
 
 def _require_numpy() -> None:
     """Raise ImportError if numpy is not available."""
-    if not HAS_NUMPY:
+    if not _HAS_NUMPY:
         raise ImportError(
             "NumPy is required for NumberArray. "
             "Install with: pip install ucon[numpy]"
@@ -630,8 +632,6 @@ class NumberArray:
         >>> heights = NumberArray([1, 2, 3], unit=units.meter)
         >>> heights_ft = heights.to(units.foot)
         """
-        from ucon.graph import get_default_graph
-
         # Check scale factor cache first
         cache_key = (self._unit, target)
         if cache_key in _scale_factor_cache:
@@ -761,4 +761,4 @@ class NumberArray:
 
 
 # Export check
-__all__ = ['NumberArray', 'HAS_NUMPY']
+__all__ = ['NumberArray']

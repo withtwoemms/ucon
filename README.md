@@ -227,6 +227,11 @@ Use the appropriate category: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixe
 
 ---
 
+## Policies
+
+- **[Security](./SECURITY.md)** — Vulnerability reporting and dependency policy
+- **[Support](./SUPPORT.md)** — Versioning, LTS, and backward-compatibility guarantees
+
 ## License
 
 Apache 2.0. See [LICENSE](./LICENSE).

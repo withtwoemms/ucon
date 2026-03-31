@@ -334,17 +334,17 @@ class TestWithPackage(unittest.TestCase):
         """with_package() returns new graph, original unchanged."""
         pkg = UnitPackage(
             name='test',
-            units=(UnitDef(name='slug', dimension='mass', aliases=('slug',)),),
+            units=(UnitDef(name='zorkmid', dimension='mass', aliases=('zk',)),),
         )
 
         original = get_default_graph()
         extended = original.with_package(pkg)
 
-        # slug should NOT be in original
-        self.assertIsNone(original.resolve_unit('slug'))
+        # zorkmid should NOT be in original
+        self.assertIsNone(original.resolve_unit('zorkmid'))
 
-        # slug should be in extended
-        self.assertIsNotNone(extended.resolve_unit('slug'))
+        # zorkmid should be in extended
+        self.assertIsNotNone(extended.resolve_unit('zorkmid'))
 
     def test_with_package_composition(self):
         """Multiple with_package() calls compose correctly."""
@@ -384,6 +384,74 @@ class TestWithPackage(unittest.TestCase):
             meter = get_unit_by_name('m')
             m = graph.convert(src=nmi, dst=meter)
             self.assertAlmostEqual(m(1), 1852, places=0)
+
+
+class TestParseFactorEdgeCases(unittest.TestCase):
+    """Test _parse_factor edge cases."""
+
+    def test_parse_factor_int(self):
+        """_parse_factor handles plain int."""
+        from ucon.packages import _parse_factor
+        self.assertEqual(_parse_factor(42), 42.0)
+
+    def test_parse_factor_float(self):
+        """_parse_factor handles plain float."""
+        from ucon.packages import _parse_factor
+        self.assertEqual(_parse_factor(3.14), 3.14)
+
+    def test_parse_factor_expression_division(self):
+        """_parse_factor handles division expression."""
+        from ucon.packages import _parse_factor
+        result = _parse_factor("1852 / 3600")
+        self.assertAlmostEqual(result, 1852 / 3600)
+
+    def test_parse_factor_expression_multiplication(self):
+        """_parse_factor handles multiplication expression."""
+        from ucon.packages import _parse_factor
+        result = _parse_factor("2 * 3")
+        self.assertEqual(result, 6.0)
+
+    def test_parse_factor_unary_negation(self):
+        """_parse_factor handles unary negation: '-1.5'."""
+        from ucon.packages import _parse_factor
+        result = _parse_factor("-1.5")
+        self.assertEqual(result, -1.5)
+
+    def test_parse_factor_invalid_type_raises(self):
+        """_parse_factor raises for non-numeric non-string."""
+        from ucon.packages import _parse_factor
+        with self.assertRaises(PackageLoadError):
+            _parse_factor([1, 2, 3])
+
+    def test_parse_factor_unsupported_op_raises(self):
+        """_parse_factor raises for unsupported operator (addition)."""
+        from ucon.packages import _parse_factor
+        with self.assertRaises(PackageLoadError):
+            _parse_factor("1 + 2")
+
+    def test_parse_factor_syntax_error_raises(self):
+        """_parse_factor raises for unparseable string."""
+        from ucon.packages import _parse_factor
+        with self.assertRaises(PackageLoadError):
+            _parse_factor("not a number @#$")
+
+    def test_parse_factor_variable_name_raises(self):
+        """_parse_factor raises for variable names."""
+        from ucon.packages import _parse_factor
+        with self.assertRaises(PackageLoadError):
+            _parse_factor("x * y")
+
+
+class TestEdgeDefUnknownDst(unittest.TestCase):
+    """Test EdgeDef.materialize() with unknown destination unit."""
+
+    def test_unknown_dst_raises(self):
+        """EdgeDef.materialize() raises for unknown destination unit."""
+        graph = get_default_graph().copy()
+        edge_def = EdgeDef(src='meter', dst='nonexistent_unit_xyz', factor=1.0)
+        with self.assertRaises(PackageLoadError) as ctx:
+            edge_def.materialize(graph)
+        self.assertIn("destination", str(ctx.exception).lower())
 
 
 if __name__ == '__main__':

@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import TYPE_CHECKING
 
-from ucon.basis import Basis, BasisComponent, Vector
+from ucon.basis import Basis, BasisComponent, Vector, get_default_basis
 from ucon.basis.builtin import SI
 
 if TYPE_CHECKING:
@@ -49,14 +49,16 @@ if TYPE_CHECKING:
 # Registry for dimension resolution
 # -----------------------------------------------------------------------------
 
-_REGISTRY: dict[tuple[Basis, tuple[Fraction, ...]], "Dimension"] = {}
+_REGISTRY: dict[Vector, "Dimension"] = {}
+_DIM_MUL_CACHE: dict[tuple[int, int], "Dimension"] = {}
+_DIM_DIV_CACHE: dict[tuple[int, int], "Dimension"] = {}
+_DIM_POW_CACHE: dict[tuple[int, object], "Dimension"] = {}
 
 
 def _register(dim: "Dimension") -> "Dimension":
     """Register a dimension for resolution by vector."""
     if dim.tag is None:  # Don't register pseudo-dimensions
-        key = (dim.vector.basis, dim.vector.components)
-        _REGISTRY[key] = dim
+        _REGISTRY[dim.vector] = dim
     return dim
 
 
@@ -83,16 +85,14 @@ def resolve(vector: Vector) -> "Dimension":
     >>> resolve(v)
     Dimension(velocity)
     """
-    key = (vector.basis, vector.components)
-    if key in _REGISTRY:
-        return _REGISTRY[key]
+    if vector in _REGISTRY:
+        return _REGISTRY[vector]
 
     # Zero vector always resolves to NONE
     if vector.is_dimensionless():
-        # Return the registered NONE for this basis if available
-        none_key = (vector.basis, tuple(Fraction(0) for _ in vector.components))
-        if none_key in _REGISTRY:
-            return _REGISTRY[none_key]
+        none_vector = Vector(vector.basis, tuple(0 for _ in vector.components))
+        if none_vector in _REGISTRY:
+            return _REGISTRY[none_vector]
 
     # Create a derived dimension
     name = _vector_to_dim_expr(vector)
@@ -118,7 +118,7 @@ def _vector_to_dim_expr(v: Vector) -> str:
             continue
 
         name = comp.name
-        exp_val = int(exp) if exp.denominator == 1 else float(exp)
+        exp_val = int(exp) if isinstance(exp, int) or (isinstance(exp, Fraction) and exp.denominator == 1) else float(exp)
         abs_exp = abs(exp_val)
 
         token = name if abs_exp == 1 else f"{name}^{abs_exp}"
@@ -204,6 +204,9 @@ class Dimension(metaclass=_DimensionMeta):
     symbol: str | None = None
     tag: str | None = None
 
+    def __post_init__(self):
+        object.__setattr__(self, '_hash_cache', hash((self.vector, self.tag)))
+
     @classmethod
     def from_components(
         cls,
@@ -238,7 +241,6 @@ class Dimension(metaclass=_DimensionMeta):
         True
         """
         if basis is None:
-            from ucon.basis import get_default_basis
             basis = get_default_basis()
 
         # Build component tuple
@@ -248,7 +250,7 @@ class Dimension(metaclass=_DimensionMeta):
             exp = components.get(comp.name, 0)
             if exp == 0 and comp.symbol is not None:
                 exp = components.get(comp.symbol, 0)
-            exponents.append(Fraction(exp))
+            exponents.append(exp if isinstance(exp, (int, Fraction)) else Fraction(exp))
 
         vector = Vector(basis, tuple(exponents))
         return cls(vector=vector, name=name, symbol=symbol)
@@ -292,7 +294,6 @@ class Dimension(metaclass=_DimensionMeta):
         False
         """
         if basis is None:
-            from ucon.basis import get_default_basis
             basis = get_default_basis()
         if name is None:
             name = tag
@@ -397,38 +398,45 @@ class Dimension(metaclass=_DimensionMeta):
         """
         if not isinstance(other, Dimension):
             return NotImplemented
-        if self.vector.basis != other.vector.basis:
+
+        cache_key = (id(self), id(other))
+        cached = _DIM_MUL_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
+        # Identity: NONE * X = X (before basis check — NONE is universal identity)
+        if self == NONE:
+            result = other
+        # Identity: X * NONE = X
+        elif other == NONE:
+            result = self
+        elif self.vector.basis != other.vector.basis:
             raise ValueError(
                 f"Cannot multiply dimensions from different bases: "
                 f"'{self.vector.basis.name}' and '{other.vector.basis.name}'"
             )
-
-        # Identity: NONE * X = X
-        if self == NONE:
-            return other
-        # Identity: X * NONE = X
-        if other == NONE:
-            return self
-
         # Pseudo-dimension combined with pseudo-dimension
-        if self.is_pseudo and other.is_pseudo:
+        elif self.is_pseudo and other.is_pseudo:
             # Same pseudo-dimension: return self
             if self == other:
-                return self
-            # Different pseudo-dimensions can't combine
-            raise TypeError(
-                f"Cannot multiply different pseudo-dimensions: {self.name} and {other.name}"
-            )
-
+                result = self
+            else:
+                # Different pseudo-dimensions can't combine
+                raise TypeError(
+                    f"Cannot multiply different pseudo-dimensions: {self.name} and {other.name}"
+                )
         # Pseudo-dimension combined with regular dimension:
         # The pseudo-dimension acts like NONE (zero vector)
-        if self.is_pseudo:
-            return other  # ANGLE * MASS = MASS
-        if other.is_pseudo:
-            return self   # MASS * ANGLE = MASS
+        elif self.is_pseudo:
+            result = other  # ANGLE * MASS = MASS
+        elif other.is_pseudo:
+            result = self   # MASS * ANGLE = MASS
+        else:
+            new_vector = self.vector * other.vector
+            result = resolve(new_vector)
 
-        new_vector = self.vector * other.vector
-        return resolve(new_vector)
+        _DIM_MUL_CACHE[cache_key] = result
+        return result
 
     def __truediv__(self, other: "Dimension") -> "Dimension":
         """Divide dimensions (subtract exponent vectors).
@@ -442,38 +450,42 @@ class Dimension(metaclass=_DimensionMeta):
         """
         if not isinstance(other, Dimension):
             return NotImplemented
-        if self.vector.basis != other.vector.basis:
+
+        cache_key = (id(self), id(other))
+        cached = _DIM_DIV_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
+        # Identity: X / NONE = X (before basis check — NONE is universal identity)
+        if other == NONE:
+            result = self
+        elif self.vector.basis != other.vector.basis:
             raise ValueError(
                 f"Cannot divide dimensions from different bases: "
                 f"'{self.vector.basis.name}' and '{other.vector.basis.name}'"
             )
-
-        # Identity: X / NONE = X
-        if other == NONE:
-            return self
-
         # Pseudo-dimension divided by pseudo-dimension
-        if self.is_pseudo and other.is_pseudo:
+        elif self.is_pseudo and other.is_pseudo:
             # Same pseudo-dimension: returns NONE (0/0 case, but semantically X/X = 1)
             if self == other:
-                return NONE
-            # Different pseudo-dimensions can't divide
-            raise TypeError(
-                f"Cannot divide different pseudo-dimensions: {self.name} and {other.name}"
-            )
-
+                result = NONE
+            else:
+                # Different pseudo-dimensions can't divide
+                raise TypeError(
+                    f"Cannot divide different pseudo-dimensions: {self.name} and {other.name}"
+                )
         # Regular divided by pseudo: pseudo acts like NONE
-        if other.is_pseudo:
-            return self   # MASS / ANGLE = MASS
-
+        elif other.is_pseudo:
+            result = self   # MASS / ANGLE = MASS
         # Pseudo divided by regular: pseudo acts like NONE
-        if self.is_pseudo:
-            # ANGLE / MASS would give 1/MASS, but ANGLE has zero vector
-            # So this returns 1/MASS
-            return resolve(self.vector / other.vector)
+        elif self.is_pseudo:
+            result = resolve(self.vector / other.vector)
+        else:
+            new_vector = self.vector / other.vector
+            result = resolve(new_vector)
 
-        new_vector = self.vector / other.vector
-        return resolve(new_vector)
+        _DIM_DIV_CACHE[cache_key] = result
+        return result
 
     def __pow__(self, power: int | float | Fraction) -> "Dimension":
         """Raise dimension to a power (multiply exponent vector by scalar).
@@ -487,13 +499,21 @@ class Dimension(metaclass=_DimensionMeta):
         if power == 0:
             return NONE
 
+        cache_key = (id(self), power)
+        cached = _DIM_POW_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
         # Pseudo-dimensions are invariant under exponentiation
         # This allows expressions like mg/ea (COUNT ** -1) to work
         if self.is_pseudo:
-            return self
+            result = self
+        else:
+            new_vector = self.vector ** power
+            result = resolve(new_vector)
 
-        new_vector = self.vector ** power
-        return resolve(new_vector)
+        _DIM_POW_CACHE[cache_key] = result
+        return result
 
     # -------------------------------------------------------------------------
     # Comparison & Hashing
@@ -521,7 +541,7 @@ class Dimension(metaclass=_DimensionMeta):
 
     def __hash__(self) -> int:
         """Hash based on vector and tag for pseudo-dimensions."""
-        return hash((self.vector, self.tag))
+        return self._hash_cache
 
     def __bool__(self) -> bool:
         """False for NONE (dimensionless with no tag), True otherwise."""
@@ -546,7 +566,7 @@ def _vec(*components: int | Fraction) -> Vector:
     """Shorthand for creating an SI vector with 8 components."""
     # Pad with zeros if needed
     padded = list(components) + [0] * (8 - len(components))
-    return Vector(SI, tuple(Fraction(c) for c in padded))
+    return Vector(SI, tuple(padded))
 
 
 def _dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
@@ -589,6 +609,7 @@ ANGULAR_MOMENTUM = _dim("angular_momentum", -1, 2, 1, 0, 0, 0, 0, 0)  # M·L²/T
 AREA = _dim("area", 0, 2, 0, 0, 0, 0, 0, 0)  # L²
 VOLUME = _dim("volume", 0, 3, 0, 0, 0, 0, 0, 0)  # L³
 DENSITY = _dim("density", 0, -3, 1, 0, 0, 0, 0, 0)  # M/L³
+LINEAR_DENSITY = _dim("linear_density", 0, -1, 1, 0, 0, 0, 0, 0)  # M/L
 PRESSURE = _dim("pressure", -2, -1, 1, 0, 0, 0, 0, 0)  # M/(L·T²)
 FREQUENCY = _dim("frequency", -1, 0, 0, 0, 0, 0, 0, 0)  # 1/T
 DYNAMIC_VISCOSITY = _dim("dynamic_viscosity", -1, -1, 1, 0, 0, 0, 0, 0)  # M/(L·T)
@@ -609,6 +630,7 @@ MAGNETIC_FLUX_DENSITY = _dim("magnetic_flux_density", -2, 0, 1, -1, 0, 0, 0, 0) 
 MAGNETIC_PERMEABILITY = _dim("magnetic_permeability", -2, 1, 1, -2, 0, 0, 0, 0)  # M·L/(T²·I²)
 PERMITTIVITY = _dim("permittivity", 4, -3, -1, 2, 0, 0, 0, 0)  # T⁴·I²/(M·L³)
 ELECTRIC_FIELD_STRENGTH = _dim("electric_field_strength", -3, 1, 1, -1, 0, 0, 0, 0)  # M·L/(T³·I)
+MAGNETIC_FIELD_STRENGTH = _dim("magnetic_field_strength", 0, -1, 0, 1, 0, 0, 0, 0)  # I/L
 
 # Thermodynamics
 ENTROPY = _dim("entropy", -2, 2, 1, 0, -1, 0, 0, 0)  # M·L²/(T²·Θ)
@@ -622,6 +644,189 @@ ILLUMINANCE = _dim("illuminance", 0, -2, 0, 0, 0, 1, 0, 0)  # J/L²
 CATALYTIC_ACTIVITY = _dim("catalytic_activity", -1, 0, 0, 0, 0, 0, 1, 0)  # N/T
 MOLAR_MASS = _dim("molar_mass", 0, 0, 1, 0, 0, 0, -1, 0)  # M/N
 MOLAR_VOLUME = _dim("molar_volume", 0, 3, 0, 0, 0, 0, -1, 0)  # L³/N
+CONCENTRATION = _dim("concentration", 0, -3, 0, 0, 0, 0, 1, 0)  # N/L³
+
+# Spectroscopy / Radiation
+WAVENUMBER = _dim("wavenumber", 0, -1, 0, 0, 0, 0, 0, 0)  # 1/L
+RADIANT_EXPOSURE = _dim("radiant_exposure", -2, 0, 1, 0, 0, 0, 0, 0)  # M/T²
+EXPOSURE = _dim("exposure", 1, 0, -1, 1, 0, 0, 0, 0)  # I·T/M (radiation exposure, C/kg)
+
+# Electromagnetism (derived)
+ELECTRIC_DIPOLE_MOMENT = _dim("electric_dipole_moment", 1, 1, 0, 1, 0, 0, 0, 0)  # I·T·L
+
+
+# -----------------------------------------------------------------------------
+# CGS Dimensions (Centimetre-Gram-Second)
+# -----------------------------------------------------------------------------
+
+from ucon.basis.builtin import CGS  # noqa: E402
+
+
+def _cgs_vec(*components: int | Fraction) -> Vector:
+    """Shorthand for creating a CGS vector with 3 components (L, M, T)."""
+    padded = list(components) + [0] * (3 - len(components))
+    return Vector(CGS, tuple(padded))
+
+
+def _cgs_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    """Create and register a standard CGS dimension."""
+    vec = _cgs_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    _register(dim)
+    _register_attr(dim)
+    return dim
+
+
+# CGS base dimensions
+CGS_NONE = _cgs_dim("cgs_none")
+CGS_LENGTH = _cgs_dim("cgs_length", 1, 0, 0)
+CGS_MASS = _cgs_dim("cgs_mass", 0, 1, 0)
+CGS_TIME = _cgs_dim("cgs_time", 0, 0, 1)
+
+# CGS derived dimensions
+CGS_VELOCITY = _cgs_dim("cgs_velocity", 1, 0, -1)  # L/T
+CGS_FORCE = _cgs_dim("cgs_force", 1, 1, -2)  # M·L/T² (dyne)
+CGS_ENERGY = _cgs_dim("cgs_energy", 2, 1, -2)  # M·L²/T² (erg)
+CGS_PRESSURE = _cgs_dim("cgs_pressure", -1, 1, -2)  # M/(L·T²) (barye)
+CGS_DYNAMIC_VISCOSITY = _cgs_dim("cgs_dynamic_viscosity", -1, 1, -1)  # M/(L·T) (poise)
+CGS_KINEMATIC_VISCOSITY = _cgs_dim("cgs_kinematic_viscosity", 2, 0, -1)  # L²/T (stokes)
+CGS_ACCELERATION = _cgs_dim("cgs_acceleration", 1, 0, -2)  # L/T² (galileo)
+CGS_WAVENUMBER = _cgs_dim("cgs_wavenumber", -1, 0, 0)  # 1/L (kayser)
+CGS_RADIANT_EXPOSURE = _cgs_dim("cgs_radiant_exposure", 0, 1, -2)  # M/T² (langley)
+
+
+# -----------------------------------------------------------------------------
+# CGS-ESU Dimensions (Electrostatic Units)
+# -----------------------------------------------------------------------------
+
+from ucon.basis.builtin import CGS_ESU  # noqa: E402
+
+
+def _cgs_esu_vec(*components: int | Fraction) -> Vector:
+    """Shorthand for creating a CGS-ESU vector with 4 components (L, M, T, Q)."""
+    padded = list(components) + [0] * (4 - len(components))
+    return Vector(CGS_ESU, tuple(padded))
+
+
+def _cgs_esu_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    """Create and register a standard CGS-ESU dimension."""
+    vec = _cgs_esu_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    _register(dim)
+    _register_attr(dim)
+    return dim
+
+
+# CGS-ESU electromagnetic dimensions
+# In CGS-ESU, charge is derived: [q] = M^(1/2)·L^(3/2)·T^(-1) (from Coulomb's law with k=1)
+CGS_ESU_CHARGE = _cgs_esu_dim(
+    "cgs_esu_charge",
+    Fraction(3, 2), Fraction(1, 2), Fraction(-1), Fraction(0),
+)  # statcoulomb
+CGS_ESU_CURRENT = _cgs_esu_dim(
+    "cgs_esu_current",
+    Fraction(3, 2), Fraction(1, 2), Fraction(-2), Fraction(0),
+)  # statampere = charge/time
+CGS_ESU_VOLTAGE = _cgs_esu_dim(
+    "cgs_esu_voltage",
+    Fraction(1, 2), Fraction(1, 2), Fraction(-1), Fraction(0),
+)  # statvolt = erg/statcoulomb
+CGS_ESU_RESISTANCE = _cgs_esu_dim(
+    "cgs_esu_resistance",
+    Fraction(-1), Fraction(0), Fraction(1), Fraction(0),
+)  # statohm = s/cm
+CGS_ESU_CAPACITANCE = _cgs_esu_dim(
+    "cgs_esu_capacitance",
+    Fraction(1), Fraction(0), Fraction(0), Fraction(0),
+)  # statfarad = cm
+CGS_ESU_MAGNETIC_FLUX_DENSITY = _cgs_esu_dim(
+    "cgs_esu_magnetic_flux_density",
+    Fraction(-3, 2), Fraction(1, 2), Fraction(0), Fraction(0),
+)  # gauss: L^(-3/2)·M^(1/2) (from SI_TO_CGS_ESU applied to M/(T²·I))
+CGS_ESU_MAGNETIC_FLUX = _cgs_esu_dim(
+    "cgs_esu_magnetic_flux",
+    Fraction(1, 2), Fraction(1, 2), Fraction(0), Fraction(0),
+)  # maxwell: L^(1/2)·M^(1/2) (from SI_TO_CGS_ESU applied to M·L²/(T²·I))
+CGS_ESU_MAGNETIC_FIELD_STRENGTH = _cgs_esu_dim(
+    "cgs_esu_magnetic_field_strength",
+    Fraction(1, 2), Fraction(1, 2), Fraction(-2), Fraction(0),
+)  # oersted: L^(1/2)·M^(1/2)·T^(-2) (from SI_TO_CGS_ESU applied to I/L)
+CGS_ESU_ELECTRIC_DIPOLE_MOMENT = _cgs_esu_dim(
+    "cgs_esu_electric_dipole_moment",
+    Fraction(5, 2), Fraction(1, 2), Fraction(-1), Fraction(0),
+)  # debye: charge·length = L^(5/2)·M^(1/2)·T^(-1)
+
+
+# -----------------------------------------------------------------------------
+# CGS-EMU Dimensions (Electromagnetic Units, using CGS basis with fractional exponents)
+# -----------------------------------------------------------------------------
+# CGS-EMU differs from CGS-ESU in how current maps from SI:
+#   CGS-ESU: I → L^(3/2)·M^(1/2)·T^(-2)
+#   CGS-EMU: I → L^(1/2)·M^(1/2)·T^(-1)
+# CGS-EMU dimensions share the CGS basis (L, M, T) but with fractional exponents
+# for electromagnetic quantities. Some vectors collide with CGS mechanical dims
+# (e.g., CGS_EMU_RESISTANCE = L·T^(-1) = CGS_VELOCITY), so we skip _register()
+# to avoid overwriting the vector registry.
+
+
+def _cgs_emu_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    """Create a CGS-EMU dimension. Skips _register() to avoid vector collisions
+    with CGS mechanical dimensions that share the same vector (KOQ collision)."""
+    vec = _cgs_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    # Skip _register(dim) — CGS-EMU electromagnetic dims share vectors
+    # with CGS mechanical dims. Only register for attribute access.
+    _register_attr(dim)
+    return dim
+
+
+CGS_EMU_CURRENT = _cgs_emu_dim(
+    "cgs_emu_current",
+    Fraction(1, 2), Fraction(1, 2), Fraction(-1),
+)  # biot/abampere: L^(1/2)·M^(1/2)·T^(-1)
+CGS_EMU_CHARGE = _cgs_emu_dim(
+    "cgs_emu_charge",
+    Fraction(1, 2), Fraction(1, 2), Fraction(0),
+)  # abcoulomb: L^(1/2)·M^(1/2)
+CGS_EMU_VOLTAGE = _cgs_emu_dim(
+    "cgs_emu_voltage",
+    Fraction(3, 2), Fraction(1, 2), Fraction(-2),
+)  # abvolt: L^(3/2)·M^(1/2)·T^(-2)
+CGS_EMU_RESISTANCE = _cgs_emu_dim(
+    "cgs_emu_resistance",
+    Fraction(1), Fraction(0), Fraction(-1),
+)  # abohm: L·T^(-1)
+CGS_EMU_CAPACITANCE = _cgs_emu_dim(
+    "cgs_emu_capacitance",
+    Fraction(-1), Fraction(0), Fraction(2),
+)  # abfarad: T^2/L
+CGS_EMU_INDUCTANCE = _cgs_emu_dim(
+    "cgs_emu_inductance",
+    Fraction(1), Fraction(0), Fraction(0),
+)  # abhenry: L
+
+
+# -----------------------------------------------------------------------------
+# Natural-unit dimensions (1D basis: energy)
+# -----------------------------------------------------------------------------
+
+from ucon.basis.builtin import NATURAL  # noqa: E402
+
+
+def _natural_vec(*components: int | Fraction) -> Vector:
+    padded = list(components) + [0] * (1 - len(components))
+    return Vector(NATURAL, tuple(padded))
+
+
+def _natural_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    vec = _natural_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    _register(dim)
+    _register_attr(dim)
+    return dim
+
+
+NATURAL_ENERGY = _natural_dim("natural_energy", 1)
 
 
 def basis() -> tuple[Dimension, ...]:
@@ -671,6 +876,7 @@ def all_dimensions() -> tuple[Dimension, ...]:
         AREA,
         VOLUME,
         DENSITY,
+        LINEAR_DENSITY,
         PRESSURE,
         FREQUENCY,
         DYNAMIC_VISCOSITY,
@@ -690,6 +896,7 @@ def all_dimensions() -> tuple[Dimension, ...]:
         MAGNETIC_PERMEABILITY,
         PERMITTIVITY,
         ELECTRIC_FIELD_STRENGTH,
+        MAGNETIC_FIELD_STRENGTH,
         # Derived - Thermodynamics
         ENTROPY,
         SPECIFIC_HEAT_CAPACITY,
@@ -700,6 +907,46 @@ def all_dimensions() -> tuple[Dimension, ...]:
         CATALYTIC_ACTIVITY,
         MOLAR_MASS,
         MOLAR_VOLUME,
+        CONCENTRATION,
+        # Derived - Spectroscopy / Radiation
+        WAVENUMBER,
+        RADIANT_EXPOSURE,
+        EXPOSURE,
+        # Derived - Electromagnetism (additional)
+        ELECTRIC_DIPOLE_MOMENT,
+        # CGS dimensions
+        CGS_NONE,
+        CGS_LENGTH,
+        CGS_MASS,
+        CGS_TIME,
+        CGS_VELOCITY,
+        CGS_FORCE,
+        CGS_ENERGY,
+        CGS_PRESSURE,
+        CGS_DYNAMIC_VISCOSITY,
+        CGS_KINEMATIC_VISCOSITY,
+        CGS_ACCELERATION,
+        CGS_WAVENUMBER,
+        CGS_RADIANT_EXPOSURE,
+        # CGS-ESU dimensions
+        CGS_ESU_CHARGE,
+        CGS_ESU_CURRENT,
+        CGS_ESU_VOLTAGE,
+        CGS_ESU_RESISTANCE,
+        CGS_ESU_CAPACITANCE,
+        CGS_ESU_MAGNETIC_FLUX_DENSITY,
+        CGS_ESU_MAGNETIC_FLUX,
+        CGS_ESU_MAGNETIC_FIELD_STRENGTH,
+        CGS_ESU_ELECTRIC_DIPOLE_MOMENT,
+        # CGS-EMU dimensions
+        CGS_EMU_CURRENT,
+        CGS_EMU_CHARGE,
+        CGS_EMU_VOLTAGE,
+        CGS_EMU_RESISTANCE,
+        CGS_EMU_CAPACITANCE,
+        CGS_EMU_INDUCTANCE,
+        # Natural-unit dimensions
+        NATURAL_ENERGY,
     )
 
 
@@ -743,6 +990,7 @@ __all__ = [
     "AREA",
     "VOLUME",
     "DENSITY",
+    "LINEAR_DENSITY",
     "PRESSURE",
     "FREQUENCY",
     "DYNAMIC_VISCOSITY",
@@ -762,6 +1010,7 @@ __all__ = [
     "MAGNETIC_PERMEABILITY",
     "PERMITTIVITY",
     "ELECTRIC_FIELD_STRENGTH",
+    "MAGNETIC_FIELD_STRENGTH",
     # Derived dimensions - Thermodynamics
     "ENTROPY",
     "SPECIFIC_HEAT_CAPACITY",
@@ -772,4 +1021,44 @@ __all__ = [
     "CATALYTIC_ACTIVITY",
     "MOLAR_MASS",
     "MOLAR_VOLUME",
+    "CONCENTRATION",
+    # Derived dimensions - Spectroscopy / Radiation
+    "WAVENUMBER",
+    "RADIANT_EXPOSURE",
+    "EXPOSURE",
+    # Derived dimensions - Electromagnetism (additional)
+    "ELECTRIC_DIPOLE_MOMENT",
+    # CGS dimensions
+    "CGS_NONE",
+    "CGS_LENGTH",
+    "CGS_MASS",
+    "CGS_TIME",
+    "CGS_VELOCITY",
+    "CGS_FORCE",
+    "CGS_ENERGY",
+    "CGS_PRESSURE",
+    "CGS_DYNAMIC_VISCOSITY",
+    "CGS_KINEMATIC_VISCOSITY",
+    "CGS_ACCELERATION",
+    "CGS_WAVENUMBER",
+    "CGS_RADIANT_EXPOSURE",
+    # CGS-ESU dimensions
+    "CGS_ESU_CHARGE",
+    "CGS_ESU_CURRENT",
+    "CGS_ESU_VOLTAGE",
+    "CGS_ESU_RESISTANCE",
+    "CGS_ESU_CAPACITANCE",
+    "CGS_ESU_MAGNETIC_FLUX_DENSITY",
+    "CGS_ESU_MAGNETIC_FLUX",
+    "CGS_ESU_MAGNETIC_FIELD_STRENGTH",
+    "CGS_ESU_ELECTRIC_DIPOLE_MOMENT",
+    # CGS-EMU dimensions
+    "CGS_EMU_CURRENT",
+    "CGS_EMU_CHARGE",
+    "CGS_EMU_VOLTAGE",
+    "CGS_EMU_RESISTANCE",
+    "CGS_EMU_CAPACITANCE",
+    "CGS_EMU_INDUCTANCE",
+    # Natural-unit dimensions
+    "NATURAL_ENERGY",
 ]

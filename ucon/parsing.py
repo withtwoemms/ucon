@@ -33,11 +33,14 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, List, Tuple, TYPE_CHECKING
 
+from ucon.core import UnknownUnitError
+from ucon.core import Number
+
 if TYPE_CHECKING:
     from ucon.core import Scale, Unit, UnitFactor, UnitProduct
 
 
-class TokenType(Enum):
+class _TokenType(Enum):
     """Token types for the unit expression lexer."""
     IDENT = auto()      # Unit name or scale+unit
     NUMBER = auto()     # Numeric exponent
@@ -50,9 +53,9 @@ class TokenType(Enum):
 
 
 @dataclass
-class Token:
+class _Token:
     """A lexical token from the unit expression."""
-    type: TokenType
+    type: _TokenType
     value: str
     position: int
 
@@ -75,7 +78,7 @@ class ParseError(ValueError):
         super().__init__(f"{message} at position {position}:\n  {expression}\n  {pointer}")
 
 
-class Tokenizer:
+class _Tokenizer:
     """
     Lexer for unit expressions.
 
@@ -140,19 +143,19 @@ class Tokenizer:
             return superscript.translate(_SUPERSCRIPT_MAP)
         return ''
 
-    def peek(self) -> Token:
+    def peek(self) -> _Token:
         """Look at the next token without consuming it."""
         saved_pos = self.pos
         token = self.next_token()
         self.pos = saved_pos
         return token
 
-    def next_token(self) -> Token:
+    def next_token(self) -> _Token:
         """Return the next token from the input."""
         self._skip_whitespace()
 
         if self.pos >= self.length:
-            return Token(TokenType.EOF, '', self.pos)
+            return _Token(_TokenType.EOF, '', self.pos)
 
         start_pos = self.pos
         ch = self.expression[self.pos]
@@ -160,41 +163,41 @@ class Tokenizer:
         # Single-character tokens
         if ch == '(':
             self.pos += 1
-            return Token(TokenType.LPAREN, '(', start_pos)
+            return _Token(_TokenType.LPAREN, '(', start_pos)
         if ch == ')':
             self.pos += 1
-            return Token(TokenType.RPAREN, ')', start_pos)
+            return _Token(_TokenType.RPAREN, ')', start_pos)
         if ch == '/':
             self.pos += 1
-            return Token(TokenType.DIV, '/', start_pos)
+            return _Token(_TokenType.DIV, '/', start_pos)
         if ch == '^':
             self.pos += 1
-            return Token(TokenType.POW, '^', start_pos)
+            return _Token(_TokenType.POW, '^', start_pos)
         if ch in self._MUL_CHARS:
             self.pos += 1
-            return Token(TokenType.MUL, ch, start_pos)
+            return _Token(_TokenType.MUL, ch, start_pos)
 
         # Unicode superscripts (treated as implicit POW + NUMBER)
         if ch in '⁰¹²³⁴⁵⁶⁷⁸⁹⁻':
             num = self._read_superscript()
-            return Token(TokenType.NUMBER, num, start_pos)
+            return _Token(_TokenType.NUMBER, num, start_pos)
 
         # Numbers (for exponents after ^)
         if ch.isdigit() or (ch == '-' and self.pos + 1 < self.length
                            and self.expression[self.pos + 1].isdigit()):
             num = self._read_number()
-            return Token(TokenType.NUMBER, num, start_pos)
+            return _Token(_TokenType.NUMBER, num, start_pos)
 
         # Identifiers (unit names)
         if ch.isalpha() or ch in '_µ°':
             ident = self._read_identifier()
-            return Token(TokenType.IDENT, ident, start_pos)
+            return _Token(_TokenType.IDENT, ident, start_pos)
 
         # Unknown character
         raise ParseError(f"Unexpected character '{ch}'", self.pos, self.expression)
 
 
-class UnitParser:
+class _UnitParser:
     """
     Recursive descent parser for unit expressions.
 
@@ -221,16 +224,16 @@ class UnitParser:
         self.lookup_fn = lookup_fn
         self.unit_factor_cls = unit_factor_cls
         self.unit_product_cls = unit_product_cls
-        self.tokenizer = Tokenizer(expression)
+        self.tokenizer = _Tokenizer(expression)
         self.current_token = self.tokenizer.next_token()
 
-    def _advance(self) -> Token:
+    def _advance(self) -> _Token:
         """Consume current token and advance to next."""
         token = self.current_token
         self.current_token = self.tokenizer.next_token()
         return token
 
-    def _expect(self, token_type: TokenType) -> Token:
+    def _expect(self, token_type: _TokenType) -> _Token:
         """Consume a token of the expected type, or raise an error."""
         if self.current_token.type != token_type:
             raise ParseError(
@@ -248,7 +251,7 @@ class UnitParser:
             ParseError: If the expression is malformed.
         """
         result = self._parse_expr()
-        if self.current_token.type != TokenType.EOF:
+        if self.current_token.type != _TokenType.EOF:
             raise ParseError(
                 f"Unexpected token '{self.current_token.value}'",
                 self.current_token.position,
@@ -265,11 +268,11 @@ class UnitParser:
         """
         left = self._parse_term()
 
-        while self.current_token.type in (TokenType.MUL, TokenType.DIV):
+        while self.current_token.type in (_TokenType.MUL, _TokenType.DIV):
             op = self._advance()
             right = self._parse_term()
 
-            if op.type == TokenType.MUL:
+            if op.type == _TokenType.MUL:
                 left = self._multiply(left, right)
             else:  # DIV
                 left = self._divide(left, right)
@@ -285,14 +288,14 @@ class UnitParser:
         base = self._parse_factor()
 
         # Explicit ^ exponent
-        if self.current_token.type == TokenType.POW:
+        if self.current_token.type == _TokenType.POW:
             self._advance()
-            exp_token = self._expect(TokenType.NUMBER)
+            exp_token = self._expect(_TokenType.NUMBER)
             exp = float(exp_token.value)
             return self._power(base, exp)
 
         # Implicit exponent from Unicode superscript (NUMBER token follows IDENT)
-        if self.current_token.type == TokenType.NUMBER:
+        if self.current_token.type == _TokenType.NUMBER:
             # Only consume if it looks like a superscript-derived number
             # (i.e., the previous factor was a unit, not inside parens)
             exp_token = self._advance()
@@ -305,13 +308,13 @@ class UnitParser:
         """
         Parse: factor := '(' unit_expr ')' | scale_unit
         """
-        if self.current_token.type == TokenType.LPAREN:
+        if self.current_token.type == _TokenType.LPAREN:
             self._advance()
             expr = self._parse_expr()
-            self._expect(TokenType.RPAREN)
+            self._expect(_TokenType.RPAREN)
             return expr
 
-        if self.current_token.type == TokenType.IDENT:
+        if self.current_token.type == _TokenType.IDENT:
             return self._parse_unit_atom()
 
         raise ParseError(
@@ -326,7 +329,7 @@ class UnitParser:
 
         Handles scale prefixes via the lookup function.
         """
-        token = self._expect(TokenType.IDENT)
+        token = self._expect(_TokenType.IDENT)
         unit, scale = self.lookup_fn(token.value)
         uf = self.unit_factor_cls(unit, scale)
         return self.unit_product_cls({uf: 1})
@@ -415,7 +418,7 @@ def parse_unit_expression(
         >>> parse_unit_expression("m/s²", lookup_fn, UnitFactor, UnitProduct)
         <UnitProduct m/s²>
     """
-    parser = UnitParser(expression, lookup_fn, unit_factor_cls, unit_product_cls)
+    parser = _UnitParser(expression, lookup_fn, unit_factor_cls, unit_product_cls)
     return parser.parse()
 
 
@@ -495,11 +498,10 @@ def parse(s: str) -> 'Number':
         >>> parse("100")
         <100>
     """
-    from ucon.core import Number
-    from ucon.units import get_unit_by_name, UnknownUnitError
-
     if not s or not s.strip():
         raise ValueError("Cannot parse empty string")
+
+    from ucon.resolver import get_unit_by_name
 
     s = s.strip()
 

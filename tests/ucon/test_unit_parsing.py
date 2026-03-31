@@ -557,5 +557,47 @@ class TestRecursiveDescentParser(unittest.TestCase):
         self.assertIsInstance(result, UnitProduct)
 
 
+class TestResolverEdgeCases(unittest.TestCase):
+    """Test resolver edge cases for coverage."""
+
+    def test_register_unit_empty_name_noop(self):
+        """register_unit with empty name does nothing."""
+        from ucon.resolver import register_unit
+        u = Unit(name='', dimension=Dimension.length)
+        # Should not raise, should be no-op
+        register_unit(u)
+
+    def test_parse_exponent_ascii_caret(self):
+        """ASCII caret notation: 'm^2' resolves."""
+        result = get_unit_by_name("m^2")
+        self.assertIsInstance(result, UnitProduct)
+
+    def test_parse_exponent_ascii_negative(self):
+        """ASCII caret negative: 's^-1' resolves."""
+        result = get_unit_by_name("s^-1")
+        self.assertIsInstance(result, UnitProduct)
+
+    def test_parse_exponent_ascii_invalid_raises(self):
+        """ASCII caret with non-numeric exponent raises."""
+        with self.assertRaises(UnknownUnitError):
+            get_unit_by_name("m^abc")
+
+    def test_priority_alias_min(self):
+        """'min' resolves to minute, not milli-inch."""
+        result = get_unit_by_name('min')
+        # Should be minute (time), not a prefix decomposition
+        if isinstance(result, UnitProduct):
+            # extract the unit from the product
+            uf, exp = next(iter(result.factors.items()))
+            self.assertEqual(uf.unit.dimension, Dimension.time)
+        else:
+            self.assertEqual(result.dimension, Dimension.time)
+
+    def test_empty_string_raises(self):
+        """Empty string raises UnknownUnitError."""
+        with self.assertRaises((UnknownUnitError, ValueError)):
+            get_unit_by_name('')
+
+
 if __name__ == '__main__':
     unittest.main()

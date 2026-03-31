@@ -28,33 +28,37 @@ Notes
 The design allows for future extensibility: users can register their own units,
 systems, or aliases dynamically, without modifying the core definitions.
 """
-import re
-from typing import Dict, Tuple, Union
-
-from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct, UnitSystem
+from ucon.core import Dimension, Scale, Unit, UnitSystem, UnknownUnitError  # noqa: F401
 from ucon.dimension import (
     NONE, TIME, LENGTH, MASS, CURRENT, TEMPERATURE,
     LUMINOUS_INTENSITY, AMOUNT_OF_SUBSTANCE, INFORMATION,
     ANGLE, SOLID_ANGLE, RATIO, COUNT,
     VELOCITY, ACCELERATION, FORCE, ENERGY, POWER,
     MOMENTUM, ANGULAR_MOMENTUM, AREA, VOLUME, DENSITY, PRESSURE, FREQUENCY,
-    DYNAMIC_VISCOSITY, KINEMATIC_VISCOSITY, GRAVITATION,
+    DYNAMIC_VISCOSITY, KINEMATIC_VISCOSITY, LINEAR_DENSITY, GRAVITATION,
     CHARGE, VOLTAGE, RESISTANCE, RESISTIVITY, CONDUCTANCE, CONDUCTIVITY,
     CAPACITANCE, INDUCTANCE, MAGNETIC_FLUX, MAGNETIC_FLUX_DENSITY,
     MAGNETIC_PERMEABILITY, PERMITTIVITY, ELECTRIC_FIELD_STRENGTH,
+    MAGNETIC_FIELD_STRENGTH,
     ENTROPY, SPECIFIC_HEAT_CAPACITY, THERMAL_CONDUCTIVITY,
-    ILLUMINANCE, CATALYTIC_ACTIVITY, MOLAR_MASS, MOLAR_VOLUME,
+    ILLUMINANCE, CATALYTIC_ACTIVITY, MOLAR_MASS, MOLAR_VOLUME, CONCENTRATION,
+    WAVENUMBER, RADIANT_EXPOSURE, EXPOSURE, ELECTRIC_DIPOLE_MOMENT,
+    # CGS dimensions
+    CGS_FORCE, CGS_ENERGY, CGS_PRESSURE,
+    CGS_DYNAMIC_VISCOSITY, CGS_KINEMATIC_VISCOSITY,
+    CGS_ACCELERATION, CGS_WAVENUMBER, CGS_RADIANT_EXPOSURE,
+    # CGS-ESU dimensions
+    CGS_ESU_CHARGE, CGS_ESU_CURRENT, CGS_ESU_VOLTAGE,
+    CGS_ESU_RESISTANCE, CGS_ESU_CAPACITANCE,
+    CGS_ESU_MAGNETIC_FLUX_DENSITY, CGS_ESU_MAGNETIC_FLUX,
+    CGS_ESU_MAGNETIC_FIELD_STRENGTH, CGS_ESU_ELECTRIC_DIPOLE_MOMENT,
+    # CGS-EMU dimensions
+    CGS_EMU_CURRENT, CGS_EMU_CHARGE, CGS_EMU_VOLTAGE,
+    CGS_EMU_RESISTANCE, CGS_EMU_CAPACITANCE, CGS_EMU_INDUCTANCE,
+    # Natural-unit dimensions
+    NATURAL_ENERGY,
 )
-from ucon.graph import get_parsing_graph
-from ucon.parsing import parse_unit_expression, ParseError
-
-
-class UnknownUnitError(Exception):
-    """Raised when a unit string cannot be resolved to a known unit."""
-
-    def __init__(self, name: str):
-        self.name = name
-        super().__init__(f"Unknown unit: {name!r}")
+from ucon.resolver import register_unit, register_priority_scaled_alias, get_unit_by_name
 
 
 none = Unit()
@@ -96,9 +100,15 @@ webers_per_meter = Unit(name='webers_per_meter', dimension=MAGNETIC_PERMEABILITY
 # ----------------------------------------------------------------------
 
 
-# -- Viscosity Units ---------------------------------------------------
-poise = Unit(name='poise', dimension=DYNAMIC_VISCOSITY, aliases=('P',))
-stokes = Unit(name='stokes', dimension=KINEMATIC_VISCOSITY, aliases=('St',))
+# -- Named SI Intermediates (for cross-basis Unit→Unit edges) ----------
+pascal_second = Unit(name='pascal_second', dimension=DYNAMIC_VISCOSITY, aliases=('Pa·s', 'Pa*s'))
+square_meter_per_second = Unit(name='square_meter_per_second', dimension=KINEMATIC_VISCOSITY, aliases=('m²/s', 'm2/s'))
+ampere_per_meter = Unit(name='ampere_per_meter', dimension=MAGNETIC_FIELD_STRENGTH, aliases=('A/m',))
+meter_per_second_squared = Unit(name='meter_per_second_squared', dimension=ACCELERATION, aliases=('m/s²', 'm/s2'))
+reciprocal_meter = Unit(name='reciprocal_meter', dimension=WAVENUMBER, aliases=('m⁻¹', '1/m'))
+joule_per_square_meter = Unit(name='joule_per_square_meter', dimension=RADIANT_EXPOSURE, aliases=('J/m²', 'J/m2'))
+coulomb_meter = Unit(name='coulomb_meter', dimension=ELECTRIC_DIPOLE_MOMENT, aliases=('C·m', 'C*m'))
+coulomb_per_kilogram = Unit(name='coulomb_per_kilogram', dimension=EXPOSURE, aliases=('C/kg',))
 # ----------------------------------------------------------------------
 
 
@@ -107,6 +117,11 @@ second = Unit(name='second', dimension=TIME, aliases=('s', 'sec'))
 minute = Unit(name='minute', dimension=TIME, aliases=('min',))
 hour = Unit(name='hour', dimension=TIME, aliases=('h', 'hr'))
 day = Unit(name='day', dimension=TIME, aliases=('d',))
+week = Unit(name='week', dimension=TIME, aliases=('wk', 'weeks'))
+year = Unit(name='year', dimension=TIME, aliases=('yr', 'years'))
+month = Unit(name='month', dimension=TIME, aliases=('mo', 'months'))
+fortnight = Unit(name='fortnight', dimension=TIME, aliases=('fn', 'fortnights'))
+shake = Unit(name='shake', dimension=TIME, aliases=('shakes',))
 # ----------------------------------------------------------------------
 
 
@@ -116,25 +131,82 @@ foot = Unit(name='foot', dimension=LENGTH, aliases=('ft', 'feet'))
 inch = Unit(name='inch', dimension=LENGTH, aliases=('in', 'inches'))
 yard = Unit(name='yard', dimension=LENGTH, aliases=('yd', 'yards'))
 mile = Unit(name='mile', dimension=LENGTH, aliases=('mi', 'miles'))
+nautical_mile = Unit(name='nautical_mile', dimension=LENGTH, aliases=('nmi', 'NM'))
+fathom = Unit(name='fathom', dimension=LENGTH, aliases=('ftm', 'fathoms'))
+furlong = Unit(name='furlong', dimension=LENGTH, aliases=('fur', 'furlongs'))
+chain = Unit(name='chain', dimension=LENGTH, aliases=('ch', 'chains'))
+rod = Unit(name='rod', dimension=LENGTH, aliases=('rd', 'rods', 'perch', 'pole'))
+mil = Unit(name='mil', dimension=LENGTH, aliases=('thou',))
+hand = Unit(name='hand', dimension=LENGTH, aliases=('hh', 'hands'))
+league = Unit(name='league', dimension=LENGTH, aliases=('lea', 'leagues'))
+cable = Unit(name='cable', dimension=LENGTH, aliases=('cables',))
 
 # Mass
 pound = Unit(name='pound', dimension=MASS, aliases=('lb', 'lbs'))
 ounce = Unit(name='ounce', dimension=MASS, aliases=('oz', 'ounces'))
+metric_ton = Unit(name='metric_ton', dimension=MASS, aliases=('t', 'tonne', 'tonnes'))
+stone = Unit(name='stone', dimension=MASS, aliases=('st',))
+grain = Unit(name='grain', dimension=MASS, aliases=('gr', 'grains'))
+slug = Unit(name='slug', dimension=MASS, aliases=('slug',))
+carat = Unit(name='carat', dimension=MASS, aliases=('ct_mass', 'carats'))
+troy_ounce = Unit(name='troy_ounce', dimension=MASS, aliases=('ozt', 'troy_oz'))
+long_ton = Unit(name='long_ton', dimension=MASS, aliases=('long_tons', 'imperial_ton'))
+short_ton = Unit(name='short_ton', dimension=MASS, aliases=('short_tons', 'US_ton'))
+dram = Unit(name='dram', dimension=MASS, aliases=('dr', 'drams'))
+pennyweight = Unit(name='pennyweight', dimension=MASS, aliases=('dwt', 'pennyweights'))
 
 # Temperature
 fahrenheit = Unit(name='fahrenheit', dimension=TEMPERATURE, aliases=('°F', 'degF'))
 rankine = Unit(name='rankine', dimension=TEMPERATURE, aliases=('°R', 'degR', 'R'))
+reaumur = Unit(name='reaumur', dimension=TEMPERATURE, aliases=('°Ré', 'degRe'))
+
+# Historical electrical
+international_ampere = Unit(name='international_ampere', dimension=CURRENT, aliases=('A_int',))
+international_volt = Unit(name='international_volt', dimension=VOLTAGE, aliases=('V_int',))
+international_ohm = Unit(name='international_ohm', dimension=RESISTANCE, aliases=('ohm_int',))
 
 # Volume
 gallon = Unit(name='gallon', dimension=VOLUME, aliases=('gal', 'gallons'))
+quart = Unit(name='quart', dimension=VOLUME, aliases=('qt', 'quarts'))
+pint_volume = Unit(name='pint', dimension=VOLUME, aliases=('pt', 'pints'))
+cup = Unit(name='cup', dimension=VOLUME, aliases=('cp', 'cups'))
+fluid_ounce = Unit(name='fluid_ounce', dimension=VOLUME, aliases=('floz', 'fl_oz'))
+tablespoon = Unit(name='tablespoon', dimension=VOLUME, aliases=('tbsp',))
+teaspoon = Unit(name='teaspoon', dimension=VOLUME, aliases=('tsp',))
+barrel = Unit(name='barrel', dimension=VOLUME, aliases=('bbl', 'barrels'))
+imperial_gallon = Unit(name='imperial_gallon', dimension=VOLUME, aliases=('imp_gal',))
+imperial_pint = Unit(name='imperial_pint', dimension=VOLUME, aliases=('imp_pt',))
+bushel = Unit(name='bushel', dimension=VOLUME, aliases=('bu', 'bushels'))
+peck = Unit(name='peck', dimension=VOLUME, aliases=('pk', 'pecks'))
+gill = Unit(name='gill', dimension=VOLUME, aliases=('gi', 'gills'))
+minim = Unit(name='minim', dimension=VOLUME, aliases=('min_vol', 'minims'))
+cubic_foot = Unit(name='cubic_foot', dimension=VOLUME, aliases=('ft³', 'cu_ft'))
+cubic_inch = Unit(name='cubic_inch', dimension=VOLUME, aliases=('in³', 'cu_in'))
+cubic_yard = Unit(name='cubic_yard', dimension=VOLUME, aliases=('yd³', 'cu_yd'))
+acre_foot = Unit(name='acre_foot', dimension=VOLUME, aliases=('ac_ft', 'acre_feet'))
+stere = Unit(name='stere', dimension=VOLUME, aliases=('st_vol',))
+imperial_quart = Unit(name='imperial_quart', dimension=VOLUME, aliases=('imp_qt',))
+imperial_fluid_ounce = Unit(name='imperial_fluid_ounce', dimension=VOLUME, aliases=('imp_floz',))
+imperial_gill = Unit(name='imperial_gill', dimension=VOLUME, aliases=('imp_gi',))
+imperial_cup = Unit(name='imperial_cup', dimension=VOLUME, aliases=('imp_cup',))
 
 # Energy
 calorie = Unit(name='calorie', dimension=ENERGY, aliases=('cal', 'calories'))
 btu = Unit(name='btu', dimension=ENERGY, aliases=('BTU',))
 watt_hour = Unit(name='watt_hour', dimension=ENERGY, aliases=('Wh',))
+therm = Unit(name='therm', dimension=ENERGY, aliases=('thm', 'therms'))
+foot_pound = Unit(name='foot_pound', dimension=ENERGY, aliases=('ft_lb', 'ft_lbf'))
+thermochemical_calorie = Unit(name='thermochemical_calorie', dimension=ENERGY, aliases=('cal_th',))
+ton_tnt = Unit(name='ton_tnt', dimension=ENERGY, aliases=('tTNT',))
+tonne_oil_equivalent = Unit(name='tonne_oil_equivalent', dimension=ENERGY, aliases=('toe',))
 
 # Power
 horsepower = Unit(name='horsepower', dimension=POWER, aliases=('hp',))
+volt_ampere = Unit(name='volt_ampere', dimension=POWER, aliases=('VA',))
+metric_horsepower = Unit(name='metric_horsepower', dimension=POWER, aliases=('PS',))
+electrical_horsepower = Unit(name='electrical_horsepower', dimension=POWER, aliases=('hp_e',))
+boiler_horsepower = Unit(name='boiler_horsepower', dimension=POWER, aliases=('hp_boiler',))
+refrigeration_ton = Unit(name='refrigeration_ton', dimension=POWER, aliases=('TR', 'ton_ref'))
 
 # Pressure
 bar = Unit(name='bar', dimension=PRESSURE, aliases=('bar',))
@@ -143,11 +215,130 @@ atmosphere = Unit(name='atmosphere', dimension=PRESSURE, aliases=('atm',))
 torr = Unit(name='torr', dimension=PRESSURE, aliases=('Torr',))
 millimeter_mercury = Unit(name='millimeter_mercury', dimension=PRESSURE, aliases=('mmHg',))
 inch_mercury = Unit(name='inch_mercury', dimension=PRESSURE, aliases=('inHg',))
+centimeter_water = Unit(name='centimeter_water', dimension=PRESSURE, aliases=('cmH2O', 'cmAq'))
+centimeter_mercury = Unit(name='centimeter_mercury', dimension=PRESSURE, aliases=('cmHg',))
+ksi = Unit(name='ksi', dimension=PRESSURE, aliases=('ksi',))
+technical_atmosphere = Unit(name='technical_atmosphere', dimension=PRESSURE, aliases=('at',))
+millimeter_water = Unit(name='millimeter_water', dimension=PRESSURE, aliases=('mmH2O', 'mmAq'))
+inch_water = Unit(name='inch_water', dimension=PRESSURE, aliases=('inH2O', 'inAq'))
 
 # Force
 pound_force = Unit(name='pound_force', dimension=FORCE, aliases=('lbf',))
 kilogram_force = Unit(name='kilogram_force', dimension=FORCE, aliases=('kgf',))
-dyne = Unit(name='dyne', dimension=FORCE, aliases=('dyn',))
+kip = Unit(name='kip', dimension=FORCE, aliases=('klbf',))
+poundal = Unit(name='poundal', dimension=FORCE, aliases=('pdl',))
+gram_force = Unit(name='gram_force', dimension=FORCE, aliases=('gf',))
+ounce_force = Unit(name='ounce_force', dimension=FORCE, aliases=('ozf',))
+ton_force = Unit(name='ton_force', dimension=FORCE, aliases=('tnf', 'short_ton_force'))
+metric_ton_force = Unit(name='metric_ton_force', dimension=FORCE, aliases=('tf', 'tonne_force'))
+# ----------------------------------------------------------------------
+
+
+# -- Area Units --------------------------------------------------------
+acre = Unit(name='acre', dimension=AREA, aliases=('ac', 'acres'))
+hectare = Unit(name='hectare', dimension=AREA, aliases=('ha',))
+# ----------------------------------------------------------------------
+
+
+# -- Velocity Units ----------------------------------------------------
+knot = Unit(name='knot', dimension=VELOCITY, aliases=('kn', 'kt', 'knots'))
+mile_per_hour = Unit(name='mile_per_hour', dimension=VELOCITY, aliases=('mph',))
+# ----------------------------------------------------------------------
+
+
+# -- Scientific Units --------------------------------------------------
+# Length
+angstrom = Unit(name='angstrom', dimension=LENGTH, aliases=('Å', 'angstroms'))
+light_year = Unit(name='light_year', dimension=LENGTH, aliases=('ly', 'light_years'))
+parsec = Unit(name='parsec', dimension=LENGTH, aliases=('pc', 'parsecs'))
+astronomical_unit = Unit(name='astronomical_unit', dimension=LENGTH, aliases=('au', 'AU'))
+
+# Mass
+dalton = Unit(name='dalton', dimension=MASS, aliases=('Da', 'u', 'amu'))
+
+# Area
+barn = Unit(name='barn', dimension=AREA, aliases=('b_area',))
+
+# Charge
+ampere_hour = Unit(name='ampere_hour', dimension=CHARGE, aliases=('Ah',))
+
+
+# Radiation
+curie = Unit(name='curie', dimension=FREQUENCY, aliases=('Ci',))
+rem = Unit(name='rem', dimension=ENERGY, aliases=('rem',))
+rad_dose = Unit(name='rad_dose', dimension=ENERGY, aliases=('rad_absorbed',))
+roentgen = Unit(name='roentgen', dimension=EXPOSURE, aliases=('R_exp',))
+
+
+# Catalytic activity
+enzyme_unit = Unit(name='enzyme_unit', dimension=CATALYTIC_ACTIVITY, aliases=('U', 'IU'))
+
+# Typography
+point_typo = Unit(name='point', dimension=LENGTH, aliases=('pt_typo',))
+pica = Unit(name='pica', dimension=LENGTH, aliases=('pica',))
+
+# Textile (linear density)
+tex = Unit(name='tex', dimension=LINEAR_DENSITY, aliases=('tex',))
+denier = Unit(name='denier', dimension=LINEAR_DENSITY, aliases=('den', 'D_tex'))
+
+# Photometry
+foot_candle = Unit(name='foot_candle', dimension=ILLUMINANCE, aliases=('fc', 'ftc'))
+phot = Unit(name='phot', dimension=ILLUMINANCE, aliases=('ph',))
+
+# Viscosity
+reyn = Unit(name='reyn', dimension=DYNAMIC_VISCOSITY, aliases=('reyn',))
+
+# Spectroscopy / Radiation (SI-basis)
+jansky = Unit(name='jansky', dimension=RADIANT_EXPOSURE, aliases=('Jy',))
+
+# Acceleration
+galileo = Unit(name='galileo', dimension=CGS_ACCELERATION, aliases=('Gal',))
+standard_gravity = Unit(name='standard_gravity', dimension=ACCELERATION, aliases=('g0', 'gn'))
+
+# Concentration
+molar = Unit(name='molar', dimension=CONCENTRATION, aliases=('mol/L',))
+# ----------------------------------------------------------------------
+
+
+# -- CGS Mechanical Units (native CGS basis) ---------------------------
+dyne = Unit(name='dyne', dimension=CGS_FORCE, aliases=('dyn',))
+erg = Unit(name='erg', dimension=CGS_ENERGY, aliases=('erg',))
+barye = Unit(name='barye', dimension=CGS_PRESSURE, aliases=('Ba',))
+poise = Unit(name='poise', dimension=CGS_DYNAMIC_VISCOSITY, aliases=('P',))
+stokes = Unit(name='stokes', dimension=CGS_KINEMATIC_VISCOSITY, aliases=('St',))
+kayser = Unit(name='kayser', dimension=CGS_WAVENUMBER, aliases=('K_wave',))
+langley = Unit(name='langley', dimension=CGS_RADIANT_EXPOSURE, aliases=('Ly_rad',))
+# ----------------------------------------------------------------------
+
+
+# -- CGS-ESU Electromagnetic Units (native CGS-ESU basis) --------------
+statcoulomb = Unit(name='statcoulomb', dimension=CGS_ESU_CHARGE, aliases=('statC', 'esu', 'franklin', 'Fr'))
+statampere = Unit(name='statampere', dimension=CGS_ESU_CURRENT, aliases=('statA',))
+statvolt = Unit(name='statvolt', dimension=CGS_ESU_VOLTAGE, aliases=('statV',))
+statohm = Unit(name='statohm', dimension=CGS_ESU_RESISTANCE, aliases=('statΩ',))
+statfarad = Unit(name='statfarad', dimension=CGS_ESU_CAPACITANCE, aliases=('statF',))
+gauss = Unit(name='gauss', dimension=CGS_ESU_MAGNETIC_FLUX_DENSITY, aliases=('G', 'Gs'))
+maxwell = Unit(name='maxwell', dimension=CGS_ESU_MAGNETIC_FLUX, aliases=('Mx',))
+oersted = Unit(name='oersted', dimension=CGS_ESU_MAGNETIC_FIELD_STRENGTH, aliases=('Oe',))
+debye = Unit(name='debye', dimension=CGS_ESU_ELECTRIC_DIPOLE_MOMENT, aliases=('D_dipole',))
+# ----------------------------------------------------------------------
+
+
+# -- CGS-EMU Electromagnetic Units (native CGS basis) -----------------
+biot = Unit(name='biot', dimension=CGS_EMU_CURRENT, aliases=('Bi', 'abampere', 'abA'))
+abcoulomb = Unit(name='abcoulomb', dimension=CGS_EMU_CHARGE, aliases=('abC',))
+abvolt = Unit(name='abvolt', dimension=CGS_EMU_VOLTAGE, aliases=('abV',))
+abohm = Unit(name='abohm', dimension=CGS_EMU_RESISTANCE, aliases=('abΩ',))
+abfarad = Unit(name='abfarad', dimension=CGS_EMU_CAPACITANCE, aliases=('abF',))
+abhenry = Unit(name='abhenry', dimension=CGS_EMU_INDUCTANCE, aliases=('abH',))
+gilbert = Unit(name='gilbert', dimension=CGS_EMU_CURRENT, aliases=('Gb', 'Gi'))
+# ----------------------------------------------------------------------
+
+
+# -- Natural Units (native natural basis) ------------------------------
+electron_volt = Unit(name='electron_volt', dimension=NATURAL_ENERGY, aliases=('eV',))
+hartree = Unit(name='hartree', dimension=NATURAL_ENERGY, aliases=('Eh', 'Ha'))
+rydberg = Unit(name='rydberg', dimension=NATURAL_ENERGY, aliases=('Ry',))
 # ----------------------------------------------------------------------
 
 
@@ -225,10 +416,6 @@ each = Unit(name='each', dimension=COUNT, aliases=('ea', 'item', 'ct'))
 # ----------------------------------------------------------------------
 
 
-# Backward compatibility alias
-webers = weber
-
-
 # -- Predefined Unit Systems -----------------------------------------------
 si = UnitSystem(
     name="SI",
@@ -273,260 +460,16 @@ def have(name: str) -> bool:
     return False
 
 
-# -- Unit String Parsing Infrastructure ------------------------------------
+# -- Populate resolver registry at module load time --------------------------
 
-# Module-level registries (populated by _build_registry at module load)
-_UNIT_REGISTRY: Dict[str, Unit] = {}
-_UNIT_REGISTRY_CASE_SENSITIVE: Dict[str, Unit] = {}
-
-# -----------------------------------------------------------------------------
-# Priority Alias Invariant (for contributors)
-# -----------------------------------------------------------------------------
-#
-# When a unit alias could be misinterpreted as a scale prefix + unit symbol,
-# add it to _PRIORITY_ALIASES or _PRIORITY_SCALED_ALIASES to prevent ambiguity.
-#
-# Examples:
-#   - "min" could parse as milli-inch (m + in), but should be minute
-#   - "mcg" could fail (no "mc" prefix), but should be microgram
-#   - "cc" could fail, but should be cubic centimeter (cm³)
-#
-# Rule: If a unit string starts with a valid scale prefix AND the remainder
-# is a valid unit symbol, check whether the whole string should be treated
-# as a single unit. If so, add it to:
-#
-#   _PRIORITY_ALIASES - for unscaled units (e.g., "min" -> minute)
-#   _PRIORITY_SCALED_ALIASES - for scaled units (e.g., "mcg" -> microgram)
-#
-# The parser checks these sets BEFORE attempting prefix decomposition.
-# -----------------------------------------------------------------------------
-
-# Priority aliases that must match exactly before prefix decomposition.
-# Prevents ambiguous parses like "min" -> milli-inch instead of minute.
-_PRIORITY_ALIASES: set = {'min'}
-
-# Priority scaled aliases that map to a specific (unit, scale) tuple.
-# Used for medical conventions like "mcg" -> (gram, Scale.micro).
-# Populated by _build_registry() after units are defined.
-_PRIORITY_SCALED_ALIASES: Dict[str, Tuple[Unit, Scale]] = {}
-
-# Scale prefix mapping (shorthand -> Scale)
-# Derived from Scale enum's ScaleDescriptor.shorthand, plus input-only aliases
-_SCALE_PREFIXES: Dict[str, Scale] = {
-    s.shorthand: s for s in Scale if s.shorthand
-}
-
-# Additional input aliases not in canonical ScaleDescriptor.shorthand
-_SCALE_PREFIXES.update({
-    'u': Scale.micro,  # ASCII alternative for µ
-    'μ': Scale.micro,  # Unicode MICRO SIGN (U+00B5)
-    # Note: Scale.micro.shorthand is 'µ' (GREEK SMALL LETTER MU, U+03BC)
-})
-
-# Sorted by length descending for greedy prefix matching
-_SCALE_PREFIXES_SORTED = sorted(_SCALE_PREFIXES.keys(), key=len, reverse=True)
-
-# Unicode superscript translation table
-_SUPERSCRIPT_TO_DIGIT = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹⁻', '0123456789-')
-
-
-def _build_registry() -> None:
-    """
-    Populate the unit registry from module globals.
-
-    Called once at module load time. Builds both case-insensitive and
-    case-sensitive lookup tables.
-    """
+def _populate_registry() -> None:
+    """Register all units defined in this module with the resolver."""
     for obj in globals().values():
         if isinstance(obj, Unit) and obj.name:
-            # Case-insensitive registry (for lookups by name)
-            _UNIT_REGISTRY[obj.name.lower()] = obj
-            # Case-sensitive registry (for alias lookups like 'L' for liter)
-            _UNIT_REGISTRY_CASE_SENSITIVE[obj.name] = obj
-            for alias in obj.aliases:
-                if alias:
-                    _UNIT_REGISTRY[alias.lower()] = obj
-                    _UNIT_REGISTRY_CASE_SENSITIVE[alias] = obj
-
-    # Register priority scaled aliases (medical conventions)
-    _PRIORITY_SCALED_ALIASES['mcg'] = (gram, Scale.micro)  # microgram
-    _PRIORITY_SCALED_ALIASES['cc'] = (liter, Scale.milli)  # cubic centimeter = 1 mL
+            register_unit(obj)
+    # Medical conventions
+    register_priority_scaled_alias('mcg', gram, Scale.micro)   # microgram
+    register_priority_scaled_alias('cc', liter, Scale.milli)    # cubic centimeter = 1 mL
 
 
-def _parse_exponent(s: str) -> Tuple[str, float]:
-    """
-    Extract exponent from unit factor string.
-
-    Handles both formats:
-    - Unicode: 'm²' -> ('m', 2.0), 's⁻¹' -> ('s', -1.0)
-    - ASCII:  'm^2' -> ('m', 2.0), 's^-1' -> ('s', -1.0)
-
-    Returns:
-        Tuple of (base_unit_str, exponent) where exponent defaults to 1.0.
-    """
-    # Try ASCII caret notation first: "m^2", "s^-1"
-    if '^' in s:
-        base, exp_str = s.rsplit('^', 1)
-        try:
-            return base.strip(), float(exp_str)
-        except ValueError:
-            raise UnknownUnitError(s)
-
-    # Try Unicode superscripts: "m²", "s⁻¹"
-    match = re.search(r'[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+$', s)
-    if match:
-        base = s[:match.start()]
-        exp_str = match.group().translate(_SUPERSCRIPT_TO_DIGIT)
-        try:
-            return base, float(exp_str)
-        except ValueError:
-            raise UnknownUnitError(s)
-
-    # No exponent found
-    return s, 1.0
-
-
-def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
-    """
-    Look up a single unit factor, handling scale prefixes.
-
-    Checks graph-local registry first (if within a using_graph() context),
-    then falls back to the global registry.
-
-    Prioritizes prefix+unit interpretation over direct unit lookup,
-    except for priority aliases (like 'min', 'mcg') which are checked first
-    to avoid ambiguous parses or to handle domain-specific conventions.
-
-    This means "kg" returns (gram, Scale.kilo) rather than (kilogram, Scale.one).
-
-    Examples:
-    - 'meter' -> (meter, Scale.one)
-    - 'm' -> (meter, Scale.one)
-    - 'km' -> (meter, Scale.kilo)
-    - 'kg' -> (gram, Scale.kilo)
-    - 'mL' -> (liter, Scale.milli)
-    - 'min' -> (minute, Scale.one)  # priority alias, not milli-inch
-    - 'mcg' -> (gram, Scale.micro)  # medical convention for microgram
-
-    Returns:
-        Tuple of (unit, scale).
-
-    Raises:
-        UnknownUnitError: If the unit cannot be resolved.
-    """
-    # Check graph-local registry first (if in using_graph() context)
-    graph = get_parsing_graph()
-    if graph is not None:
-        result = graph.resolve_unit(s)
-        if result is not None:
-            return result
-
-    # Check priority scaled aliases first (e.g., "mcg" -> microgram)
-    if s in _PRIORITY_SCALED_ALIASES:
-        return _PRIORITY_SCALED_ALIASES[s]
-
-    # Check priority aliases (prevents "min" -> milli-inch)
-    if s in _PRIORITY_ALIASES:
-        if s in _UNIT_REGISTRY_CASE_SENSITIVE:
-            return _UNIT_REGISTRY_CASE_SENSITIVE[s], Scale.one
-        s_lower = s.lower()
-        if s_lower in _UNIT_REGISTRY:
-            return _UNIT_REGISTRY[s_lower], Scale.one
-
-    # Try scale prefix + unit (prioritize decomposition)
-    # Only case-sensitive matching for remainder (e.g., "fT" = femto-tesla, "ft" = foot)
-    for prefix in _SCALE_PREFIXES_SORTED:
-        if s.startswith(prefix) and len(s) > len(prefix):
-            remainder = s[len(prefix):]
-            if remainder in _UNIT_REGISTRY_CASE_SENSITIVE:
-                return _UNIT_REGISTRY_CASE_SENSITIVE[remainder], _SCALE_PREFIXES[prefix]
-
-    # Fall back to exact case-sensitive match (for aliases like 'L', 'B', 'm')
-    if s in _UNIT_REGISTRY_CASE_SENSITIVE:
-        return _UNIT_REGISTRY_CASE_SENSITIVE[s], Scale.one
-
-    # Fall back to case-insensitive match
-    s_lower = s.lower()
-    if s_lower in _UNIT_REGISTRY:
-        return _UNIT_REGISTRY[s_lower], Scale.one
-
-    raise UnknownUnitError(s)
-
-
-def _parse_composite(s: str) -> UnitProduct:
-    """
-    Parse composite unit string into UnitProduct using recursive descent.
-
-    Accepts both Unicode and ASCII notation:
-    - Unicode: 'm/s²', 'kg·m/s²', 'N·m', 'W/(m²*K)'
-    - ASCII:  'm/s^2', 'kg*m/s^2', 'N*m', 'W/(m^2*K)'
-
-    Supports:
-    - Parentheses: `W/(m²*K)`, `(kg*m)/(s^2)`
-    - Chained division: `mg/kg/d`
-    - Unicode superscripts: `⁰¹²³⁴⁵⁶⁷⁸⁹⁻`
-    - ASCII exponents: `^2`, `^-1`
-
-    Returns:
-        UnitProduct representing the parsed composite unit.
-
-    Raises:
-        ParseError: If the expression is malformed (e.g., unbalanced parens).
-        UnknownUnitError: If a unit name cannot be resolved.
-    """
-    return parse_unit_expression(s, _lookup_factor, UnitFactor, UnitProduct)
-
-
-def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
-    """
-    Look up a unit by name, alias, or shorthand.
-
-    Handles:
-    - Plain units: "meter", "m", "second", "s"
-    - Scaled units: "km", "mL", "kg"
-    - Composite units: "m/s", "kg*m/s^2", "N·m"
-    - Exponents: "m²", "m^2", "s⁻¹", "s^-1"
-
-    Args:
-        name: Unit string to parse.
-
-    Returns:
-        Unit for simple unscaled units, UnitProduct for scaled or composite.
-
-    Raises:
-        UnknownUnitError: If the unit cannot be resolved.
-
-    Examples:
-        >>> get_unit_by_name("meter")
-        <Unit m>
-        >>> get_unit_by_name("km")
-        <UnitProduct km>
-        >>> get_unit_by_name("m/s^2")
-        <UnitProduct m/s²>
-    """
-    if not name or not name.strip():
-        raise UnknownUnitError(name if name else "")
-
-    name = name.strip()
-
-    # Check for composite (has operators or parentheses)
-    # Note: · (U+00B7 middle dot) and ⋅ (U+22C5 dot operator) are both multiplication
-    if '/' in name or '·' in name or '⋅' in name or '*' in name or '(' in name:
-        return _parse_composite(name)
-
-    # Check for exponent
-    base_str, exp = _parse_exponent(name)
-    if exp != 1.0:
-        unit, scale = _lookup_factor(base_str)
-        return UnitProduct({UnitFactor(unit, scale): exp})
-
-    # Simple unit or scaled unit
-    unit, scale = _lookup_factor(name)
-    if scale == Scale.one:
-        return unit
-    else:
-        return UnitProduct({UnitFactor(unit, scale): 1})
-
-
-# Build the registry at module load time
-_build_registry()
+_populate_registry()

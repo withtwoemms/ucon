@@ -7,7 +7,7 @@ import unittest
 from ucon import units
 from ucon.core import UnitProduct, UnitFactor, Scale, Unit
 from ucon import Dimension
-from ucon.core import Number, Ratio
+from ucon.quantity import Number, Ratio
 
 
 class TestNumber(unittest.TestCase):
@@ -614,3 +614,62 @@ class TestInformationDimension(unittest.TestCase):
         composite = units.byte * units.meter
         self.assertNotEqual(composite.dimension, Dimension.information)
         self.assertNotEqual(composite.dimension, Dimension.length)
+
+
+class TestNumberToStringTarget(unittest.TestCase):
+    """Tests for Number.to() accepting string targets."""
+
+    def test_to_bare_name(self):
+        """String target resolves by unit name."""
+        result = units.meter(100).to("foot")
+        self.assertAlmostEqual(result.quantity, 328.084, places=2)
+
+    def test_to_alias(self):
+        """String target resolves by alias."""
+        result = units.meter(100).to("ft")
+        self.assertAlmostEqual(result.quantity, 328.084, places=2)
+
+    def test_to_scale_prefix(self):
+        """String target resolves scale prefix."""
+        result = units.meter(5000).to("km")
+        self.assertAlmostEqual(result.quantity, 5.0, places=10)
+
+    def test_to_composite_expression(self):
+        """String target resolves composite unit expression."""
+        mph = units.mile / units.hour
+        result = mph(60).to("m/s")
+        self.assertAlmostEqual(result.quantity, 26.8224, places=2)
+
+    def test_to_unicode_exponent(self):
+        """String target supports unicode exponents."""
+        result = units.meter(1).to("mm")
+        self.assertAlmostEqual(result.quantity, 1000.0, places=6)
+
+    def test_to_temperature_string(self):
+        """String target works for affine (temperature) conversions."""
+        result = units.celsius(100).to("kelvin")
+        self.assertAlmostEqual(result.quantity, 373.15, places=2)
+
+    def test_to_string_unknown_unit_raises(self):
+        """Unknown string target raises UnknownUnitError."""
+        from ucon.units import UnknownUnitError
+        with self.assertRaises(UnknownUnitError):
+            units.meter(1).to("not_a_unit")
+
+    def test_to_string_with_uncertainty(self):
+        """String target propagates uncertainty correctly."""
+        result = units.meter(1.234, uncertainty=0.005).to("foot")
+        self.assertIsNotNone(result.uncertainty)
+        self.assertAlmostEqual(result.quantity, 4.0486, places=3)
+
+    def test_to_string_roundtrip(self):
+        """String target round-trip preserves value."""
+        original = units.kilogram(2.5)
+        via_lb = original.to("lb")
+        back = via_lb.to("kg")
+        self.assertAlmostEqual(back.quantity, 2.5, places=6)
+
+    def test_to_string_cross_basis(self):
+        """String target works for cross-basis conversions."""
+        result = units.joule(1).to("eV")
+        self.assertAlmostEqual(result.quantity, 1 / 1.602176634e-19, places=0)

@@ -32,11 +32,15 @@ True
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Union
 
+from ucon.core import Scale
+from ucon.core import Number
+
 if TYPE_CHECKING:
-    from ucon.core import Number, Unit, UnitProduct
+    from ucon.core import Unit, UnitProduct
     from ucon.dimension import Dimension
 
 
@@ -81,7 +85,6 @@ class Constant:
 
     def as_number(self) -> 'Number':
         """Return as Number for calculations."""
-        from ucon.core import Number
         return Number(
             quantity=self.value,
             unit=self.unit,
@@ -151,7 +154,6 @@ class Constant:
 def _build_constants():
     """Build constants after units module is loaded."""
     from ucon import units
-    from ucon.core import Scale
 
     # -------------------------------------------------------------------------
     # SI Defining Constants (Exact)
@@ -224,7 +226,6 @@ def _build_constants():
     # Derived Constants (Exact, derived from exact constants)
     # -------------------------------------------------------------------------
 
-    import math
     reduced_planck_constant = Constant(
         symbol="ℏ",
         name="reduced Planck constant",
@@ -370,7 +371,7 @@ def all_constants() -> list[Constant]:
     >>> len(constants)
     17
     >>> [c.symbol for c in constants if c.category == "exact"]
-    ['ΔνCs', 'c', 'h', 'e', 'k', 'NA', 'Kcd']
+    ... # ['ΔνCs', 'c', 'h', 'e', 'k', 'NA', 'Kcd']
     """
     return list(_get_constants().values())
 
@@ -448,6 +449,10 @@ def get_constant_by_symbol(symbol: str) -> Constant | None:
 
 def __getattr__(name: str):
     """Lazy attribute access for constants and aliases."""
+    # Don't intercept dunder attributes (e.g. __path__, __spec__)
+    if name.startswith('__') and name.endswith('__'):
+        raise AttributeError(name)
+
     constants = _get_constants()
 
     # Direct constant names

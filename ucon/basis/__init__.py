@@ -178,7 +178,7 @@ class Basis:
         Returns:
             A Vector with all components set to Fraction(0).
         """
-        return Vector(self, tuple(Fraction(0) for _ in self._components))
+        return Vector(self, tuple(0 for _ in self._components))
 
 
 @dataclass(frozen=True)
@@ -198,7 +198,7 @@ class Vector:
     """
 
     basis: Basis
-    components: tuple[Fraction, ...]
+    components: tuple[int | Fraction, ...]
 
     def __post_init__(self) -> None:
         if len(self.components) != len(self.basis):
@@ -206,6 +206,7 @@ class Vector:
                 f"Vector has {len(self.components)} components but "
                 f"basis '{self.basis.name}' has {len(self.basis)}"
             )
+        object.__setattr__(self, '_hash_cache', hash((self.basis, self.components)))
 
     def __getitem__(self, key: str | int) -> Fraction:
         """Get a component by name, symbol, or index.
@@ -257,8 +258,13 @@ class Vector:
             tuple(a - b for a, b in zip(self.components, other.components)),
         )
 
-    def __pow__(self, exponent: int | Fraction) -> "Vector":
+    def __pow__(self, exponent: int | float | Fraction) -> "Vector":
         """Raise dimension to a power (multiply all exponents)."""
+        if isinstance(exponent, int):
+            return Vector(
+                self.basis,
+                tuple(c * exponent for c in self.components),
+            )
         exp = Fraction(exponent)
         return Vector(
             self.basis,
@@ -278,7 +284,7 @@ class Vector:
         return self.basis == other.basis and self.components == other.components
 
     def __hash__(self) -> int:
-        return hash((self.basis, self.components))
+        return self._hash_cache
 
 
 # -----------------------------------------------------------------------------
@@ -327,7 +333,7 @@ class NoTransformPath(Exception):
 # Re-export submodule symbols for convenience
 from ucon.basis.transforms import (  # noqa: E402
     BasisTransform,
-    ConstantAwareBasisTransform,
+    ConstantBoundBasisTransform,
     ConstantBinding,
 )
 from ucon.basis.graph import (  # noqa: E402

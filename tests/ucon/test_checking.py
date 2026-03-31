@@ -6,7 +6,7 @@
 
 import unittest
 
-from ucon import Dimension, Number, units, enforce_dimensions, DimConstraint
+from ucon import Dimension, Number, units, enforce_dimensions, DimensionConstraint
 
 
 class TestEnforceDimensions(unittest.TestCase):
@@ -144,27 +144,27 @@ class TestEnforceDimensions(unittest.TestCase):
         self.assertNotIn("Vector", error_msg)
 
 
-class TestDimConstraint(unittest.TestCase):
-    """Tests for the DimConstraint marker class."""
+class TestDimensionConstraint(unittest.TestCase):
+    """Tests for the DimensionConstraint marker class."""
 
     def test_equality(self):
-        c1 = DimConstraint(Dimension.time)
-        c2 = DimConstraint(Dimension.time)
-        c3 = DimConstraint(Dimension.mass)
+        c1 = DimensionConstraint(Dimension.time)
+        c2 = DimensionConstraint(Dimension.time)
+        c3 = DimensionConstraint(Dimension.mass)
 
         self.assertEqual(c1, c2)
         self.assertNotEqual(c1, c3)
 
     def test_hash(self):
-        c1 = DimConstraint(Dimension.time)
-        c2 = DimConstraint(Dimension.time)
+        c1 = DimensionConstraint(Dimension.time)
+        c2 = DimensionConstraint(Dimension.time)
 
         self.assertEqual(hash(c1), hash(c2))
         self.assertIn(c1, {c2})
 
     def test_repr(self):
-        c = DimConstraint(Dimension.time)
-        self.assertEqual(repr(c), "DimConstraint(time)")
+        c = DimensionConstraint(Dimension.time)
+        self.assertEqual(repr(c), "DimensionConstraint(time)")
 
 
 if __name__ == "__main__":

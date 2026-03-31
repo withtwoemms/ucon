@@ -48,7 +48,7 @@ from ucon.basis import (
     BasisComponent,
     BasisGraph,
     BasisTransform,
-    ConstantAwareBasisTransform,
+    ConstantBoundBasisTransform,
     ConstantBinding,
     LossyProjection,
     NoTransformPath,
@@ -74,16 +74,17 @@ from ucon.basis.transforms import (
     SI_TO_NATURAL,
 )
 from ucon.core import (
-    DimConstraint,
+    DimensionConstraint,
     DimensionNotCovered,
+    Number,
+    Ratio,
     RebasedUnit,
     Scale,
     Unit,
     UnitFactor,
     UnitProduct,
     UnitSystem,
-    Number,
-    Ratio,
+    UnknownUnitError,
 )
 from ucon.dimension import (
     Dimension,
@@ -91,10 +92,26 @@ from ucon.dimension import (
     resolve as resolve_dimension,
 )
 from ucon.checking import enforce_dimensions
-from ucon.graph import get_default_graph, get_parsing_graph, set_default_graph, using_graph
+from ucon.graph import (
+    ConversionGraph,
+    ConversionNotFound,
+    CyclicInconsistency,
+    DimensionMismatch,
+    get_default_graph,
+    reset_default_graph,
+    set_default_graph,
+    using_graph,
+)
+from ucon.contexts import (
+    ContextEdge,
+    ConversionContext,
+    boltzmann,
+    spectroscopy,
+    using_context,
+)
 from ucon.packages import EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
-from ucon.units import UnknownUnitError, get_unit_by_name
-from ucon.parsing import parse
+from ucon.resolver import get_unit_by_name, register_unit
+from ucon.parsing import ParseError, parse
 
 
 __all__ = [
@@ -104,7 +121,7 @@ __all__ = [
     'BasisGraph',
     'BasisTransform',
     'BasisVector',
-    'ConstantAwareBasisTransform',
+    'ConstantBoundBasisTransform',
     'ConstantBinding',
     'LossyProjection',
     'NoTransformPath',
@@ -126,15 +143,26 @@ __all__ = [
     'SI_TO_CGS',
     'SI_TO_CGS_ESU',
     'SI_TO_NATURAL',
+    # Contexts
+    'ContextEdge',
+    'ConversionContext',
+    'boltzmann',
+    'spectroscopy',
+    'using_context',
     # Core types
     'Constant',
-    'DimConstraint',
+    'ConversionGraph',
+    'ConversionNotFound',
+    'CyclicInconsistency',
+    'DimensionConstraint',
     'Dimension',
+    'DimensionMismatch',
     'DimensionNotCovered',
     'EdgeDef',
     'Exponent',
     'Number',
     'PackageLoadError',
+    'ParseError',
     'Ratio',
     'RebasedUnit',
     'Scale',
@@ -149,10 +177,11 @@ __all__ = [
     'all_dimensions',
     'enforce_dimensions',
     'get_default_graph',
-    'get_parsing_graph',
     'get_unit_by_name',
+    'register_unit',
     'load_package',
     'parse',
+    'reset_default_graph',
     'resolve_dimension',
     'set_default_graph',
     'using_graph',

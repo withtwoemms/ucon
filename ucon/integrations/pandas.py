@@ -31,20 +31,24 @@ from typing import Union, TYPE_CHECKING, Iterator, Optional
 
 try:
     import pandas as pd
-    HAS_PANDAS = True
+    _HAS_PANDAS = True
 except ImportError:
-    HAS_PANDAS = False
+    _HAS_PANDAS = False
     pd = None  # type: ignore
 
 if TYPE_CHECKING:
     import pandas as pd
 
-from ucon.core import Unit, UnitProduct, UnitFactor, Scale, Number, _none
+import numpy as np
+
+from ucon.core import Unit, UnitProduct, UnitFactor, Scale
+from ucon.core import Number, _none
+from ucon.graph import get_default_graph
 
 
 def _require_pandas() -> None:
     """Raise ImportError if pandas is not available."""
-    if not HAS_PANDAS:
+    if not _HAS_PANDAS:
         raise ImportError(
             "Pandas is required for NumberSeries. "
             "Install with: pip install ucon[pandas]"
@@ -471,7 +475,6 @@ class NumberSeries:
         else:
             rel_b = 0
 
-        import numpy as np
         rel_c = np.sqrt(rel_a**2 + rel_b**2)
         result = abs(a * b) * rel_c
 
@@ -505,7 +508,6 @@ class NumberSeries:
         if ub is None:
             return ua
 
-        import numpy as np
         result = np.sqrt(ua**2 + ub**2)
 
         # Return scalar if both inputs were scalar
@@ -533,8 +535,6 @@ class NumberSeries:
         NumberSeries
             A new NumberSeries with converted values.
         """
-        from ucon.graph import get_default_graph
-
         # Normalize to UnitProduct
         src = self._unit if isinstance(self._unit, UnitProduct) else UnitProduct.from_unit(self._unit)
         dst = target if isinstance(target, UnitProduct) else UnitProduct.from_unit(target)
@@ -646,7 +646,7 @@ class NumberSeries:
 # Pandas Accessor
 # -----------------------------------------------------------------------------
 
-if HAS_PANDAS:
+if _HAS_PANDAS:
     @pd.api.extensions.register_series_accessor("ucon")
     class UconSeriesAccessor:
         """
@@ -706,6 +706,6 @@ if HAS_PANDAS:
 
 
 # Export check
-__all__ = ['NumberSeries', 'HAS_PANDAS']
-if HAS_PANDAS:
+__all__ = ['NumberSeries']
+if _HAS_PANDAS:
     __all__.append('UconSeriesAccessor')

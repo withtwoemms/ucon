@@ -19,22 +19,28 @@ Classes
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from fractions import Fraction
 import math
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from dataclasses import dataclass, field
 import sys
-from typing import Dict, Tuple, Union, TYPE_CHECKING
+from typing import Dict, Tuple, Union
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
 else:
     from typing_extensions import Annotated
 
-if TYPE_CHECKING:
-    from ucon.basis import BasisGraph
+try:
+    import numpy as np
+    _HAS_NUMPY = True
+except ImportError:
+    np = None  # type: ignore[assignment]
+    _HAS_NUMPY = False
 
+from ucon.basis import Basis, BasisGraph
 from ucon.dimension import Dimension, NONE
 
 
@@ -45,6 +51,35 @@ from ucon.dimension import Dimension, NONE
 class DimensionNotCovered(Exception):
     """Raised when a UnitSystem doesn't cover a requested dimension."""
     pass
+
+
+class UnknownUnitError(Exception):
+    """Raised when a unit string cannot be resolved to a known unit."""
+
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"Unknown unit: {name!r}")
+
+
+# --------------------------------------------------------------------------------------
+# Parsing Graph ContextVar (shared between graph.py and units.py)
+# --------------------------------------------------------------------------------------
+
+_parsing_graph: ContextVar = ContextVar("parsing_graph", default=None)
+
+
+def _get_parsing_graph():
+    """Get the graph to use for name resolution during parsing.
+
+    Returns the context-local parsing graph if set, otherwise None.
+    Used by _lookup_factor() to check graph-local registry first.
+
+    Returns
+    -------
+    ConversionGraph | None
+        The parsing graph, or None if not in a using_graph() context.
+    """
+    return _parsing_graph.get()
 
 
 # --------------------------------------------------------------------------------------
@@ -161,7 +196,7 @@ class Exponent:
 # --------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)
-class ScaleDescriptor:
+class _ScaleDescriptor:
     exponent: Exponent
     shorthand: str
     alias: str
@@ -183,35 +218,35 @@ class ScaleDescriptor:
 
     def __repr__(self):
         tag = self.alias or self.shorthand or "1"
-        return f"<ScaleDescriptor {tag}: {self.base}^{self.power}>"
+        return f"<_ScaleDescriptor {tag}: {self.base}^{self.power}>"
 
 
 @total_ordering
 class Scale(Enum):
     # Binary
-    gibi  = ScaleDescriptor(Exponent(2, 30), "Gi", "gibi")
-    mebi  = ScaleDescriptor(Exponent(2, 20), "Mi", "mebi")
-    kibi  = ScaleDescriptor(Exponent(2, 10), "Ki", "kibi")
+    gibi  = _ScaleDescriptor(Exponent(2, 30), "Gi", "gibi")
+    mebi  = _ScaleDescriptor(Exponent(2, 20), "Mi", "mebi")
+    kibi  = _ScaleDescriptor(Exponent(2, 10), "Ki", "kibi")
 
     # Decimal
-    peta  = ScaleDescriptor(Exponent(10, 15), "P", "peta")
-    tera  = ScaleDescriptor(Exponent(10, 12), "T", "tera")
-    giga  = ScaleDescriptor(Exponent(10, 9),  "G", "giga")
-    mega  = ScaleDescriptor(Exponent(10, 6),  "M", "mega")
-    kilo  = ScaleDescriptor(Exponent(10, 3),  "k", "kilo")
-    hecto = ScaleDescriptor(Exponent(10, 2),  "h", "hecto")
-    deca  = ScaleDescriptor(Exponent(10, 1),  "da", "deca")
-    one   = ScaleDescriptor(Exponent(10, 0),  "",  "")
-    deci  = ScaleDescriptor(Exponent(10,-1),  "d", "deci")
-    centi = ScaleDescriptor(Exponent(10,-2),  "c", "centi")
-    milli = ScaleDescriptor(Exponent(10,-3),  "m", "milli")
-    micro = ScaleDescriptor(Exponent(10,-6),  "µ", "micro")
-    nano  = ScaleDescriptor(Exponent(10,-9),  "n", "nano")
-    pico  = ScaleDescriptor(Exponent(10,-12), "p", "pico")
-    femto = ScaleDescriptor(Exponent(10,-15), "f", "femto")
+    peta  = _ScaleDescriptor(Exponent(10, 15), "P", "peta")
+    tera  = _ScaleDescriptor(Exponent(10, 12), "T", "tera")
+    giga  = _ScaleDescriptor(Exponent(10, 9),  "G", "giga")
+    mega  = _ScaleDescriptor(Exponent(10, 6),  "M", "mega")
+    kilo  = _ScaleDescriptor(Exponent(10, 3),  "k", "kilo")
+    hecto = _ScaleDescriptor(Exponent(10, 2),  "h", "hecto")
+    deca  = _ScaleDescriptor(Exponent(10, 1),  "da", "deca")
+    one   = _ScaleDescriptor(Exponent(10, 0),  "",  "")
+    deci  = _ScaleDescriptor(Exponent(10,-1),  "d", "deci")
+    centi = _ScaleDescriptor(Exponent(10,-2),  "c", "centi")
+    milli = _ScaleDescriptor(Exponent(10,-3),  "m", "milli")
+    micro = _ScaleDescriptor(Exponent(10,-6),  "µ", "micro")
+    nano  = _ScaleDescriptor(Exponent(10,-9),  "n", "nano")
+    pico  = _ScaleDescriptor(Exponent(10,-12), "p", "pico")
+    femto = _ScaleDescriptor(Exponent(10,-15), "f", "femto")
 
     @property
-    def descriptor(self) -> ScaleDescriptor:
+    def descriptor(self) -> _ScaleDescriptor:
         return self.value
 
     @property
@@ -345,6 +380,12 @@ class Unit:
     dimension: Dimension = field(default=NONE)
     aliases: tuple[str, ...] = ()
 
+    def __post_init__(self):
+        object.__setattr__(
+            self, '_hash_cache',
+            hash((self.name, self._norm(self.aliases), self.dimension)),
+        )
+
     # ----------------- symbolic helpers -----------------
 
     @staticmethod
@@ -366,9 +407,8 @@ class Unit:
         return base.strip()
 
     @property
-    def basis(self) -> 'Basis':
+    def basis(self) -> Basis:
         """The dimensional basis this unit belongs to."""
-        from ucon.basis import Basis
         return self.dimension.vector.basis
 
     def is_compatible(
@@ -403,8 +443,6 @@ class Unit:
         >>> units.meter.is_compatible(units.second)
         False
         """
-        from ucon.basis import BasisGraph
-
         # Same dimension is always compatible
         if self.dimension == other.dimension:
             return True
@@ -490,13 +528,7 @@ class Unit:
         )
 
     def __hash__(self):
-        return hash(
-            (
-                self.name,
-                self._norm(self.aliases),
-                self.dimension,
-            )
-        )
+        return self._hash_cache
 
     # ----------------- representation -----------------
 
@@ -537,17 +569,12 @@ class Unit:
         <NumberArray [1. 2. 3.] m>
         """
         # Check for array-like inputs
-        try:
-            import numpy as np
-            if isinstance(quantity, np.ndarray):
-                from ucon.integrations.numpy import NumberArray
-                return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
-            if isinstance(quantity, (list, tuple)) and len(quantity) > 0:
-                from ucon.integrations.numpy import NumberArray
-                return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
-        except ImportError:
-            # numpy not installed - fall through to scalar handling
-            pass
+        if _HAS_NUMPY and (
+            isinstance(quantity, np.ndarray)
+            or (isinstance(quantity, (list, tuple)) and len(quantity) > 0)
+        ):
+            from ucon.integrations.numpy import NumberArray
+            return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
 
         return Number(quantity=quantity, unit=UnitProduct.from_unit(self), uncertainty=uncertainty)
 
@@ -653,7 +680,7 @@ class RebasedUnit:
         The original unit before transformation.
     rebased_dimension : Dimension
         The dimension in the destination system.
-    basis_transform : ucon.basis.BasisTransform
+    basis_transform : ucon.basis.BasisTransform or ucon.basis.transforms.ConstantBoundBasisTransform
         The transform that rebased this unit (from ucon.basis module).
 
     Examples
@@ -670,7 +697,7 @@ class RebasedUnit:
     """
     original: 'Unit'
     rebased_dimension: Dimension
-    basis_transform: 'ucon.basis.BasisTransform'
+    basis_transform: 'ucon.basis.BasisTransform | ucon.basis.transforms.ConstantBoundBasisTransform'
 
     @property
     def dimension(self) -> Dimension:
@@ -705,6 +732,9 @@ class UnitFactor:
 
     unit: "Unit"
     scale: "Scale"
+
+    def __post_init__(self):
+        object.__setattr__(self, '_hash_cache', hash(self.unit))
 
     # ------------- Projections (Unit-like surface) -------------------------
 
@@ -743,7 +773,7 @@ class UnitFactor:
     def __hash__(self) -> int:
         # Important: share hash space with the underlying Unit so that
         # lookups by Unit (e.g., factors[unit]) work against UnitFactor keys.
-        return hash(self.unit)
+        return self._hash_cache
 
     def __eq__(self, other):
         # UnitFactor vs UnitFactor → structural equality
@@ -790,6 +820,37 @@ class UnitProduct:
 
         self.name = ""
         self.aliases = ()
+
+        # --- Fast path: single factor, no nesting ---
+        if len(factors) == 1:
+            key, exp = next(iter(factors.items()))
+            if not isinstance(key, UnitProduct):
+                if isinstance(key, Unit) and not isinstance(key, UnitFactor):
+                    key = UnitFactor(key, Scale.one)
+                if isinstance(key, UnitFactor) and key.dimension != NONE and abs(exp) > 1e-12:
+                    self.factors = {key: exp}
+                    self._residual_scale_factor = 1.0
+                    self.dimension = key.dimension ** exp
+                    return
+
+        # --- Fast path: two factors, no nesting, no cancellation ---
+        if len(factors) == 2:
+            items = list(factors.items())
+            k0, e0 = items[0]
+            k1, e1 = items[1]
+            if not isinstance(k0, UnitProduct) and not isinstance(k1, UnitProduct):
+                if isinstance(k0, Unit) and not isinstance(k0, UnitFactor):
+                    k0 = UnitFactor(k0, Scale.one)
+                if isinstance(k1, Unit) and not isinstance(k1, UnitFactor):
+                    k1 = UnitFactor(k1, Scale.one)
+                if (isinstance(k0, UnitFactor) and isinstance(k1, UnitFactor)
+                        and k0.dimension != NONE and k1.dimension != NONE
+                        and abs(e0) > 1e-12 and abs(e1) > 1e-12
+                        and k0 != k1):
+                    self.factors = {k0: e0, k1: e1}
+                    self._residual_scale_factor = 1.0
+                    self.dimension = (k0.dimension ** e0) * (k1.dimension ** e1)
+                    return
 
         merged: dict[UnitFactor, float] = {}
 
@@ -994,10 +1055,18 @@ class UnitProduct:
 
     # ------------- Helpers ---------------------------------------------------
 
+    _from_unit_cache: dict[int, 'UnitProduct'] = {}
+
     @classmethod
     def from_unit(cls, unit: Unit) -> 'UnitProduct':
-        """Wrap a plain Unit as a UnitProduct with Scale.one."""
-        return cls({UnitFactor(unit, Scale.one): 1})
+        """Wrap a plain Unit as a UnitProduct with Scale.one (cached)."""
+        uid = id(unit)
+        cached = cls._from_unit_cache.get(uid)
+        if cached is not None:
+            return cached
+        result = cls({UnitFactor(unit, Scale.one): 1})
+        cls._from_unit_cache[uid] = result
+        return result
 
     def factors_by_dimension(self) -> dict[Dimension, tuple[UnitFactor, float]]:
         """Group factors by dimension.
@@ -1170,33 +1239,28 @@ class UnitProduct:
         <NumberArray [10. 20. 30.] m/s>
         """
         # Check for array-like inputs
-        try:
-            import numpy as np
-            if isinstance(quantity, np.ndarray):
-                from ucon.integrations.numpy import NumberArray
-                return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
-            if isinstance(quantity, (list, tuple)) and len(quantity) > 0:
-                from ucon.integrations.numpy import NumberArray
-                return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
-        except ImportError:
-            # numpy not installed - fall through to scalar handling
-            pass
+        if _HAS_NUMPY and (
+            isinstance(quantity, np.ndarray)
+            or (isinstance(quantity, (list, tuple)) and len(quantity) > 0)
+        ):
+            from ucon.integrations.numpy import NumberArray
+            return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
 
         return Number(quantity=quantity, unit=self, uncertainty=uncertainty)
 
 
 # --------------------------------------------------------------------------------------
-# Number & Ratio (Value Layer)
+# Quantity Layer (merged from ucon.quantity)
 # --------------------------------------------------------------------------------------
 
 # Dimensionless unit for use as default in Number
 _none = Unit()
 
 
-Quantifiable = Union['Number', 'Ratio']
+_Quantifiable = Union['Number', 'Ratio']
 
 
-class DimConstraint:
+class DimensionConstraint:
     """Annotation marker: constrains a Number to a specific Dimension.
 
     Used with typing.Annotated to enable Number[TIME] syntax.
@@ -1209,13 +1273,13 @@ class DimConstraint:
         self.dimension = dim
 
     def __repr__(self) -> str:
-        return f"DimConstraint({self.dimension.name})"
+        return f"DimensionConstraint({self.dimension.name})"
 
     def __eq__(self, other) -> bool:
-        return isinstance(other, DimConstraint) and self.dimension == other.dimension
+        return isinstance(other, DimensionConstraint) and self.dimension == other.dimension
 
     def __hash__(self) -> int:
-        return hash(("DimConstraint", self.dimension))
+        return hash(("DimensionConstraint", self.dimension))
 
 
 @dataclass
@@ -1250,11 +1314,11 @@ class Number:
     def __class_getitem__(cls, dim):
         """Enable Number[Dimension.X] syntax for type annotations.
 
-        Returns Annotated[Number, DimConstraint(dim)] for runtime introspection
+        Returns Annotated[Number, DimensionConstraint(dim)] for runtime introspection
         by @enforce_dimensions decorator.
         """
         if isinstance(dim, Dimension):
-            return Annotated[cls, DimConstraint(dim)]
+            return Annotated[cls, DimensionConstraint(dim)]
         return cls
 
     @property
@@ -1322,8 +1386,11 @@ class Number:
 
         Parameters
         ----------
-        target : Unit or UnitProduct
-            The target unit to convert to.
+        target : Unit, UnitProduct, or str
+            The target unit to convert to. Strings are resolved via
+            :func:`~ucon.resolver.get_unit_by_name`, which supports bare names
+            (``"foot"``), aliases (``"ft"``), scale prefixes (``"km"``),
+            and composite expressions (``"m/s²"``).
         graph : ConversionGraph, optional
             The conversion graph to use. If not provided, uses the default graph.
 
@@ -1338,10 +1405,47 @@ class Number:
         >>> length = meter(100)
         >>> length.to(foot)
         <328.084 ft>
+        >>> length.to("ft")
+        <328.084 ft>
+        >>> length.to("km")
+        <0.1 km>
         """
-        from ucon.graph import get_default_graph
+        # Resolve string targets via name/alias/prefix/expression lookup
+        if isinstance(target, str):
+            from ucon.resolver import get_unit_by_name
+            target = get_unit_by_name(target)
 
-        # Wrap plain Units as UnitProducts for uniform handling
+        # --- Fast path: plain Unit → plain Unit (no UnitProduct wrapping) ---
+        src_unit = self.unit
+        dst_unit = target
+
+        src_is_plain = isinstance(src_unit, Unit) and not isinstance(src_unit, UnitProduct)
+        dst_is_plain = isinstance(dst_unit, Unit) and not isinstance(dst_unit, UnitProduct)
+
+        if not src_is_plain and isinstance(src_unit, UnitProduct) and len(src_unit.factors) == 1:
+            uf, exp = next(iter(src_unit.factors.items()))
+            if exp == 1.0 and uf.scale == Scale.one:
+                src_is_plain = True
+                src_unit = uf.unit
+
+        if not dst_is_plain and isinstance(dst_unit, UnitProduct) and len(dst_unit.factors) == 1:
+            uf, exp = next(iter(dst_unit.factors.items()))
+            if exp == 1.0 and uf.scale == Scale.one:
+                dst_is_plain = True
+                dst_unit = uf.unit
+
+        if src_is_plain and dst_is_plain and src_unit != dst_unit:
+            if graph is None:
+                from ucon.graph import get_default_graph
+                graph = get_default_graph()
+            conversion_map = graph.convert(src=src_unit, dst=dst_unit)
+            converted = conversion_map(self.quantity)
+            new_unc = None
+            if self.uncertainty is not None:
+                new_unc = abs(conversion_map.derivative(self.quantity)) * self.uncertainty
+            return Number(quantity=converted, unit=target, uncertainty=new_unc)
+
+        # --- General path: wrap into UnitProducts ---
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
         dst = target if isinstance(target, UnitProduct) else UnitProduct.from_unit(target)
 
@@ -1355,9 +1459,24 @@ class Number:
 
         # Graph-based conversion (use default graph if none provided)
         if graph is None:
+            from ucon.graph import get_default_graph
             graph = get_default_graph()
 
-        conversion_map = graph.convert(src=src, dst=dst)
+        # Pass raw Units to graph.convert() when possible, so the graph
+        # can use _convert_units() which handles cross-basis via rebased units.
+        # UnitProducts only go through _convert_products() which lacks cross-basis support.
+        graph_src: Union[Unit, UnitProduct] = src
+        graph_dst: Union[Unit, UnitProduct] = dst
+        if len(src.factors) == 1:
+            uf, exp = next(iter(src.factors.items()))
+            if exp == 1.0 and uf.scale == Scale.one:
+                graph_src = uf.unit
+        if len(dst.factors) == 1:
+            uf, exp = next(iter(dst.factors.items()))
+            if exp == 1.0 and uf.scale == Scale.one:
+                graph_dst = uf.unit
+
+        conversion_map = graph.convert(src=graph_src, dst=graph_dst)
         # Use raw quantity - the conversion map handles scale via factorwise decomposition
         converted_quantity = conversion_map(self.quantity)
 
@@ -1386,6 +1505,12 @@ class Number:
         if len(src.factors) != len(dst.factors):
             return False
 
+        # Single-factor fast path: avoid building two dicts
+        if len(src.factors) == 1:
+            sf, se = next(iter(src.factors.items()))
+            df, de = next(iter(dst.factors.items()))
+            return sf.unit == df.unit and abs(se - de) < 1e-12
+
         src_by_dim = {}
         dst_by_dim = {}
         for f, exp in src.factors.items():
@@ -1407,7 +1532,7 @@ class Number:
     def as_ratio(self):
         return Ratio(self)
 
-    def __mul__(self, other: Quantifiable) -> 'Number':
+    def __mul__(self, other: _Quantifiable) -> 'Number':
         if isinstance(other, Ratio):
             other = other.evaluate()
 
@@ -1489,7 +1614,7 @@ class Number:
             uncertainty=new_uncertainty,
         )
 
-    def __truediv__(self, other: Quantifiable) -> "Number":
+    def __truediv__(self, other: _Quantifiable) -> "Number":
         # Allow dividing by a Ratio (interpret as its evaluated Number)
         if isinstance(other, Ratio):
             other = other.evaluate()
@@ -1536,7 +1661,7 @@ class Number:
         new_quantity = self.quantity / other.quantity
         return Number(quantity=new_quantity, unit=unit_quot, uncertainty=compute_uncertainty(new_quantity))
 
-    def __eq__(self, other: Quantifiable) -> bool:
+    def __eq__(self, other: _Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
             raise TypeError(
                 f"Cannot compare Number to non-Number/Ratio type: {type(other)}"

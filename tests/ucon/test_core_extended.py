@@ -2,7 +2,7 @@ import math
 import unittest
 
 from ucon import Dimension, units
-from ucon.core import Exponent, Scale, ScaleDescriptor, UnitFactor, UnitProduct
+from ucon.core import Exponent, Scale, _ScaleDescriptor, UnitFactor, UnitProduct
 
 
 # ---------------------------------------------------------------------------

@@ -192,10 +192,10 @@ Uses **RBE** for treatment planning:
 
 ## Projection to SI
 
-If you need to collapse back to SI (L²T⁻²), use a `ConstantAwareBasisTransform` with bindings that record which weighting factors were absorbed:
+If you need to collapse back to SI (L²T⁻²), use a `ConstantBoundBasisTransform` with bindings that record which weighting factors were absorbed:
 
 ```python
-DOSE_TO_SI = ConstantAwareBasisTransform(
+DOSE_TO_SI = ConstantBoundBasisTransform(
     source=DOSE,
     target=SI,
     matrix=(...),  # Maps E¹M⁻¹ → L²T⁻²

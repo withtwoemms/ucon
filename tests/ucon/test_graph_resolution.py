@@ -20,7 +20,7 @@ from ucon import (
     using_graph,
 )
 from ucon import Dimension
-from ucon.graph import ConversionGraph, get_parsing_graph
+from ucon.graph import ConversionGraph, _get_parsing_graph
 from ucon.units import UnknownUnitError
 
 
@@ -89,22 +89,22 @@ class TestGraphLocalResolution(unittest.TestCase):
 
     def test_using_graph_scopes_parsing(self):
         """using_graph() makes graph-local units resolvable via get_unit_by_name()."""
-        custom = Unit(name='slug', dimension=Dimension.mass, aliases=('slug',))
+        custom = Unit(name='zorkmid', dimension=Dimension.mass, aliases=('zk',))
         graph = get_default_graph().copy()
         graph.register_unit(custom)
 
-        # Outside context, slug is unknown
+        # Outside context, zorkmid is unknown
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name('slug')
+            get_unit_by_name('zorkmid')
 
-        # Inside context, slug resolves
+        # Inside context, zorkmid resolves
         with using_graph(graph):
-            resolved = get_unit_by_name('slug')
+            resolved = get_unit_by_name('zorkmid')
             self.assertEqual(resolved, custom)
 
-        # Outside context again, slug is unknown
+        # Outside context again, zorkmid is unknown
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name('slug')
+            get_unit_by_name('zorkmid')
 
     def test_graph_isolation(self):
         """Units registered on one graph are not visible in another."""
@@ -178,17 +178,17 @@ class TestGraphLocalResolution(unittest.TestCase):
         self.assertIsNotNone(graph.resolve_unit('second'))
         self.assertIsNotNone(graph.resolve_unit('ampere'))
 
-    def test_get_parsing_graph_outside_context(self):
-        """get_parsing_graph() returns None outside using_graph()."""
-        result = get_parsing_graph()
+    def test__get_parsing_graph_outside_context(self):
+        """_get_parsing_graph() returns None outside using_graph()."""
+        result = _get_parsing_graph()
         self.assertIsNone(result)
 
-    def test_get_parsing_graph_inside_context(self):
-        """get_parsing_graph() returns the graph inside using_graph()."""
+    def test__get_parsing_graph_inside_context(self):
+        """_get_parsing_graph() returns the graph inside using_graph()."""
         graph = ConversionGraph()
 
         with using_graph(graph):
-            result = get_parsing_graph()
+            result = _get_parsing_graph()
             self.assertIs(result, graph)
 
     def test_nested_using_graph(self):
@@ -203,20 +203,20 @@ class TestGraphLocalResolution(unittest.TestCase):
         inner_graph.register_unit(inner_unit)
 
         with using_graph(outer_graph):
-            self.assertIs(get_parsing_graph(), outer_graph)
+            self.assertIs(_get_parsing_graph(), outer_graph)
             self.assertIsNotNone(outer_graph.resolve_unit('outer_unit'))
 
             with using_graph(inner_graph):
-                self.assertIs(get_parsing_graph(), inner_graph)
+                self.assertIs(_get_parsing_graph(), inner_graph)
                 self.assertIsNotNone(inner_graph.resolve_unit('inner_unit'))
                 # Outer unit not visible in inner graph
                 self.assertIsNone(inner_graph.resolve_unit('outer_unit'))
 
             # Back to outer graph
-            self.assertIs(get_parsing_graph(), outer_graph)
+            self.assertIs(_get_parsing_graph(), outer_graph)
 
         # Outside both contexts
-        self.assertIsNone(get_parsing_graph())
+        self.assertIsNone(_get_parsing_graph())
 
 
 if __name__ == '__main__':

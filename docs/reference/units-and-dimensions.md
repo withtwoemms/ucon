@@ -44,6 +44,7 @@ These are the fundamental SI base dimensions.
 | celsius | degC | degC | No |
 | fahrenheit | degF | degF | No |
 | rankine | degR | degR, R | No |
+| reaumur | °Ré | °Ré, degRe | No |
 
 ### Electric Current
 
@@ -128,6 +129,13 @@ These are the fundamental SI base dimensions.
 | hertz | Hz | Hz | Yes |
 | becquerel | Bq | Bq | Yes |
 
+### Radiation Exposure
+
+| Unit | Shorthand | Aliases | Scalable |
+|------|-----------|---------|----------|
+| coulomb_per_kilogram | C/kg | C/kg | No |
+| roentgen | R_exp | R_exp | No |
+
 ### Electrical
 
 | Unit | Shorthand | Aliases | Dimension | Scalable |
@@ -140,6 +148,9 @@ These are the fundamental SI base dimensions.
 | henry | H | H | inductance | Yes |
 | weber | Wb | Wb | magnetic_flux | Yes |
 | tesla | T | T | magnetic_flux_density | Yes |
+| international_ampere | A_int | A_int | current | No |
+| international_volt | V_int | V_int | voltage | No |
+| international_ohm | ohm_int | ohm_int | resistance | No |
 
 ### Illuminance
 
@@ -296,6 +307,33 @@ mol_per_liter(1e-14).to(units.pH)  # <14.0 pH> (strong base)
 
 ---
 
+## CGS-EMU Units
+
+Units in the CGS electromagnetic unit system. These use the CGS basis (L, M, T) with SI current mapping to `L^(1/2)·M^(1/2)·T^(-1)`.
+
+| Unit | Shorthand | Aliases | Dimension |
+|------|-----------|---------|-----------|
+| biot | Bi | Bi, abampere, abA | cgs_emu_current |
+| abcoulomb | abC | abC | cgs_emu_charge |
+| abvolt | abV | abV | cgs_emu_voltage |
+| abohm | abΩ | abΩ | cgs_emu_resistance |
+| abfarad | abF | abF | cgs_emu_capacitance |
+| abhenry | abH | abH | cgs_emu_inductance |
+| gilbert | Gb | Gb, Gi | cgs_emu_current |
+
+Cross-basis conversion factors (SI → CGS-EMU):
+
+| SI Unit | CGS-EMU Unit | Factor |
+|---------|-------------|--------|
+| ampere | biot | 0.1 |
+| coulomb | abcoulomb | 0.1 |
+| volt | abvolt | 1e8 |
+| ohm | abohm | 1e9 |
+| farad | abfarad | 1e-9 |
+| henry | abhenry | 1e9 |
+
+---
+
 ## Priority Aliases
 
 Some aliases take precedence to prevent ambiguous parses:
@@ -383,15 +421,19 @@ convert(value=1, from_unit="slug", to_unit="lb")
 
 | | | | |
 |-------------------------|-------------------------|-------------------------|-------------------------|
-| acceleration            | dynamic_viscosity       | luminous_intensity      | ratio                   |
-| angle                   | electric_field_strength | magnetic_flux           | resistance              |
-| angular_momentum        | energy                  | magnetic_flux_density   | resistivity             |
-| area                    | entropy                 | magnetic_permeability   | solid_angle             |
-| capacitance             | force                   | mass                    | specific_heat_capacity  |
-| catalytic_activity      | frequency               | molar_mass              | temperature             |
-| charge                  | gravitation             | molar_volume            | thermal_conductivity    |
-| conductance             | illuminance             | momentum                | time                    |
-| conductivity            | inductance              | none                    | velocity                |
-| count                   | information             | permittivity            | voltage                 |
-| current                 | kinematic_viscosity     | power                   | volume                  |
-| density                 | length                  | pressure                |                         |
+| acceleration            | current                 | information             | permittivity            |
+| angle                   | density                 | kinematic_viscosity     | power                   |
+| angular_momentum        | dynamic_viscosity       | length                  | pressure                |
+| area                    | electric_field_strength | luminous_intensity      | ratio                   |
+| capacitance             | energy                  | magnetic_flux           | resistance              |
+| catalytic_activity      | entropy                 | magnetic_flux_density   | resistivity             |
+| cgs_emu_capacitance     | exposure                | magnetic_permeability   | solid_angle             |
+| cgs_emu_charge          | force                   | mass                    | specific_heat_capacity  |
+| cgs_emu_current         | frequency               | molar_mass              | temperature             |
+| cgs_emu_inductance      | gravitation             | molar_volume            | thermal_conductivity    |
+| cgs_emu_resistance      | illuminance             | momentum                | time                    |
+| cgs_emu_voltage         | inductance              | none                    | velocity                |
+| charge                  |                         |                         | voltage                 |
+| conductance             |                         |                         | volume                  |
+| conductivity            |                         |                         |                         |
+| count                   |                         |                         |                         |

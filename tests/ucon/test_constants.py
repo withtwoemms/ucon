@@ -342,6 +342,142 @@ class TestCustomConstants:
         assert result.quantity == 84
 
 
+class TestConstantReverseArithmetic:
+    """Tests for right-hand and unary arithmetic operators."""
+
+    def test_rmul_number_times_constant(self):
+        """Number * Constant delegates to Constant.__rmul__."""
+        mass = units.kilogram(2)
+        result = mass * constants.speed_of_light
+        assert isinstance(result, Number)
+
+    def test_rtruediv_constant_divides_number(self):
+        """Constant / Number delegates to __truediv__."""
+        result = constants.speed_of_light / units.second(1)
+        assert isinstance(result, Number)
+
+    def test_add_constant_plus_number(self):
+        """Constant + Number delegates to __add__."""
+        c = constants.speed_of_light
+        other = (units.meter / units.second)(1)
+        result = c + other
+        assert isinstance(result, Number)
+        assert result.quantity == pytest.approx(299792458 + 1)
+
+    def test_radd_number_plus_constant(self):
+        """Number + Constant delegates to __radd__."""
+        other = (units.meter / units.second)(1)
+        result = other + constants.speed_of_light
+        assert isinstance(result, Number)
+        assert result.quantity == pytest.approx(1 + 299792458)
+
+    def test_rsub_number_minus_constant(self):
+        """Number - Constant delegates to __rsub__."""
+        v = (units.meter / units.second)(299792458)
+        result = v - constants.speed_of_light
+        assert isinstance(result, Number)
+        assert result.quantity == pytest.approx(0)
+
+    def test_constant_sub_number(self):
+        """Constant - Number delegates to __sub__."""
+        c = constants.speed_of_light
+        other = (units.meter / units.second)(1)
+        result = c - other
+        assert isinstance(result, Number)
+        assert result.quantity == pytest.approx(299792458 - 1)
+
+
+class TestConstantEnumeration:
+    """Tests for all_constants() and get_constant_by_symbol()."""
+
+    def test_all_constants_returns_17(self):
+        """all_constants() returns list of 17 constants."""
+        from ucon.constants import all_constants
+        result = all_constants()
+        assert len(result) == 17
+        assert all(isinstance(c, Constant) for c in result)
+
+    def test_all_constants_categories(self):
+        """all_constants() includes all three categories."""
+        from ucon.constants import all_constants
+        cats = {c.category for c in all_constants()}
+        assert "exact" in cats
+        assert "derived" in cats
+        assert "measured" in cats
+
+    def test_get_constant_by_symbol_direct(self):
+        """get_constant_by_symbol() finds by direct symbol."""
+        from ucon.constants import get_constant_by_symbol
+        c = get_constant_by_symbol("c")
+        assert c is not None
+        assert c.name == "speed of light in vacuum"
+
+    def test_get_constant_by_symbol_unicode_alias(self):
+        """get_constant_by_symbol() finds via unicode alias map."""
+        from ucon.constants import get_constant_by_symbol
+        c = get_constant_by_symbol("k_B")
+        assert c is not None
+        assert c.symbol == "k"
+
+    def test_get_constant_by_symbol_ascii_alias(self):
+        """get_constant_by_symbol() finds via ASCII alias map."""
+        from ucon.constants import get_constant_by_symbol
+        c = get_constant_by_symbol("hbar")
+        assert c is not None
+        assert c.symbol == "\u210f"
+
+    def test_get_constant_by_symbol_not_found(self):
+        """get_constant_by_symbol() returns None for unknown."""
+        from ucon.constants import get_constant_by_symbol
+        assert get_constant_by_symbol("NONEXISTENT") is None
+
+    def test_get_constant_by_symbol_all_unicode(self):
+        """All documented unicode aliases resolve."""
+        from ucon.constants import get_constant_by_symbol
+        for sym in ['c', 'h', 'e', 'G', 'R', 'NA', 'N_A', 'k']:
+            assert get_constant_by_symbol(sym) is not None, f"Failed for {sym!r}"
+
+    def test_get_constant_by_symbol_all_ascii(self):
+        """All documented ASCII aliases resolve."""
+        from ucon.constants import get_constant_by_symbol
+        for sym in ['hbar', 'alpha', 'epsilon_0', 'mu_0', 'm_e', 'm_p', 'm_n']:
+            assert get_constant_by_symbol(sym) is not None, f"Failed for {sym!r}"
+
+
+class TestConstantsModuleGetattr:
+    """Tests for module-level __getattr__."""
+
+    def test_unknown_constant_raises(self):
+        """Accessing unknown attribute raises AttributeError."""
+        with pytest.raises(AttributeError, match="no attribute"):
+            _ = constants.totally_made_up_constant
+
+    def test_direct_name_access(self):
+        """Accessing by full name works."""
+        assert constants.speed_of_light.symbol == "c"
+        assert constants.gravitational_constant.symbol == "G"
+
+    def test_unicode_getattr_R(self):
+        """Module __getattr__ resolves 'R' alias."""
+        assert constants.R.symbol == "R"
+
+    def test_unicode_getattr_sigma(self):
+        """Module __getattr__ resolves 'σ' alias."""
+        assert constants.σ is constants.stefan_boltzmann_constant
+
+    def test_ascii_getattr_mu_0(self):
+        """Module __getattr__ resolves ASCII aliases."""
+        assert constants.mu_0 is constants.vacuum_permeability
+
+    def test_ascii_getattr_m_p(self):
+        """Module __getattr__ resolves 'm_p' alias."""
+        assert constants.m_p is constants.proton_mass
+
+    def test_ascii_getattr_m_n(self):
+        """Module __getattr__ resolves 'm_n' alias."""
+        assert constants.m_n is constants.neutron_mass
+
+
 class TestModuleExports:
     """Tests for module-level exports."""
 

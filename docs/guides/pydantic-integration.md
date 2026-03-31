@@ -101,7 +101,7 @@ The dimensional constraint is accessible via `typing.Annotated`:
 
 ```python
 from typing import get_origin, get_args, Annotated
-from ucon import Number, Dimension, DimConstraint
+from ucon import Number, Dimension, DimensionConstraint
 
 hint = Number[Dimension.time]
 

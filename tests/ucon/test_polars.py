@@ -37,7 +37,7 @@ class TestNumberColumnBasic(unittest.TestCase):
 
     def test_default_unit_is_dimensionless(self):
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import _none
+        from ucon.quantity import _none
         nc = NumberColumn(pl.Series([1.0, 2.0]))
         self.assertEqual(nc.unit, _none)
 
@@ -70,7 +70,7 @@ class TestNumberColumnIndexing(unittest.TestCase):
 
     def test_scalar_index_returns_number(self):
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         elem = nc[0]
         self.assertIsInstance(elem, Number)
@@ -85,7 +85,7 @@ class TestNumberColumnIndexing(unittest.TestCase):
 
     def test_iteration_yields_numbers(self):
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         elements = list(nc)
         self.assertEqual(len(elements), 3)
@@ -194,7 +194,7 @@ class TestNumberColumnComparison(unittest.TestCase):
 
     def test_eq_with_number(self):
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         result = nc == n
@@ -297,7 +297,7 @@ class TestNumberColumnReductions(unittest.TestCase):
 
     def test_sum(self):
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0, 4.0]), unit=self.meter)
         total = nc.sum()
         self.assertIsInstance(total, Number)
@@ -312,7 +312,7 @@ class TestNumberColumnReductions(unittest.TestCase):
 
     def test_mean(self):
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([2.0, 4.0, 6.0]), unit=self.meter)
         avg = nc.mean()
         self.assertIsInstance(avg, Number)
@@ -376,7 +376,7 @@ class TestNumberColumnToList(unittest.TestCase):
 
     def test_to_list(self):
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         numbers = nc.to_list()
         self.assertEqual(len(numbers), 3)
@@ -397,7 +397,7 @@ class TestNumberColumnArithmeticExtended(unittest.TestCase):
     def test_divide_by_number(self):
         """Test division by a Number."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([10.0, 20.0, 30.0]), unit=self.meter)
         divisor = Number(quantity=2.0, unit=self.second)
         result = nc / divisor
@@ -406,7 +406,7 @@ class TestNumberColumnArithmeticExtended(unittest.TestCase):
     def test_divide_by_number_with_uncertainty(self):
         """Test division by Number with uncertainty propagation."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([10.0, 20.0]), unit=self.meter, uncertainty=1.0)
         divisor = Number(quantity=2.0, unit=self.second, uncertainty=0.1)
         result = nc / divisor
@@ -440,7 +440,7 @@ class TestNumberColumnArithmeticExtended(unittest.TestCase):
     def test_add_number(self):
         """Test adding a Number to NumberColumn."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=0.5, unit=self.meter)
         result = nc + n
@@ -449,7 +449,7 @@ class TestNumberColumnArithmeticExtended(unittest.TestCase):
     def test_add_number_with_uncertainty(self):
         """Test adding Number with uncertainty propagation."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0]), unit=self.meter, uncertainty=0.1)
         n = Number(quantity=0.5, unit=self.meter, uncertainty=0.05)
         result = nc + n
@@ -467,7 +467,7 @@ class TestNumberColumnArithmeticExtended(unittest.TestCase):
     def test_sub_number(self):
         """Test subtracting a Number from NumberColumn."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([3.0, 4.0, 5.0]), unit=self.meter)
         n = Number(quantity=1.0, unit=self.meter)
         result = nc - n
@@ -476,7 +476,7 @@ class TestNumberColumnArithmeticExtended(unittest.TestCase):
     def test_sub_number_with_uncertainty(self):
         """Test subtracting Number with uncertainty propagation."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([3.0, 4.0]), unit=self.meter, uncertainty=0.1)
         n = Number(quantity=1.0, unit=self.meter, uncertainty=0.05)
         result = nc - n
@@ -494,7 +494,7 @@ class TestNumberColumnArithmeticExtended(unittest.TestCase):
     def test_multiply_by_number(self):
         """Test multiplying NumberColumn by Number."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=2.0, unit=self.second)
         result = nc * n
@@ -503,7 +503,7 @@ class TestNumberColumnArithmeticExtended(unittest.TestCase):
     def test_multiply_by_number_with_uncertainty(self):
         """Test multiplying by Number with uncertainty propagation."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([10.0, 20.0]), unit=self.meter, uncertainty=1.0)
         n = Number(quantity=2.0, unit=self.second, uncertainty=0.1)
         result = nc * n
@@ -530,7 +530,7 @@ class TestNumberColumnComparisonExtended(unittest.TestCase):
     def test_lt_with_number(self):
         """Test less-than comparison with Number."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=2.5, unit=self.meter)
         result = nc < n
@@ -547,7 +547,7 @@ class TestNumberColumnComparisonExtended(unittest.TestCase):
     def test_le_with_number(self):
         """Test less-equal comparison with Number."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         result = nc <= n
@@ -564,7 +564,7 @@ class TestNumberColumnComparisonExtended(unittest.TestCase):
     def test_gt_with_number(self):
         """Test greater-than comparison with Number."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=1.5, unit=self.meter)
         result = nc > n
@@ -581,7 +581,7 @@ class TestNumberColumnComparisonExtended(unittest.TestCase):
     def test_ge_with_number(self):
         """Test greater-equal comparison with Number."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         result = nc >= n
@@ -598,7 +598,7 @@ class TestNumberColumnComparisonExtended(unittest.TestCase):
     def test_ne_with_number(self):
         """Test not-equal comparison with Number."""
         from ucon.integrations.polars import NumberColumn
-        from ucon.core import Number
+        from ucon.quantity import Number
         nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         result = nc != n
@@ -683,6 +683,91 @@ class TestNumberColumnProperties(unittest.TestCase):
         nc = NumberColumn(pl.Series([1.0, 2.0]), unit=area_unit)
         dim = nc.dimension
         self.assertIsNotNone(dim)
+
+
+@unittest.skipUnless(HAS_POLARS, "Polars not installed")
+class TestNumberColumnNotImplemented(unittest.TestCase):
+    """Test NotImplemented return for unsupported operand types."""
+
+    def setUp(self):
+        from ucon import units
+        from ucon.integrations.polars import NumberColumn
+        self.meter = units.meter
+        self.nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+
+    def test_mul_unsupported(self):
+        result = self.nc.__mul__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_truediv_unsupported(self):
+        result = self.nc.__truediv__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_add_unsupported(self):
+        result = self.nc.__add__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_sub_unsupported(self):
+        result = self.nc.__sub__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_eq_unsupported(self):
+        result = self.nc.__eq__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_lt_unsupported(self):
+        result = self.nc.__lt__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_le_unsupported(self):
+        result = self.nc.__le__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_gt_unsupported(self):
+        result = self.nc.__gt__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_ge_unsupported(self):
+        result = self.nc.__ge__("string")
+        self.assertIs(result, NotImplemented)
+
+    def test_ne_unsupported(self):
+        result = self.nc.__ne__("string")
+        self.assertIs(result, NotImplemented)
+
+
+@unittest.skipUnless(HAS_POLARS, "Polars not installed")
+class TestNumberColumnUncertaintyEdgeCases(unittest.TestCase):
+    """Test uncertainty propagation edge cases."""
+
+    def setUp(self):
+        from ucon import units
+        self.meter = units.meter
+
+    def test_mul_both_no_uncertainty(self):
+        """Multiplying columns with no uncertainty returns no uncertainty."""
+        from ucon.integrations.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0]), unit=self.meter)
+        result = a * 2
+        self.assertIsNone(result.uncertainty)
+
+    def test_add_one_uncertainty_one_none(self):
+        """Adding columns where one has uncertainty propagates it."""
+        from ucon.integrations.polars import NumberColumn
+        a = NumberColumn(pl.Series([1.0, 2.0]), unit=self.meter, uncertainty=0.1)
+        b = NumberColumn(pl.Series([3.0, 4.0]), unit=self.meter)
+        result = a + b
+        self.assertIsNotNone(result.uncertainty)
+
+    def test_to_list(self):
+        """to_list() returns list of Number instances."""
+        from ucon.integrations.polars import NumberColumn
+        from ucon import Number
+        nc = NumberColumn(pl.Series([1.0, 2.0, 3.0]), unit=self.meter)
+        result = nc.to_list()
+        self.assertEqual(len(result), 3)
+        self.assertIsInstance(result[0], Number)
+        self.assertEqual(result[0].quantity, 1.0)
 
 
 if __name__ == "__main__":

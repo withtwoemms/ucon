@@ -50,14 +50,29 @@ parse("1.234 m ± 0.005 m") # <1.234 ± 0.005 m>
 ### Error Handling
 
 ```python
+from ucon.parsing import ParseError
+
 # Unknown unit
 parse("60 foobar")         # raises UnknownUnitError
 
 # Invalid number
-parse("abc m")             # raises ValueError
+parse("abc m")             # raises ParseError (subclass of ValueError)
 
 # Empty string
 parse("")                  # raises ValueError
+```
+
+### ParseError
+
+Raised when a quantity string cannot be parsed. Subclass of `ValueError`.
+
+```python
+from ucon.parsing import ParseError
+
+try:
+    parse("abc m")
+except ParseError as e:
+    print(e)  # parse error details
 ```
 
 ---
@@ -193,7 +208,7 @@ units.meter.is_compatible(units.second)  # False
 
 # Cross-basis — requires BasisGraph
 from ucon.basis import BasisGraph
-from ucon.bases import SI_TO_CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS_ESU
 
 bg = BasisGraph().with_transform(SI_TO_CGS_ESU)
 units.ampere.is_compatible(statampere, basis_graph=bg)  # True
@@ -489,7 +504,7 @@ result(12)  # 3.6576
 For units in different dimensional bases, use `basis_transform`:
 
 ```python
-from ucon.bases import SI_TO_CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS_ESU
 
 graph.add_edge(
     src=units.ampere,
@@ -515,7 +530,7 @@ graph.connect_systems(
 
 ```python
 # List rebased units (cross-basis bridges)
-graph.list_rebased_units()  # {ampere: RebasedUnit(...)}
+graph.list_rebased_units()  # {ampere: [RebasedUnit(...), ...], ...}
 
 # List registered transforms
 graph.list_transforms()  # [SI_TO_CGS_ESU, ...]
@@ -529,6 +544,293 @@ from ucon.graph import using_graph
 with using_graph(my_graph):
     # Unit parsing uses my_graph for resolution
     value = convert(1, "custom_unit", "kg")
+```
+
+---
+
+## ConversionContext
+
+Scoped cross-dimensional conversions for physical relationships that connect different dimensions (e.g., wavelength and frequency).
+
+```python
+from ucon.contexts import ConversionContext, ContextEdge, using_context
+from ucon.contexts import spectroscopy, boltzmann
+```
+
+### Built-in Contexts
+
+| Context | Edges | Physical Laws |
+|---------|-------|---------------|
+| `spectroscopy` | meter↔hertz, hertz→joule, meter→joule, joule→reciprocal_meter | f=c/λ, E=hf, E=hc/λ, k=E/(hc) |
+| `boltzmann` | kelvin→joule | E=k_B·T |
+
+### Usage
+
+```python
+from ucon import units
+from ucon.contexts import spectroscopy, boltzmann, using_context
+
+# Spectroscopy: wavelength to frequency
+with using_context(spectroscopy):
+    result = units.meter(500e-9).to(units.hertz)
+    print(f"{result.quantity:.3e} Hz")  # 5.996e+14 Hz
+
+    # Energy from frequency
+    result = units.hertz(5e14).to(units.joule)
+    print(f"{result.quantity:.3e} J")   # 3.313e-19 J
+
+# Boltzmann: temperature to energy
+with using_context(boltzmann):
+    result = units.kelvin(300).to(units.joule)
+    print(f"{result.quantity:.3e} J")   # 4.142e-21 J
+
+# Multiple contexts
+with using_context(spectroscopy, boltzmann):
+    # Both spectroscopy and Boltzmann edges available
+    pass
+```
+
+Cross-dimensional conversions only work inside `using_context()` blocks. Outside the block, `DimensionMismatch` is raised as expected.
+
+### Custom Contexts
+
+```python
+from ucon.contexts import ConversionContext, ContextEdge
+from ucon.maps import LinearMap
+
+my_context = ConversionContext(
+    name="custom",
+    edges=(
+        ContextEdge(
+            src=units.kelvin,
+            dst=units.joule,
+            map=LinearMap(1.380649e-23),
+        ),
+    ),
+    description="Custom thermal context.",
+)
+
+with using_context(my_context):
+    result = units.kelvin(300).to(units.joule)
+```
+
+---
+
+## Maps
+
+Composable conversion morphisms used as edges in the ConversionGraph.
+
+```python
+from ucon.maps import Map, LinearMap, AffineMap, LogMap, ExpMap, ReciprocalMap, ComposedMap
+```
+
+### Class Hierarchy
+
+| Class | Formula | Use Case |
+|-------|---------|----------|
+| `LinearMap(a)` | y = a * x | Most unit conversions (m -> ft, kg -> lb) |
+| `AffineMap(a, b)` | y = a * x + b | Temperature conversions (C -> F) |
+| `ReciprocalMap(a)` | y = a / x | Inversely proportional (wavelength -> frequency) |
+| `LogMap(scale, base, reference)` | y = scale * log(x/ref) + offset | Decibels, pH |
+| `ExpMap(scale, base, reference)` | y = ref * base^(scale*x + offset) | Inverse of LogMap |
+| `ComposedMap(outer, inner)` | y = outer(inner(x)) | Heterogeneous composition fallback |
+
+All maps are `@dataclass(frozen=True)` --- immutable and hashable.
+
+### Creating Maps
+
+```python
+from ucon.maps import LinearMap, AffineMap, ReciprocalMap, LogMap
+
+# Linear: meters to feet
+m_to_ft = LinearMap(3.28084)
+m_to_ft(1.0)  # 3.28084
+
+# Affine: Celsius to Fahrenheit
+c_to_f = AffineMap(1.8, 32)
+c_to_f(100)  # 212.0
+
+# Reciprocal: wavelength to frequency (f = c / λ)
+c = 299792458.0
+lambda_to_freq = ReciprocalMap(c)
+lambda_to_freq(500e-9)  # ~5.996e14 Hz
+
+# Logarithmic: watts to dBm
+w_to_dbm = LogMap(scale=10, reference=0.001)
+w_to_dbm(1.0)  # 30.0 (1 W = 30 dBm)
+
+# pH: concentration to pH
+conc_to_ph = LogMap(scale=-1)
+conc_to_ph(1e-7)  # 7.0
+```
+
+### Inverse
+
+Every map has an `inverse()` that returns the reverse conversion:
+
+```python
+ft_to_m = m_to_ft.inverse()
+ft_to_m(3.28084)  # ~1.0
+
+f_to_c = c_to_f.inverse()
+f_to_c(212)  # 100.0
+
+# ReciprocalMap is self-inverse: if f = c/λ, then λ = c/f
+freq_to_lambda = lambda_to_freq.inverse()
+freq_to_lambda(5.996e14)  # ~500e-9 (back to 500 nm)
+
+dbm_to_w = w_to_dbm.inverse()  # returns ExpMap
+dbm_to_w(30)  # 1.0
+```
+
+### Composition
+
+Maps compose via `@` (outer @ inner = apply inner first, then outer):
+
+```python
+# Chain: meters -> feet -> inches
+m_to_ft = LinearMap(3.28084)
+ft_to_in = LinearMap(12)
+m_to_in = ft_to_in @ m_to_ft
+m_to_in(1.0)  # ~39.37
+
+# Linear @ Linear stays Linear
+isinstance(m_to_in, LinearMap)  # True
+
+# Mixed types fall back to ComposedMap
+mixed = LogMap(scale=10) @ AffineMap(1, 5)
+isinstance(mixed, ComposedMap)  # True
+```
+
+### Derivative (Uncertainty Propagation)
+
+Maps provide `derivative(x)` for uncertainty propagation: `delta_y = |f'(x)| * delta_x`.
+
+```python
+m = LinearMap(3.28084)
+m.derivative(1.0)  # 3.28084 (constant for linear)
+
+log_m = LogMap(scale=10)
+log_m.derivative(100)  # 10 / (100 * ln(10)) ≈ 0.0434
+```
+
+### Worked Example: ReciprocalMap in Spectroscopy
+
+`ReciprocalMap` models inversely proportional physical relationships
+where `y = constant / x`. The canonical example is the wavelength–frequency
+relation `f = c / λ`.
+
+```python
+from ucon.maps import ReciprocalMap, LinearMap
+
+c = 299792458.0   # speed of light (m/s)
+h = 6.62607015e-34  # Planck constant (J·s)
+
+# Wavelength (m) → frequency (Hz): f = c / λ
+wl_to_freq = ReciprocalMap(c)
+
+# Green light at 532 nm (Nd:YAG laser second harmonic)
+freq = wl_to_freq(532e-9)       # 5.635e14 Hz
+
+# Self-inverse: frequency → wavelength uses the same constant
+freq_to_wl = wl_to_freq.inverse()
+freq_to_wl(freq)                 # 532e-9 m (round-trips exactly)
+
+# Chain with LinearMap for frequency → energy: E = h * f
+freq_to_energy = LinearMap(h)
+energy = freq_to_energy(freq)    # 3.734e-19 J (one green photon)
+
+# Compose: wavelength → energy in one step via E = hc / λ
+wl_to_energy = ReciprocalMap(c * h)
+wl_to_energy(532e-9)             # 3.734e-19 J
+
+# Uncertainty propagation: d/dx[a/x] = -a/x²
+wl_to_freq.derivative(532e-9)    # -1.059e+21 Hz/m
+```
+
+These maps are what the built-in `spectroscopy` context uses internally.
+For end-user conversions, prefer `using_context(spectroscopy)` over
+constructing maps directly — see the
+[Conversion Contexts](../guides/conversion-contexts.md) guide.
+
+---
+
+## Packages
+
+Load domain-specific units and conversions from TOML files.
+
+```python
+from ucon.packages import load_package, UnitPackage, UnitDef, EdgeDef, PackageLoadError
+```
+
+### TOML Schema
+
+```toml
+name = "aerospace"
+version = "1.0.0"
+description = "Aerospace and aviation units"
+
+[[units]]
+name = "slug"
+dimension = "mass"
+aliases = ["slug"]
+
+[[edges]]
+src = "slug"
+dst = "kilogram"
+factor = 14.5939
+```
+
+Edges support affine conversions for temperature-like units:
+
+```toml
+[[edges]]
+src = "celsius"
+dst = "fahrenheit"
+a = 1.8
+b = 32
+```
+
+### Loading
+
+```python
+from ucon.packages import load_package
+from ucon import get_default_graph
+
+package = load_package("aerospace.ucon.toml")
+print(package.name)     # "aerospace"
+print(package.units)    # (UnitDef(...), ...)
+print(package.edges)    # (EdgeDef(...), ...)
+
+# Apply to graph
+graph = get_default_graph().with_package(package)
+```
+
+### UnitDef and EdgeDef
+
+```python
+# UnitDef holds the declaration before materialization
+for unit_def in package.units:
+    print(unit_def.name)       # "slug"
+    print(unit_def.dimension)  # "mass"
+    print(unit_def.aliases)    # ["slug"]
+
+# EdgeDef holds the conversion specification
+for edge_def in package.edges:
+    print(edge_def.src)     # "slug"
+    print(edge_def.dst)     # "kilogram"
+    print(edge_def.factor)  # 14.5939
+```
+
+### Error Handling
+
+```python
+from ucon.packages import load_package, PackageLoadError
+
+try:
+    load_package("nonexistent.toml")
+except PackageLoadError as e:
+    print(e)  # file not found or invalid schema
 ```
 
 ---
@@ -632,7 +934,8 @@ For cross-basis conversions (e.g., SI ↔ CGS).
 
 ```python
 from ucon.basis import Basis, BasisGraph, BasisTransform
-from ucon.bases import SI, CGS, CGS_ESU, SI_TO_CGS, SI_TO_CGS_ESU
+from ucon.basis.builtin import SI, CGS, CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS, SI_TO_CGS_ESU, SI_TO_CGS_EMU
 ```
 
 ### Standard Bases
@@ -643,13 +946,24 @@ from ucon.bases import SI, CGS, CGS_ESU, SI_TO_CGS, SI_TO_CGS_ESU
 | `CGS` | L, M, T | Centimetre-gram-second (mechanical) |
 | `CGS_ESU` | L, M, T, Q | CGS electrostatic (charge is fundamental) |
 
+### Standard Transforms
+
+| Transform | Source | Target | Notes |
+|-----------|--------|--------|-------|
+| `SI_TO_CGS` | SI | CGS | Mechanical dimensions (L, M, T) |
+| `CGS_TO_SI` | CGS | SI | Inverse of SI_TO_CGS |
+| `SI_TO_CGS_ESU` | SI | CGS_ESU | Current → L^(3/2)·M^(1/2)·T^(-2) |
+| `SI_TO_CGS_EMU` | SI | CGS | Current → L^(1/2)·M^(1/2)·T^(-1) |
+| `SI_TO_NATURAL` | SI | NATURAL | All dimensions → powers of energy |
+| `NATURAL_TO_SI` | NATURAL | SI | Inverse with constant bindings |
+
 ### BasisGraph
 
 Track connectivity between bases:
 
 ```python
 from ucon.basis import BasisGraph
-from ucon.bases import SI_TO_CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS_ESU
 
 bg = BasisGraph()
 bg = bg.with_transform(SI_TO_CGS_ESU)
@@ -662,7 +976,7 @@ bg.are_connected(SI, CGS_ESU)  # True
 Matrix mapping dimension vectors between bases:
 
 ```python
-from ucon.bases import SI_TO_CGS_ESU
+from ucon.basis.transforms import SI_TO_CGS_ESU
 
 # Transform a dimension vector
 si_current = units.ampere.dimension.vector
@@ -765,7 +1079,7 @@ Support for natural units where physical constants c = h_bar = k_B = 1.
 
 ```python
 from ucon import NATURAL, SI_TO_NATURAL, NATURAL_TO_SI
-from ucon.basis import ConstantBinding, ConstantAwareBasisTransform
+from ucon.basis import ConstantBinding, ConstantBoundBasisTransform
 ```
 
 ### NATURAL Basis
@@ -895,15 +1209,15 @@ binding.constant_symbol  # "h_bar_c"
 binding.exponent  # Fraction(1)
 ```
 
-### ConstantAwareBasisTransform
+### ConstantBoundBasisTransform
 
 Basis transform with bindings that enable inversion of non-square matrices:
 
 ```python
-from ucon import ConstantAwareBasisTransform
+from ucon import ConstantBoundBasisTransform
 
-# SI_TO_NATURAL is a ConstantAwareBasisTransform (8x1 matrix)
-isinstance(SI_TO_NATURAL, ConstantAwareBasisTransform)  # True
+# SI_TO_NATURAL is a ConstantBoundBasisTransform (8x1 matrix)
+isinstance(SI_TO_NATURAL, ConstantBoundBasisTransform)  # True
 
 # Inverse works despite non-square matrix
 NATURAL_TO_SI = SI_TO_NATURAL.inverse()
