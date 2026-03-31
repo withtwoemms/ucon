@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-03-31
+
 ### Added
 
 - `ReciprocalMap(a)` conversion map for inversely proportional relationships (`y = a / x`)
@@ -32,12 +34,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `international_ampere` (`A_int`): 1 A_int = 1.000022 A
   - `international_volt` (`V_int`): 1 V_int = 1.00034 V
   - `international_ohm` (`ohm_int`): 1 Ω_int = 1.00049 Ω
+- `CyclicInconsistency`, `spectroscopy`, `boltzmann`, `register_unit` exported from top-level package
+- `__all__` declarations for `ucon.maps` and `ucon.graph`
+- `SECURITY.md` vulnerability disclosure policy
+- `SUPPORT.md` semantic versioning, LTS, and backward-compatibility policy
 
 ### Changed
 
 - `ConversionGraph._rebased` changed from `dict[Unit, RebasedUnit]` to `dict[Unit, list[RebasedUnit]]`
   - Fixes collision when multiple basis transforms register rebased entries for the same source unit (e.g., CGS-ESU and CGS-EMU both rebasing `ampere`)
   - `list_rebased_units()` now returns `dict[Unit, list[RebasedUnit]]`
+- Scalar conversion performance: 5–50x faster than v0.11.0 across all benchmarks
+  - Fast paths in `UnitProduct.__init__` for single-factor and two-factor cases
+  - Cached `UnitProduct.from_unit()` results
+  - Plain-Unit fast path in `Number.to()` bypassing UnitProduct wrapping
+  - Hash caching on `Vector`, `Dimension`, `Unit`, `UnitFactor`
+  - Dimension algebra caching (`__mul__`, `__truediv__`, `__pow__`)
+  - `Vector` components use `int` instead of `Fraction` for common cases
+- Removed `_Quantifiable` and `_none` from `ucon.quantity.__all__`
 
 ## [0.11.0] - 2026-03-28
 
@@ -559,7 +573,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/0.11.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/withtwoemms/ucon/compare/0.11.0...1.0.0
 [0.11.0]: https://github.com/withtwoemms/ucon/compare/0.10.1...0.11.0
 [0.10.1]: https://github.com/withtwoemms/ucon/compare/0.10.0...0.10.1
 [0.10.0]: https://github.com/withtwoemms/ucon/compare/0.9.4...0.10.0
