@@ -36,11 +36,19 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Union
 
+from ucon.core import Scale
 from ucon.quantity import Number
 
 if TYPE_CHECKING:
     from ucon.core import Unit, UnitProduct
     from ucon.dimension import Dimension
+
+
+# --------------------------------------------------------------------------------------
+# Dependency Injection Hooks (wired by ucon.__init__)
+# --------------------------------------------------------------------------------------
+
+_get_units_module = None  # () -> module
 
 
 @dataclass(frozen=True)
@@ -152,9 +160,7 @@ class Constant:
 
 def _build_constants():
     """Build constants after units module is loaded."""
-    # deferred: initialization ordering — units module must be fully loaded first
-    from ucon import units
-    from ucon.core import Scale
+    units = _get_units_module()
 
     # -------------------------------------------------------------------------
     # SI Defining Constants (Exact)
@@ -450,6 +456,10 @@ def get_constant_by_symbol(symbol: str) -> Constant | None:
 
 def __getattr__(name: str):
     """Lazy attribute access for constants and aliases."""
+    # Don't intercept dunder attributes (e.g. __path__, __spec__)
+    if name.startswith('__') and name.endswith('__'):
+        raise AttributeError(name)
+
     constants = _get_constants()
 
     # Direct constant names

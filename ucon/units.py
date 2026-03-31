@@ -31,7 +31,10 @@ systems, or aliases dynamically, without modifying the core definitions.
 import re
 from typing import Dict, Tuple, Union
 
-from ucon.core import Dimension, Scale, Unit, UnitFactor, UnitProduct, UnitSystem
+from ucon.core import (
+    Dimension, Scale, Unit, UnitFactor, UnitProduct, UnitSystem,
+    UnknownUnitError, _get_parsing_graph,
+)
 from ucon.dimension import (
     NONE, TIME, LENGTH, MASS, CURRENT, TEMPERATURE,
     LUMINOUS_INTENSITY, AMOUNT_OF_SUBSTANCE, INFORMATION,
@@ -61,16 +64,7 @@ from ucon.dimension import (
     # Natural-unit dimensions
     NATURAL_ENERGY,
 )
-from ucon.graph import _get_parsing_graph
 from ucon.parsing import parse_unit_expression, ParseError
-
-
-class UnknownUnitError(Exception):
-    """Raised when a unit string cannot be resolved to a known unit."""
-
-    def __init__(self, name: str):
-        self.name = name
-        super().__init__(f"Unknown unit: {name!r}")
 
 
 none = Unit()

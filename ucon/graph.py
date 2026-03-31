@@ -19,7 +19,7 @@ Functions
 - :func:`set_default_graph` — Replace the default graph.
 - :func:`reset_default_graph` — Reset to standard graph on next access.
 - :func:`using_graph` — Context manager for scoped graph override.
-- :func:`_get_parsing_graph` — Get the graph for name resolution during parsing.
+- :func:`ucon.core._get_parsing_graph` — Get the graph for name resolution during parsing.
 """
 from __future__ import annotations
 
@@ -47,8 +47,19 @@ from ucon.core import (
     UnitFactor,
     UnitProduct,
     Scale,
+    UnknownUnitError,
+    _get_parsing_graph,
+    _parsing_graph,
 )
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
+
+
+# --------------------------------------------------------------------------------------
+# Dependency Injection Hooks (wired by ucon.__init__)
+# --------------------------------------------------------------------------------------
+
+_build_standard_units = None   # (graph: ConversionGraph) -> None
+_resolve_unit_by_name = None   # (name: str) -> Unit | UnitProduct
 
 
 class DimensionMismatch(Exception):
@@ -420,9 +431,6 @@ class ConversionGraph:
         >>> aero = load_package("aerospace.ucon.toml")
         >>> graph = get_default_graph().with_package(aero)
         """
-        # deferred: graph ↔ packages circular dependency
-        from ucon.packages import UnitPackage
-
         new = self.copy()
 
         # Materialize and register units first
@@ -446,14 +454,10 @@ class ConversionGraph:
         graph: 'ConversionGraph',
     ) -> bool:
         """Check if a package edge is redundant because the graph can already convert between its endpoints."""
-        # deferred: graph ↔ units circular dependency
-        from ucon import get_unit_by_name
-        from ucon.units import UnknownUnitError
-
         with using_graph(graph):
             try:
-                src_unit = get_unit_by_name(edge_def.src)
-                dst_unit = get_unit_by_name(edge_def.dst)
+                src_unit = _resolve_unit_by_name(edge_def.src)
+                dst_unit = _resolve_unit_by_name(edge_def.dst)
             except UnknownUnitError:
                 return False  # Can't resolve — let materialize handle the error
 
@@ -867,7 +871,6 @@ class ConversionGraph:
 
 _default_graph: ConversionGraph | None = None
 _graph_context: ContextVar[ConversionGraph | None] = ContextVar("graph", default=None)
-_parsing_graph: ContextVar[ConversionGraph | None] = ContextVar("parsing_graph", default=None)
 
 
 def get_default_graph() -> ConversionGraph:
@@ -911,20 +914,6 @@ def reset_default_graph() -> None:
     _default_graph = None
 
 
-def _get_parsing_graph() -> ConversionGraph | None:
-    """Get the graph to use for name resolution during parsing.
-
-    Returns the context-local parsing graph if set, otherwise None.
-    Used by _lookup_factor() to check graph-local registry first.
-
-    Returns
-    -------
-    ConversionGraph | None
-        The parsing graph, or None if not in a using_graph() context.
-    """
-    return _parsing_graph.get()
-
-
 @contextmanager
 def using_graph(graph: ConversionGraph):
     """Context manager for scoped graph override.
@@ -959,10 +948,16 @@ def using_graph(graph: ConversionGraph):
 
 def _build_standard_graph() -> ConversionGraph:
     """Build the default graph with common conversions."""
-    # deferred: graph ↔ units circular dependency
-    from ucon import units
-
     graph = ConversionGraph()
+    _build_standard_units(graph)
+    return graph
+
+
+def _build_standard_edges(graph: ConversionGraph) -> None:
+    """Populate standard conversion edges. Called from __init__.py hook wiring."""
+    # Import units module — safe because this function is only called after
+    # all modules are fully loaded via the hook wiring in ucon.__init__.
+    from ucon import units
 
     # Register all standard units for graph-local name resolution
     for name in dir(units):
@@ -1378,5 +1373,3 @@ def _build_standard_graph() -> ConversionGraph:
             (units.joule, units.rydberg): LinearMap(1 / 2.1798723611035e-18),
         },
     )
-
-    return graph

@@ -19,6 +19,7 @@ Classes
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from fractions import Fraction
 import math
 from enum import Enum
@@ -45,6 +46,43 @@ from ucon.dimension import Dimension, NONE
 class DimensionNotCovered(Exception):
     """Raised when a UnitSystem doesn't cover a requested dimension."""
     pass
+
+
+class UnknownUnitError(Exception):
+    """Raised when a unit string cannot be resolved to a known unit."""
+
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"Unknown unit: {name!r}")
+
+
+# --------------------------------------------------------------------------------------
+# Parsing Graph ContextVar (shared between graph.py and units.py)
+# --------------------------------------------------------------------------------------
+
+_parsing_graph: ContextVar = ContextVar("parsing_graph", default=None)
+
+
+def _get_parsing_graph():
+    """Get the graph to use for name resolution during parsing.
+
+    Returns the context-local parsing graph if set, otherwise None.
+    Used by _lookup_factor() to check graph-local registry first.
+
+    Returns
+    -------
+    ConversionGraph | None
+        The parsing graph, or None if not in a using_graph() context.
+    """
+    return _parsing_graph.get()
+
+
+# --------------------------------------------------------------------------------------
+# Dependency Injection Hooks (wired by ucon.__init__)
+# --------------------------------------------------------------------------------------
+
+_number_factory = None   # (quantity, unit, uncertainty) -> Number
+_array_factory = None    # (quantities, unit, uncertainty) -> NumberArray | None
 
 
 # --------------------------------------------------------------------------------------
@@ -534,17 +572,13 @@ class Unit:
         <NumberArray [1. 2. 3.] m>
         """
         # Check for array-like inputs
-        if _HAS_NUMPY and (
+        if _array_factory is not None and _HAS_NUMPY and (
             isinstance(quantity, np.ndarray)
             or (isinstance(quantity, (list, tuple)) and len(quantity) > 0)
         ):
-            # deferred: core ↔ integrations.numpy circular dependency
-            from ucon.integrations.numpy import NumberArray
-            return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
+            return _array_factory(quantity, self, uncertainty)
 
-        # deferred: core ↔ quantity circular dependency
-        from ucon.quantity import Number
-        return Number(quantity=quantity, unit=UnitProduct.from_unit(self), uncertainty=uncertainty)
+        return _number_factory(quantity, UnitProduct.from_unit(self), uncertainty)
 
 
 # --------------------------------------------------------------------------------------
@@ -1165,14 +1199,10 @@ class UnitProduct:
         <NumberArray [10. 20. 30.] m/s>
         """
         # Check for array-like inputs
-        if _HAS_NUMPY and (
+        if _array_factory is not None and _HAS_NUMPY and (
             isinstance(quantity, np.ndarray)
             or (isinstance(quantity, (list, tuple)) and len(quantity) > 0)
         ):
-            # deferred: core ↔ integrations.numpy circular dependency
-            from ucon.integrations.numpy import NumberArray
-            return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
+            return _array_factory(quantity, self, uncertainty)
 
-        # deferred: core ↔ quantity circular dependency
-        from ucon.quantity import Number
-        return Number(quantity=quantity, unit=self, uncertainty=uncertainty)
+        return _number_factory(quantity, self, uncertainty)

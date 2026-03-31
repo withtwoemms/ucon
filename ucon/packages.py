@@ -48,12 +48,20 @@ from typing import TYPE_CHECKING
 import ast
 import operator
 
-from ucon.core import Unit
+from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
 from ucon.maps import AffineMap, LinearMap
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
+
+
+# --------------------------------------------------------------------------------------
+# Dependency Injection Hooks (wired by ucon.__init__)
+# --------------------------------------------------------------------------------------
+
+_resolve_unit_by_name = None  # (name: str) -> Unit | UnitProduct
+_using_graph = None           # (graph) -> context manager
 
 
 def _parse_factor(value) -> float:
@@ -200,22 +208,17 @@ class EdgeDef:
         PackageLoadError
             If source or destination unit cannot be resolved.
         """
-        # deferred: packages is loaded before graph and units in ucon.__init__
-        from ucon import get_unit_by_name
-        from ucon.graph import using_graph
-        from ucon.units import UnknownUnitError
-
         # Resolve units within graph context
-        with using_graph(graph):
+        with _using_graph(graph):
             try:
-                src_unit = get_unit_by_name(self.src)
+                src_unit = _resolve_unit_by_name(self.src)
             except UnknownUnitError:
                 raise PackageLoadError(
                     f"Cannot resolve source unit '{self.src}' in edge"
                 )
 
             try:
-                dst_unit = get_unit_by_name(self.dst)
+                dst_unit = _resolve_unit_by_name(self.dst)
             except UnknownUnitError:
                 raise PackageLoadError(
                     f"Cannot resolve destination unit '{self.dst}' in edge"

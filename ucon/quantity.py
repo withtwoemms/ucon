@@ -35,6 +35,14 @@ else:
 
 from ucon.core import Unit, UnitProduct, UnitFactor, Scale
 from ucon.dimension import Dimension, NONE
+from ucon.graph import get_default_graph
+
+
+# --------------------------------------------------------------------------------------
+# Dependency Injection Hooks (wired by ucon.__init__)
+# --------------------------------------------------------------------------------------
+
+_get_unit_by_name = None  # (name: str) -> Unit | UnitProduct
 
 
 # Dimensionless unit for use as default in Number
@@ -194,13 +202,9 @@ class Number:
         >>> length.to("km")
         <0.1 km>
         """
-        # deferred: quantity ↔ units and quantity ↔ graph circular dependencies
-        from ucon.graph import get_default_graph
-        from ucon.units import get_unit_by_name
-
         # Resolve string targets via name/alias/prefix/expression lookup
         if isinstance(target, str):
-            target = get_unit_by_name(target)
+            target = _get_unit_by_name(target)
 
         # Wrap plain Units as UnitProducts for uniform handling
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
