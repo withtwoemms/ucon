@@ -794,14 +794,14 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 - [x] API audit — every public symbol classified as stable/internal/rename
 - [x] Domain walkthroughs — 5 guides (nursing, chem-e, aerospace, finance, EE)
 - [x] API reference generation — 15 module pages via mkdocstrings
-- [ ] Performance benchmarks documented
-- [ ] Security review complete
-- [ ] LTS policy stated
+- [x] Performance benchmarks documented
+- [x] Security review complete
+- [x] LTS policy stated
 
 ### API Contract
 
-- [ ] API freeze with semantic versioning commitment
-- [ ] 2+ year LTS commitment
+- [x] API freeze with semantic versioning commitment
+- [x] 2+ year LTS commitment
 
 **Outcomes:**
 - Stable, well-tested release
