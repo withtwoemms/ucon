@@ -95,6 +95,8 @@ def _parse_factor(value) -> float:
             return _eval_node(node.body)
         if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
             return float(node.value)
+        if isinstance(node, ast.Num):  # Python 3.7 compat
+            return float(node.n)
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS[type(node.op)](_eval_node(node.operand))
         if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
