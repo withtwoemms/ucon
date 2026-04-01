@@ -3,8 +3,10 @@
 
 [package]
 name = "aerospace"
-version = "1.0.0"
+version = "1.1.0"
 description = "Aerospace and aviation units"
+
+# --- Units ---
 
 [[units]]
 name = "slug"
@@ -12,19 +14,22 @@ dimension = "mass"
 aliases = ["slug"]
 
 [[units]]
+name = "nautical_mile"
+dimension = "length"
+shorthand = "nmi"
+aliases = ["NM"]
+
+[[units]]
 name = "knot"
 dimension = "velocity"
 aliases = ["kn", "kt", "knots"]
 
 [[units]]
-name = "nautical_mile"
-dimension = "length"
-aliases = ["nmi", "NM"]
-
-[[units]]
 name = "poundal"
 dimension = "force"
 aliases = ["pdl"]
+
+# --- Edges ---
 
 [[edges]]
 src = "slug"
@@ -45,3 +50,13 @@ factor = "1852 / 3600"
 src = "poundal"
 dst = "newton"
 factor = 0.138255
+
+# --- Constants ---
+
+[[constants]]
+symbol = "vs"
+name = "speed of sound in dry air at 20C"
+value = 343.0
+unit = "m/s"
+source = "ISA standard atmosphere"
+category = "exact"

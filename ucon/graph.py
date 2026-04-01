@@ -116,6 +116,9 @@ class ConversionGraph:
     # Names of loaded packages (for dependency validation)
     _loaded_packages: frozenset[str] = field(default_factory=frozenset)
 
+    # Constants materialized from loaded packages
+    _package_constants: tuple = field(default_factory=tuple)
+
     # Conversion path cache: (src_key, dst_key) -> Map
     # Cleared when edges are added
     _conversion_cache: dict[tuple, Map] = field(default_factory=dict)
@@ -288,6 +291,17 @@ class ConversionGraph:
                 basis_transform=basis_transform,
             )
 
+    @property
+    def package_constants(self) -> tuple:
+        """Constants materialized from loaded packages.
+
+        Returns
+        -------
+        tuple[Constant, ...]
+            All constants from loaded packages, in load order.
+        """
+        return self._package_constants
+
     def list_rebased_units(self) -> dict[Unit, list[RebasedUnit]]:
         """Return all rebased units in the graph.
 
@@ -414,6 +428,7 @@ class ConversionGraph:
         new._name_registry_cs = dict(self._name_registry_cs)
         new._basis_graph = self._basis_graph  # BasisGraph is immutable, share reference
         new._loaded_packages = self._loaded_packages  # frozenset is immutable, share reference
+        new._package_constants = self._package_constants  # tuple is immutable, share reference
         return new
 
     def with_package(self, package: 'UnitPackage') -> 'ConversionGraph':
@@ -462,6 +477,12 @@ class ConversionGraph:
             if self._package_edge_already_covered(edge_def, new):
                 continue
             edge_def.materialize(new)
+
+        # Materialize constants (resolved within new graph context)
+        materialized_constants = tuple(
+            const_def.materialize(new) for const_def in package.constants
+        )
+        new._package_constants = getattr(self, '_package_constants', ()) + materialized_constants
 
         # Track loaded package name
         new._loaded_packages = self._loaded_packages | {package.name}

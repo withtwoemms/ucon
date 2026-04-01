@@ -15,6 +15,7 @@ Classes
 -------
 - :class:`UnitDef` — Serializable unit definition.
 - :class:`EdgeDef` — Serializable conversion edge definition.
+- :class:`ConstantDef` — Serializable constant definition.
 - :class:`UnitPackage` — Immutable bundle of units and conversions.
 
 Functions
@@ -48,6 +49,7 @@ from typing import TYPE_CHECKING
 import ast
 import operator
 
+from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
 from ucon.maps import AffineMap, LinearMap
@@ -236,6 +238,75 @@ class EdgeDef:
 
 
 @dataclass(frozen=True)
+class ConstantDef:
+    """Serializable constant definition.
+
+    Attributes
+    ----------
+    symbol : str
+        Standard symbol (e.g., "vs", "Eg").
+    name : str
+        Full descriptive name (e.g., "speed of sound in dry air at 20C").
+    value : float
+        Numeric value in the specified unit.
+    unit : str
+        Unit expression string (e.g., "m/s", "J", "kg*m/s^2").
+        Resolved via ``get_unit_by_name()`` during materialization.
+    uncertainty : float | None
+        Standard uncertainty. None for exact values.
+    source : str
+        Data source reference.
+    category : str
+        Category: "exact", "derived", "measured", or "session".
+    """
+    symbol: str
+    name: str
+    value: float
+    unit: str
+    uncertainty: float | None = None
+    source: str = "user-defined"
+    category: str = "session"
+
+    def materialize(self, graph: 'ConversionGraph') -> Constant:
+        """Resolve unit string and create a Constant.
+
+        Parameters
+        ----------
+        graph : ConversionGraph
+            The graph to resolve unit names against.
+
+        Returns
+        -------
+        Constant
+            A new Constant instance.
+
+        Raises
+        ------
+        PackageLoadError
+            If the unit string cannot be resolved.
+        """
+        from ucon.resolver import get_unit_by_name
+        from ucon.graph import using_graph
+        with using_graph(graph):
+            try:
+                resolved_unit = get_unit_by_name(self.unit)
+            except UnknownUnitError:
+                raise PackageLoadError(
+                    f"Cannot resolve unit '{self.unit}' for constant '{self.symbol}'"
+                )
+
+        return Constant(
+            symbol=self.symbol,
+            name=self.name,
+            value=self.value,
+            unit=resolved_unit,
+            uncertainty=self.uncertainty,
+            source=self.source,
+            category=self.category,
+        )
+
+
+@dataclass(frozen=True)
 class UnitPackage:
     """Immutable bundle of domain-specific units and conversions.
 
@@ -251,6 +322,8 @@ class UnitPackage:
         Unit definitions.
     edges : tuple[EdgeDef, ...]
         Conversion edge definitions.
+    constants : tuple[ConstantDef, ...]
+        Constant definitions.
     requires : tuple[str, ...]
         Names of required packages (for future dependency resolution).
     """
@@ -259,6 +332,7 @@ class UnitPackage:
     description: str = ""
     units: tuple[UnitDef, ...] = ()
     edges: tuple[EdgeDef, ...] = ()
+    constants: tuple[ConstantDef, ...] = ()
     requires: tuple[str, ...] = ()
 
     def __post_init__(self):
@@ -329,6 +403,20 @@ def load_package(path: str | Path) -> UnitPackage:
         for e in data.get("edges", [])
     )
 
+    # Parse constants
+    constants = tuple(
+        ConstantDef(
+            symbol=c["symbol"],
+            name=c["name"],
+            value=float(c["value"]),
+            unit=c["unit"],
+            uncertainty=c.get("uncertainty"),
+            source=c.get("source", "user-defined"),
+            category=c.get("category", "session"),
+        )
+        for c in data.get("constants", [])
+    )
+
     # Support both [package] table (preferred) and top-level keys (legacy)
     package = data.get("package", {})
     if not package and any(k in data for k in ("name", "version", "description")):
@@ -347,11 +435,13 @@ def load_package(path: str | Path) -> UnitPackage:
         description=package.get("description", data.get("description", "")),
         units=units,
         edges=edges,
+        constants=constants,
         requires=tuple(package.get("requires", data.get("requires", []))),
     )
 
 
 __all__ = [
+    'ConstantDef',
     'EdgeDef',
     'PackageLoadError',
     'UnitDef',

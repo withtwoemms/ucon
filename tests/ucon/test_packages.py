@@ -609,5 +609,155 @@ dimension = "mass"
             path.unlink()
 
 
+class TestConstantDef(unittest.TestCase):
+    """Test ConstantDef dataclass."""
+
+    def test_constant_def_creation(self):
+        """ConstantDef can be created with valid attributes."""
+        from ucon.packages import ConstantDef
+        const_def = ConstantDef(
+            symbol='vs',
+            name='speed of sound in dry air at 20C',
+            value=343.0,
+            unit='m/s',
+        )
+        self.assertEqual(const_def.symbol, 'vs')
+        self.assertEqual(const_def.value, 343.0)
+        self.assertEqual(const_def.unit, 'm/s')
+        self.assertIsNone(const_def.uncertainty)
+        self.assertEqual(const_def.source, 'user-defined')
+        self.assertEqual(const_def.category, 'session')
+
+    def test_constant_def_materialize(self):
+        """ConstantDef.materialize() creates a Constant object."""
+        from ucon.packages import ConstantDef
+        from ucon.constants import Constant
+        const_def = ConstantDef(
+            symbol='vs',
+            name='speed of sound',
+            value=343.0,
+            unit='m/s',
+        )
+        graph = get_default_graph()
+        constant = const_def.materialize(graph)
+
+        self.assertIsInstance(constant, Constant)
+        self.assertEqual(constant.symbol, 'vs')
+        self.assertEqual(constant.value, 343.0)
+        self.assertEqual(constant.name, 'speed of sound')
+        self.assertIsNone(constant.uncertainty)
+
+    def test_constant_def_with_uncertainty(self):
+        """ConstantDef propagates uncertainty to Constant."""
+        from ucon.packages import ConstantDef
+        const_def = ConstantDef(
+            symbol='G_local',
+            name='local gravitational acceleration',
+            value=9.81,
+            unit='m/s^2',
+            uncertainty=0.01,
+            source='local measurement',
+            category='measured',
+        )
+        graph = get_default_graph()
+        constant = const_def.materialize(graph)
+
+        self.assertEqual(constant.uncertainty, 0.01)
+        self.assertEqual(constant.source, 'local measurement')
+        self.assertEqual(constant.category, 'measured')
+
+    def test_constant_def_unknown_unit_raises(self):
+        """ConstantDef.materialize() raises for unknown unit."""
+        from ucon.packages import ConstantDef
+        const_def = ConstantDef(
+            symbol='x',
+            name='unknown',
+            value=1.0,
+            unit='nonexistent_unit',
+        )
+        with self.assertRaises(PackageLoadError) as ctx:
+            const_def.materialize(get_default_graph())
+        self.assertIn('nonexistent_unit', str(ctx.exception))
+
+    def test_constants_from_toml(self):
+        """load_package reads [[constants]] from TOML."""
+        toml_content = '''
+[package]
+name = "constants_test"
+version = "1.0.0"
+
+[[constants]]
+symbol = "vs"
+name = "speed of sound in dry air at 20C"
+value = 343.0
+unit = "m/s"
+
+[[constants]]
+symbol = "g_n"
+name = "standard gravity"
+value = 9.80665
+unit = "m/s^2"
+source = "CODATA 2022"
+category = "exact"
+'''
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.toml', delete=False
+        ) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            pkg = load_package(path)
+            self.assertEqual(len(pkg.constants), 2)
+            self.assertEqual(pkg.constants[0].symbol, 'vs')
+            self.assertEqual(pkg.constants[0].value, 343.0)
+            self.assertEqual(pkg.constants[1].symbol, 'g_n')
+            self.assertEqual(pkg.constants[1].source, 'CODATA 2022')
+            self.assertEqual(pkg.constants[1].category, 'exact')
+        finally:
+            path.unlink()
+
+    def test_with_package_materializes_constants(self):
+        """with_package() materializes constants onto graph."""
+        from ucon.constants import Constant
+
+        pkg = UnitPackage(
+            name='test_constants',
+            constants=(
+                __import__('ucon.packages', fromlist=['ConstantDef']).ConstantDef(
+                    symbol='vs',
+                    name='speed of sound',
+                    value=343.0,
+                    unit='m/s',
+                ),
+            ),
+        )
+        graph = get_default_graph().with_package(pkg)
+        self.assertEqual(len(graph.package_constants), 1)
+        self.assertIsInstance(graph.package_constants[0], Constant)
+        self.assertEqual(graph.package_constants[0].symbol, 'vs')
+
+    def test_package_constants_accumulate(self):
+        """Multiple with_package() calls accumulate constants."""
+        from ucon.packages import ConstantDef
+        pkg1 = UnitPackage(
+            name='pkg1',
+            constants=(
+                ConstantDef(symbol='a', name='const a', value=1.0, unit='m'),
+            ),
+        )
+        pkg2 = UnitPackage(
+            name='pkg2',
+            constants=(
+                ConstantDef(symbol='b', name='const b', value=2.0, unit='kg'),
+            ),
+        )
+        graph = get_default_graph().with_package(pkg1).with_package(pkg2)
+        self.assertEqual(len(graph.package_constants), 2)
+        symbols = [c.symbol for c in graph.package_constants]
+        self.assertEqual(symbols, ['a', 'b'])
+
+
 if __name__ == '__main__':
     unittest.main()
