@@ -746,7 +746,7 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v1.0.0 — API Stability + Units Expansion (In Progress)
+## v1.0.0 — API Stability + Units Expansion (Complete)
 
 **Theme:** Production ready.
 
