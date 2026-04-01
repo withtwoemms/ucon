@@ -766,19 +766,32 @@ from ucon.packages import load_package, UnitPackage, UnitDef, EdgeDef, PackageLo
 ### TOML Schema
 
 ```toml
+[package]
 name = "aerospace"
 version = "1.0.0"
 description = "Aerospace and aviation units"
+requires = []  # Names of required packages
 
 [[units]]
 name = "slug"
 dimension = "mass"
 aliases = ["slug"]
 
+[[units]]
+name = "nautical_mile"
+dimension = "length"
+shorthand = "nmi"        # Explicit display symbol
+aliases = ["NM"]
+
 [[edges]]
 src = "slug"
 dst = "kilogram"
 factor = 14.5939
+
+[[edges]]
+src = "nautical_mile"
+dst = "meter"
+factor = 1852
 ```
 
 Edges support affine conversions for temperature-like units:
@@ -787,8 +800,37 @@ Edges support affine conversions for temperature-like units:
 [[edges]]
 src = "celsius"
 dst = "fahrenheit"
-a = 1.8
-b = 32
+factor = 1.8
+offset = 32
+```
+
+For non-linear conversions, use the explicit `map` inline table with a
+`type` key. Supported types: `linear`, `affine`, `log`, `reciprocal`.
+
+```toml
+# Logarithmic (e.g., decibels)
+[[edges]]
+src = "decibel_power"
+dst = "ratio"
+map = { type = "log", scale = 10, base = 10 }
+
+# Reciprocal (e.g., wavelength ↔ frequency)
+[[edges]]
+src = "wavelength_unit"
+dst = "frequency_unit"
+map = { type = "reciprocal", a = 299792458.0 }
+```
+
+Constants can be defined for domain-specific values:
+
+```toml
+[[constants]]
+symbol = "vs"
+name = "speed of sound in dry air at 20C"
+value = 343.0
+unit = "m/s"
+source = "ISA standard atmosphere"
+category = "exact"
 ```
 
 ### Loading
@@ -798,28 +840,42 @@ from ucon.packages import load_package
 from ucon import get_default_graph
 
 package = load_package("aerospace.ucon.toml")
-print(package.name)     # "aerospace"
-print(package.units)    # (UnitDef(...), ...)
-print(package.edges)    # (EdgeDef(...), ...)
+print(package.name)       # "aerospace"
+print(package.units)      # (UnitDef(...), ...)
+print(package.edges)      # (EdgeDef(...), ...)
+print(package.constants)  # (ConstantDef(...), ...)
 
 # Apply to graph
 graph = get_default_graph().with_package(package)
+
+# Access materialized constants
+for const in graph.package_constants:
+    print(f"{const.symbol} = {const.value} {const.unit}")
 ```
 
-### UnitDef and EdgeDef
+### UnitDef, EdgeDef, and ConstantDef
 
 ```python
 # UnitDef holds the declaration before materialization
 for unit_def in package.units:
-    print(unit_def.name)       # "slug"
-    print(unit_def.dimension)  # "mass"
-    print(unit_def.aliases)    # ["slug"]
+    print(unit_def.name)        # "slug"
+    print(unit_def.dimension)   # "mass"
+    print(unit_def.aliases)     # ("slug",)
+    print(unit_def.shorthand)   # None or explicit symbol
 
 # EdgeDef holds the conversion specification
 for edge_def in package.edges:
     print(edge_def.src)     # "slug"
     print(edge_def.dst)     # "kilogram"
     print(edge_def.factor)  # 14.5939
+    print(edge_def.offset)  # 0.0 (non-zero for affine)
+
+# ConstantDef holds the constant specification
+for const_def in package.constants:
+    print(const_def.symbol)       # "vs"
+    print(const_def.value)        # 343.0
+    print(const_def.unit)         # "m/s"
+    print(const_def.uncertainty)  # None or float
 ```
 
 ### Error Handling

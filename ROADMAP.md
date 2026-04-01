@@ -50,7 +50,8 @@ ucon is a dimensional analysis library for engineers building systems where unit
 | v0.9.4 | MCP Extraction | Complete |
 | v0.10.0 | Scientific Computing | Complete |
 | v0.11.0 | Module Reorganization | Complete |
-| v1.0.0 | API Stability + Units Expansion | In Progress |
+| v1.0.0 | API Stability + Units Expansion | Complete |
+| v1.1.0 | Package Format Enhancements | In Progress |
 
 ---
 
@@ -746,7 +747,7 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
-## v1.0.0 — API Stability + Units Expansion (In Progress)
+## v1.0.0 — API Stability + Units Expansion (Complete)
 
 **Theme:** Production ready.
 
@@ -813,19 +814,40 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
+## v1.1.0 — Package Format Enhancements (In Progress)
+
+**Theme:** Enriched `.ucon.toml` format toward full ConversionGraph serialization.
+
+- [x] `[package]` table for structured metadata (name, version, description, requires)
+- [x] `shorthand` field on `UnitDef` for explicit display symbols
+- [x] `requires` field with dependency validation on `with_package()`
+- [x] `[[constants]]` section for domain-specific physical constants
+- [x] Explicit `map` type on `[[edges]]` (linear, affine, log, exp, reciprocal)
+- [x] `ExpMap` in package format map type registry
+- [x] Product edges verified: composite `src`/`dst` expressions resolve correctly
+
+**Outcomes:**
+- Domain packages can define constants alongside units and edges
+- Non-linear conversion maps (logarithmic, reciprocal) expressible in TOML
+- Package dependency ordering enforced at load time
+- Foundation for full ConversionGraph serialization in v1.2.0
+
+---
+
 ## Post-1.0 Vision
 
-| Feature | Notes |
-|---------|-------|
-| Cache Warming | `warm_cache()` API for precomputing common conversion paths |
-| Decompose Tool | SLM enablement: deterministic `decompose` → `compute` pipeline |
-| Uncertainty correlation | Full covariance tracking |
-| Cython optimization | Performance parity with unyt |
-| Additional integrations | SQLAlchemy, msgpack, protobuf |
-| Localization | Unit names in multiple languages |
-| NIST/CODATA updates | Automated constant updates |
-| Symbolic bridge to SymPy | Export units for symbolic manipulation |
-| Visualization | Dimensional relationship graphs |
+| Feature | Version | Notes |
+|---------|---------|-------|
+| ConversionGraph Serialization | v1.2.0 | `[bases.*]`, `[dimensions.*]`, `[transforms.*]`, `[contexts.*]`, `graph.to_toml()` / `from_toml()` round-trip |
+| Cache Warming | — | `warm_cache()` API for precomputing common conversion paths |
+| Decompose Tool | — | SLM enablement: deterministic `decompose` → `compute` pipeline |
+| Uncertainty correlation | — | Full covariance tracking |
+| Cython optimization | — | Performance parity with unyt |
+| Additional integrations | — | SQLAlchemy, msgpack, protobuf |
+| Localization | — | Unit names in multiple languages |
+| NIST/CODATA updates | — | Automated constant updates |
+| Symbolic bridge to SymPy | — | Export units for symbolic manipulation |
+| Visualization | — | Dimensional relationship graphs |
 
 ---
 

@@ -15,6 +15,7 @@ Classes
 -------
 - :class:`UnitDef` — Serializable unit definition.
 - :class:`EdgeDef` — Serializable conversion edge definition.
+- :class:`ConstantDef` — Serializable constant definition.
 - :class:`UnitPackage` — Immutable bundle of units and conversions.
 
 Functions
@@ -48,9 +49,10 @@ from typing import TYPE_CHECKING
 import ast
 import operator
 
+from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
-from ucon.maps import AffineMap, LinearMap
+from ucon.maps import AffineMap, ExpMap, LinearMap, LogMap, Map, ReciprocalMap
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -135,10 +137,15 @@ class UnitDef:
         Dimension enum name (e.g., "mass", "length").
     aliases : tuple[str, ...]
         Optional shorthand symbols (e.g., ("slug",)).
+    shorthand : str | None
+        Explicit display symbol (e.g., "nmi"). When provided, this is
+        prepended to aliases so it becomes ``Unit.shorthand``. When
+        ``None``, the first alias (or name) is used as before.
     """
     name: str
     dimension: str
     aliases: tuple[str, ...] = ()
+    shorthand: str | None = None
 
     def materialize(self) -> Unit:
         """Convert to a Unit object.
@@ -160,16 +167,79 @@ class UnitDef:
                 f"Unknown dimension '{self.dimension}' for unit '{self.name}'"
             )
 
+        aliases = self.aliases
+        if self.shorthand is not None and self.shorthand not in aliases:
+            aliases = (self.shorthand,) + aliases
+
         return Unit(
             name=self.name,
             dimension=dim,
-            aliases=self.aliases,
+            aliases=aliases,
+        )
+
+
+_MAP_TYPES: dict[str, type[Map]] = {
+    'linear': LinearMap,
+    'affine': AffineMap,
+    'log': LogMap,
+    'exp': ExpMap,
+    'reciprocal': ReciprocalMap,
+}
+
+
+def _build_map(map_spec: dict) -> Map:
+    """Build a Map from a TOML inline table specification.
+
+    Parameters
+    ----------
+    map_spec : dict
+        Must contain a ``type`` key selecting the map class.
+        Remaining keys are passed as constructor arguments.
+
+    Returns
+    -------
+    Map
+        The constructed map instance.
+
+    Raises
+    ------
+    PackageLoadError
+        If the type is unknown or constructor arguments are invalid.
+    """
+    spec = dict(map_spec)  # Shallow copy to pop from
+    map_type = spec.pop('type', None)
+    if map_type is None:
+        raise PackageLoadError("Edge 'map' requires a 'type' key")
+
+    cls = _MAP_TYPES.get(map_type)
+    if cls is None:
+        raise PackageLoadError(
+            f"Unknown map type '{map_type}'. "
+            f"Valid types: {', '.join(sorted(_MAP_TYPES))}"
+        )
+
+    try:
+        return cls(**spec)
+    except TypeError as e:
+        raise PackageLoadError(
+            f"Invalid parameters for {map_type} map: {e}"
         )
 
 
 @dataclass(frozen=True)
 class EdgeDef:
     """Serializable conversion edge definition.
+
+    Edges can be specified in two ways:
+
+    **Shorthand** (linear/affine): uses ``factor`` and optional ``offset``.
+
+    **Explicit map**: uses ``map_spec`` dict with a ``type`` key and
+    constructor parameters. Supported types: ``linear``, ``affine``,
+    ``log``, ``reciprocal``.
+
+    When ``map_spec`` is provided, it takes precedence over
+    ``factor``/``offset``.
 
     Attributes
     ----------
@@ -178,15 +248,36 @@ class EdgeDef:
     dst : str
         Destination unit name or composite expression.
     factor : float
-        Multiplier (dst = factor * src + offset).
+        Multiplier (dst = factor * src + offset). Ignored when
+        ``map_spec`` is provided.
     offset : float
         Additive offset for affine conversions (default 0.0).
-        When non-zero, an AffineMap is used instead of LinearMap.
+        Ignored when ``map_spec`` is provided.
+    map_spec : dict | None
+        Explicit map specification. When provided, must contain a
+        ``type`` key (``"linear"``, ``"affine"``, ``"log"``,
+        ``"reciprocal"``). Remaining keys are constructor arguments.
     """
     src: str
     dst: str
-    factor: float
+    factor: float = 1.0
     offset: float = 0.0
+    map_spec: dict | None = None
+
+    def _build_edge_map(self) -> Map:
+        """Build the Map for this edge.
+
+        Returns
+        -------
+        Map
+            A LinearMap, AffineMap, LogMap, or ReciprocalMap.
+        """
+        if self.map_spec is not None:
+            return _build_map(self.map_spec)
+
+        if self.offset != 0.0:
+            return AffineMap(self.factor, self.offset)
+        return LinearMap(self.factor)
 
     def materialize(self, graph: 'ConversionGraph'):
         """Resolve units and add edge to graph.
@@ -220,10 +311,76 @@ class EdgeDef:
                     f"Cannot resolve destination unit '{self.dst}' in edge"
                 )
 
-        if self.offset != 0.0:
-            graph.add_edge(src=src_unit, dst=dst_unit, map=AffineMap(self.factor, self.offset))
-        else:
-            graph.add_edge(src=src_unit, dst=dst_unit, map=LinearMap(self.factor))
+        graph.add_edge(src=src_unit, dst=dst_unit, map=self._build_edge_map())
+
+
+@dataclass(frozen=True)
+class ConstantDef:
+    """Serializable constant definition.
+
+    Attributes
+    ----------
+    symbol : str
+        Standard symbol (e.g., "vs", "Eg").
+    name : str
+        Full descriptive name (e.g., "speed of sound in dry air at 20C").
+    value : float
+        Numeric value in the specified unit.
+    unit : str
+        Unit expression string (e.g., "m/s", "J", "kg*m/s^2").
+        Resolved via ``get_unit_by_name()`` during materialization.
+    uncertainty : float | None
+        Standard uncertainty. None for exact values.
+    source : str
+        Data source reference.
+    category : str
+        Category: "exact", "derived", "measured", or "session".
+    """
+    symbol: str
+    name: str
+    value: float
+    unit: str
+    uncertainty: float | None = None
+    source: str = "user-defined"
+    category: str = "session"
+
+    def materialize(self, graph: 'ConversionGraph') -> Constant:
+        """Resolve unit string and create a Constant.
+
+        Parameters
+        ----------
+        graph : ConversionGraph
+            The graph to resolve unit names against.
+
+        Returns
+        -------
+        Constant
+            A new Constant instance.
+
+        Raises
+        ------
+        PackageLoadError
+            If the unit string cannot be resolved.
+        """
+        from ucon.resolver import get_unit_by_name
+        from ucon.graph import using_graph
+        with using_graph(graph):
+            try:
+                resolved_unit = get_unit_by_name(self.unit)
+            except UnknownUnitError:
+                raise PackageLoadError(
+                    f"Cannot resolve unit '{self.unit}' for constant '{self.symbol}'"
+                )
+
+        return Constant(
+            symbol=self.symbol,
+            name=self.name,
+            value=self.value,
+            unit=resolved_unit,
+            uncertainty=self.uncertainty,
+            source=self.source,
+            category=self.category,
+        )
 
 
 @dataclass(frozen=True)
@@ -242,6 +399,8 @@ class UnitPackage:
         Unit definitions.
     edges : tuple[EdgeDef, ...]
         Conversion edge definitions.
+    constants : tuple[ConstantDef, ...]
+        Constant definitions.
     requires : tuple[str, ...]
         Names of required packages (for future dependency resolution).
     """
@@ -250,6 +409,7 @@ class UnitPackage:
     description: str = ""
     units: tuple[UnitDef, ...] = ()
     edges: tuple[EdgeDef, ...] = ()
+    constants: tuple[ConstantDef, ...] = ()
     requires: tuple[str, ...] = ()
 
     def __post_init__(self):
@@ -304,32 +464,71 @@ def load_package(path: str | Path) -> UnitPackage:
             name=u["name"],
             dimension=u["dimension"],
             aliases=tuple(u.get("aliases", ())),
+            shorthand=u.get("shorthand"),
         )
         for u in data.get("units", [])
     )
 
-    # Parse edges (factor supports arithmetic expressions like "1852 / 3600")
-    edges = tuple(
-        EdgeDef(
+    # Parse edges
+    # Supports two forms:
+    #   factor/offset shorthand: { src, dst, factor, offset? }
+    #   explicit map: { src, dst, map = { type, ...params } }
+    def _parse_edge(e: dict) -> EdgeDef:
+        map_spec = e.get("map")
+        if map_spec is not None:
+            return EdgeDef(
+                src=e["src"],
+                dst=e["dst"],
+                map_spec=dict(map_spec),
+            )
+        return EdgeDef(
             src=e["src"],
             dst=e["dst"],
             factor=_parse_factor(e["factor"]),
             offset=_parse_factor(e.get("offset", 0.0)),
         )
-        for e in data.get("edges", [])
+
+    edges = tuple(_parse_edge(e) for e in data.get("edges", []))
+
+    # Parse constants
+    constants = tuple(
+        ConstantDef(
+            symbol=c["symbol"],
+            name=c["name"],
+            value=float(c["value"]),
+            unit=c["unit"],
+            uncertainty=c.get("uncertainty"),
+            source=c.get("source", "user-defined"),
+            category=c.get("category", "session"),
+        )
+        for c in data.get("constants", [])
     )
 
+    # Support both [package] table (preferred) and top-level keys (legacy)
+    package = data.get("package", {})
+    if not package and any(k in data for k in ("name", "version", "description")):
+        import warnings
+        warnings.warn(
+            f"Package metadata as top-level keys is deprecated. "
+            f"Wrap in a [package] table in {path.name}. "
+            f"Legacy format will be removed in ucon 2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
     return UnitPackage(
-        name=data.get("name", path.stem),
-        version=data.get("version", "1.0.0"),
-        description=data.get("description", ""),
+        name=package.get("name", data.get("name", path.stem)),
+        version=package.get("version", data.get("version", "1.0.0")),
+        description=package.get("description", data.get("description", "")),
         units=units,
         edges=edges,
-        requires=tuple(data.get("requires", [])),
+        constants=constants,
+        requires=tuple(package.get("requires", data.get("requires", []))),
     )
 
 
 __all__ = [
+    'ConstantDef',
     'EdgeDef',
     'PackageLoadError',
     'UnitDef',

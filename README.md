@@ -179,8 +179,10 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 | **0.8.x** | Basis Abstraction + String Parsing | Complete |
 | **0.9.x** | Constants + Natural Units | Complete |
 | **0.10.x** | NumPy/Pandas/Polars Integration | Complete |
-| **0.11.x** | Module Reorganization | Current |
-| **1.0.0** | API Stability | Planned |
+| **0.11.x** | Module Reorganization | Complete |
+| **1.0.0** | API Stability + Units Expansion | Complete |
+| **1.1.0** | Package Format Enhancements | Current |
+| **1.2.0** | ConversionGraph Serialization | Planned |
 
 See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROADMAP.md)
 

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-04-01
+
+### Added
+
+- `[package]` table in `.ucon.toml` format for structured package metadata
+  - `name`, `version`, `description`, `requires` fields
+  - Legacy top-level keys still supported with deprecation warning
+- `shorthand` field on `UnitDef` for explicit display symbols (e.g., `shorthand = "nmi"`)
+- `requires` field on `UnitPackage` for declaring package dependencies
+  - Validated during `with_package()` — raises `PackageLoadError` if dependencies not loaded
+- `[[constants]]` section in `.ucon.toml` for domain-specific physical constants
+  - `ConstantDef` dataclass with `symbol`, `name`, `value`, `unit`, `uncertainty`, `source`, `category`
+  - Constants materialized onto graph during `with_package()`
+  - Accessible via `graph.package_constants` property
+- Explicit `map` type on `[[edges]]` for non-linear conversion maps
+  - Supported types: `linear`, `affine`, `log`, `exp`, `reciprocal`
+  - `map_spec` field on `EdgeDef` with `_build_map()` dispatch
+  - `map` takes precedence over `factor`/`offset` shorthand when both present
+- `ExpMap` added to package format map type registry
+- Verified composite unit expressions (e.g., `"watt*hour"`, `"kg*m/s^2"`) resolve
+  correctly as `src`/`dst` in `EdgeDef.materialize()` — product edges work without
+  format changes
+- `ConstantDef` exported from `ucon` top-level package
+
 ## [1.0.0] - 2026-03-31
 
 ### Added
@@ -573,7 +597,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/withtwoemms/ucon/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/withtwoemms/ucon/compare/0.11.0...1.0.0
 [0.11.0]: https://github.com/withtwoemms/ucon/compare/0.10.1...0.11.0
 [0.10.1]: https://github.com/withtwoemms/ucon/compare/0.10.0...0.10.1

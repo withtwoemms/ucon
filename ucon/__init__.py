@@ -109,7 +109,7 @@ from ucon.contexts import (
     spectroscopy,
     using_context,
 )
-from ucon.packages import EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
+from ucon.packages import ConstantDef, EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
 from ucon.resolver import get_unit_by_name, register_unit
 from ucon.parsing import ParseError, parse
 
@@ -151,6 +151,7 @@ __all__ = [
     'using_context',
     # Core types
     'Constant',
+    'ConstantDef',
     'ConversionGraph',
     'ConversionNotFound',
     'CyclicInconsistency',

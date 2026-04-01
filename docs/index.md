@@ -2,6 +2,10 @@
 
 Dimensional analysis and unit conversion for Python.
 
+> *"If it can be measured, it can be represented.
+> If it can be represented, it can be validated.
+> If it can be validated, it can be trusted."*
+
 ---
 
 <div class="grid cards" markdown>
