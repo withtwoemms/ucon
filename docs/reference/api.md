@@ -804,6 +804,23 @@ factor = 1.8
 offset = 32
 ```
 
+For non-linear conversions, use the explicit `map` inline table with a
+`type` key. Supported types: `linear`, `affine`, `log`, `reciprocal`.
+
+```toml
+# Logarithmic (e.g., decibels)
+[[edges]]
+src = "decibel_power"
+dst = "ratio"
+map = { type = "log", scale = 10, base = 10 }
+
+# Reciprocal (e.g., wavelength ↔ frequency)
+[[edges]]
+src = "wavelength_unit"
+dst = "frequency_unit"
+map = { type = "reciprocal", a = 299792458.0 }
+```
+
 Constants can be defined for domain-specific values:
 
 ```toml

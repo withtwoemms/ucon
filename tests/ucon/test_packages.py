@@ -27,6 +27,7 @@ from ucon import (
     UnitPackage,
 )
 from ucon.graph import ConversionGraph
+from ucon.maps import AffineMap, LinearMap, LogMap, ReciprocalMap
 
 
 class TestUnitDef(unittest.TestCase):
@@ -104,7 +105,7 @@ class TestEdgeDefAffine(unittest.TestCase):
 
     def test_edge_def_materialize_affine(self):
         """EdgeDef.materialize() uses AffineMap when offset is non-zero."""
-        from ucon.maps import AffineMap
+
 
         pkg = UnitPackage(
             name='test_affine',
@@ -757,6 +758,120 @@ category = "exact"
         self.assertEqual(len(graph.package_constants), 2)
         symbols = [c.symbol for c in graph.package_constants]
         self.assertEqual(symbols, ['a', 'b'])
+
+
+class TestEdgeDefMapSpec(unittest.TestCase):
+    """Test EdgeDef map_spec for explicit map type selection."""
+
+    def test_map_spec_none_uses_factor(self):
+        """When map_spec is None, factor/offset shorthand applies."""
+        edge = EdgeDef(src='meter', dst='foot', factor=3.28084)
+        m = edge._build_edge_map()
+        self.assertIsInstance(m, LinearMap)
+        self.assertAlmostEqual(m(1), 3.28084)
+
+    def test_map_spec_none_with_offset_uses_affine(self):
+        """When map_spec is None and offset non-zero, AffineMap is used."""
+
+        edge = EdgeDef(src='celsius', dst='kelvin', factor=1.0, offset=273.15)
+        m = edge._build_edge_map()
+        self.assertIsInstance(m, AffineMap)
+        self.assertAlmostEqual(m(0), 273.15)
+
+    def test_map_spec_linear(self):
+        """map_spec with type='linear' creates LinearMap."""
+        edge = EdgeDef(src='meter', dst='foot', map_spec={'type': 'linear', 'a': 3.28084})
+        m = edge._build_edge_map()
+        self.assertIsInstance(m, LinearMap)
+        self.assertAlmostEqual(m(1), 3.28084)
+
+    def test_map_spec_affine(self):
+        """map_spec with type='affine' creates AffineMap."""
+
+        edge = EdgeDef(src='celsius', dst='kelvin', map_spec={'type': 'affine', 'a': 1.0, 'b': 273.15})
+        m = edge._build_edge_map()
+        self.assertIsInstance(m, AffineMap)
+        self.assertAlmostEqual(m(100), 373.15)
+
+    def test_map_spec_log(self):
+        """map_spec with type='log' creates LogMap."""
+
+        edge = EdgeDef(src='bel', dst='ratio', map_spec={'type': 'log', 'scale': 10, 'base': 10})
+        m = edge._build_edge_map()
+        self.assertIsInstance(m, LogMap)
+
+    def test_map_spec_reciprocal(self):
+        """map_spec with type='reciprocal' creates ReciprocalMap."""
+
+        edge = EdgeDef(src='a', dst='b', map_spec={'type': 'reciprocal', 'a': 299792458.0})
+        m = edge._build_edge_map()
+        self.assertIsInstance(m, ReciprocalMap)
+        self.assertAlmostEqual(m(1), 299792458.0)
+
+    def test_map_spec_unknown_type_raises(self):
+        """map_spec with unknown type raises PackageLoadError."""
+        from ucon.packages import _build_map
+        with self.assertRaises(PackageLoadError) as ctx:
+            _build_map({'type': 'quantum'})
+        self.assertIn('quantum', str(ctx.exception))
+
+    def test_map_spec_missing_type_raises(self):
+        """map_spec without type key raises PackageLoadError."""
+        from ucon.packages import _build_map
+        with self.assertRaises(PackageLoadError) as ctx:
+            _build_map({'scale': 10})
+        self.assertIn('type', str(ctx.exception))
+
+    def test_map_spec_invalid_params_raises(self):
+        """map_spec with invalid constructor params raises PackageLoadError."""
+        from ucon.packages import _build_map
+        with self.assertRaises(PackageLoadError):
+            _build_map({'type': 'linear', 'nonexistent_param': 5})
+
+    def test_map_spec_from_toml(self):
+        """load_package reads map inline table from TOML."""
+
+        toml_content = '''
+[package]
+name = "map_test"
+
+[[units]]
+name = "custom_log_unit"
+dimension = "ratio"
+aliases = ["clu"]
+
+[[edges]]
+src = "custom_log_unit"
+dst = "ratio"
+map = { type = "log", scale = 10, base = 10 }
+'''
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.toml', delete=False
+        ) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            pkg = load_package(path)
+            self.assertEqual(len(pkg.edges), 1)
+            self.assertIsNotNone(pkg.edges[0].map_spec)
+            self.assertEqual(pkg.edges[0].map_spec['type'], 'log')
+            m = pkg.edges[0]._build_edge_map()
+            self.assertIsInstance(m, LogMap)
+        finally:
+            path.unlink()
+
+    def test_map_spec_overrides_factor(self):
+        """When map_spec is present, factor/offset defaults are ignored."""
+        edge = EdgeDef(
+            src='a', dst='b',
+            factor=999.0, offset=111.0,
+            map_spec={'type': 'linear', 'a': 2.0},
+        )
+        m = edge._build_edge_map()
+        self.assertIsInstance(m, LinearMap)
+        self.assertAlmostEqual(m(1), 2.0)  # Uses map_spec, not factor
 
 
 if __name__ == '__main__':
