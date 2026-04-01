@@ -27,7 +27,7 @@ from ucon import (
     UnitPackage,
 )
 from ucon.graph import ConversionGraph
-from ucon.maps import AffineMap, LinearMap, LogMap, ReciprocalMap
+from ucon.maps import AffineMap, ExpMap, LinearMap, LogMap, ReciprocalMap
 
 
 class TestUnitDef(unittest.TestCase):
@@ -800,6 +800,16 @@ class TestEdgeDefMapSpec(unittest.TestCase):
         m = edge._build_edge_map()
         self.assertIsInstance(m, LogMap)
 
+    def test_map_spec_exp(self):
+        """map_spec with type='exp' creates ExpMap."""
+        edge = EdgeDef(
+            src='a', dst='b',
+            map_spec={'type': 'exp', 'scale': 2.0, 'base': 10, 'reference': 1.0, 'offset': 0.0},
+        )
+        m = edge._build_edge_map()
+        self.assertIsInstance(m, ExpMap)
+        self.assertAlmostEqual(m(1), 100.0)  # 1.0 * 10^(2.0*1 + 0) = 100
+
     def test_map_spec_reciprocal(self):
         """map_spec with type='reciprocal' creates ReciprocalMap."""
 
@@ -872,6 +882,53 @@ map = { type = "log", scale = 10, base = 10 }
         m = edge._build_edge_map()
         self.assertIsInstance(m, LinearMap)
         self.assertAlmostEqual(m(1), 2.0)  # Uses map_spec, not factor
+
+
+class TestProductEdges(unittest.TestCase):
+    """Verify EdgeDef.materialize() handles composite unit expressions in src/dst."""
+
+    def test_composite_dst_resolves(self):
+        """EdgeDef with composite dst like 'watt*hour' resolves via materialize()."""
+        graph = get_default_graph().copy()
+        edge_def = EdgeDef(src='joule', dst='watt*hour', factor=1/3600)
+        edge_def.materialize(graph)
+
+    def test_composite_src_resolves(self):
+        """EdgeDef with composite src like 'kg*m/s^2' resolves via materialize()."""
+        graph = get_default_graph().copy()
+        edge_def = EdgeDef(src='kg*m/s^2', dst='newton', factor=1.0)
+        edge_def.materialize(graph)
+
+    def test_composite_edge_from_toml(self):
+        """load_package + with_package round-trip with composite dst."""
+        toml_content = '''
+[package]
+name = "product_edge_test"
+
+[[edges]]
+src = "joule"
+dst = "watt*hour"
+factor = "1 / 3600"
+'''
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.toml', delete=False
+        ) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            pkg = load_package(path)
+            graph = get_default_graph().with_package(pkg)
+
+            with using_graph(graph):
+                joule = get_unit_by_name('joule')
+                wh = get_unit_by_name('watt*hour')
+                m = graph.convert(src=joule, dst=wh)
+                # 3600 J = 1 Wh
+                self.assertAlmostEqual(m(3600), 1.0, places=5)
+        finally:
+            path.unlink()
 
 
 if __name__ == '__main__':

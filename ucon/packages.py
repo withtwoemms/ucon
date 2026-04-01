@@ -52,7 +52,7 @@ import operator
 from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
-from ucon.maps import AffineMap, LinearMap, LogMap, Map, ReciprocalMap
+from ucon.maps import AffineMap, ExpMap, LinearMap, LogMap, Map, ReciprocalMap
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -182,6 +182,7 @@ _MAP_TYPES: dict[str, type[Map]] = {
     'linear': LinearMap,
     'affine': AffineMap,
     'log': LogMap,
+    'exp': ExpMap,
     'reciprocal': ReciprocalMap,
 }
 
