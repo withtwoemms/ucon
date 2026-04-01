@@ -135,10 +135,15 @@ class UnitDef:
         Dimension enum name (e.g., "mass", "length").
     aliases : tuple[str, ...]
         Optional shorthand symbols (e.g., ("slug",)).
+    shorthand : str | None
+        Explicit display symbol (e.g., "nmi"). When provided, this is
+        prepended to aliases so it becomes ``Unit.shorthand``. When
+        ``None``, the first alias (or name) is used as before.
     """
     name: str
     dimension: str
     aliases: tuple[str, ...] = ()
+    shorthand: str | None = None
 
     def materialize(self) -> Unit:
         """Convert to a Unit object.
@@ -160,10 +165,14 @@ class UnitDef:
                 f"Unknown dimension '{self.dimension}' for unit '{self.name}'"
             )
 
+        aliases = self.aliases
+        if self.shorthand is not None and self.shorthand not in aliases:
+            aliases = (self.shorthand,) + aliases
+
         return Unit(
             name=self.name,
             dimension=dim,
-            aliases=self.aliases,
+            aliases=aliases,
         )
 
 
@@ -304,6 +313,7 @@ def load_package(path: str | Path) -> UnitPackage:
             name=u["name"],
             dimension=u["dimension"],
             aliases=tuple(u.get("aliases", ())),
+            shorthand=u.get("shorthand"),
         )
         for u in data.get("units", [])
     )

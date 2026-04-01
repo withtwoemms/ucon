@@ -457,5 +457,157 @@ class TestEdgeDefUnknownDst(unittest.TestCase):
         self.assertIn("destination", str(ctx.exception).lower())
 
 
+class TestUnitDefShorthand(unittest.TestCase):
+    """Test UnitDef shorthand field."""
+
+    def test_shorthand_none_uses_first_alias(self):
+        """When shorthand is None, Unit.shorthand is the first alias."""
+        unit_def = UnitDef(name='nautical_mile', dimension='length', aliases=('nmi', 'NM'))
+        unit = unit_def.materialize()
+        self.assertEqual(unit.shorthand, 'nmi')
+
+    def test_shorthand_explicit(self):
+        """Explicit shorthand becomes Unit.shorthand (first alias)."""
+        unit_def = UnitDef(
+            name='nautical_mile', dimension='length',
+            aliases=('NM',), shorthand='nmi',
+        )
+        unit = unit_def.materialize()
+        self.assertEqual(unit.shorthand, 'nmi')
+        self.assertIn('NM', unit.aliases)
+
+    def test_shorthand_already_in_aliases(self):
+        """Shorthand that duplicates an alias is not added twice."""
+        unit_def = UnitDef(
+            name='slug', dimension='mass',
+            aliases=('slug',), shorthand='slug',
+        )
+        unit = unit_def.materialize()
+        self.assertEqual(unit.aliases.count('slug'), 1)
+
+    def test_shorthand_no_aliases(self):
+        """Shorthand with empty aliases creates a single alias."""
+        unit_def = UnitDef(name='slug', dimension='mass', shorthand='sl')
+        unit = unit_def.materialize()
+        self.assertEqual(unit.shorthand, 'sl')
+        self.assertEqual(unit.aliases, ('sl',))
+
+    def test_shorthand_from_toml(self):
+        """load_package reads shorthand from TOML."""
+        toml_content = '''
+[package]
+name = "shorthand_test"
+
+[[units]]
+name = "nautical_mile"
+dimension = "length"
+shorthand = "nmi"
+aliases = ["NM"]
+
+[[edges]]
+src = "nautical_mile"
+dst = "meter"
+factor = 1852
+'''
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.toml', delete=False
+        ) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            pkg = load_package(path)
+            self.assertEqual(pkg.units[0].shorthand, 'nmi')
+            unit = pkg.units[0].materialize()
+            self.assertEqual(unit.shorthand, 'nmi')
+        finally:
+            path.unlink()
+
+
+class TestPackageRequires(unittest.TestCase):
+    """Test UnitPackage requires validation."""
+
+    def test_no_requires_loads_fine(self):
+        """Package with no requires loads without issue."""
+        pkg = UnitPackage(
+            name='standalone',
+            units=(UnitDef(name='slug', dimension='mass', aliases=('slug',)),),
+        )
+        graph = get_default_graph().with_package(pkg)
+        self.assertIsNotNone(graph.resolve_unit('slug'))
+
+    def test_satisfied_requires(self):
+        """Package loads when all requires are satisfied."""
+        base = UnitPackage(
+            name='aerospace',
+            units=(UnitDef(name='slug', dimension='mass', aliases=('slug',)),),
+        )
+        ext = UnitPackage(
+            name='aerospace-extended',
+            requires=('aerospace',),
+            units=(UnitDef(name='poundal', dimension='force', aliases=('pdl',)),),
+        )
+        graph = get_default_graph().with_package(base).with_package(ext)
+        self.assertIsNotNone(graph.resolve_unit('slug'))
+        self.assertIsNotNone(graph.resolve_unit('poundal'))
+
+    def test_missing_requires_raises(self):
+        """Package raises when requires are not satisfied."""
+        pkg = UnitPackage(
+            name='aerospace-extended',
+            requires=('aerospace',),
+            units=(UnitDef(name='poundal', dimension='force'),),
+        )
+        with self.assertRaises(PackageLoadError) as ctx:
+            get_default_graph().with_package(pkg)
+        self.assertIn('aerospace', str(ctx.exception))
+
+    def test_multiple_missing_requires(self):
+        """Error message lists all missing requires."""
+        pkg = UnitPackage(
+            name='multi-dep',
+            requires=('aerospace', 'medical'),
+            units=(),
+        )
+        with self.assertRaises(PackageLoadError) as ctx:
+            get_default_graph().with_package(pkg)
+        msg = str(ctx.exception)
+        self.assertIn('aerospace', msg)
+        self.assertIn('medical', msg)
+
+    def test_loaded_packages_tracked(self):
+        """Graph tracks loaded package names across with_package calls."""
+        pkg1 = UnitPackage(name='pkg1', units=())
+        pkg2 = UnitPackage(name='pkg2', units=())
+        graph = get_default_graph().with_package(pkg1).with_package(pkg2)
+        self.assertIn('pkg1', graph._loaded_packages)
+        self.assertIn('pkg2', graph._loaded_packages)
+
+    def test_requires_from_toml(self):
+        """load_package reads requires from [package] table."""
+        toml_content = '''
+[package]
+name = "ext"
+requires = ["aerospace"]
+
+[[units]]
+name = "test_unit"
+dimension = "mass"
+'''
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.toml', delete=False
+        ) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            pkg = load_package(path)
+            self.assertEqual(pkg.requires, ('aerospace',))
+        finally:
+            path.unlink()
+
+
 if __name__ == '__main__':
     unittest.main()

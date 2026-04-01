@@ -113,6 +113,9 @@ class ConversionGraph:
     # Optional BasisGraph for cross-basis dimensional validation
     _basis_graph: BasisGraph | None = field(default=None)
 
+    # Names of loaded packages (for dependency validation)
+    _loaded_packages: frozenset[str] = field(default_factory=frozenset)
+
     # Conversion path cache: (src_key, dst_key) -> Map
     # Cleared when edges are added
     _conversion_cache: dict[tuple, Map] = field(default_factory=dict)
@@ -410,6 +413,7 @@ class ConversionGraph:
         new._name_registry = dict(self._name_registry)
         new._name_registry_cs = dict(self._name_registry_cs)
         new._basis_graph = self._basis_graph  # BasisGraph is immutable, share reference
+        new._loaded_packages = self._loaded_packages  # frozenset is immutable, share reference
         return new
 
     def with_package(self, package: 'UnitPackage') -> 'ConversionGraph':
@@ -434,6 +438,16 @@ class ConversionGraph:
         >>> aero = load_package("aerospace.ucon.toml")
         >>> graph = get_default_graph().with_package(aero)
         """
+        from ucon.packages import PackageLoadError
+
+        # Validate requires
+        missing = [r for r in package.requires if r not in self._loaded_packages]
+        if missing:
+            raise PackageLoadError(
+                f"Package '{package.name}' requires packages not yet loaded: "
+                f"{', '.join(missing)}"
+            )
+
         new = self.copy()
 
         # Materialize and register units first
@@ -448,6 +462,9 @@ class ConversionGraph:
             if self._package_edge_already_covered(edge_def, new):
                 continue
             edge_def.materialize(new)
+
+        # Track loaded package name
+        new._loaded_packages = self._loaded_packages | {package.name}
 
         return new
 
