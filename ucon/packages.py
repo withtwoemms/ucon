@@ -319,13 +319,15 @@ def load_package(path: str | Path) -> UnitPackage:
         for e in data.get("edges", [])
     )
 
+    package = data.get("package", {})
+
     return UnitPackage(
-        name=data.get("name", path.stem),
-        version=data.get("version", "1.0.0"),
-        description=data.get("description", ""),
+        name=package.get("name", path.stem),
+        version=package.get("version", "1.0.0"),
+        description=package.get("description", ""),
         units=units,
         edges=edges,
-        requires=tuple(data.get("requires", [])),
+        requires=tuple(package.get("requires", [])),
     )
 
 

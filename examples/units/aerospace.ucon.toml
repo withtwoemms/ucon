@@ -1,6 +1,7 @@
 # Aerospace Unit Package
 # Example domain-specific units for aviation and aerospace applications
 
+[package]
 name = "aerospace"
 version = "1.0.0"
 description = "Aerospace and aviation units"

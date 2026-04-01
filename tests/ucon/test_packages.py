@@ -133,6 +133,7 @@ class TestEdgeDefAffine(unittest.TestCase):
     def test_load_package_with_affine_edge(self):
         """load_package() reads offset field from TOML."""
         toml_content = '''
+[package]
 name = "affine_test"
 version = "1.0.0"
 
@@ -164,6 +165,7 @@ offset = 100.0
     def test_with_package_affine_conversion(self):
         """End-to-end: load package with affine edge, convert through graph."""
         toml_content = '''
+[package]
 name = "affine_e2e"
 version = "1.0.0"
 
@@ -232,6 +234,7 @@ class TestLoadPackage(unittest.TestCase):
     def test_load_valid_package(self):
         """load_package() parses valid TOML file."""
         toml_content = '''
+[package]
 name = "test"
 version = "1.0.0"
 

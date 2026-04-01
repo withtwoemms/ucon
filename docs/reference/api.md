@@ -766,6 +766,7 @@ from ucon.packages import load_package, UnitPackage, UnitDef, EdgeDef, PackageLo
 ### TOML Schema
 
 ```toml
+[package]
 name = "aerospace"
 version = "1.0.0"
 description = "Aerospace and aviation units"
@@ -787,8 +788,8 @@ Edges support affine conversions for temperature-like units:
 [[edges]]
 src = "celsius"
 dst = "fahrenheit"
-a = 1.8
-b = 32
+factor = 1.8
+offset = 32
 ```
 
 ### Loading
