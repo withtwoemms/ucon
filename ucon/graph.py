@@ -772,8 +772,31 @@ class ConversionGraph:
         1. Direct product edge
         2. Product edge to base-scale version of dst (then apply scale)
         3. Factorwise decomposition
+        4. (On dimension mismatch) Unit-level cross-basis conversion if both
+           products are trivial single-unit wrappers
         """
         if src.dimension != dst.dimension:
+            # Before raising, check if both products can be resolved to atomic
+            # units with a cross-basis conversion path (e.g., poise → Pa·s
+            # where cgs_dynamic_viscosity ≠ dynamic_viscosity but a rebased
+            # edge exists at the Unit level).
+            #
+            # Resolution strategy (for each product):
+            # 1. as_unit() — trivial single-factor wrapper
+            # 2. resolve_unit(shorthand) — graph-registered alias for a
+            #    composite string like "Pa·s" → pascal_second
+            src_unit = src.as_unit()
+            if src_unit is None:
+                resolved = self.resolve_unit(src.shorthand)
+                if resolved is not None:
+                    src_unit = resolved[0]
+            dst_unit = dst.as_unit()
+            if dst_unit is None:
+                resolved = self.resolve_unit(dst.shorthand)
+                if resolved is not None:
+                    dst_unit = resolved[0]
+            if src_unit is not None and dst_unit is not None:
+                return self._convert_units(src=src_unit, dst=dst_unit)
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
 
         # Check for direct product edge first
@@ -801,6 +824,26 @@ class ConversionGraph:
                 base_map = self._product_edges[src_key][dst_base_key]
                 scale_ratio = dst_base.fold_scale() / dst.fold_scale()
                 return LinearMap(scale_ratio) @ base_map
+
+        # Before factorwise decomposition, try resolving products to atomic
+        # units via the graph's name registry.  Composite strings like "Pa·s"
+        # parse into multi-factor products but may correspond to registered
+        # atomic units (pascal_second) that have direct conversion edges.
+        src_unit = src.as_unit()
+        if src_unit is None:
+            resolved = self.resolve_unit(src.shorthand)
+            if resolved is not None:
+                src_unit = resolved[0]
+        dst_unit = dst.as_unit()
+        if dst_unit is None:
+            resolved = self.resolve_unit(dst.shorthand)
+            if resolved is not None:
+                dst_unit = resolved[0]
+        if src_unit is not None and dst_unit is not None:
+            try:
+                return self._convert_units(src=src_unit, dst=dst_unit)
+            except (ConversionNotFound, DimensionMismatch):
+                pass  # Fall through to factorwise
 
         # Try factorwise decomposition
         return self._convert_factorwise(src=src, dst=dst)

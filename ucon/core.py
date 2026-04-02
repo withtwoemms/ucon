@@ -1068,6 +1068,19 @@ class UnitProduct:
         cls._from_unit_cache[uid] = result
         return result
 
+    def as_unit(self) -> Union[Unit, None]:
+        """Extract the underlying Unit if this is a trivial single-factor product.
+
+        Returns the Unit when this UnitProduct wraps exactly one factor with
+        exponent 1 and Scale.one, otherwise None.
+        """
+        if len(self.factors) != 1:
+            return None
+        factor, exp = next(iter(self.factors.items()))
+        if exp != 1 or factor.scale != Scale.one:
+            return None
+        return factor.unit
+
     def factors_by_dimension(self) -> dict[Dimension, tuple[UnitFactor, float]]:
         """Group factors by dimension.
 
