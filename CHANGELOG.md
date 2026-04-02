@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-04-02
+
+### Fixed
+
+- Cross-basis conversions for composite unit strings (e.g., `poise → Pa·s`, `reyn → Pa·s`)
+  - Composite strings like `"Pa·s"`, `"m²/s"`, `"J/m²"` were parsed as multi-factor
+    `UnitProduct`s rather than resolving to registered atomic unit aliases, causing
+    cross-system (CGS↔SI) and same-dimension conversions to fail with spurious
+    dimension mismatch or factor structure errors
+  - `_convert_products()` now resolves products to atomic `Unit` equivalents via
+    `as_unit()` and the graph's name registry before dimension comparison and
+    factorwise decomposition
+  - Affected units: poise, stokes, galileo, reyn, kayser, langley, oersted
+
+### Added
+
+- `UnitProduct.as_unit()` method to extract the underlying `Unit` from trivial
+  single-factor products (one factor, exponent 1, `Scale.one`)
+
 ## [1.1.0] - 2026-04-01
 
 ### Added
@@ -597,7 +616,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.1.1...HEAD
+[1.1.1]: https://github.com/withtwoemms/ucon/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/withtwoemms/ucon/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/withtwoemms/ucon/compare/0.11.0...1.0.0
 [0.11.0]: https://github.com/withtwoemms/ucon/compare/0.10.1...0.11.0
