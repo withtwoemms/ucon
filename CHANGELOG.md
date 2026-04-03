@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Updated `docs/external/ucon-tools` submodule from 0.2.1 to 0.3.2
+
 ## [1.1.2] - 2026-04-03
 
 ### Added
@@ -638,7 +642,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.1.1...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.1.2...HEAD
+[1.1.2]: https://github.com/withtwoemms/ucon/compare/1.1.1...1.1.2
 [1.1.1]: https://github.com/withtwoemms/ucon/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/withtwoemms/ucon/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/withtwoemms/ucon/compare/0.11.0...1.0.0
