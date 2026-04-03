@@ -358,10 +358,30 @@ class TestScaleMultiplicationAdditional(unittest.TestCase):
         self.assertEqual(Scale.hecto * Scale.deci, Scale.deca)
 
     def test_binary_combinations(self):
-        # kibi (2^10) * mebi (2^20) = 2^30 (should round to nearest known)
+        # kibi (2^10) * mebi (2^20) = 2^30 = gibi
         result = Scale.kibi * Scale.mebi
         self.assertEqual(result.value.base, 2)
         self.assertTrue(isinstance(result, Scale))
+
+    def test_kibi_times_gibi_is_tebi(self):
+        """kibi (2^10) * gibi (2^30) = 2^40 = tebi."""
+        self.assertEqual(Scale.kibi * Scale.gibi, Scale.tebi)
+
+    def test_tebi_exponent(self):
+        self.assertEqual(Scale.tebi.value.exponent.base, 2)
+        self.assertEqual(Scale.tebi.value.exponent.power, 40)
+
+    def test_pebi_exponent(self):
+        self.assertEqual(Scale.pebi.value.exponent.base, 2)
+        self.assertEqual(Scale.pebi.value.exponent.power, 50)
+
+    def test_exbi_exponent(self):
+        self.assertEqual(Scale.exbi.value.exponent.base, 2)
+        self.assertEqual(Scale.exbi.value.exponent.power, 60)
+
+    def test_mebi_squared_is_tebi(self):
+        """mebi (2^20) ** 2 = 2^40 = tebi."""
+        self.assertEqual(Scale.mebi ** 2, Scale.tebi)
 
     def test_mixed_base_combination(self):
         self.assertEqual(Scale.mega, Scale.kilo * Scale.kibi)

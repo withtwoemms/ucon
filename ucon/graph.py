@@ -385,8 +385,15 @@ class ConversionGraph:
     def resolve_unit(self, name: str) -> tuple[Unit, Scale] | None:
         """Resolve a unit string in graph-local registry.
 
-        Checks case-sensitive registry first (for shorthands like 'm', 'L'),
-        then falls back to case-insensitive lookup.
+        Only performs case-sensitive matching. Case-insensitive resolution
+        is handled by the global ``_lookup_factor()`` which applies the
+        correct priority chain (priority aliases → scale-prefix decomposition
+        → case-sensitive → case-insensitive).
+
+        Returning a case-insensitive match here would short-circuit
+        scale-prefix decomposition, causing e.g. ``GB`` (giga-byte) to
+        resolve as ``Gb`` (gilbert) or ``nm`` (nano-meter) as nautical mile
+        (alias ``NM``).
 
         Parameters
         ----------
@@ -399,13 +406,10 @@ class ConversionGraph:
             (unit, Scale.one) if found, None otherwise.
             Caller should fall back to global registry if None.
         """
-        # Case-sensitive first (preserves shorthand like 'm' vs 'M')
+        # Case-sensitive only (preserves shorthand like 'm' vs 'M',
+        # 'Gb' vs 'GB', and avoids shadowing scale-prefix parsing)
         if name in self._name_registry_cs:
             return self._name_registry_cs[name], Scale.one
-
-        # Case-insensitive fallback
-        if name.lower() in self._name_registry:
-            return self._name_registry[name.lower()], Scale.one
 
         return None
 
