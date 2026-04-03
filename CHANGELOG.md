@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-04-03
+
+### Added
+
+- Binary scale prefixes: `tebi` (Ti, 2^40), `pebi` (Pi, 2^50), `exbi` (Ei, 2^60)
+  - Enables parsing of `TiB`, `PiB`, `EiB` and other tebi/pebi/exbi-scaled units
+  - Greedy prefix matching ensures `TB`/`PB` still resolve as tera/peta (decimal)
+- Spelled-out scale aliases for common unit names via `register_priority_scaled_alias`
+  - Length: `kilometer`, `centimeter`, `millimeter`, `micrometer`, `nanometer`, `picometer`
+  - Mass: `milligram`, `microgram`
+  - Time: `millisecond`, `microsecond`, `nanosecond`, `picosecond`
+  - Frequency: `kilohertz`, `megahertz`, `gigahertz`
+  - Volume: `milliliter`, `microliter`
+  - Power: `kilowatt`, `megawatt`, `gigawatt`, `milliwatt`
+  - Energy: `kilojoule`, `megajoule`
+  - Pressure: `kilopascal`, `megapascal`, `hectopascal`
+  - Voltage: `millivolt`, `kilovolt`
+  - Current: `milliampere`, `microampere`
+  - Information (decimal): `kilobyte`, `megabyte`, `gigabyte`, `terabyte`, `petabyte`,
+    `kilobit`, `megabit`, `gigabit`
+  - Information (binary): `kibibyte`, `mebibyte`, `gibibyte`, `tebibyte`, `pebibyte`, `exbibyte`
+
 ## [1.1.1] - 2026-04-02
 
 ### Fixed
