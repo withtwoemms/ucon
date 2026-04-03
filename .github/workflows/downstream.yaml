@@ -42,10 +42,10 @@ jobs:
         working-directory: ucon-tools
         run: |
           uv venv --python 3.12 .venv
-          # Install ucon from the PR branch (not PyPI)
-          UV_PROJECT_ENVIRONMENT=.venv uv pip install ../ucon
-          # Install ucon-tools with test + mcp extras
+          # Install ucon-tools with test + mcp extras (pulls ucon from PyPI)
           UV_PROJECT_ENVIRONMENT=.venv uv pip install ".[test,mcp]"
+          # Override with ucon from the PR branch (not PyPI)
+          UV_PROJECT_ENVIRONMENT=.venv uv pip install --reinstall-package ucon ../ucon
 
       - name: Run ucon-tools tests
         working-directory: ucon-tools
