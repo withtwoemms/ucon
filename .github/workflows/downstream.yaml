@@ -1,0 +1,52 @@
+name: downstream
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ['**']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ucon-tools:
+    name: ucon-tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout ucon (this repo)
+        uses: actions/checkout@v5
+        with:
+          path: ucon
+
+      - name: Checkout ucon-tools
+        uses: actions/checkout@v5
+        with:
+          repository: withtwoemms/ucon-tools
+          path: ucon-tools
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install ucon from working tree
+        working-directory: ucon-tools
+        run: |
+          uv venv --python 3.12 .venv
+          # Install ucon from the PR branch (not PyPI)
+          UV_PROJECT_ENVIRONMENT=.venv uv pip install ../ucon
+          # Install ucon-tools with test + mcp extras
+          UV_PROJECT_ENVIRONMENT=.venv uv pip install ".[test,mcp]"
+
+      - name: Run ucon-tools tests
+        working-directory: ucon-tools
+        run: .venv/bin/python -m pytest tests/ -q
