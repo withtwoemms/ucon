@@ -69,17 +69,20 @@ class TestGraphLocalResolution(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result[0], custom)
 
-    def test_resolve_unit_case_insensitive_fallback(self):
-        """resolve_unit() falls back to case-insensitive lookup."""
+    def test_resolve_unit_case_sensitive_only(self):
+        """resolve_unit() only matches case-sensitively."""
         graph = ConversionGraph()
         custom = Unit(name='slug', dimension=Dimension.mass, aliases=('slug',))
 
         graph.register_unit(custom)
 
-        # Case-insensitive match
-        result = graph.resolve_unit('SLUG')
-        self.assertIsNotNone(result)
-        self.assertEqual(result[0], custom)
+        # Exact case matches
+        self.assertIsNotNone(graph.resolve_unit('slug'))
+
+        # Different case returns None — lets global resolver handle it
+        # (prevents 'GB' matching 'Gb' and shadowing giga-byte)
+        self.assertIsNone(graph.resolve_unit('SLUG'))
+        self.assertIsNone(graph.resolve_unit('Slug'))
 
     def test_resolve_unit_not_found(self):
         """resolve_unit() returns None for unknown units."""
@@ -217,6 +220,73 @@ class TestGraphLocalResolution(unittest.TestCase):
 
         # Outside both contexts
         self.assertIsNone(_get_parsing_graph())
+
+
+class TestScalePrefixShadowing(unittest.TestCase):
+    """Regression tests: graph-local case-insensitive matching must not
+    shadow scale-prefix decomposition (e.g. 'GB' ≠ 'Gb', 'nm' ≠ 'nmi')."""
+
+    def test_GB_resolves_to_gigabyte_not_gilbert(self):
+        """'GB' is giga-byte (information), not gilbert (Gb, cgs_emu_current)."""
+        graph = get_default_graph()
+
+        with using_graph(graph):
+            unit = get_unit_by_name('GB')
+            self.assertEqual(unit.dimension.name, 'information',
+                             f"'GB' resolved to {unit.dimension.name!r} instead of 'information'")
+
+    def test_Gb_still_resolves_to_gilbert(self):
+        """'Gb' (case-sensitive) is gilbert — the fix must not break this."""
+        graph = get_default_graph()
+
+        with using_graph(graph):
+            unit = get_unit_by_name('Gb')
+            self.assertEqual(unit.dimension.name, 'cgs_emu_current')
+
+    def test_nm_resolves_to_nanometer_not_nautical_mile(self):
+        """'nm' is nano-meter (length via n+m), not nautical mile (alias NM)."""
+        graph = get_default_graph()
+
+        with using_graph(graph):
+            unit = get_unit_by_name('nm')
+            self.assertEqual(unit.dimension.name, 'length')
+            # Verify it's nanometer (scaled), not nautical_mile
+            # nautical_mile shorthand is 'nmi', nanometer shorthand is 'nm'
+            shorthand = getattr(unit, 'shorthand', None) or str(unit)
+            self.assertIn('nm', shorthand)
+            self.assertNotIn('nmi', shorthand)
+
+    def test_nmi_still_resolves_to_nautical_mile(self):
+        """'nmi' (case-sensitive alias) is nautical mile — the fix must not break this."""
+        graph = get_default_graph()
+
+        with using_graph(graph):
+            unit = get_unit_by_name('nmi')
+            self.assertEqual(unit.name, 'nautical_mile')
+
+    def test_NM_still_resolves_to_nautical_mile(self):
+        """'NM' (case-sensitive alias) is nautical mile — the fix must not break this."""
+        graph = get_default_graph()
+
+        with using_graph(graph):
+            unit = get_unit_by_name('NM')
+            self.assertEqual(unit.name, 'nautical_mile')
+
+    def test_MB_resolves_to_megabyte(self):
+        """'MB' is mega-byte (information), not any CGS unit."""
+        graph = get_default_graph()
+
+        with using_graph(graph):
+            unit = get_unit_by_name('MB')
+            self.assertEqual(unit.dimension.name, 'information')
+
+    def test_kB_resolves_to_kilobyte(self):
+        """'kB' is kilo-byte (information)."""
+        graph = get_default_graph()
+
+        with using_graph(graph):
+            unit = get_unit_by_name('kB')
+            self.assertEqual(unit.dimension.name, 'information')
 
 
 if __name__ == '__main__':
