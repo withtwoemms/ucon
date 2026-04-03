@@ -137,6 +137,33 @@ class TestScaledUnitLookup(unittest.TestCase):
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
 
+    def test_tebibyte(self):
+        result = get_unit_by_name("TiB")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 2**40, places=1)
+
+    def test_pebibyte(self):
+        result = get_unit_by_name("PiB")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 2**50, places=1)
+
+    def test_exbibyte(self):
+        result = get_unit_by_name("EiB")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 2**60, places=1)
+
+    def test_tebi_prefix_does_not_shadow_tera(self):
+        """'TB' should still resolve as tera-byte, not tebi-byte."""
+        result = get_unit_by_name("TB")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e12, places=1)
+
+    def test_pebi_prefix_does_not_shadow_peta(self):
+        """'PB' should still resolve as peta-byte, not pebi-byte."""
+        result = get_unit_by_name("PB")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e15, places=1)
+
 
 class TestExponentParsing(unittest.TestCase):
     """Test parsing of unit exponents in Unicode and ASCII notation."""
@@ -597,6 +624,136 @@ class TestResolverEdgeCases(unittest.TestCase):
         """Empty string raises UnknownUnitError."""
         with self.assertRaises((UnknownUnitError, ValueError)):
             get_unit_by_name('')
+
+
+class TestSpelledOutScaleAliases(unittest.TestCase):
+    """Test that spelled-out scale+unit names resolve correctly."""
+
+    # -- Length ---------------------------------------------------------------
+
+    def test_kilometer(self):
+        result = get_unit_by_name("kilometer")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
+        self.assertEqual(result.dimension, Dimension.length)
+
+    def test_centimeter(self):
+        result = get_unit_by_name("centimeter")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-2, places=10)
+
+    def test_millimeter(self):
+        result = get_unit_by_name("millimeter")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
+
+    def test_micrometer(self):
+        result = get_unit_by_name("micrometer")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
+
+    def test_nanometer(self):
+        result = get_unit_by_name("nanometer")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
+
+    def test_picometer(self):
+        result = get_unit_by_name("picometer")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-12, places=15)
+
+    # -- Mass -----------------------------------------------------------------
+
+    def test_milligram(self):
+        result = get_unit_by_name("milligram")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
+
+    def test_microgram(self):
+        result = get_unit_by_name("microgram")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
+
+    def test_kilogram_still_returns_unit(self):
+        """kilogram must still resolve as the kilogram Unit, not kilo*gram."""
+        result = get_unit_by_name("kilogram")
+        self.assertIsInstance(result, Unit)
+        self.assertEqual(result, units.kilogram)
+
+    # -- Time -----------------------------------------------------------------
+
+    def test_millisecond(self):
+        result = get_unit_by_name("millisecond")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
+
+    def test_microsecond(self):
+        result = get_unit_by_name("microsecond")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
+
+    def test_nanosecond(self):
+        result = get_unit_by_name("nanosecond")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
+
+    # -- Frequency ------------------------------------------------------------
+
+    def test_megahertz(self):
+        result = get_unit_by_name("megahertz")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e6, places=1)
+
+    def test_gigahertz(self):
+        result = get_unit_by_name("gigahertz")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e9, places=1)
+
+    # -- Information ----------------------------------------------------------
+
+    def test_gigabyte(self):
+        result = get_unit_by_name("gigabyte")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e9, places=1)
+
+    def test_tebibyte(self):
+        result = get_unit_by_name("tebibyte")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 2**40, places=1)
+
+    def test_pebibyte(self):
+        result = get_unit_by_name("pebibyte")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 2**50, places=1)
+
+    def test_exbibyte(self):
+        result = get_unit_by_name("exbibyte")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 2**60, places=1)
+
+    # -- Power ----------------------------------------------------------------
+
+    def test_kilowatt(self):
+        result = get_unit_by_name("kilowatt")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
+
+    # -- Conversions using spelled-out names ----------------------------------
+
+    def test_kilometer_to_meter(self):
+        dist = Number(5, unit=get_unit_by_name("kilometer"))
+        result = dist.to("m")
+        self.assertAlmostEqual(result.quantity, 5000.0, places=9)
+
+    def test_milligram_to_mcg(self):
+        dose = Number(1, unit=get_unit_by_name("milligram"))
+        result = dose.to(get_unit_by_name("mcg"))
+        self.assertAlmostEqual(result.quantity, 1000.0, places=9)
+
+    def test_tebibyte_to_gibibyte(self):
+        storage = Number(1, unit=get_unit_by_name("tebibyte"))
+        result = storage.to(get_unit_by_name("gibibyte"))
+        self.assertAlmostEqual(result.quantity, 1024.0, places=9)
 
 
 if __name__ == '__main__':

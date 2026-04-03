@@ -471,5 +471,77 @@ def _populate_registry() -> None:
     register_priority_scaled_alias('mcg', gram, Scale.micro)   # microgram
     register_priority_scaled_alias('cc', liter, Scale.milli)    # cubic centimeter = 1 mL
 
+    # -- Spelled-out scale aliases (v1.1.2) ------------------------------------
+    # Enable natural-language unit names like "kilometer" or "millisecond".
+    # NOTE: "kilogram" is intentionally omitted — it exists as a registered Unit.
+
+    # Length
+    register_priority_scaled_alias('kilometer', meter, Scale.kilo)
+    register_priority_scaled_alias('centimeter', meter, Scale.centi)
+    register_priority_scaled_alias('millimeter', meter, Scale.milli)
+    register_priority_scaled_alias('micrometer', meter, Scale.micro)
+    register_priority_scaled_alias('nanometer', meter, Scale.nano)
+    register_priority_scaled_alias('picometer', meter, Scale.pico)
+
+    # Mass
+    register_priority_scaled_alias('milligram', gram, Scale.milli)
+    register_priority_scaled_alias('microgram', gram, Scale.micro)
+
+    # Time
+    register_priority_scaled_alias('millisecond', second, Scale.milli)
+    register_priority_scaled_alias('microsecond', second, Scale.micro)
+    register_priority_scaled_alias('nanosecond', second, Scale.nano)
+    register_priority_scaled_alias('picosecond', second, Scale.pico)
+
+    # Frequency
+    register_priority_scaled_alias('kilohertz', hertz, Scale.kilo)
+    register_priority_scaled_alias('megahertz', hertz, Scale.mega)
+    register_priority_scaled_alias('gigahertz', hertz, Scale.giga)
+
+    # Volume
+    register_priority_scaled_alias('milliliter', liter, Scale.milli)
+    register_priority_scaled_alias('microliter', liter, Scale.micro)
+
+    # Power
+    register_priority_scaled_alias('kilowatt', watt, Scale.kilo)
+    register_priority_scaled_alias('megawatt', watt, Scale.mega)
+    register_priority_scaled_alias('gigawatt', watt, Scale.giga)
+    register_priority_scaled_alias('milliwatt', watt, Scale.milli)
+
+    # Energy
+    register_priority_scaled_alias('kilojoule', joule, Scale.kilo)
+    register_priority_scaled_alias('megajoule', joule, Scale.mega)
+
+    # Pressure
+    register_priority_scaled_alias('kilopascal', pascal, Scale.kilo)
+    register_priority_scaled_alias('megapascal', pascal, Scale.mega)
+    register_priority_scaled_alias('hectopascal', pascal, Scale.hecto)
+
+    # Voltage
+    register_priority_scaled_alias('millivolt', volt, Scale.milli)
+    register_priority_scaled_alias('kilovolt', volt, Scale.kilo)
+
+    # Current
+    register_priority_scaled_alias('milliampere', ampere, Scale.milli)
+    register_priority_scaled_alias('microampere', ampere, Scale.micro)
+
+    # Information (decimal)
+    register_priority_scaled_alias('kilobyte', byte, Scale.kilo)
+    register_priority_scaled_alias('megabyte', byte, Scale.mega)
+    register_priority_scaled_alias('gigabyte', byte, Scale.giga)
+    register_priority_scaled_alias('terabyte', byte, Scale.tera)
+    register_priority_scaled_alias('petabyte', byte, Scale.peta)
+    register_priority_scaled_alias('kilobit', bit, Scale.kilo)
+    register_priority_scaled_alias('megabit', bit, Scale.mega)
+    register_priority_scaled_alias('gigabit', bit, Scale.giga)
+
+    # Information (binary)
+    register_priority_scaled_alias('kibibyte', byte, Scale.kibi)
+    register_priority_scaled_alias('mebibyte', byte, Scale.mebi)
+    register_priority_scaled_alias('gibibyte', byte, Scale.gibi)
+    register_priority_scaled_alias('tebibyte', byte, Scale.tebi)
+    register_priority_scaled_alias('pebibyte', byte, Scale.pebi)
+    register_priority_scaled_alias('exbibyte', byte, Scale.exbi)
+
 
 _populate_registry()

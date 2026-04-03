@@ -224,6 +224,9 @@ class _ScaleDescriptor:
 @total_ordering
 class Scale(Enum):
     # Binary
+    exbi  = _ScaleDescriptor(Exponent(2, 60), "Ei", "exbi")
+    pebi  = _ScaleDescriptor(Exponent(2, 50), "Pi", "pebi")
+    tebi  = _ScaleDescriptor(Exponent(2, 40), "Ti", "tebi")
     gibi  = _ScaleDescriptor(Exponent(2, 30), "Gi", "gibi")
     mebi  = _ScaleDescriptor(Exponent(2, 20), "Mi", "mebi")
     kibi  = _ScaleDescriptor(Exponent(2, 10), "Ki", "kibi")
