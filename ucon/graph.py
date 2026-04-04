@@ -1008,11 +1008,64 @@ class ConversionGraph:
 
     # ------------- Equality ---------------------------------------------------
 
+    @staticmethod
+    def _maps_equal(m: Map, other_m: Map) -> bool:
+        """Compare two maps by evaluating at test points.
+
+        Tries (1.0, 0.0) first; falls back to (1.0, 2.0) if 0.0
+        raises; falls back to (0.5, 2.0) if 1.0 also raises.
+        Returns True when no evaluable test points can distinguish
+        the maps (conservative: assumes equal).
+        """
+        try:
+            if abs(m(1.0) - other_m(1.0)) > 1e-9:
+                return False
+            if abs(m(0.0) - other_m(0.0)) > 1e-9:
+                return False
+            return True
+        except (ValueError, ZeroDivisionError):
+            pass
+
+        # Fallback: 0.0 (or 1.0) raised — try alternative points
+        try:
+            if abs(m(1.0) - other_m(1.0)) > 1e-9:
+                return False
+            if abs(m(2.0) - other_m(2.0)) > 1e-9:
+                return False
+            return True
+        except (ValueError, ZeroDivisionError):
+            pass
+
+        # Last resort: both common points fail (e.g. nines inverse at 1.0)
+        try:
+            if abs(m(0.5) - other_m(0.5)) > 1e-9:
+                return False
+            if abs(m(2.0) - other_m(2.0)) > 1e-9:
+                return False
+            return True
+        except (ValueError, ZeroDivisionError):
+            # No evaluable test points — structurally compare types
+            return type(m) is type(other_m)
+
+    @staticmethod
+    def _non_rebased_edges(dim_edges: dict) -> dict[Unit, dict[Unit, Map]]:
+        """Filter a dimension's edge dict to exclude RebasedUnit nodes."""
+        return {
+            src: {
+                dst: m
+                for dst, m in neighbors.items()
+                if not isinstance(dst, RebasedUnit)
+            }
+            for src, neighbors in dim_edges.items()
+            if not isinstance(src, RebasedUnit)
+        }
+
     def __eq__(self, other: object) -> bool:
         """Compare graphs for structural equality.
 
-        Two graphs are equal if they have the same registered unit names
-        and the same edge conversions (within tolerance).
+        Two graphs are equal if they have the same registered unit names,
+        the same edge conversions (within tolerance), the same loaded
+        packages, the same constants, and the same contexts.
         """
         if not isinstance(other, ConversionGraph):
             return NotImplemented
@@ -1021,37 +1074,60 @@ class ConversionGraph:
         if set(self._name_registry_cs.keys()) != set(other._name_registry_cs.keys()):
             return False
 
-        # Compare unit edges: for each pair, check map(1.0) and map(0.0)
-        for dim, dim_edges in self._unit_edges.items():
-            for src, neighbors in dim_edges.items():
-                if isinstance(src, RebasedUnit):
-                    continue
-                for dst, m in neighbors.items():
-                    if isinstance(dst, RebasedUnit):
-                        continue
-                    # Find matching edge in other
-                    other_dim_edges = other._unit_edges.get(dim, {})
-                    other_neighbors = other_dim_edges.get(src, {})
-                    other_m = other_neighbors.get(dst)
-                    if other_m is None:
-                        return False
-                    # Compare map outputs at test points
-                    try:
-                        if abs(m(1.0) - other_m(1.0)) > 1e-9:
-                            return False
-                        if abs(m(0.0) - other_m(0.0)) > 1e-9:
-                            return False
-                    except (ValueError, ZeroDivisionError):
-                        # Some maps (ReciprocalMap) can't evaluate at 0
-                        try:
-                            if abs(m(1.0) - other_m(1.0)) > 1e-9:
-                                return False
-                            if abs(m(2.0) - other_m(2.0)) > 1e-9:
-                                return False
-                        except Exception:
-                            pass
+        # Compare loaded packages
+        if self._loaded_packages != other._loaded_packages:
+            return False
 
-        # Compare product edges
+        # Compare package constants (Constant is a frozen dataclass)
+        if len(self._package_constants) != len(other._package_constants):
+            return False
+        for c_self, c_other in zip(self._package_constants, other._package_constants):
+            if (c_self.symbol, c_self.value, c_self.category) != \
+               (c_other.symbol, c_other.value, c_other.category):
+                return False
+
+        # Compare basis graph structure
+        if (self._basis_graph is None) != (other._basis_graph is None):
+            return False
+        if self._basis_graph is not None and other._basis_graph is not None:
+            self_edges = {
+                (src.name, tgt.name)
+                for src, targets in self._basis_graph._edges.items()
+                for tgt in targets
+            }
+            other_edges = {
+                (src.name, tgt.name)
+                for src, targets in other._basis_graph._edges.items()
+                for tgt in targets
+            }
+            if self_edges != other_edges:
+                return False
+
+        # Compare unit edges (symmetric: check both directions)
+        self_dims = set(self._unit_edges.keys())
+        other_dims = set(other._unit_edges.keys())
+        if self_dims != other_dims:
+            return False
+
+        for dim in self_dims:
+            self_filtered = self._non_rebased_edges(self._unit_edges[dim])
+            other_filtered = self._non_rebased_edges(other._unit_edges[dim])
+
+            # Symmetric src-node check
+            if set(self_filtered.keys()) != set(other_filtered.keys()):
+                return False
+
+            for src, neighbors in self_filtered.items():
+                other_neighbors = other_filtered.get(src, {})
+                # Symmetric dst-node check
+                if set(neighbors.keys()) != set(other_neighbors.keys()):
+                    return False
+                for dst, m in neighbors.items():
+                    other_m = other_neighbors[dst]
+                    if not self._maps_equal(m, other_m):
+                        return False
+
+        # Compare product edges (already symmetric)
         if set(self._product_edges.keys()) != set(other._product_edges.keys()):
             return False
         for src_key, neighbors in self._product_edges.items():
@@ -1059,14 +1135,9 @@ class ConversionGraph:
             if set(neighbors.keys()) != set(other_neighbors.keys()):
                 return False
             for dst_key, m in neighbors.items():
-                other_m = other_neighbors.get(dst_key)
-                if other_m is None:
+                other_m = other_neighbors[dst_key]
+                if not self._maps_equal(m, other_m):
                     return False
-                try:
-                    if abs(m(1.0) - other_m(1.0)) > 1e-9:
-                        return False
-                except Exception:
-                    pass
 
         # Compare cross-basis rebased units
         if set(self._rebased.keys()) != set(other._rebased.keys()):
@@ -1082,19 +1153,12 @@ class ConversionGraph:
             if len(ctx.edges) != len(other_ctx.edges):
                 return False
             for edge, other_edge in zip(ctx.edges, other_ctx.edges):
-                # Compare src/dst by unit name
                 if edge.src.name != other_edge.src.name:
                     return False
                 if edge.dst.name != other_edge.dst.name:
                     return False
-                # Compare maps at test points
-                try:
-                    if abs(edge.map(1.0) - other_edge.map(1.0)) > 1e-9:
-                        return False
-                    if abs(edge.map(2.0) - other_edge.map(2.0)) > 1e-9:
-                        return False
-                except Exception:
-                    pass
+                if not self._maps_equal(edge.map, other_edge.map):
+                    return False
 
         return True
 

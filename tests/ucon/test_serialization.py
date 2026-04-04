@@ -369,6 +369,57 @@ class TestGraphEquality:
         )
         assert g1 != g2
 
+    def test_equality_is_symmetric(self):
+        """A == B implies B == A; extra edges in B detected from A's side."""
+        from ucon import units
+        from ucon.dimension import Dimension
+
+        g1 = ConversionGraph()
+        g2 = ConversionGraph()
+        u = units.meter
+        v = units.foot
+        g1.register_unit(u)
+        g1.register_unit(v)
+        g2.register_unit(u)
+        g2.register_unit(v)
+
+        # g2 has an edge that g1 doesn't
+        g2.add_edge(src=u, dst=v, map=LinearMap(3.28084))
+        assert g2 != g1
+        assert g1 != g2  # was broken before the fix
+
+    def test_different_loaded_packages(self):
+        """Graphs with different _loaded_packages are not equal."""
+        g1 = get_default_graph()
+        g2 = g1.copy()
+        assert g1 == g2
+        g2._loaded_packages = frozenset(["extra_package"])
+        assert g1 != g2
+
+    def test_different_package_constants(self):
+        """Graphs with different _package_constants are not equal."""
+        from ucon.constants import Constant
+        from ucon import units
+
+        g1 = get_default_graph()
+        g2 = g1.copy()
+        assert g1 == g2
+        g2._package_constants = (
+            Constant(
+                symbol="X", name="test", value=42.0,
+                unit=units.meter, uncertainty=None,
+            ),
+        )
+        assert g1 != g2
+
+    def test_different_basis_graph(self):
+        """Graphs with/without a _basis_graph are not equal."""
+        g1 = get_default_graph()
+        g2 = g1.copy()
+        assert g1 == g2
+        g2._basis_graph = None
+        assert g1 != g2
+
 
 # ---------------------------------------------------------------------------
 # _build_map composed support
