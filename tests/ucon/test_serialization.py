@@ -20,6 +20,7 @@ from ucon.graph import ConversionGraph, get_default_graph, using_graph
 from ucon.maps import AffineMap, ComposedMap, ExpMap, LinearMap, LogMap, ReciprocalMap
 from ucon.serialization import (
     FORMAT_VERSION,
+    GraphLoadError,
     _serialize_map,
     _extract_forward_edges,
     _extract_cross_basis_edges,
@@ -396,3 +397,134 @@ class TestBuildMapComposed:
 
         with pytest.raises(PackageLoadError):
             _build_map({"type": "composed", "outer": {"type": "linear", "a": 1.0}})
+
+
+# ---------------------------------------------------------------------------
+# Malformed TOML input validation
+# ---------------------------------------------------------------------------
+
+def _write_toml(tmp_path, doc: dict) -> Path:
+    """Helper: write a dict as TOML and return the path."""
+    import tomli_w
+
+    path = tmp_path / "bad.ucon.toml"
+    with open(path, "wb") as f:
+        tomli_w.dump(doc, f)
+    return path
+
+
+class TestMalformedInput:
+    """from_toml raises GraphLoadError (not KeyError) on bad input."""
+
+    def test_basis_missing_components(self, tmp_path):
+        doc = {"bases": {"X": {}}}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="components.*bases.X"):
+            from_toml(path)
+
+    def test_basis_component_missing_name(self, tmp_path):
+        doc = {"bases": {"X": {"components": [{"symbol": "x"}]}}}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="name.*bases.X.components"):
+            from_toml(path)
+
+    def test_dimension_missing_basis(self, tmp_path):
+        doc = {
+            "bases": {"X": {"components": [{"name": "a"}]}},
+            "dimensions": {"custom_dim": {"vector": [1]}},
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="basis.*dimensions.custom_dim"):
+            from_toml(path)
+
+    def test_dimension_missing_vector(self, tmp_path):
+        doc = {
+            "bases": {"X": {"components": [{"name": "a"}]}},
+            "dimensions": {"custom_dim": {"basis": "X"}},
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="vector.*dimensions.custom_dim"):
+            from_toml(path)
+
+    def test_dimension_unknown_basis(self, tmp_path):
+        doc = {
+            "dimensions": {"custom_dim": {"basis": "NOPE", "vector": [1]}},
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="unknown basis.*NOPE"):
+            from_toml(path)
+
+    def test_transform_missing_source(self, tmp_path):
+        doc = {
+            "bases": {"A": {"components": [{"name": "x"}]}},
+            "transforms": {"T": {"target": "A", "matrix": [[1]]}},
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="source.*transforms.T"):
+            from_toml(path)
+
+    def test_transform_missing_matrix(self, tmp_path):
+        doc = {
+            "bases": {"A": {"components": [{"name": "x"}]}},
+            "transforms": {"T": {"source": "A", "target": "A"}},
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="matrix.*transforms.T"):
+            from_toml(path)
+
+    def test_transform_unknown_basis(self, tmp_path):
+        doc = {
+            "bases": {"A": {"components": [{"name": "x"}]}},
+            "transforms": {"T": {"source": "A", "target": "NOPE", "matrix": [[1]]}},
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="unknown target basis.*NOPE"):
+            from_toml(path)
+
+    def test_unit_missing_name(self, tmp_path):
+        doc = {"units": [{"dimension": "length"}]}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="name.*units\\[0\\]"):
+            from_toml(path)
+
+    def test_unit_missing_dimension(self, tmp_path):
+        doc = {"units": [{"name": "foo"}]}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="dimension.*units\\[0\\]"):
+            from_toml(path)
+
+    def test_unit_unknown_dimension(self, tmp_path):
+        doc = {"units": [{"name": "foo", "dimension": "nonexistent"}]}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="unknown dimension.*nonexistent"):
+            from_toml(path)
+
+    def test_edge_missing_src(self, tmp_path):
+        doc = {"edges": [{"dst": "meter", "factor": 1.0}]}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="src.*edges\\[0\\]"):
+            from_toml(path)
+
+    def test_edge_missing_dst(self, tmp_path):
+        doc = {"edges": [{"src": "meter", "factor": 1.0}]}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="dst.*edges\\[0\\]"):
+            from_toml(path)
+
+    def test_constant_missing_symbol(self, tmp_path):
+        doc = {"constants": [{"name": "c", "value": 3e8}]}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="symbol.*constants\\[0\\]"):
+            from_toml(path)
+
+    def test_constant_missing_value(self, tmp_path):
+        doc = {"constants": [{"symbol": "c", "name": "speed of light"}]}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="value.*constants\\[0\\]"):
+            from_toml(path)
+
+    def test_constant_non_numeric_value(self, tmp_path):
+        doc = {"constants": [{"symbol": "c", "name": "bad", "value": "fast"}]}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match=r"constants\[0\].*numeric"):
+            from_toml(path)

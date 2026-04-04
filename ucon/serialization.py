@@ -53,6 +53,21 @@ from ucon.maps import (
 FORMAT_VERSION = "1.2"
 
 
+class GraphLoadError(Exception):
+    """Raised when a TOML graph file cannot be loaded or validated."""
+    pass
+
+
+def _require(spec: dict, key: str, section: str) -> object:
+    """Retrieve a required key from a TOML dict, raising on absence."""
+    try:
+        return spec[key]
+    except KeyError:
+        raise GraphLoadError(
+            f"Missing required key '{key}' in [{section}]"
+        ) from None
+
+
 # ---------------------------------------------------------------------------
 # Map serialization
 # ---------------------------------------------------------------------------
@@ -464,14 +479,23 @@ def from_toml(path: Union[str, Path]):
     # 1. Build bases
     basis_map: dict[str, Basis] = {}
     for name, spec in doc.get("bases", {}).items():
+        comp_list = _require(spec, "components", f"bases.{name}")
+        if not isinstance(comp_list, list):
+            raise GraphLoadError(
+                f"[bases.{name}].components must be a list"
+            )
         components = []
-        for c in spec["components"]:
+        for i, c in enumerate(comp_list):
             if isinstance(c, dict):
-                components.append(
-                    BasisComponent(c["name"], c.get("symbol"))
-                )
-            else:
+                comp_name = _require(c, "name", f"bases.{name}.components[{i}]")
+                components.append(BasisComponent(comp_name, c.get("symbol")))
+            elif isinstance(c, str):
                 components.append(BasisComponent(c))
+            else:
+                raise GraphLoadError(
+                    f"[bases.{name}].components[{i}]: expected string or table, "
+                    f"got {type(c).__name__}"
+                )
         basis_map[name] = Basis(name, components)
 
     # 2. Build dimensions
@@ -483,13 +507,20 @@ def from_toml(path: Union[str, Path]):
     for name, spec in doc.get("dimensions", {}).items():
         if name in dim_map:
             continue  # Use standard dimension if available
-        basis_name = spec["basis"]
+        basis_name = _require(spec, "basis", f"dimensions.{name}")
         basis = basis_map.get(basis_name)
         if basis is None:
-            continue  # Skip if basis not found
+            raise GraphLoadError(
+                f"[dimensions.{name}]: references unknown basis '{basis_name}'"
+            )
+        raw_vector = _require(spec, "vector", f"dimensions.{name}")
+        if not isinstance(raw_vector, list):
+            raise GraphLoadError(
+                f"[dimensions.{name}].vector must be a list"
+            )
         vec_components = tuple(
             Fraction(c) if isinstance(c, str) else c
-            for c in spec["vector"]
+            for c in raw_vector
         )
         vector = Vector(basis, vec_components)
         tag = spec.get("tag")
@@ -498,25 +529,39 @@ def from_toml(path: Union[str, Path]):
     # 3. Build transforms
     transform_map: dict[str, Union[BasisTransform, ConstantBoundBasisTransform]] = {}
     for name, spec in doc.get("transforms", {}).items():
-        source = basis_map.get(spec["source"])
-        target = basis_map.get(spec["target"])
-        if source is None or target is None:
-            continue
+        src_name = _require(spec, "source", f"transforms.{name}")
+        tgt_name = _require(spec, "target", f"transforms.{name}")
+        source = basis_map.get(src_name)
+        target = basis_map.get(tgt_name)
+        if source is None:
+            raise GraphLoadError(
+                f"[transforms.{name}]: references unknown source basis '{src_name}'"
+            )
+        if target is None:
+            raise GraphLoadError(
+                f"[transforms.{name}]: references unknown target basis '{tgt_name}'"
+            )
 
         # Parse matrix
+        raw_matrix = _require(spec, "matrix", f"transforms.{name}")
+        if not isinstance(raw_matrix, list):
+            raise GraphLoadError(
+                f"[transforms.{name}].matrix must be a list of lists"
+            )
         matrix = tuple(
             tuple(
                 Fraction(c) if isinstance(c, str) else Fraction(c)
                 for c in row
             )
-            for row in spec["matrix"]
+            for row in raw_matrix
         )
 
         # Check for bindings (ConstantBoundBasisTransform)
         if "bindings" in spec:
             bindings = []
-            for b in spec["bindings"]:
-                src_comp_name = b["source_component"]
+            for i, b in enumerate(spec["bindings"]):
+                section = f"transforms.{name}.bindings[{i}]"
+                src_comp_name = _require(b, "source_component", section)
                 # Find the source component
                 src_comp = None
                 for comp in source:
@@ -524,17 +569,22 @@ def from_toml(path: Union[str, Path]):
                         src_comp = comp
                         break
                 if src_comp is None:
-                    continue
+                    raise GraphLoadError(
+                        f"[{section}]: unknown source_component '{src_comp_name}' "
+                        f"in basis '{source.name}'"
+                    )
 
+                raw_target_vec = _require(b, "target_expression", section)
                 target_vec = tuple(
                     Fraction(c) if isinstance(c, str) else Fraction(c)
-                    for c in b["target_expression"]
+                    for c in raw_target_vec
                 )
+                const_sym = _require(b, "constant_symbol", section)
                 exp = Fraction(b.get("exponent", "1"))
                 bindings.append(ConstantBinding(
                     source_component=src_comp,
                     target_expression=Vector(target, target_vec),
-                    constant_symbol=b["constant_symbol"],
+                    constant_symbol=const_sym,
                     exponent=exp,
                 ))
             transform_map[name] = ConstantBoundBasisTransform(
@@ -561,18 +611,23 @@ def from_toml(path: Union[str, Path]):
 
     # 6. Register units
     unit_map: dict[str, Unit] = {}
-    for unit_spec in doc.get("units", []):
-        dim_name = unit_spec["dimension"]
+    for i, unit_spec in enumerate(doc.get("units", [])):
+        section = f"units[{i}]"
+        uname = _require(unit_spec, "name", section)
+        dim_name = _require(unit_spec, "dimension", section)
         dim = dim_map.get(dim_name)
         if dim is None:
             # Try resolving from the standard dimension registry
             dim = _DIMENSION_ATTRS.get(dim_name)
             if dim is None:
-                continue
+                raise GraphLoadError(
+                    f"[{section}]: unknown dimension '{dim_name}' "
+                    f"for unit '{uname}'"
+                )
 
         aliases = tuple(unit_spec.get("aliases", []))
         unit = Unit(
-            name=unit_spec["name"],
+            name=uname,
             dimension=dim,
             aliases=aliases,
         )
@@ -584,9 +639,12 @@ def from_toml(path: Union[str, Path]):
 
     # 7. Materialize edges
     with using_graph(graph):
-        for edge_spec in doc.get("edges", []):
-            src_unit = _resolve_unit(edge_spec["src"], unit_map, graph)
-            dst_unit = _resolve_unit(edge_spec["dst"], unit_map, graph)
+        for i, edge_spec in enumerate(doc.get("edges", [])):
+            section = f"edges[{i}]"
+            src_name = _require(edge_spec, "src", section)
+            dst_name = _require(edge_spec, "dst", section)
+            src_unit = _resolve_unit(src_name, unit_map, graph)
+            dst_unit = _resolve_unit(dst_name, unit_map, graph)
             if src_unit is None or dst_unit is None:
                 continue
             m = _build_edge_map(edge_spec, _build_map)
@@ -594,18 +652,24 @@ def from_toml(path: Union[str, Path]):
 
     # 8. Materialize product edges
     with using_graph(graph):
-        for edge_spec in doc.get("product_edges", []):
+        for i, edge_spec in enumerate(doc.get("product_edges", [])):
+            section = f"product_edges[{i}]"
+            src_expr = _require(edge_spec, "src", section)
+            dst_expr = _require(edge_spec, "dst", section)
             m = _build_edge_map(edge_spec, _build_map)
-            src_prod = _parse_product_expression(edge_spec["src"], unit_map, graph)
-            dst_prod = _parse_product_expression(edge_spec["dst"], unit_map, graph)
+            src_prod = _parse_product_expression(src_expr, unit_map, graph)
+            dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
             if src_prod is not None and dst_prod is not None:
                 graph.add_edge(src=src_prod, dst=dst_prod, map=m)
 
     # 9. Materialize cross-basis edges
     with using_graph(graph):
-        for edge_spec in doc.get("cross_basis_edges", []):
-            src_unit = _resolve_unit(edge_spec["src"], unit_map, graph)
-            dst_unit = _resolve_unit(edge_spec["dst"], unit_map, graph)
+        for i, edge_spec in enumerate(doc.get("cross_basis_edges", [])):
+            section = f"cross_basis_edges[{i}]"
+            src_name = _require(edge_spec, "src", section)
+            dst_name = _require(edge_spec, "dst", section)
+            src_unit = _resolve_unit(src_name, unit_map, graph)
+            dst_unit = _resolve_unit(dst_name, unit_map, graph)
             if src_unit is None or dst_unit is None:
                 continue
             m = _build_edge_map(edge_spec, _build_map)
@@ -622,7 +686,17 @@ def from_toml(path: Union[str, Path]):
 
     constants = []
     with using_graph(graph):
-        for const_spec in doc.get("constants", []):
+        for i, const_spec in enumerate(doc.get("constants", [])):
+            section = f"constants[{i}]"
+            sym = _require(const_spec, "symbol", section)
+            cname = _require(const_spec, "name", section)
+            cvalue = _require(const_spec, "value", section)
+            if not isinstance(cvalue, (int, float)):
+                raise GraphLoadError(
+                    f"[{section}]: 'value' must be numeric, "
+                    f"got {type(cvalue).__name__}"
+                )
+
             unit_str = const_spec.get("unit", "")
             try:
                 unit_expr = get_unit_by_name(unit_str)
@@ -634,9 +708,9 @@ def from_toml(path: Union[str, Path]):
                 )
 
             const = Constant(
-                symbol=const_spec["symbol"],
-                name=const_spec["name"],
-                value=const_spec["value"],
+                symbol=sym,
+                name=cname,
+                value=cvalue,
                 unit=unit_expr,
                 uncertainty=const_spec.get("uncertainty"),
                 source=const_spec.get("source", "CODATA 2022"),
