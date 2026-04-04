@@ -622,3 +622,118 @@ class TestScaledProductEdges:
             if uf.unit.name == "watt" and uf.scale == Scale.kilo:
                 found_kilo_watt = True
         assert found_kilo_watt, f"Expected Scale.kilo on watt factor, got: {result}"
+
+
+# ---------------------------------------------------------------------------
+# Context serialization
+# ---------------------------------------------------------------------------
+
+class TestContextSerialization:
+    """ConversionContext round-trip through TOML."""
+
+    def test_context_roundtrip(self, tmp_path):
+        """Register spectroscopy context on graph, export, import, verify equality."""
+        from ucon.contexts import ConversionContext, ContextEdge
+        from ucon import units
+
+        graph = get_default_graph()
+
+        c = 299792458.0
+        h = 6.62607015e-34
+        ctx = ConversionContext(
+            name="spectroscopy",
+            edges=(
+                ContextEdge(
+                    src=units.meter,
+                    dst=units.hertz,
+                    map=ReciprocalMap(c),
+                ),
+                ContextEdge(
+                    src=units.hertz,
+                    dst=units.joule,
+                    map=LinearMap(h),
+                ),
+            ),
+            description="Spectroscopy: wavelength/frequency/energy via c and h.",
+        )
+        graph.register_context(ctx)
+
+        path = tmp_path / "ctx.ucon.toml"
+        graph.to_toml(path)
+        restored = ConversionGraph.from_toml(path)
+        assert graph == restored
+
+    def test_context_edges_in_toml(self, tmp_path):
+        """Export graph with context, inspect TOML structure."""
+        from ucon.contexts import ConversionContext, ContextEdge
+        from ucon import units
+
+        graph = get_default_graph()
+        ctx = ConversionContext(
+            name="spectroscopy",
+            edges=(
+                ContextEdge(
+                    src=units.meter,
+                    dst=units.hertz,
+                    map=ReciprocalMap(299792458.0),
+                ),
+            ),
+            description="Spectroscopy: wavelength/frequency/energy via c and h.",
+        )
+        graph.register_context(ctx)
+
+        path = tmp_path / "ctx_structure.ucon.toml"
+        graph.to_toml(path)
+
+        with open(path, "rb") as f:
+            doc = tomllib.load(f)
+
+        assert "contexts" in doc
+        assert "spectroscopy" in doc["contexts"]
+        spec = doc["contexts"]["spectroscopy"]
+        assert spec["description"] == "Spectroscopy: wavelength/frequency/energy via c and h."
+        assert len(spec["edges"]) == 1
+        edge = spec["edges"][0]
+        assert edge["src"] == "meter"
+        assert edge["dst"] == "hertz"
+        assert edge["map"]["type"] == "reciprocal"
+
+    def test_context_activation_after_roundtrip(self, tmp_path):
+        """Import graph with context, activate it, verify conversion works."""
+        from ucon.contexts import ConversionContext, ContextEdge, using_context
+        from ucon import units
+
+        c = 299792458.0
+
+        graph = get_default_graph()
+        ctx = ConversionContext(
+            name="spectroscopy",
+            edges=(
+                ContextEdge(
+                    src=units.meter,
+                    dst=units.hertz,
+                    map=ReciprocalMap(c),
+                ),
+            ),
+            description="Spectroscopy: wavelength/frequency/energy via c and h.",
+        )
+        graph.register_context(ctx)
+
+        path = tmp_path / "ctx_activate.ucon.toml"
+        graph.to_toml(path)
+        restored = ConversionGraph.from_toml(path)
+
+        # Get the restored context and activate it
+        restored_ctx = restored._contexts["spectroscopy"]
+        with using_graph(restored):
+            # Build a temporary graph with context edges applied
+            extended = restored.copy()
+            from ucon.contexts import _add_context_edge
+            for edge in restored_ctx.edges:
+                _add_context_edge(extended, edge)
+            with using_graph(extended):
+                m = extended.convert(src=units.meter, dst=units.hertz)
+                # 500 nm → frequency
+                freq = m(500e-9)
+                expected = c / 500e-9
+                assert abs(freq - expected) / expected < 1e-9

@@ -407,6 +407,11 @@ def to_toml(graph, path: Union[str, Path]) -> None:
     if constants:
         doc["constants"] = constants
 
+    # [contexts.*]
+    contexts = _collect_contexts(graph)
+    if contexts:
+        doc["contexts"] = contexts
+
     with open(path, "wb") as f:
         tomli_w.dump(doc, f)
 
@@ -450,6 +455,40 @@ def _collect_constants(graph) -> list[dict]:
     for const in graph._package_constants:
         constants.append(_serialize_constant(const))
     return constants
+
+
+def _collect_contexts(graph) -> dict[str, dict]:
+    """Collect registered ConversionContext objects from the graph."""
+    contexts: dict[str, dict] = {}
+    for name, ctx in sorted(graph._contexts.items()):
+        ctx_dict: dict = {}
+        if ctx.description:
+            ctx_dict["description"] = ctx.description
+        edges = []
+        for ce in ctx.edges:
+            # Determine src/dst name
+            src_name = (
+                _product_key_to_expression(_product_key(ce.src))
+                if isinstance(ce.src, UnitProduct)
+                else ce.src.name
+            )
+            dst_name = (
+                _product_key_to_expression(_product_key(ce.dst))
+                if isinstance(ce.dst, UnitProduct)
+                else ce.dst.name
+            )
+            edges.append(_edge_dict(src_name, dst_name, ce.map))
+        ctx_dict["edges"] = edges
+        contexts[name] = ctx_dict
+    return contexts
+
+
+def _product_key(prod: UnitProduct) -> tuple:
+    """Build the hashable product key for a UnitProduct (same as ConversionGraph)."""
+    return tuple(sorted(
+        (uf.unit.name, uf.unit.dimension, uf.scale, exp)
+        for uf, exp in prod.factors.items()
+    ))
 
 
 # ---------------------------------------------------------------------------
@@ -744,6 +783,39 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
 
     graph._package_constants = tuple(constants)
 
+    # 12. Materialize contexts
+    from ucon.contexts import ConversionContext, ContextEdge
+
+    with using_graph(graph):
+        for ctx_name, ctx_spec in doc.get("contexts", {}).items():
+            description = ctx_spec.get("description", "")
+            ctx_edges = []
+            for j, edge_spec in enumerate(ctx_spec.get("edges", [])):
+                section = f"contexts.{ctx_name}.edges[{j}]"
+                src_name = _require(edge_spec, "src", section)
+                dst_name = _require(edge_spec, "dst", section)
+
+                # Resolve src/dst — try full resolver first, then local
+                src_unit = _resolve_context_unit(src_name, unit_map, graph)
+                dst_unit = _resolve_context_unit(dst_name, unit_map, graph)
+                if src_unit is None or dst_unit is None:
+                    if strict:
+                        unresolvable = src_name if src_unit is None else dst_name
+                        raise GraphLoadError(
+                            f"[{section}]: cannot resolve unit '{unresolvable}'"
+                        )
+                    continue
+
+                m = _build_edge_map(edge_spec, _build_map)
+                ctx_edges.append(ContextEdge(src=src_unit, dst=dst_unit, map=m))
+
+            ctx = ConversionContext(
+                name=ctx_name,
+                edges=tuple(ctx_edges),
+                description=description,
+            )
+            graph.register_context(ctx)
+
     return graph
 
 
@@ -763,6 +835,24 @@ def _resolve_unit(name: str, unit_map: dict[str, Unit], graph) -> Union[Unit, No
     if name.lower() in graph._name_registry:
         return graph._name_registry[name.lower()]
     return None
+
+
+def _resolve_context_unit(
+    name: str, unit_map: dict[str, Unit], graph,
+) -> Union[Unit, UnitProduct, None]:
+    """Resolve a unit name for context edges.
+
+    Tries the full ``get_unit_by_name`` resolver first (which handles
+    composite and scaled names), then falls back to local resolution.
+    """
+    from ucon.resolver import get_unit_by_name
+
+    try:
+        return get_unit_by_name(name)
+    except Exception:
+        pass
+    resolved = _resolve_unit(name, unit_map, graph)
+    return resolved
 
 
 def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:

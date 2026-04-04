@@ -119,6 +119,9 @@ class ConversionGraph:
     # Constants materialized from loaded packages
     _package_constants: tuple = field(default_factory=tuple)
 
+    # Named ConversionContext definitions (for serialization round-trip)
+    _contexts: dict[str, 'ConversionContext'] = field(default_factory=dict)
+
     # Conversion path cache: (src_key, dst_key) -> Map
     # Cleared when edges are added
     _conversion_cache: dict[tuple, Map] = field(default_factory=dict)
@@ -433,7 +436,18 @@ class ConversionGraph:
         new._basis_graph = self._basis_graph  # BasisGraph is immutable, share reference
         new._loaded_packages = self._loaded_packages  # frozenset is immutable, share reference
         new._package_constants = self._package_constants  # tuple is immutable, share reference
+        new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
         return new
+
+    def register_context(self, ctx: 'ConversionContext') -> None:
+        """Register a named conversion context for serialization.
+
+        Parameters
+        ----------
+        ctx : ConversionContext
+            A frozen context to store by name.
+        """
+        self._contexts[ctx.name] = ctx
 
     def with_package(self, package: 'UnitPackage') -> 'ConversionGraph':
         """Return a new graph with this package's units and edges added.
@@ -1057,6 +1071,30 @@ class ConversionGraph:
         # Compare cross-basis rebased units
         if set(self._rebased.keys()) != set(other._rebased.keys()):
             return False
+
+        # Compare registered contexts
+        if set(self._contexts.keys()) != set(other._contexts.keys()):
+            return False
+        for name, ctx in self._contexts.items():
+            other_ctx = other._contexts[name]
+            if ctx.description != other_ctx.description:
+                return False
+            if len(ctx.edges) != len(other_ctx.edges):
+                return False
+            for edge, other_edge in zip(ctx.edges, other_ctx.edges):
+                # Compare src/dst by unit name
+                if edge.src.name != other_edge.src.name:
+                    return False
+                if edge.dst.name != other_edge.dst.name:
+                    return False
+                # Compare maps at test points
+                try:
+                    if abs(edge.map(1.0) - other_edge.map(1.0)) > 1e-9:
+                        return False
+                    if abs(edge.map(2.0) - other_edge.map(2.0)) > 1e-9:
+                        return False
+                except Exception:
+                    pass
 
         return True
 
