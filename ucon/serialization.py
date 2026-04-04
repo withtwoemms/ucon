@@ -333,6 +333,8 @@ def to_toml(graph, path: Union[str, Path]) -> None:
         "name": path.stem.replace(".ucon", ""),
         "format_version": FORMAT_VERSION,
     }
+    if graph._loaded_packages:
+        doc["package"]["loaded_packages"] = sorted(graph._loaded_packages)
 
     # Collect all bases and dimensions used in the graph
     bases: dict[str, Basis] = {}
@@ -616,28 +618,36 @@ def from_toml(path: Union[str, Path]):
                 )
 
     # 10. Materialize constants
-    constants = []
-    for const_spec in doc.get("constants", []):
-        # Resolve the unit
-        unit_str = const_spec.get("unit", "")
-        resolved = _resolve_unit(unit_str, unit_map, graph)
-        if resolved is None:
-            # Try parsing as product expression
-            prod = _parse_product_expression(unit_str, unit_map, graph)
-            unit_expr = prod if prod is not None else Unit(name="unknown", dimension=dim_map.get("none", Dimension.none))
-        else:
-            unit_expr = resolved
+    from ucon.resolver import get_unit_by_name
 
-        const = Constant(
-            symbol=const_spec["symbol"],
-            name=const_spec["name"],
-            value=const_spec["value"],
-            unit=unit_expr,
-            uncertainty=const_spec.get("uncertainty"),
-            source=const_spec.get("source", "CODATA 2022"),
-            category=const_spec.get("category", "measured"),
-        )
-        constants.append(const)
+    constants = []
+    with using_graph(graph):
+        for const_spec in doc.get("constants", []):
+            unit_str = const_spec.get("unit", "")
+            try:
+                unit_expr = get_unit_by_name(unit_str)
+            except Exception:
+                # Fall back to local resolution
+                resolved = _resolve_unit(unit_str, unit_map, graph)
+                unit_expr = resolved if resolved is not None else Unit(
+                    name="unknown", dimension=dim_map.get("none", Dimension.none),
+                )
+
+            const = Constant(
+                symbol=const_spec["symbol"],
+                name=const_spec["name"],
+                value=const_spec["value"],
+                unit=unit_expr,
+                uncertainty=const_spec.get("uncertainty"),
+                source=const_spec.get("source", "CODATA 2022"),
+                category=const_spec.get("category", "measured"),
+            )
+            constants.append(const)
+
+    # 11. Restore loaded packages
+    loaded = doc.get("package", {}).get("loaded_packages", [])
+    graph._loaded_packages = frozenset(loaded)
+
     graph._package_constants = tuple(constants)
 
     return graph

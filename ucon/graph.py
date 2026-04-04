@@ -1033,6 +1033,23 @@ class ConversionGraph:
                         except Exception:
                             pass
 
+        # Compare product edges
+        if set(self._product_edges.keys()) != set(other._product_edges.keys()):
+            return False
+        for src_key, neighbors in self._product_edges.items():
+            other_neighbors = other._product_edges.get(src_key, {})
+            if set(neighbors.keys()) != set(other_neighbors.keys()):
+                return False
+            for dst_key, m in neighbors.items():
+                other_m = other_neighbors.get(dst_key)
+                if other_m is None:
+                    return False
+                try:
+                    if abs(m(1.0) - other_m(1.0)) > 1e-9:
+                        return False
+                except Exception:
+                    pass
+
         # Compare cross-basis rebased units
         if set(self._rebased.keys()) != set(other._rebased.keys()):
             return False

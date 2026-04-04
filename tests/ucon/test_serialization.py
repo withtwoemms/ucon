@@ -310,6 +310,66 @@ class TestRoundTrip:
 
 
 # ---------------------------------------------------------------------------
+# Package & constant round-trip
+# ---------------------------------------------------------------------------
+
+class TestPackageRoundTrip:
+    def test_loaded_packages_preserved(self, tmp_path):
+        """loaded_packages survives round-trip."""
+        from ucon.packages import load_package
+
+        graph = get_default_graph()
+        pkg = load_package("examples/units/aerospace.ucon.toml")
+        graph = graph.with_package(pkg)
+        assert "aerospace" in graph._loaded_packages
+
+        path = tmp_path / "pkgs.ucon.toml"
+        graph.to_toml(path)
+        restored = ConversionGraph.from_toml(path)
+        assert restored._loaded_packages == graph._loaded_packages
+
+    def test_constant_unit_roundtrip(self, tmp_path):
+        """Constant unit expressions (e.g., 'm/s') survive round-trip."""
+        from ucon.packages import load_package
+
+        graph = get_default_graph()
+        pkg = load_package("examples/units/aerospace.ucon.toml")
+        graph = graph.with_package(pkg)
+
+        path = tmp_path / "const.ucon.toml"
+        graph.to_toml(path)
+        restored = ConversionGraph.from_toml(path)
+
+        assert len(restored._package_constants) == len(graph._package_constants)
+        for orig, rest in zip(graph._package_constants, restored._package_constants):
+            assert orig.symbol == rest.symbol
+            assert orig.value == rest.value
+            # Unit dimension should match (not be "unknown")
+            assert rest.unit.dimension == orig.unit.dimension
+
+
+# ---------------------------------------------------------------------------
+# Equality
+# ---------------------------------------------------------------------------
+
+class TestGraphEquality:
+    def test_product_edge_equality(self):
+        """__eq__ detects product edge differences."""
+        from ucon import units
+        g1 = get_default_graph()
+        g2 = g1.copy()
+        assert g1 == g2
+
+        # Add a product edge to g2 only
+        g2.add_edge(
+            src=units.watt,
+            dst=units.joule / units.second,
+            map=LinearMap(1.0),
+        )
+        assert g1 != g2
+
+
+# ---------------------------------------------------------------------------
 # _build_map composed support
 # ---------------------------------------------------------------------------
 
