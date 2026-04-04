@@ -263,7 +263,9 @@ class ConversionGraph:
             rebased_dimension=dst.dimension,
             basis_transform=basis_transform,
         )
-        self._rebased.setdefault(src, []).append(rebased)
+        rebased_list = self._rebased.setdefault(src, [])
+        if rebased not in rebased_list:
+            rebased_list.append(rebased)
 
         # Store edge from rebased to dst (same dimension now)
         dim = dst.dimension
