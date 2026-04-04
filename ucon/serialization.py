@@ -1,0 +1,706 @@
+# Copyright 2026 The Radiativity Company
+# Licensed under the Apache License, Version 2.0
+
+"""
+ucon.serialization
+==================
+
+Full round-trip serialization of ConversionGraph to/from TOML.
+
+Exports ``to_toml()`` and ``from_toml()`` which handle:
+- Bases, dimensions, and transforms (including ConstantBound)
+- Unit edges (forward-only; inverses reconstructed on import)
+- Product edges (composite unit conversions)
+- Cross-basis edges (via RebasedUnit provenance)
+- Physical constants
+- Fraction preservation for exact round-trip of basis matrices
+
+Format version: 1.2
+"""
+from __future__ import annotations
+
+import sys
+from fractions import Fraction
+from pathlib import Path
+from typing import Union
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
+from ucon.basis import (
+    Basis,
+    BasisComponent,
+    BasisGraph,
+    BasisTransform,
+    Vector,
+)
+from ucon.basis.transforms import ConstantBoundBasisTransform, ConstantBinding
+from ucon.constants import Constant
+from ucon.core import RebasedUnit, Scale, Unit, UnitFactor, UnitProduct
+from ucon.dimension import Dimension, resolve, _DIMENSION_ATTRS
+from ucon.maps import (
+    AffineMap,
+    ComposedMap,
+    ExpMap,
+    LinearMap,
+    LogMap,
+    Map,
+    ReciprocalMap,
+)
+
+FORMAT_VERSION = "1.2"
+
+
+# ---------------------------------------------------------------------------
+# Map serialization
+# ---------------------------------------------------------------------------
+
+def _serialize_map(m: Map) -> dict:
+    """Serialize a Map instance to a TOML-friendly dict.
+
+    Reverse of ``packages._build_map()``.
+    """
+    if isinstance(m, LinearMap):
+        return {"type": "linear", "a": m.a}
+    if isinstance(m, AffineMap):
+        return {"type": "affine", "a": m.a, "b": m.b}
+    if isinstance(m, LogMap):
+        d: dict = {"type": "log", "scale": m.scale, "base": m.base}
+        if m.reference != 1.0:
+            d["reference"] = m.reference
+        if m.offset != 0.0:
+            d["offset"] = m.offset
+        return d
+    if isinstance(m, ExpMap):
+        d = {"type": "exp", "scale": m.scale, "base": m.base}
+        if m.reference != 1.0:
+            d["reference"] = m.reference
+        if m.offset != 0.0:
+            d["offset"] = m.offset
+        return d
+    if isinstance(m, ReciprocalMap):
+        return {"type": "reciprocal", "a": m.a}
+    if isinstance(m, ComposedMap):
+        return {
+            "type": "composed",
+            "outer": _serialize_map(m.outer),
+            "inner": _serialize_map(m.inner),
+        }
+    raise TypeError(f"Cannot serialize map type: {type(m).__name__}")
+
+
+# ---------------------------------------------------------------------------
+# Edge extraction (forward-only)
+# ---------------------------------------------------------------------------
+
+def _unit_sort_key(unit: Unit) -> str:
+    """Stable sort key for units."""
+    return unit.name
+
+
+def _extract_forward_edges(graph) -> list[dict]:
+    """Extract forward-only unit edges from the graph.
+
+    Skips RebasedUnit nodes (handled by cross-basis extraction).
+    Deduplicates by only emitting edges where src.name < dst.name.
+    """
+    edges = []
+    for dim, dim_edges in graph._unit_edges.items():
+        for src, neighbors in dim_edges.items():
+            if isinstance(src, RebasedUnit):
+                continue
+            for dst, m in neighbors.items():
+                if isinstance(dst, RebasedUnit):
+                    continue
+                # Deduplicate: only emit forward direction
+                if src.name >= dst.name:
+                    continue
+                edge = _edge_dict(src.name, dst.name, m)
+                edges.append(edge)
+    # Stable sort for deterministic output
+    edges.sort(key=lambda e: (e["src"], e["dst"]))
+    return edges
+
+
+def _extract_product_edges(graph) -> list[dict]:
+    """Extract forward-only product edges from the graph."""
+    edges = []
+    seen = set()
+    for src_key, neighbors in graph._product_edges.items():
+        for dst_key, m in neighbors.items():
+            # Deduplicate: sort the pair
+            pair = tuple(sorted([src_key, dst_key]))
+            if pair in seen:
+                continue
+            seen.add(pair)
+
+            # Reconstruct shorthand expressions from product keys
+            src_expr = _product_key_to_expression(src_key)
+            dst_expr = _product_key_to_expression(dst_key)
+            edge = _edge_dict(src_expr, dst_expr, m)
+            edge["product"] = True
+            edges.append(edge)
+    edges.sort(key=lambda e: (e["src"], e["dst"]))
+    return edges
+
+
+def _product_key_to_expression(key: tuple) -> str:
+    """Convert a product key tuple back to a unit expression string.
+
+    Each element is (name, dimension, scale, exponent).
+    """
+    parts = []
+    for name, dim, scale, exp in key:
+        scale_val = scale.value.evaluated if hasattr(scale, 'value') else 1.0
+        prefix = ""
+        if abs(scale_val - 1.0) > 1e-15:
+            # Find the scale prefix
+            prefix = scale.shorthand if hasattr(scale, 'shorthand') else ""
+        unit_str = prefix + name if prefix else name
+        if abs(exp - 1.0) < 1e-12:
+            parts.append(unit_str)
+        elif abs(exp - (-1.0)) < 1e-12:
+            parts.append(f"{unit_str}^-1")
+        else:
+            parts.append(f"{unit_str}^{exp}")
+    return "*".join(parts) if parts else "dimensionless"
+
+
+def _extract_cross_basis_edges(graph) -> list[dict]:
+    """Extract cross-basis edges from RebasedUnit provenance."""
+    edges = []
+    for original_unit, rebased_list in graph._rebased.items():
+        for rebased in rebased_list:
+            dim = rebased.dimension
+            if dim not in graph._unit_edges:
+                continue
+            if rebased not in graph._unit_edges[dim]:
+                continue
+            for dst, m in graph._unit_edges[dim][rebased].items():
+                if isinstance(dst, RebasedUnit):
+                    continue
+                # Determine the transform name
+                bt = rebased.basis_transform
+                transform_name = f"{bt.source.name}_TO_{bt.target.name}"
+                edge = _edge_dict(original_unit.name, dst.name, m)
+                edge["transform"] = transform_name
+                edges.append(edge)
+    edges.sort(key=lambda e: (e.get("transform", ""), e["src"], e["dst"]))
+    return edges
+
+
+def _edge_dict(src: str, dst: str, m: Map) -> dict:
+    """Build an edge dict with shorthand for simple maps."""
+    d: dict = {"src": src, "dst": dst}
+    if isinstance(m, LinearMap):
+        d["factor"] = m.a
+    elif isinstance(m, AffineMap):
+        d["factor"] = m.a
+        d["offset"] = m.b
+    else:
+        d["map"] = _serialize_map(m)
+    return d
+
+
+# ---------------------------------------------------------------------------
+# Basis / Dimension / Transform serialization
+# ---------------------------------------------------------------------------
+
+def _serialize_basis(basis: Basis) -> dict:
+    """Serialize a Basis to TOML dict."""
+    components = []
+    for comp in basis:
+        c: dict = {"name": comp.name}
+        if comp.symbol is not None and comp.symbol != comp.name:
+            c["symbol"] = comp.symbol
+        components.append(c)
+    return {"components": components}
+
+
+def _serialize_dimension(dim: Dimension) -> dict:
+    """Serialize a Dimension to TOML dict."""
+    d: dict = {"basis": dim.vector.basis.name}
+    # Serialize vector components as list (use strings for Fractions)
+    components = []
+    for c in dim.vector.components:
+        if isinstance(c, Fraction) and c.denominator != 1:
+            components.append(str(c))
+        else:
+            components.append(int(c))
+    d["vector"] = components
+    if dim.tag is not None:
+        d["tag"] = dim.tag
+    return d
+
+
+def _serialize_transform(
+    bt: Union[BasisTransform, ConstantBoundBasisTransform],
+) -> dict:
+    """Serialize a BasisTransform to TOML dict."""
+    d: dict = {
+        "source": bt.source.name,
+        "target": bt.target.name,
+    }
+    # Serialize matrix with Fraction preservation
+    matrix = []
+    for row in bt.matrix:
+        matrix_row = []
+        for val in row:
+            if isinstance(val, Fraction) and val.denominator != 1:
+                matrix_row.append(str(val))
+            else:
+                matrix_row.append(int(val) if isinstance(val, Fraction) else val)
+        matrix.append(matrix_row)
+    d["matrix"] = matrix
+
+    # Serialize bindings for ConstantBoundBasisTransform
+    if isinstance(bt, ConstantBoundBasisTransform) and bt.bindings:
+        bindings = []
+        for binding in bt.bindings:
+            b: dict = {
+                "source_component": binding.source_component.name,
+                "constant_symbol": binding.constant_symbol,
+            }
+            if binding.exponent != Fraction(1):
+                b["exponent"] = str(binding.exponent)
+            # Serialize target expression vector
+            target_vec = []
+            for c in binding.target_expression.components:
+                if isinstance(c, Fraction) and c.denominator != 1:
+                    target_vec.append(str(c))
+                else:
+                    target_vec.append(int(c))
+            b["target_expression"] = target_vec
+            bindings.append(b)
+        d["bindings"] = bindings
+
+    return d
+
+
+def _serialize_unit(unit: Unit) -> dict:
+    """Serialize a Unit to TOML dict."""
+    d: dict = {"name": unit.name, "dimension": unit.dimension.name}
+    if unit.aliases:
+        d["aliases"] = list(unit.aliases)
+    return d
+
+
+def _serialize_constant(const: Constant) -> dict:
+    """Serialize a Constant to TOML dict."""
+    d: dict = {
+        "symbol": const.symbol,
+        "name": const.name,
+        "value": const.value,
+        "unit": const.unit.shorthand if hasattr(const.unit, 'shorthand') else str(const.unit),
+        "category": const.category,
+    }
+    if const.uncertainty is not None:
+        d["uncertainty"] = const.uncertainty
+    if const.source != "CODATA 2022":
+        d["source"] = const.source
+    return d
+
+
+# ---------------------------------------------------------------------------
+# Export: to_toml()
+# ---------------------------------------------------------------------------
+
+def to_toml(graph, path: Union[str, Path]) -> None:
+    """Export a ConversionGraph to a TOML file.
+
+    Parameters
+    ----------
+    graph : ConversionGraph
+        The graph to export.
+    path : str or Path
+        Destination file path.
+    """
+    try:
+        import tomli_w
+    except ImportError:
+        raise ImportError(
+            "tomli_w is required for TOML export. "
+            "Install with: pip install ucon[serialization]"
+        )
+
+    path = Path(path)
+    doc: dict = {}
+
+    # [package]
+    doc["package"] = {
+        "name": path.stem.replace(".ucon", ""),
+        "format_version": FORMAT_VERSION,
+    }
+
+    # Collect all bases and dimensions used in the graph
+    bases: dict[str, Basis] = {}
+    dimensions: dict[str, Dimension] = {}
+
+    for dim in graph._unit_edges:
+        if dim.vector.basis.name not in bases:
+            bases[dim.vector.basis.name] = dim.vector.basis
+        if dim.name and dim.name not in dimensions:
+            dimensions[dim.name] = dim
+
+    # [bases.*]
+    if bases:
+        doc["bases"] = {
+            name: _serialize_basis(b) for name, b in sorted(bases.items())
+        }
+
+    # [dimensions.*]
+    if dimensions:
+        doc["dimensions"] = {
+            name: _serialize_dimension(d)
+            for name, d in sorted(dimensions.items())
+        }
+
+    # [transforms.*]
+    transforms = _collect_transforms(graph)
+    if transforms:
+        doc["transforms"] = {
+            name: _serialize_transform(bt)
+            for name, bt in sorted(transforms.items())
+        }
+
+    # [[units]]
+    units_list = _collect_units(graph)
+    if units_list:
+        doc["units"] = units_list
+
+    # [[edges]]
+    edges = _extract_forward_edges(graph)
+    if edges:
+        doc["edges"] = edges
+
+    # [[product_edges]]
+    product_edges = _extract_product_edges(graph)
+    if product_edges:
+        doc["product_edges"] = product_edges
+
+    # [[cross_basis_edges]]
+    cross_basis_edges = _extract_cross_basis_edges(graph)
+    if cross_basis_edges:
+        doc["cross_basis_edges"] = cross_basis_edges
+
+    # [[constants]]
+    constants = _collect_constants(graph)
+    if constants:
+        doc["constants"] = constants
+
+    with open(path, "wb") as f:
+        tomli_w.dump(doc, f)
+
+
+def _collect_transforms(graph) -> dict[str, Union[BasisTransform, ConstantBoundBasisTransform]]:
+    """Collect all unique BasisTransforms from the graph."""
+    transforms: dict[str, Union[BasisTransform, ConstantBoundBasisTransform]] = {}
+    for rebased_list in graph._rebased.values():
+        for rebased in rebased_list:
+            bt = rebased.basis_transform
+            name = f"{bt.source.name}_TO_{bt.target.name}"
+            if name not in transforms:
+                transforms[name] = bt
+    # Also include basis_graph transforms if available
+    if graph._basis_graph is not None:
+        for src, targets in graph._basis_graph._edges.items():
+            for tgt, bt in targets.items():
+                name = f"{bt.source.name}_TO_{bt.target.name}"
+                if name not in transforms:
+                    transforms[name] = bt
+    return transforms
+
+
+def _collect_units(graph) -> list[dict]:
+    """Collect all registered units from the graph."""
+    seen = set()
+    units_list = []
+    for name, unit in sorted(graph._name_registry_cs.items()):
+        if isinstance(unit, RebasedUnit):
+            continue
+        if unit.name in seen:
+            continue
+        seen.add(unit.name)
+        units_list.append(_serialize_unit(unit))
+    return units_list
+
+
+def _collect_constants(graph) -> list[dict]:
+    """Collect constants from the graph."""
+    constants = []
+    for const in graph._package_constants:
+        constants.append(_serialize_constant(const))
+    return constants
+
+
+# ---------------------------------------------------------------------------
+# Import: from_toml()
+# ---------------------------------------------------------------------------
+
+def from_toml(path: Union[str, Path]):
+    """Import a ConversionGraph from a TOML file.
+
+    Parameters
+    ----------
+    path : str or Path
+        Source file path.
+
+    Returns
+    -------
+    ConversionGraph
+        The reconstructed graph.
+    """
+    from ucon.graph import ConversionGraph, using_graph
+    from ucon.packages import _build_map
+
+    path = Path(path)
+    with open(path, "rb") as f:
+        doc = tomllib.load(f)
+
+    # 1. Build bases
+    basis_map: dict[str, Basis] = {}
+    for name, spec in doc.get("bases", {}).items():
+        components = []
+        for c in spec["components"]:
+            if isinstance(c, dict):
+                components.append(
+                    BasisComponent(c["name"], c.get("symbol"))
+                )
+            else:
+                components.append(BasisComponent(c))
+        basis_map[name] = Basis(name, components)
+
+    # 2. Build dimensions
+    dim_map: dict[str, Dimension] = {}
+    # Pre-populate with standard dimensions
+    for name, dim in _DIMENSION_ATTRS.items():
+        dim_map[name] = dim
+
+    for name, spec in doc.get("dimensions", {}).items():
+        if name in dim_map:
+            continue  # Use standard dimension if available
+        basis_name = spec["basis"]
+        basis = basis_map.get(basis_name)
+        if basis is None:
+            continue  # Skip if basis not found
+        vec_components = tuple(
+            Fraction(c) if isinstance(c, str) else c
+            for c in spec["vector"]
+        )
+        vector = Vector(basis, vec_components)
+        tag = spec.get("tag")
+        dim_map[name] = Dimension(vector=vector, name=name, tag=tag)
+
+    # 3. Build transforms
+    transform_map: dict[str, Union[BasisTransform, ConstantBoundBasisTransform]] = {}
+    for name, spec in doc.get("transforms", {}).items():
+        source = basis_map.get(spec["source"])
+        target = basis_map.get(spec["target"])
+        if source is None or target is None:
+            continue
+
+        # Parse matrix
+        matrix = tuple(
+            tuple(
+                Fraction(c) if isinstance(c, str) else Fraction(c)
+                for c in row
+            )
+            for row in spec["matrix"]
+        )
+
+        # Check for bindings (ConstantBoundBasisTransform)
+        if "bindings" in spec:
+            bindings = []
+            for b in spec["bindings"]:
+                src_comp_name = b["source_component"]
+                # Find the source component
+                src_comp = None
+                for comp in source:
+                    if comp.name == src_comp_name:
+                        src_comp = comp
+                        break
+                if src_comp is None:
+                    continue
+
+                target_vec = tuple(
+                    Fraction(c) if isinstance(c, str) else Fraction(c)
+                    for c in b["target_expression"]
+                )
+                exp = Fraction(b.get("exponent", "1"))
+                bindings.append(ConstantBinding(
+                    source_component=src_comp,
+                    target_expression=Vector(target, target_vec),
+                    constant_symbol=b["constant_symbol"],
+                    exponent=exp,
+                ))
+            transform_map[name] = ConstantBoundBasisTransform(
+                source=source,
+                target=target,
+                matrix=matrix,
+                bindings=tuple(bindings),
+            )
+        else:
+            transform_map[name] = BasisTransform(
+                source=source,
+                target=target,
+                matrix=matrix,
+            )
+
+    # 4. Build BasisGraph
+    basis_graph = BasisGraph()
+    for bt in transform_map.values():
+        basis_graph.add_transform(bt if isinstance(bt, BasisTransform) else bt.as_basis_transform())
+
+    # 5. Create empty graph
+    graph = ConversionGraph()
+    graph._basis_graph = basis_graph if transform_map else None
+
+    # 6. Register units
+    unit_map: dict[str, Unit] = {}
+    for unit_spec in doc.get("units", []):
+        dim_name = unit_spec["dimension"]
+        dim = dim_map.get(dim_name)
+        if dim is None:
+            # Try resolving from the standard dimension registry
+            dim = _DIMENSION_ATTRS.get(dim_name)
+            if dim is None:
+                continue
+
+        aliases = tuple(unit_spec.get("aliases", []))
+        unit = Unit(
+            name=unit_spec["name"],
+            dimension=dim,
+            aliases=aliases,
+        )
+        unit_map[unit.name] = unit
+        graph.register_unit(unit)
+        # Also register aliases for lookup
+        for alias in aliases:
+            unit_map[alias] = unit
+
+    # 7. Materialize edges
+    with using_graph(graph):
+        for edge_spec in doc.get("edges", []):
+            src_unit = _resolve_unit(edge_spec["src"], unit_map, graph)
+            dst_unit = _resolve_unit(edge_spec["dst"], unit_map, graph)
+            if src_unit is None or dst_unit is None:
+                continue
+            m = _build_edge_map(edge_spec, _build_map)
+            graph.add_edge(src=src_unit, dst=dst_unit, map=m)
+
+    # 8. Materialize product edges
+    with using_graph(graph):
+        for edge_spec in doc.get("product_edges", []):
+            m = _build_edge_map(edge_spec, _build_map)
+            src_prod = _parse_product_expression(edge_spec["src"], unit_map, graph)
+            dst_prod = _parse_product_expression(edge_spec["dst"], unit_map, graph)
+            if src_prod is not None and dst_prod is not None:
+                graph.add_edge(src=src_prod, dst=dst_prod, map=m)
+
+    # 9. Materialize cross-basis edges
+    with using_graph(graph):
+        for edge_spec in doc.get("cross_basis_edges", []):
+            src_unit = _resolve_unit(edge_spec["src"], unit_map, graph)
+            dst_unit = _resolve_unit(edge_spec["dst"], unit_map, graph)
+            if src_unit is None or dst_unit is None:
+                continue
+            m = _build_edge_map(edge_spec, _build_map)
+            transform_name = edge_spec.get("transform")
+            bt = transform_map.get(transform_name) if transform_name else None
+            if bt is not None:
+                graph.add_edge(
+                    src=src_unit, dst=dst_unit, map=m,
+                    basis_transform=bt,
+                )
+
+    # 10. Materialize constants
+    constants = []
+    for const_spec in doc.get("constants", []):
+        # Resolve the unit
+        unit_str = const_spec.get("unit", "")
+        resolved = _resolve_unit(unit_str, unit_map, graph)
+        if resolved is None:
+            # Try parsing as product expression
+            prod = _parse_product_expression(unit_str, unit_map, graph)
+            unit_expr = prod if prod is not None else Unit(name="unknown", dimension=dim_map.get("none", Dimension.none))
+        else:
+            unit_expr = resolved
+
+        const = Constant(
+            symbol=const_spec["symbol"],
+            name=const_spec["name"],
+            value=const_spec["value"],
+            unit=unit_expr,
+            uncertainty=const_spec.get("uncertainty"),
+            source=const_spec.get("source", "CODATA 2022"),
+            category=const_spec.get("category", "measured"),
+        )
+        constants.append(const)
+    graph._package_constants = tuple(constants)
+
+    return graph
+
+
+# ---------------------------------------------------------------------------
+# Import helpers
+# ---------------------------------------------------------------------------
+
+def _resolve_unit(name: str, unit_map: dict[str, Unit], graph) -> Union[Unit, None]:
+    """Resolve a unit name from the local unit map or graph registry."""
+    if name in unit_map:
+        return unit_map[name]
+    # Try graph's name registry
+    result = graph.resolve_unit(name)
+    if result is not None:
+        return result[0]
+    # Try case-insensitive
+    if name.lower() in graph._name_registry:
+        return graph._name_registry[name.lower()]
+    return None
+
+
+def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:
+    """Build a Map from an edge specification dict."""
+    if "map" in edge_spec:
+        return build_map_fn(edge_spec["map"])
+    factor = edge_spec.get("factor", 1.0)
+    offset = edge_spec.get("offset")
+    if offset is not None:
+        return AffineMap(a=factor, b=offset)
+    return LinearMap(a=factor)
+
+
+def _parse_product_expression(
+    expr: str,
+    unit_map: dict[str, Unit],
+    graph,
+) -> Union[UnitProduct, None]:
+    """Parse a product expression string like 'meter*second^-1' into a UnitProduct."""
+    # Split on * and parse each factor
+    parts = expr.split("*")
+    factors = {}
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        # Check for exponent
+        if "^" in part:
+            unit_name, exp_str = part.rsplit("^", 1)
+            try:
+                exp = float(exp_str)
+            except ValueError:
+                return None
+        else:
+            unit_name = part
+            exp = 1.0
+
+        unit = _resolve_unit(unit_name.strip(), unit_map, graph)
+        if unit is None:
+            return None
+        factors[UnitFactor(unit, Scale.one)] = exp
+
+    if not factors:
+        return None
+    return UnitProduct(factors)

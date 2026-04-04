@@ -953,6 +953,92 @@ class ConversionGraph:
 
         return result
 
+    # ------------- Serialization ----------------------------------------------
+
+    def to_toml(self, path: Union[str, 'Path']) -> None:
+        """Export this graph to a TOML file.
+
+        Parameters
+        ----------
+        path : str or Path
+            Destination file path.
+
+        Raises
+        ------
+        ImportError
+            If ``tomli_w`` is not installed.
+        """
+        from ucon.serialization import to_toml
+        to_toml(self, path)
+
+    @classmethod
+    def from_toml(cls, path: Union[str, 'Path']) -> 'ConversionGraph':
+        """Import a graph from a TOML file.
+
+        Parameters
+        ----------
+        path : str or Path
+            Source file path.
+
+        Returns
+        -------
+        ConversionGraph
+            The reconstructed graph.
+        """
+        from ucon.serialization import from_toml
+        return from_toml(path)
+
+    # ------------- Equality ---------------------------------------------------
+
+    def __eq__(self, other: object) -> bool:
+        """Compare graphs for structural equality.
+
+        Two graphs are equal if they have the same registered unit names
+        and the same edge conversions (within tolerance).
+        """
+        if not isinstance(other, ConversionGraph):
+            return NotImplemented
+
+        # Compare registered unit names
+        if set(self._name_registry_cs.keys()) != set(other._name_registry_cs.keys()):
+            return False
+
+        # Compare unit edges: for each pair, check map(1.0) and map(0.0)
+        for dim, dim_edges in self._unit_edges.items():
+            for src, neighbors in dim_edges.items():
+                if isinstance(src, RebasedUnit):
+                    continue
+                for dst, m in neighbors.items():
+                    if isinstance(dst, RebasedUnit):
+                        continue
+                    # Find matching edge in other
+                    other_dim_edges = other._unit_edges.get(dim, {})
+                    other_neighbors = other_dim_edges.get(src, {})
+                    other_m = other_neighbors.get(dst)
+                    if other_m is None:
+                        return False
+                    # Compare map outputs at test points
+                    try:
+                        if abs(m(1.0) - other_m(1.0)) > 1e-9:
+                            return False
+                        if abs(m(0.0) - other_m(0.0)) > 1e-9:
+                            return False
+                    except (ValueError, ZeroDivisionError):
+                        # Some maps (ReciprocalMap) can't evaluate at 0
+                        try:
+                            if abs(m(1.0) - other_m(1.0)) > 1e-9:
+                                return False
+                            if abs(m(2.0) - other_m(2.0)) > 1e-9:
+                                return False
+                        except Exception:
+                            pass
+
+        # Compare cross-basis rebased units
+        if set(self._rebased.keys()) != set(other._rebased.keys()):
+            return False
+
+        return True
+
 
 # -----------------------------------------------------------------------------
 # Default Graph Management
