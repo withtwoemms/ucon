@@ -528,3 +528,54 @@ class TestMalformedInput:
         path = _write_toml(tmp_path, doc)
         with pytest.raises(GraphLoadError, match=r"constants\[0\].*numeric"):
             from_toml(path)
+
+
+# ---------------------------------------------------------------------------
+# Strict mode
+# ---------------------------------------------------------------------------
+
+class TestStrictParsing:
+    """from_toml(strict=True) rejects unresolvable edges."""
+
+    def _minimal_doc_with_units(self):
+        """Return a minimal TOML doc with meter and foot registered."""
+        return {
+            "units": [
+                {"name": "meter", "dimension": "length"},
+                {"name": "foot", "dimension": "length"},
+            ],
+        }
+
+    def test_strict_rejects_unknown_edge_src(self, tmp_path):
+        doc = self._minimal_doc_with_units()
+        doc["edges"] = [{"src": "nonexistent", "dst": "meter", "factor": 1.0}]
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="cannot resolve unit.*nonexistent"):
+            from_toml(path, strict=True)
+
+    def test_strict_rejects_unknown_edge_dst(self, tmp_path):
+        doc = self._minimal_doc_with_units()
+        doc["edges"] = [{"src": "meter", "dst": "nonexistent", "factor": 1.0}]
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="cannot resolve unit.*nonexistent"):
+            from_toml(path, strict=True)
+
+    def test_strict_rejects_unknown_product_unit(self, tmp_path):
+        doc = self._minimal_doc_with_units()
+        doc["product_edges"] = [{
+            "src": "nonexistent*meter",
+            "dst": "foot",
+            "factor": 1.0,
+            "product": True,
+        }]
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="cannot resolve product expression"):
+            from_toml(path, strict=True)
+
+    def test_nonstrict_skips_unknown_edge(self, tmp_path):
+        doc = self._minimal_doc_with_units()
+        doc["edges"] = [{"src": "nonexistent", "dst": "meter", "factor": 1.0}]
+        path = _write_toml(tmp_path, doc)
+        graph = from_toml(path, strict=False)
+        # Graph should load without error, but have no edges
+        assert "meter" in graph._name_registry_cs

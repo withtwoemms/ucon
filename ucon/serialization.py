@@ -456,13 +456,17 @@ def _collect_constants(graph) -> list[dict]:
 # Import: from_toml()
 # ---------------------------------------------------------------------------
 
-def from_toml(path: Union[str, Path]):
+def from_toml(path: Union[str, Path], *, strict: bool = True):
     """Import a ConversionGraph from a TOML file.
 
     Parameters
     ----------
     path : str or Path
         Source file path.
+    strict : bool
+        When ``True`` (default), raise :class:`GraphLoadError` if any edge
+        references an unresolvable unit.  When ``False``, silently skip
+        unresolvable edges (forward-compatible loading of partial files).
 
     Returns
     -------
@@ -646,6 +650,11 @@ def from_toml(path: Union[str, Path]):
             src_unit = _resolve_unit(src_name, unit_map, graph)
             dst_unit = _resolve_unit(dst_name, unit_map, graph)
             if src_unit is None or dst_unit is None:
+                if strict:
+                    unresolvable = src_name if src_unit is None else dst_name
+                    raise GraphLoadError(
+                        f"[{section}]: cannot resolve unit '{unresolvable}'"
+                    )
                 continue
             m = _build_edge_map(edge_spec, _build_map)
             graph.add_edge(src=src_unit, dst=dst_unit, map=m)
@@ -659,8 +668,14 @@ def from_toml(path: Union[str, Path]):
             m = _build_edge_map(edge_spec, _build_map)
             src_prod = _parse_product_expression(src_expr, unit_map, graph)
             dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
-            if src_prod is not None and dst_prod is not None:
-                graph.add_edge(src=src_prod, dst=dst_prod, map=m)
+            if src_prod is None or dst_prod is None:
+                if strict:
+                    failed = src_expr if src_prod is None else dst_expr
+                    raise GraphLoadError(
+                        f"[{section}]: cannot resolve product expression '{failed}'"
+                    )
+                continue
+            graph.add_edge(src=src_prod, dst=dst_prod, map=m)
 
     # 9. Materialize cross-basis edges
     with using_graph(graph):
@@ -671,6 +686,11 @@ def from_toml(path: Union[str, Path]):
             src_unit = _resolve_unit(src_name, unit_map, graph)
             dst_unit = _resolve_unit(dst_name, unit_map, graph)
             if src_unit is None or dst_unit is None:
+                if strict:
+                    unresolvable = src_name if src_unit is None else dst_name
+                    raise GraphLoadError(
+                        f"[{section}]: cannot resolve unit '{unresolvable}'"
+                    )
                 continue
             m = _build_edge_map(edge_spec, _build_map)
             transform_name = edge_spec.get("transform")

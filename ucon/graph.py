@@ -972,13 +972,17 @@ class ConversionGraph:
         to_toml(self, path)
 
     @classmethod
-    def from_toml(cls, path: Union[str, 'Path']) -> 'ConversionGraph':
+    def from_toml(cls, path: Union[str, 'Path'], *, strict: bool = True) -> 'ConversionGraph':
         """Import a graph from a TOML file.
 
         Parameters
         ----------
         path : str or Path
             Source file path.
+        strict : bool
+            When ``True`` (default), raise ``GraphLoadError`` if any edge
+            references an unresolvable unit.  When ``False``, silently skip
+            unresolvable edges.
 
         Returns
         -------
@@ -986,7 +990,7 @@ class ConversionGraph:
             The reconstructed graph.
         """
         from ucon.serialization import from_toml
-        return from_toml(path)
+        return from_toml(path, strict=strict)
 
     # ------------- Equality ---------------------------------------------------
 
