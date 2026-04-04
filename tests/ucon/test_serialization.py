@@ -420,6 +420,50 @@ class TestGraphEquality:
         g2._basis_graph = None
         assert g1 != g2
 
+    def test_cross_basis_edge_map_difference_detected(self):
+        """Tampered cross-basis edge map causes inequality."""
+        from ucon.core import RebasedUnit
+
+        g1 = get_default_graph()
+        g2 = g1.copy()
+        assert g1 == g2
+
+        # Tamper with a cross-basis edge in g2
+        for dim, edges in g2._unit_edges.items():
+            for src in list(edges.keys()):
+                if isinstance(src, RebasedUnit):
+                    for dst in list(edges[src].keys()):
+                        if not isinstance(dst, RebasedUnit):
+                            edges[src][dst] = LinearMap(999.0)
+                            break
+                    break
+            else:
+                continue
+            break
+
+        assert g1 != g2
+        assert g2 != g1  # symmetric
+
+    def test_constant_name_difference_detected(self):
+        """Constants with different name/source fields cause inequality."""
+        from ucon.constants import Constant
+        from ucon.packages import load_package
+
+        g1 = get_default_graph()
+        pkg = load_package("examples/units/aerospace.ucon.toml")
+        g1 = g1.with_package(pkg)
+        g2 = g1.copy()
+        assert g1 == g2
+
+        c = g1._package_constants[0]
+        fake = Constant(
+            symbol=c.symbol, name="WRONG", value=c.value,
+            unit=c.unit, uncertainty=c.uncertainty,
+            source="WRONG", category=c.category,
+        )
+        g2._package_constants = (fake,) + g1._package_constants[1:]
+        assert g1 != g2
+
 
 # ---------------------------------------------------------------------------
 # _build_map composed support

@@ -1060,6 +1060,30 @@ class ConversionGraph:
             if not isinstance(src, RebasedUnit)
         }
 
+    def _cross_basis_edge_signature(
+        self, rebased_list: list[RebasedUnit],
+    ) -> dict[tuple[str, str, str], Map]:
+        """Build a signature dict for cross-basis edges from a rebased list.
+
+        Returns {(original_name, dst_name, transform_key): map} for each
+        non-rebased destination reachable from the rebased units.
+        """
+        sig: dict[tuple[str, str, str], Map] = {}
+        for rebased in rebased_list:
+            dim = rebased.dimension
+            if dim not in self._unit_edges:
+                continue
+            if rebased not in self._unit_edges[dim]:
+                continue
+            bt = rebased.basis_transform
+            transform_key = f"{bt.source.name}_TO_{bt.target.name}"
+            for dst, m in self._unit_edges[dim][rebased].items():
+                if isinstance(dst, RebasedUnit):
+                    continue
+                key = (rebased.original.name, dst.name, transform_key)
+                sig[key] = m
+        return sig
+
     def __eq__(self, other: object) -> bool:
         """Compare graphs for structural equality.
 
@@ -1078,12 +1102,17 @@ class ConversionGraph:
         if self._loaded_packages != other._loaded_packages:
             return False
 
-        # Compare package constants (Constant is a frozen dataclass)
+        # Compare package constants (all serialized fields)
         if len(self._package_constants) != len(other._package_constants):
             return False
         for c_self, c_other in zip(self._package_constants, other._package_constants):
-            if (c_self.symbol, c_self.value, c_self.category) != \
-               (c_other.symbol, c_other.value, c_other.category):
+            if (c_self.symbol, c_self.name, c_self.value,
+                c_self.uncertainty, c_self.source, c_self.category) != \
+               (c_other.symbol, c_other.name, c_other.value,
+                c_other.uncertainty, c_other.source, c_other.category):
+                return False
+            # Compare unit by dimension (unit object form may differ across round-trip)
+            if c_self.unit.dimension != c_other.unit.dimension:
                 return False
 
         # Compare basis graph structure
@@ -1139,9 +1168,20 @@ class ConversionGraph:
                 if not self._maps_equal(m, other_m):
                     return False
 
-        # Compare cross-basis rebased units
+        # Compare cross-basis rebased units and their edge maps
         if set(self._rebased.keys()) != set(other._rebased.keys()):
             return False
+        for original, rebased_list in self._rebased.items():
+            other_rebased_list = other._rebased.get(original, [])
+            # Build {(original_name, dst_name, transform_name): map} for each side
+            self_xb = self._cross_basis_edge_signature(rebased_list)
+            other_xb = other._cross_basis_edge_signature(other_rebased_list)
+            if set(self_xb.keys()) != set(other_xb.keys()):
+                return False
+            for key, m in self_xb.items():
+                other_m = other_xb[key]
+                if not self._maps_equal(m, other_m):
+                    return False
 
         # Compare registered contexts
         if set(self._contexts.keys()) != set(other._contexts.keys()):
