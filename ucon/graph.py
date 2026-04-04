@@ -101,8 +101,8 @@ class ConversionGraph:
     # Edges between UnitProducts (keyed by frozen factor representation)
     _product_edges: dict[tuple, dict[tuple, Map]] = field(default_factory=dict)
 
-    # Rebased units: original unit → list of RebasedUnits (one per target basis)
-    _rebased: dict[Unit, list[RebasedUnit]] = field(default_factory=dict)
+    # Rebased units: original unit → set of RebasedUnits (one per target basis)
+    _rebased: dict[Unit, set[RebasedUnit]] = field(default_factory=dict)
 
     # Graph-local name resolution (case-insensitive keys)
     _name_registry: dict[str, Unit] = field(default_factory=dict)
@@ -263,9 +263,7 @@ class ConversionGraph:
             rebased_dimension=dst.dimension,
             basis_transform=basis_transform,
         )
-        rebased_list = self._rebased.setdefault(src, [])
-        if rebased not in rebased_list:
-            rebased_list.append(rebased)
+        self._rebased.setdefault(src, set()).add(rebased)
 
         # Store edge from rebased to dst (same dimension now)
         dim = dst.dimension
@@ -432,7 +430,7 @@ class ConversionGraph:
         new = ConversionGraph()
         new._unit_edges = copy.deepcopy(self._unit_edges)
         new._product_edges = copy.deepcopy(self._product_edges)
-        new._rebased = {k: list(v) for k, v in self._rebased.items()}
+        new._rebased = {k: set(v) for k, v in self._rebased.items()}
         new._name_registry = dict(self._name_registry)
         new._name_registry_cs = dict(self._name_registry_cs)
         new._basis_graph = self._basis_graph  # BasisGraph is immutable, share reference
