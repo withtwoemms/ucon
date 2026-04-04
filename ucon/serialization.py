@@ -781,7 +781,14 @@ def _parse_product_expression(
     unit_map: dict[str, Unit],
     graph,
 ) -> Union[UnitProduct, None]:
-    """Parse a product expression string like 'meter*second^-1' into a UnitProduct."""
+    """Parse a product expression string like 'meter*second^-1' into a UnitProduct.
+
+    Uses ``get_unit_by_name()`` as the primary resolver so that scale-prefixed
+    names (e.g. ``"kwatt"``) are decomposed correctly into a ``UnitFactor``
+    carrying the proper ``Scale``.
+    """
+    from ucon.resolver import get_unit_by_name
+
     # Split on * and parse each factor
     parts = expr.split("*")
     factors = {}
@@ -800,7 +807,24 @@ def _parse_product_expression(
             unit_name = part
             exp = 1.0
 
-        unit = _resolve_unit(unit_name.strip(), unit_map, graph)
+        unit_name = unit_name.strip()
+
+        # Primary: try the full resolver (handles scale prefixes)
+        try:
+            resolved = get_unit_by_name(unit_name)
+            if isinstance(resolved, UnitProduct):
+                # Extract the single UnitFactor (e.g. UnitFactor(watt, kilo))
+                for uf, uf_exp in resolved.factors.items():
+                    factors[uf] = exp * uf_exp
+            else:
+                # Plain Unit — wrap with Scale.one
+                factors[UnitFactor(resolved, Scale.one)] = exp
+            continue
+        except Exception:
+            pass
+
+        # Fallback: local resolution
+        unit = _resolve_unit(unit_name, unit_map, graph)
         if unit is None:
             return None
         factors[UnitFactor(unit, Scale.one)] = exp

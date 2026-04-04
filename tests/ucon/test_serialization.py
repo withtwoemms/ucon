@@ -579,3 +579,46 @@ class TestStrictParsing:
         graph = from_toml(path, strict=False)
         # Graph should load without error, but have no edges
         assert "meter" in graph._name_registry_cs
+
+
+# ---------------------------------------------------------------------------
+# Scaled product edge round-trip
+# ---------------------------------------------------------------------------
+
+class TestScaledProductEdges:
+    """Product edges with scale-prefixed units survive round-trip."""
+
+    def test_scaled_product_edge_roundtrip(self, tmp_path):
+        """kilo*watt * hour → joule product edge survives export/import."""
+        from ucon import units
+        from ucon.core import UnitFactor, Scale, UnitProduct
+
+        graph = get_default_graph()
+        kwh = UnitProduct({
+            UnitFactor(units.watt, Scale.kilo): 1,
+            UnitFactor(units.hour, Scale.one): 1,
+        })
+        joule_prod = UnitProduct({UnitFactor(units.joule, Scale.one): 1})
+        graph.add_edge(src=kwh, dst=joule_prod, map=LinearMap(3_600_000.0))
+
+        path = tmp_path / "scaled_product.ucon.toml"
+        graph.to_toml(path)
+        restored = ConversionGraph.from_toml(path)
+        assert graph == restored
+
+    def test_product_expression_with_prefix(self):
+        """_parse_product_expression resolves 'kwatt*hour' with Scale.kilo."""
+        from ucon.core import Scale
+        from ucon.serialization import _parse_product_expression
+
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("kwatt*hour", {}, graph)
+
+        assert result is not None
+        # Find the watt factor and check its scale
+        found_kilo_watt = False
+        for uf, exp in result.factors.items():
+            if uf.unit.name == "watt" and uf.scale == Scale.kilo:
+                found_kilo_watt = True
+        assert found_kilo_watt, f"Expected Scale.kilo on watt factor, got: {result}"
