@@ -52,7 +52,7 @@ import operator
 from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
-from ucon.maps import AffineMap, ExpMap, LinearMap, LogMap, Map, ReciprocalMap
+from ucon.maps import AffineMap, ComposedMap, ExpMap, LinearMap, LogMap, Map, ReciprocalMap
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -211,11 +211,24 @@ def _build_map(map_spec: dict) -> Map:
     if map_type is None:
         raise PackageLoadError("Edge 'map' requires a 'type' key")
 
+    # Handle composed maps recursively
+    if map_type == 'composed':
+        outer_spec = spec.get('outer')
+        inner_spec = spec.get('inner')
+        if outer_spec is None or inner_spec is None:
+            raise PackageLoadError(
+                "Composed map requires 'outer' and 'inner' keys"
+            )
+        return ComposedMap(
+            outer=_build_map(outer_spec),
+            inner=_build_map(inner_spec),
+        )
+
     cls = _MAP_TYPES.get(map_type)
     if cls is None:
         raise PackageLoadError(
             f"Unknown map type '{map_type}'. "
-            f"Valid types: {', '.join(sorted(_MAP_TYPES))}"
+            f"Valid types: {', '.join(sorted(_MAP_TYPES))}, composed"
         )
 
     try:

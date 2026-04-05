@@ -101,8 +101,8 @@ class ConversionGraph:
     # Edges between UnitProducts (keyed by frozen factor representation)
     _product_edges: dict[tuple, dict[tuple, Map]] = field(default_factory=dict)
 
-    # Rebased units: original unit → list of RebasedUnits (one per target basis)
-    _rebased: dict[Unit, list[RebasedUnit]] = field(default_factory=dict)
+    # Rebased units: original unit → set of RebasedUnits (one per target basis)
+    _rebased: dict[Unit, set[RebasedUnit]] = field(default_factory=dict)
 
     # Graph-local name resolution (case-insensitive keys)
     _name_registry: dict[str, Unit] = field(default_factory=dict)
@@ -118,6 +118,9 @@ class ConversionGraph:
 
     # Constants materialized from loaded packages
     _package_constants: tuple = field(default_factory=tuple)
+
+    # Named ConversionContext definitions (for serialization round-trip)
+    _contexts: dict[str, 'ConversionContext'] = field(default_factory=dict)
 
     # Conversion path cache: (src_key, dst_key) -> Map
     # Cleared when edges are added
@@ -260,7 +263,7 @@ class ConversionGraph:
             rebased_dimension=dst.dimension,
             basis_transform=basis_transform,
         )
-        self._rebased.setdefault(src, []).append(rebased)
+        self._rebased.setdefault(src, set()).add(rebased)
 
         # Store edge from rebased to dst (same dimension now)
         dim = dst.dimension
@@ -427,13 +430,24 @@ class ConversionGraph:
         new = ConversionGraph()
         new._unit_edges = copy.deepcopy(self._unit_edges)
         new._product_edges = copy.deepcopy(self._product_edges)
-        new._rebased = {k: list(v) for k, v in self._rebased.items()}
+        new._rebased = {k: set(v) for k, v in self._rebased.items()}
         new._name_registry = dict(self._name_registry)
         new._name_registry_cs = dict(self._name_registry_cs)
         new._basis_graph = self._basis_graph  # BasisGraph is immutable, share reference
         new._loaded_packages = self._loaded_packages  # frozenset is immutable, share reference
         new._package_constants = self._package_constants  # tuple is immutable, share reference
+        new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
         return new
+
+    def register_context(self, ctx: 'ConversionContext') -> None:
+        """Register a named conversion context for serialization.
+
+        Parameters
+        ----------
+        ctx : ConversionContext
+            A frozen context to store by name.
+        """
+        self._contexts[ctx.name] = ctx
 
     def with_package(self, package: 'UnitPackage') -> 'ConversionGraph':
         """Return a new graph with this package's units and edges added.
@@ -952,6 +966,241 @@ class ConversionGraph:
                 result = result @ factor_map
 
         return result
+
+    # ------------- Serialization ----------------------------------------------
+
+    def to_toml(self, path: Union[str, 'Path']) -> None:
+        """Export this graph to a TOML file.
+
+        Parameters
+        ----------
+        path : str or Path
+            Destination file path.
+
+        Raises
+        ------
+        ImportError
+            If ``tomli_w`` is not installed.
+        """
+        from ucon.serialization import to_toml
+        to_toml(self, path)
+
+    @classmethod
+    def from_toml(cls, path: Union[str, 'Path'], *, strict: bool = True) -> 'ConversionGraph':
+        """Import a graph from a TOML file.
+
+        Parameters
+        ----------
+        path : str or Path
+            Source file path.
+        strict : bool
+            When ``True`` (default), raise ``GraphLoadError`` if any edge
+            references an unresolvable unit.  When ``False``, silently skip
+            unresolvable edges.
+
+        Returns
+        -------
+        ConversionGraph
+            The reconstructed graph.
+        """
+        from ucon.serialization import from_toml
+        return from_toml(path, strict=strict)
+
+    # ------------- Equality ---------------------------------------------------
+
+    @staticmethod
+    def _maps_equal(m: Map, other_m: Map) -> bool:
+        """Compare two maps by evaluating at test points.
+
+        Tries (1.0, 0.0) first; falls back to (1.0, 2.0) if 0.0
+        raises; falls back to (0.5, 2.0) if 1.0 also raises.
+        Returns True when no evaluable test points can distinguish
+        the maps (conservative: assumes equal).
+        """
+        try:
+            if abs(m(1.0) - other_m(1.0)) > 1e-9:
+                return False
+            if abs(m(0.0) - other_m(0.0)) > 1e-9:
+                return False
+            return True
+        except (ValueError, ZeroDivisionError):
+            pass
+
+        # Fallback: 0.0 (or 1.0) raised — try alternative points
+        try:
+            if abs(m(1.0) - other_m(1.0)) > 1e-9:
+                return False
+            if abs(m(2.0) - other_m(2.0)) > 1e-9:
+                return False
+            return True
+        except (ValueError, ZeroDivisionError):
+            pass
+
+        # Last resort: both common points fail (e.g. nines inverse at 1.0)
+        try:
+            if abs(m(0.5) - other_m(0.5)) > 1e-9:
+                return False
+            if abs(m(2.0) - other_m(2.0)) > 1e-9:
+                return False
+            return True
+        except (ValueError, ZeroDivisionError):
+            # No evaluable test points — structurally compare types
+            return type(m) is type(other_m)
+
+    @staticmethod
+    def _non_rebased_edges(dim_edges: dict) -> dict[Unit, dict[Unit, Map]]:
+        """Filter a dimension's edge dict to exclude RebasedUnit nodes."""
+        return {
+            src: {
+                dst: m
+                for dst, m in neighbors.items()
+                if not isinstance(dst, RebasedUnit)
+            }
+            for src, neighbors in dim_edges.items()
+            if not isinstance(src, RebasedUnit)
+        }
+
+    def _cross_basis_edge_signature(
+        self, rebased_list: list[RebasedUnit],
+    ) -> dict[tuple[str, str, str], Map]:
+        """Build a signature dict for cross-basis edges from a rebased list.
+
+        Returns {(original_name, dst_name, transform_key): map} for each
+        non-rebased destination reachable from the rebased units.
+        """
+        sig: dict[tuple[str, str, str], Map] = {}
+        for rebased in rebased_list:
+            dim = rebased.dimension
+            if dim not in self._unit_edges:
+                continue
+            if rebased not in self._unit_edges[dim]:
+                continue
+            bt = rebased.basis_transform
+            transform_key = f"{bt.source.name}_TO_{bt.target.name}"
+            for dst, m in self._unit_edges[dim][rebased].items():
+                if isinstance(dst, RebasedUnit):
+                    continue
+                key = (rebased.original.name, dst.name, transform_key)
+                sig[key] = m
+        return sig
+
+    def __eq__(self, other: object) -> bool:
+        """Compare graphs for structural equality.
+
+        Two graphs are equal if they have the same registered unit names,
+        the same edge conversions (within tolerance), the same loaded
+        packages, the same constants, and the same contexts.
+        """
+        if not isinstance(other, ConversionGraph):
+            return NotImplemented
+
+        # Compare registered unit names
+        if set(self._name_registry_cs.keys()) != set(other._name_registry_cs.keys()):
+            return False
+
+        # Compare loaded packages
+        if self._loaded_packages != other._loaded_packages:
+            return False
+
+        # Compare package constants (all serialized fields)
+        if len(self._package_constants) != len(other._package_constants):
+            return False
+        for c_self, c_other in zip(self._package_constants, other._package_constants):
+            if (c_self.symbol, c_self.name, c_self.value,
+                c_self.uncertainty, c_self.source, c_self.category) != \
+               (c_other.symbol, c_other.name, c_other.value,
+                c_other.uncertainty, c_other.source, c_other.category):
+                return False
+            # Compare unit by dimension (unit object form may differ across round-trip)
+            if c_self.unit.dimension != c_other.unit.dimension:
+                return False
+
+        # Compare basis graph structure
+        if (self._basis_graph is None) != (other._basis_graph is None):
+            return False
+        if self._basis_graph is not None and other._basis_graph is not None:
+            self_edges = {
+                (src.name, tgt.name)
+                for src, targets in self._basis_graph._edges.items()
+                for tgt in targets
+            }
+            other_edges = {
+                (src.name, tgt.name)
+                for src, targets in other._basis_graph._edges.items()
+                for tgt in targets
+            }
+            if self_edges != other_edges:
+                return False
+
+        # Compare unit edges (symmetric: check both directions)
+        self_dims = set(self._unit_edges.keys())
+        other_dims = set(other._unit_edges.keys())
+        if self_dims != other_dims:
+            return False
+
+        for dim in self_dims:
+            self_filtered = self._non_rebased_edges(self._unit_edges[dim])
+            other_filtered = self._non_rebased_edges(other._unit_edges[dim])
+
+            # Symmetric src-node check
+            if set(self_filtered.keys()) != set(other_filtered.keys()):
+                return False
+
+            for src, neighbors in self_filtered.items():
+                other_neighbors = other_filtered.get(src, {})
+                # Symmetric dst-node check
+                if set(neighbors.keys()) != set(other_neighbors.keys()):
+                    return False
+                for dst, m in neighbors.items():
+                    other_m = other_neighbors[dst]
+                    if not self._maps_equal(m, other_m):
+                        return False
+
+        # Compare product edges (already symmetric)
+        if set(self._product_edges.keys()) != set(other._product_edges.keys()):
+            return False
+        for src_key, neighbors in self._product_edges.items():
+            other_neighbors = other._product_edges.get(src_key, {})
+            if set(neighbors.keys()) != set(other_neighbors.keys()):
+                return False
+            for dst_key, m in neighbors.items():
+                other_m = other_neighbors[dst_key]
+                if not self._maps_equal(m, other_m):
+                    return False
+
+        # Compare cross-basis rebased units and their edge maps
+        if set(self._rebased.keys()) != set(other._rebased.keys()):
+            return False
+        for original, rebased_list in self._rebased.items():
+            other_rebased_list = other._rebased.get(original, [])
+            # Build {(original_name, dst_name, transform_name): map} for each side
+            self_xb = self._cross_basis_edge_signature(rebased_list)
+            other_xb = other._cross_basis_edge_signature(other_rebased_list)
+            if set(self_xb.keys()) != set(other_xb.keys()):
+                return False
+            for key, m in self_xb.items():
+                other_m = other_xb[key]
+                if not self._maps_equal(m, other_m):
+                    return False
+
+        # Compare registered contexts
+        if set(self._contexts.keys()) != set(other._contexts.keys()):
+            return False
+        for name, ctx in self._contexts.items():
+            other_ctx = other._contexts[name]
+            if ctx.description != other_ctx.description:
+                return False
+            if len(ctx.edges) != len(other_ctx.edges):
+                return False
+            for edge, other_edge in zip(ctx.edges, other_ctx.edges):
+                if edge.src.name != other_edge.src.name:
+                    return False
+                if edge.dst.name != other_edge.dst.name:
+                    return False
+                if not self._maps_equal(edge.map, other_edge.map):
+                    return False
+
+        return True
 
 
 # -----------------------------------------------------------------------------
