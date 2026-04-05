@@ -7,8 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-04-04
+
+### Added
+
+- Full round-trip `ConversionGraph` serialization to TOML (`to_toml()` / `from_toml()`)
+  - Bases, dimensions, and transforms (including `ConstantBoundBasisTransform` with fraction-exact matrices)
+  - Unit edges with shorthand (`factor`, `factor`+`offset`) and explicit `map` for all 6 map types
+  - Product edges for composite unit conversions (e.g., kWh → joule)
+  - Cross-basis edges via `RebasedUnit` provenance (e.g., dyne → newton across CGS/SI)
+  - Physical constants with full metadata (symbol, name, value, unit, uncertainty, source, category)
+  - `ConversionContext` persistence via `[contexts.*]` TOML sections
+  - `graph == restored` equality guaranteed for all graph types after round-trip
+- `GraphLoadError` exception for structured error reporting during TOML import
+- Strict parsing mode on `from_toml()` (default `strict=True`)
+  - Raises `GraphLoadError` on unresolvable unit references in edges, product edges, and cross-basis edges
+  - `strict=False` silently skips unresolvable edges for forward-compatible loading
+- `ConversionGraph.register_context()` for attaching named `ConversionContext` objects to a graph
+- `ConversionGraph.__eq__` with comprehensive field comparison
+  - Symmetric unit-edge comparison across all dimension partitions
+  - Product-edge comparison by key set and map evaluation
+  - Cross-basis edge comparison via `_cross_basis_edge_signature()`
+  - Constants comparison across all metadata fields plus unit dimension
+  - Loaded packages, basis graph topology, and context equality
+- Serialization format reference documentation (`docs/reference/serialization-format.md`)
+- `ucon[serialization]` optional dependency (`tomli-w`) for TOML export
+
 ### Changed
 
+- `ConversionGraph._rebased` changed from `dict[Unit, list[RebasedUnit]]` to `dict[Unit, set[RebasedUnit]]`
+  - Prevents duplicate `RebasedUnit` accumulation when multiple cross-basis edges share the same source unit and transform (e.g., joule → electron_volt/hartree/rydberg)
+  - Eliminates cubic amplification of `[[cross_basis_edges]]` on repeated round-trips
+  - `list_rebased_units()` return type unchanged (`dict[Unit, list[RebasedUnit]]`)
+- Product expression parsing (`_parse_product_expression`) uses `get_unit_by_name()` as primary resolver
+  - Scale-prefixed names (e.g., `kwatt`) now decompose correctly into `UnitFactor` with proper `Scale`
+  - Falls back to `_resolve_unit()` when the full resolver is unavailable
 - Updated `docs/external/ucon-tools` submodule from 0.2.1 to 0.3.2
 
 ## [1.1.2] - 2026-04-03
@@ -642,7 +675,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.1.2...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.2.0...HEAD
+[1.2.0]: https://github.com/withtwoemms/ucon/compare/1.1.2...1.2.0
 [1.1.2]: https://github.com/withtwoemms/ucon/compare/1.1.1...1.1.2
 [1.1.1]: https://github.com/withtwoemms/ucon/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/withtwoemms/ucon/compare/1.0.0...1.1.0
