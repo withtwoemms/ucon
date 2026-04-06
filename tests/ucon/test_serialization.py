@@ -2009,100 +2009,90 @@ class TestMapToDict:
             assert _serialize_map(m) == m.to_dict()
 
 
-class TestMapTypeRegistry:
-    """Tests for MAP_TYPES / register_map_type()."""
+class TestImplicitMapDiscovery:
+    """Tests for implicit Map subclass discovery and recursive deserialization."""
 
-    def test_map_types_is_immutable(self):
-        """MAP_TYPES is a MappingProxyType — cannot be mutated."""
-        from types import MappingProxyType
-        from ucon.packages import MAP_TYPES
+    def test_builtin_types_discovered(self):
+        """All built-in map types are discoverable via _find_map_class."""
+        from ucon.packages import _find_map_class
 
-        assert isinstance(MAP_TYPES, MappingProxyType)
-        with pytest.raises(TypeError):
-            MAP_TYPES["foo"] = LinearMap  # type: ignore[index]
+        assert _find_map_class("linear") is LinearMap
+        assert _find_map_class("affine") is AffineMap
+        assert _find_map_class("composed") is ComposedMap
+        assert _find_map_class("nonexistent") is None
 
-    def test_register_map_type_returns_new_dict(self):
-        """register_map_type returns a new dict containing the custom entry."""
-        from ucon.packages import MAP_TYPES, register_map_type
+    def test_custom_subclass_discovered(self):
+        """A custom Map subclass with _map_type is discovered automatically."""
+        from ucon.packages import _find_map_class
         from ucon.maps import Map
         from dataclasses import dataclass
 
         @dataclass(frozen=True)
-        class TestCustomMap(Map):
-            _map_type = "test_custom_xyz"
-            factor: float = 1.0
-            def __call__(self, x): return self.factor * x
+        class DiscoverMe(Map):
+            _map_type = "test_discover_me"
+            a: float = 1.0
+            def __call__(self, x): return self.a * x
             @property
             def invertible(self): return True
             def inverse(self): return self
             def __matmul__(self, other): return self
             def __pow__(self, n): return self
-            def derivative(self, x): return self.factor
+            def derivative(self, x): return self.a
 
-        result = register_map_type("test_custom_xyz", TestCustomMap)
-        # Returns a plain dict, not a MappingProxyType
-        assert isinstance(result, dict)
-        assert result["test_custom_xyz"] is TestCustomMap
-        # Global MAP_TYPES is NOT mutated
-        assert "test_custom_xyz" not in MAP_TYPES
+        assert _find_map_class("test_discover_me") is DiscoverMe
 
-    def test_register_duplicate_same_ok(self):
-        """Registering the same class for the same name is idempotent."""
-        from ucon.packages import register_map_type
+    def test_unknown_type_raises(self):
+        """_build_map raises PackageLoadError for unknown type names."""
+        from ucon.packages import _build_map, PackageLoadError
 
-        result = register_map_type("linear", LinearMap)
-        assert result["linear"] is LinearMap
+        with pytest.raises(PackageLoadError, match="Unknown map type"):
+            _build_map({"type": "totally_unknown"})
 
-    def test_register_duplicate_different_raises(self):
-        """Registering a different class for an existing name raises ValueError."""
-        from ucon.packages import register_map_type
+    def test_missing_type_key_raises(self):
+        """_build_map raises PackageLoadError when 'type' key is absent."""
+        from ucon.packages import _build_map, PackageLoadError
 
-        with pytest.raises(ValueError, match="already registered"):
-            register_map_type("linear", AffineMap)
+        with pytest.raises(PackageLoadError, match="requires a 'type' key"):
+            _build_map({"a": 1.0})
 
-    def test_register_non_map_raises(self):
-        """Registering a non-Map class raises TypeError."""
-        from ucon.packages import register_map_type
+    def test_recursive_deserialization(self):
+        """Nested map specs are recursively deserialized."""
+        from ucon.packages import _build_map
 
-        with pytest.raises(TypeError, match="cls must be a Map subclass"):
-            register_map_type("bad", str)
+        spec = {
+            "type": "composed",
+            "outer": {"type": "linear", "a": 2.0},
+            "inner": {"type": "affine", "a": 3.0, "b": 1.0},
+        }
+        m = _build_map(spec)
+        assert isinstance(m, ComposedMap)
+        assert isinstance(m.outer, LinearMap)
+        assert isinstance(m.inner, AffineMap)
+        assert m.outer.a == 2.0
+        assert m.inner.a == 3.0
+        assert m.inner.b == 1.0
 
-    def test_register_chaining(self):
-        """Multiple registrations can be chained via the registry parameter."""
-        from ucon.packages import register_map_type
-        from ucon.maps import Map
-        from dataclasses import dataclass
+    def test_deeply_nested_recursion(self):
+        """Three-level nesting works: composed of composed of linear."""
+        from ucon.packages import _build_map
 
-        @dataclass(frozen=True)
-        class MapA(Map):
-            _map_type = "a"
-            def __call__(self, x): return x
-            @property
-            def invertible(self): return True
-            def inverse(self): return self
-            def __matmul__(self, other): return self
-            def __pow__(self, n): return self
-            def derivative(self, x): return 1.0
-
-        @dataclass(frozen=True)
-        class MapB(Map):
-            _map_type = "b"
-            def __call__(self, x): return x
-            @property
-            def invertible(self): return True
-            def inverse(self): return self
-            def __matmul__(self, other): return self
-            def __pow__(self, n): return self
-            def derivative(self, x): return 1.0
-
-        reg = register_map_type("a", MapA)
-        reg = register_map_type("b", MapB, registry=reg)
-        assert "a" in reg and "b" in reg
-        assert "linear" in reg  # built-ins preserved
+        spec = {
+            "type": "composed",
+            "outer": {"type": "linear", "a": 2.0},
+            "inner": {
+                "type": "composed",
+                "outer": {"type": "linear", "a": 3.0},
+                "inner": {"type": "linear", "a": 5.0},
+            },
+        }
+        m = _build_map(spec)
+        assert isinstance(m, ComposedMap)
+        assert isinstance(m.inner, ComposedMap)
+        assert isinstance(m.inner.inner, LinearMap)
+        assert m.inner.inner.a == 5.0
 
     def test_roundtrip_custom_map(self, tmp_path):
-        """Custom Map subclass survives export/import with custom registry."""
-        from ucon.packages import register_map_type
+        """Custom Map subclass survives export/import via implicit discovery."""
         from ucon.maps import Map
         from ucon import units
         from ucon.core import UnitFactor, Scale, UnitProduct
@@ -2123,8 +2113,6 @@ class TestMapTypeRegistry:
                 raise ValueError
             def derivative(self, x): return self.a
 
-        custom_types = register_map_type("test_scale_rt", ScaleMap)
-
         graph = get_default_graph()
         prod_m = UnitProduct({UnitFactor(units.meter, Scale.one): 1})
         prod_ft = UnitProduct({UnitFactor(units.foot, Scale.one): 1})
@@ -2132,5 +2120,30 @@ class TestMapTypeRegistry:
 
         path = tmp_path / "custom_map.ucon.toml"
         graph.to_toml(path)
-        restored = ConversionGraph.from_toml(path, map_types=custom_types)
+        restored = ConversionGraph.from_toml(path)
         assert graph == restored
+
+    def test_list_resolution(self):
+        """List values containing map specs are recursively resolved."""
+        from ucon.packages import _resolve_value
+
+        result = _resolve_value([
+            {"type": "linear", "a": 2.0},
+            {"type": "linear", "a": 3.0},
+        ])
+        assert len(result) == 2
+        assert all(isinstance(m, LinearMap) for m in result)
+
+    def test_plain_dict_passthrough(self):
+        """A dict without a 'type' key passes through unchanged."""
+        from ucon.packages import _resolve_value
+
+        d = {"a": 1.0, "b": 2.0}
+        assert _resolve_value(d) is d
+
+    def test_scalar_passthrough(self):
+        """Scalars pass through _resolve_value unchanged."""
+        from ucon.packages import _resolve_value
+
+        assert _resolve_value(3.14) == 3.14
+        assert _resolve_value("hello") == "hello"

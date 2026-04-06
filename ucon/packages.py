@@ -48,12 +48,11 @@ from typing import TYPE_CHECKING
 
 import ast
 import operator
-from types import MappingProxyType
 
 from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
-from ucon.maps import AffineMap, ComposedMap, ExpMap, LinearMap, LogMap, Map, ReciprocalMap
+from ucon.maps import AffineMap, LinearMap, Map
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -179,74 +178,61 @@ class UnitDef:
         )
 
 
-MAP_TYPES: MappingProxyType = MappingProxyType({
-    'linear': LinearMap,
-    'affine': AffineMap,
-    'log': LogMap,
-    'exp': ExpMap,
-    'reciprocal': ReciprocalMap,
-})
+def _all_map_subclasses() -> list[type]:
+    """Recursively collect every concrete :class:`Map` subclass.
 
-
-def register_map_type(
-    type_name: str,
-    cls: type,
-    registry: dict[str, type[Map]] | None = None,
-) -> dict[str, type[Map]]:
-    """Create a new map-type registry with an additional entry.
-
-    Does **not** mutate any global state.  Returns a plain ``dict``
-    that can be passed to :func:`from_toml` via the *map_types*
-    parameter.
-
-    Parameters
-    ----------
-    type_name : str
-        The string identifier used in TOML ``type`` fields.
-    cls : type
-        A :class:`Map` subclass.
-    registry : dict, optional
-        Base registry to extend.  Defaults to the built-in
-        :data:`MAP_TYPES`.  Pass a previously returned registry to
-        chain multiple registrations.
-
-    Returns
-    -------
-    dict[str, type[Map]]
-        A **new** dict containing all entries from *registry* plus the
-        new *(type_name, cls)* pair.
-
-    Raises
-    ------
-    TypeError
-        If *cls* is not a Map subclass.
-    ValueError
-        If *type_name* is already present in *registry* and maps to a
-        different class.
+    Discovery is implicit — any imported subclass that defines a
+    ``_map_type`` class attribute is eligible for deserialization.
     """
-    if not (isinstance(cls, type) and issubclass(cls, Map)):
-        raise TypeError(f"cls must be a Map subclass, got {cls}")
-    base = dict(registry) if registry is not None else dict(MAP_TYPES)
-    existing = base.get(type_name)
-    if existing is not None and existing is not cls:
-        raise ValueError(
-            f"Map type '{type_name}' already registered to {existing.__name__}"
-        )
-    base[type_name] = cls
-    return base
+    result: list[type] = []
+
+    def _walk(cls):
+        for sub in cls.__subclasses__():
+            result.append(sub)
+            _walk(sub)
+
+    _walk(Map)
+    return result
 
 
-def _build_map(map_spec: dict, map_types=None) -> Map:
+def _find_map_class(type_name: str) -> type | None:
+    """Look up a Map subclass by its ``_map_type`` tag."""
+    for cls in _all_map_subclasses():
+        if getattr(cls, '_map_type', None) == type_name:
+            return cls
+    return None
+
+
+def _resolve_value(value):
+    """Recursively resolve nested map specs inside constructor args.
+
+    - A ``dict`` with a ``"type"`` key is deserialized as a Map.
+    - A ``list`` has each element checked for the same pattern.
+    - Everything else passes through unchanged.
+    """
+    if isinstance(value, dict) and 'type' in value:
+        return _build_map(value)
+    if isinstance(value, list):
+        return [_resolve_value(v) for v in value]
+    return value
+
+
+def _build_map(map_spec: dict) -> Map:
     """Build a Map from a TOML inline table specification.
+
+    Uses implicit subclass discovery: any imported :class:`Map`
+    subclass with a ``_map_type`` class attribute matching the
+    ``"type"`` key in *map_spec* will be used.
+
+    Dict values that themselves contain a ``"type"`` key are
+    recursively deserialized as Maps, so composite types like
+    :class:`ComposedMap` need no special-case handling.
 
     Parameters
     ----------
     map_spec : dict
         Must contain a ``type`` key selecting the map class.
         Remaining keys are passed as constructor arguments.
-    map_types : mapping, optional
-        Unit-type registry mapping type-name strings to :class:`Map`
-        subclasses.  Defaults to the built-in :data:`MAP_TYPES`.
 
     Returns
     -------
@@ -258,38 +244,31 @@ def _build_map(map_spec: dict, map_types=None) -> Map:
     PackageLoadError
         If the type is unknown or constructor arguments are invalid.
     """
-    if map_types is None:
-        map_types = MAP_TYPES
     spec = dict(map_spec)  # Shallow copy to pop from
-    map_type = spec.pop('type', None)
-    if map_type is None:
+    type_name = spec.pop('type', None)
+    if type_name is None:
         raise PackageLoadError("Edge 'map' requires a 'type' key")
 
-    # Handle composed maps recursively
-    if map_type == 'composed':
-        outer_spec = spec.get('outer')
-        inner_spec = spec.get('inner')
-        if outer_spec is None or inner_spec is None:
-            raise PackageLoadError(
-                "Composed map requires 'outer' and 'inner' keys"
-            )
-        return ComposedMap(
-            outer=_build_map(outer_spec, map_types=map_types),
-            inner=_build_map(inner_spec, map_types=map_types),
+    cls = _find_map_class(type_name)
+    if cls is None:
+        known = sorted(
+            getattr(c, '_map_type')
+            for c in _all_map_subclasses()
+            if hasattr(c, '_map_type')
+        )
+        raise PackageLoadError(
+            f"Unknown map type '{type_name}'. "
+            f"Known types: {', '.join(known)}"
         )
 
-    cls = map_types.get(map_type)
-    if cls is None:
-        raise PackageLoadError(
-            f"Unknown map type '{map_type}'. "
-            f"Valid types: {', '.join(sorted(map_types))}, composed"
-        )
+    # Recursively resolve any nested map specs
+    resolved = {k: _resolve_value(v) for k, v in spec.items()}
 
     try:
-        return cls(**spec)
+        return cls(**resolved)
     except TypeError as e:
         raise PackageLoadError(
-            f"Invalid parameters for {map_type} map: {e}"
+            f"Invalid parameters for {type_name} map: {e}"
         )
 
 
@@ -331,27 +310,22 @@ class EdgeDef:
     offset: float = 0.0
     map_spec: dict | None = None
 
-    def _build_edge_map(self, map_types=None) -> Map:
+    def _build_edge_map(self) -> Map:
         """Build the Map for this edge.
-
-        Parameters
-        ----------
-        map_types : mapping, optional
-            Map-type registry.  Defaults to :data:`MAP_TYPES`.
 
         Returns
         -------
         Map
-            A LinearMap, AffineMap, LogMap, or ReciprocalMap.
+            A LinearMap, AffineMap, or any registered Map subclass.
         """
         if self.map_spec is not None:
-            return _build_map(self.map_spec, map_types=map_types)
+            return _build_map(self.map_spec)
 
         if self.offset != 0.0:
             return AffineMap(self.factor, self.offset)
         return LinearMap(self.factor)
 
-    def materialize(self, graph: 'ConversionGraph', *, map_types=None):
+    def materialize(self, graph: 'ConversionGraph'):
         """Resolve units and add edge to graph.
 
         Parameters
@@ -359,8 +333,6 @@ class EdgeDef:
         graph : ConversionGraph
             The graph to add the edge to. Units are resolved
             using the graph's name registry.
-        map_types : mapping, optional
-            Map-type registry.  Defaults to :data:`MAP_TYPES`.
 
         Raises
         ------
@@ -385,7 +357,7 @@ class EdgeDef:
                     f"Cannot resolve destination unit '{self.dst}' in edge"
                 )
 
-        graph.add_edge(src=src_unit, dst=dst_unit, map=self._build_edge_map(map_types=map_types))
+        graph.add_edge(src=src_unit, dst=dst_unit, map=self._build_edge_map())
 
 
 @dataclass(frozen=True)
@@ -604,10 +576,8 @@ def load_package(path: str | Path) -> UnitPackage:
 __all__ = [
     'ConstantDef',
     'EdgeDef',
-    'MAP_TYPES',
     'PackageLoadError',
     'UnitDef',
     'UnitPackage',
     'load_package',
-    'register_map_type',
 ]

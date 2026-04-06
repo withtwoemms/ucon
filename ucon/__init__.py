@@ -109,7 +109,7 @@ from ucon.contexts import (
     spectroscopy,
     using_context,
 )
-from ucon.packages import ConstantDef, EdgeDef, MAP_TYPES, PackageLoadError, UnitDef, UnitPackage, load_package, register_map_type
+from ucon.packages import ConstantDef, EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
 from ucon.resolver import get_unit_by_name, register_unit
 from ucon.parsing import ParseError, parse
 
@@ -174,13 +174,11 @@ __all__ = [
     'UnitProduct',
     'UnitSystem',
     'UnknownUnitError',
-    'MAP_TYPES',
     # Functions
     'all_dimensions',
     'enforce_dimensions',
     'get_default_graph',
     'get_unit_by_name',
-    'register_map_type',
     'register_unit',
     'load_package',
     'parse',

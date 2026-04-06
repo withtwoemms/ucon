@@ -539,7 +539,7 @@ def _product_key(prod: UnitProduct) -> tuple:
 # Import: from_toml()
 # ---------------------------------------------------------------------------
 
-def from_toml(path: Union[str, Path], *, strict: bool = True, map_types=None):
+def from_toml(path: Union[str, Path], *, strict: bool = True):
     """Import a ConversionGraph from a TOML file.
 
     Parameters
@@ -550,11 +550,6 @@ def from_toml(path: Union[str, Path], *, strict: bool = True, map_types=None):
         When ``True`` (default), raise :class:`GraphLoadError` if any edge
         references an unresolvable unit.  When ``False``, silently skip
         unresolvable edges (forward-compatible loading of partial files).
-    map_types : mapping, optional
-        Map-type registry mapping type-name strings to :class:`Map`
-        subclasses.  Defaults to the built-in :data:`MAP_TYPES`.
-        Pass a custom registry (from :func:`register_map_type`) to
-        deserialize graphs containing custom map types.
 
     Returns
     -------
@@ -746,7 +741,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True, map_types=None):
                         f"[{section}]: cannot resolve unit '{unresolvable}'"
                     )
                 continue
-            m = _build_edge_map(edge_spec, _build_map, map_types=map_types)
+            m = _build_edge_map(edge_spec, _build_map)
             graph.add_edge(src=src_unit, dst=dst_unit, map=m)
 
     # 8. Materialize product edges
@@ -755,7 +750,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True, map_types=None):
             section = f"product_edges[{i}]"
             src_expr = _require(edge_spec, "src", section)
             dst_expr = _require(edge_spec, "dst", section)
-            m = _build_edge_map(edge_spec, _build_map, map_types=map_types)
+            m = _build_edge_map(edge_spec, _build_map)
             try:
                 src_prod = _parse_product_expression(src_expr, unit_map, graph)
                 dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
@@ -796,7 +791,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True, map_types=None):
                         f"[{section}]: cannot resolve unit '{unresolvable}'"
                     )
                 continue
-            m = _build_edge_map(edge_spec, _build_map, map_types=map_types)
+            m = _build_edge_map(edge_spec, _build_map)
             transform_name = edge_spec.get("transform")
             bt = transform_map.get(transform_name) if transform_name else None
             if bt is not None:
@@ -871,7 +866,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True, map_types=None):
                         )
                     continue
 
-                m = _build_edge_map(edge_spec, _build_map, map_types=map_types)
+                m = _build_edge_map(edge_spec, _build_map)
                 ctx_edges.append(ContextEdge(src=src_unit, dst=dst_unit, map=m))
 
             ctx = ConversionContext(
@@ -920,10 +915,10 @@ def _resolve_context_unit(
     return resolved
 
 
-def _build_edge_map(edge_spec: dict, build_map_fn, *, map_types=None) -> Map:
+def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:
     """Build a Map from an edge specification dict."""
     if "map" in edge_spec:
-        return build_map_fn(edge_spec["map"], map_types=map_types)
+        return build_map_fn(edge_spec["map"])
     factor = edge_spec.get("factor", 1.0)
     offset = edge_spec.get("offset")
     if offset is not None:
