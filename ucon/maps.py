@@ -120,10 +120,36 @@ class Map(ABC):
         """Check if this map is approximately the identity."""
         return abs(self(1.0) - 1.0) < tol and abs(self(0.0) - 0.0) < tol
 
+    def to_dict(self) -> dict:
+        """Serialize this map to a TOML-friendly dict.
+
+        Map-valued fields are recursively serialized via their own
+        ``to_dict()``.  Lists are handled element-wise.
+        """
+        if not hasattr(self, '_map_type'):
+            raise TypeError(
+                f"Cannot serialize map type: {type(self).__name__}. "
+                f"Define a _map_type class attribute."
+            )
+        from dataclasses import fields as dc_fields
+        d: dict = {"type": self._map_type}
+        for f in dc_fields(self):
+            if f.name.startswith('_'):
+                continue
+            val = getattr(self, f.name)
+            if isinstance(val, Map):
+                val = val.to_dict()
+            elif isinstance(val, list):
+                val = [v.to_dict() if isinstance(v, Map) else v for v in val]
+            d[f.name] = val
+        return d
+
 
 @dataclass(frozen=True)
 class LinearMap(Map):
     """A linear conversion: ``y = a * x``."""
+
+    _map_type = "linear"
 
     a: float
 
@@ -168,6 +194,8 @@ class LinearMap(Map):
 @dataclass(frozen=True)
 class AffineMap(Map):
     """An affine conversion: ``y = a * x + b``."""
+
+    _map_type = "affine"
 
     a: float
     b: float
@@ -237,6 +265,8 @@ class LogMap(Map):
         LogMap(scale=-1) @ AffineMap(a=-1, b=1)
     """
 
+    _map_type = "log"
+
     scale: float = 1.0
     base: float = 10.0
     reference: float = 1.0
@@ -282,6 +312,14 @@ class LogMap(Map):
         _validate_positive(x)
         return self.scale / (x * math.log(self.base))
 
+    def to_dict(self) -> dict:
+        d: dict = {"type": self._map_type, "scale": self.scale, "base": self.base}
+        if self.reference != 1.0:
+            d["reference"] = self.reference
+        if self.offset != 0.0:
+            d["offset"] = self.offset
+        return d
+
     def is_identity(self, tol: float = 1e-9) -> bool:
         return False  # Logarithm is never identity
 
@@ -305,6 +343,8 @@ class ExpMap(Map):
     offset : float
         Added to exponent before evaluation.
     """
+
+    _map_type = "exp"
 
     scale: float = 1.0
     base: float = 10.0
@@ -349,6 +389,14 @@ class ExpMap(Map):
         """
         return math.log(self.base) * self.scale * self(x)
 
+    def to_dict(self) -> dict:
+        d: dict = {"type": self._map_type, "scale": self.scale, "base": self.base}
+        if self.reference != 1.0:
+            d["reference"] = self.reference
+        if self.offset != 0.0:
+            d["offset"] = self.offset
+        return d
+
     def is_identity(self, tol: float = 1e-9) -> bool:
         return False  # Exponential is never identity
 
@@ -366,6 +414,8 @@ class ReciprocalMap(Map):
     a : float
         The constant of proportionality.
     """
+
+    _map_type = "reciprocal"
 
     a: float
 
@@ -408,6 +458,8 @@ class ReciprocalMap(Map):
 @dataclass(frozen=True)
 class ComposedMap(Map):
     """Generic composition fallback: ``(outer ∘ inner)(x) = outer(inner(x))``."""
+
+    _map_type = "composed"
 
     outer: Map
     inner: Map

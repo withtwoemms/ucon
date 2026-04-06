@@ -84,6 +84,7 @@ nav:
     - Performance: reference/performance.md
     - Units & Dimensions: reference/units-and-dimensions.md
     - MCP Tools: external/ucon-tools/docs/reference/mcp-tools.md
+    - Serialization Format: reference/serialization-format.md
     - Scales & Prefixes: reference/scales-and-prefixes.md
     - Module Reference:
       - reference/modules/index.md

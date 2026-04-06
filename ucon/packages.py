@@ -52,7 +52,7 @@ import operator
 from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
-from ucon.maps import AffineMap, ExpMap, LinearMap, LogMap, Map, ReciprocalMap
+from ucon.maps import AffineMap, LinearMap, Map
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -178,17 +178,55 @@ class UnitDef:
         )
 
 
-_MAP_TYPES: dict[str, type[Map]] = {
-    'linear': LinearMap,
-    'affine': AffineMap,
-    'log': LogMap,
-    'exp': ExpMap,
-    'reciprocal': ReciprocalMap,
-}
+def _all_map_subclasses() -> list[type]:
+    """Recursively collect every concrete :class:`Map` subclass.
+
+    Discovery is implicit — any imported subclass that defines a
+    ``_map_type`` class attribute is eligible for deserialization.
+    """
+    result: list[type] = []
+
+    def _walk(cls):
+        for sub in cls.__subclasses__():
+            result.append(sub)
+            _walk(sub)
+
+    _walk(Map)
+    return result
+
+
+def _find_map_class(type_name: str) -> type | None:
+    """Look up a Map subclass by its ``_map_type`` tag."""
+    for cls in _all_map_subclasses():
+        if getattr(cls, '_map_type', None) == type_name:
+            return cls
+    return None
+
+
+def _resolve_value(value):
+    """Recursively resolve nested map specs inside constructor args.
+
+    - A ``dict`` with a ``"type"`` key is deserialized as a Map.
+    - A ``list`` has each element checked for the same pattern.
+    - Everything else passes through unchanged.
+    """
+    if isinstance(value, dict) and 'type' in value:
+        return _build_map(value)
+    if isinstance(value, list):
+        return [_resolve_value(v) for v in value]
+    return value
 
 
 def _build_map(map_spec: dict) -> Map:
     """Build a Map from a TOML inline table specification.
+
+    Uses implicit subclass discovery: any imported :class:`Map`
+    subclass with a ``_map_type`` class attribute matching the
+    ``"type"`` key in *map_spec* will be used.
+
+    Dict values that themselves contain a ``"type"`` key are
+    recursively deserialized as Maps, so composite types like
+    :class:`ComposedMap` need no special-case handling.
 
     Parameters
     ----------
@@ -207,22 +245,30 @@ def _build_map(map_spec: dict) -> Map:
         If the type is unknown or constructor arguments are invalid.
     """
     spec = dict(map_spec)  # Shallow copy to pop from
-    map_type = spec.pop('type', None)
-    if map_type is None:
+    type_name = spec.pop('type', None)
+    if type_name is None:
         raise PackageLoadError("Edge 'map' requires a 'type' key")
 
-    cls = _MAP_TYPES.get(map_type)
+    cls = _find_map_class(type_name)
     if cls is None:
+        known = sorted(
+            getattr(c, '_map_type')
+            for c in _all_map_subclasses()
+            if hasattr(c, '_map_type')
+        )
         raise PackageLoadError(
-            f"Unknown map type '{map_type}'. "
-            f"Valid types: {', '.join(sorted(_MAP_TYPES))}"
+            f"Unknown map type '{type_name}'. "
+            f"Known types: {', '.join(known)}"
         )
 
+    # Recursively resolve any nested map specs
+    resolved = {k: _resolve_value(v) for k, v in spec.items()}
+
     try:
-        return cls(**spec)
+        return cls(**resolved)
     except TypeError as e:
         raise PackageLoadError(
-            f"Invalid parameters for {map_type} map: {e}"
+            f"Invalid parameters for {type_name} map: {e}"
         )
 
 
@@ -270,7 +316,7 @@ class EdgeDef:
         Returns
         -------
         Map
-            A LinearMap, AffineMap, LogMap, or ReciprocalMap.
+            A LinearMap, AffineMap, or any registered Map subclass.
         """
         if self.map_spec is not None:
             return _build_map(self.map_spec)

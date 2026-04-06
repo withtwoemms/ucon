@@ -40,7 +40,7 @@ class TestGraphAddEdgeWithBasisTransform(unittest.TestCase):
         )
         # Verify the rebased unit was created
         self.assertIn(units.foot, self.graph._rebased)
-        rebased = self.graph._rebased[units.foot][0]
+        rebased = next(iter(self.graph._rebased[units.foot]))
         self.assertIsInstance(rebased, RebasedUnit)
         self.assertEqual(rebased.original, units.foot)
         self.assertEqual(rebased.rebased_dimension, Dimension.length)

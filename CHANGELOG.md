@@ -7,8 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-04-06
+
+### Added
+
+- Full round-trip `ConversionGraph` serialization to TOML (`to_toml()` / `from_toml()`)
+  - Bases, dimensions, and transforms (including `ConstantBoundBasisTransform` with fraction-exact matrices)
+  - Unit edges with shorthand (`factor`, `factor`+`offset`) and explicit `map` for all 6 map types
+  - Product edges for composite unit conversions (e.g., kWh → joule)
+  - Cross-basis edges via `RebasedUnit` provenance (e.g., dyne → newton across CGS/SI)
+  - Physical constants with full metadata (symbol, name, value, unit, uncertainty, source, category)
+  - `ConversionContext` persistence via `[contexts.*]` TOML sections
+  - `graph == restored` equality guaranteed for all graph types after round-trip
+- `GraphLoadError` exception for structured error reporting during TOML import
+- Strict parsing mode on `from_toml()` (default `strict=True`)
+  - Raises `GraphLoadError` on unresolvable unit references in edges, product edges, and cross-basis edges
+  - `strict=False` warns and skips unresolvable edges for forward-compatible loading
+- Format version validation in `from_toml()`
+  - Major version mismatch raises `GraphLoadError`
+  - Newer minor version emits `UserWarning`
+  - Missing `format_version` or `[package]` table accepted for backward compatibility
+- Product expression grammar with `/` division support
+  - Parser: `meter/second`, `mg/kg/day`, `kg*m/s^2` all parse correctly
+  - Left-to-right arithmetic precedence (`*` and `/` are left-associative)
+  - Invalid exponents raise `GraphLoadError` (previously returned `None`)
+  - Emitter: uses `/` notation when there are both positive and negative exponents
+- Implicit `Map` subclass discovery for TOML deserialization
+  - Any imported `Map` subclass with a `_map_type` class attribute is automatically deserializable
+  - `_build_map()` recursively resolves nested map specs (dicts with `"type"` keys)
+  - Custom `Map` subclasses need only define `_map_type` and be imported before `from_toml()`
+- `Map.to_dict()` base implementation with recursive serialization
+  - Introspects dataclass fields, skips `_`-prefixed attributes
+  - Recursively serializes `Map`-valued fields and lists containing `Map` instances
+  - Subclasses may override to omit default values (e.g., `LogMap`, `ExpMap`)
+- `_map_type` class attribute on all concrete `Map` subclasses: `LinearMap` (`"linear"`),
+  `AffineMap` (`"affine"`), `LogMap` (`"log"`), `ExpMap` (`"exp"`),
+  `ReciprocalMap` (`"reciprocal"`), `ComposedMap` (`"composed"`)
+- `ConversionGraph.register_context()` for attaching named `ConversionContext` objects to a graph
+- `ConversionGraph.__eq__` with comprehensive field comparison
+  - Symmetric unit-edge comparison across all dimension partitions
+  - Product-edge comparison by key set and map evaluation
+  - Cross-basis edge comparison via `_cross_basis_edge_signature()`
+  - Constants comparison across all metadata fields plus unit dimension
+  - Loaded packages, basis graph topology, and context equality
+- Serialization format reference documentation (`docs/reference/serialization-format.md`)
+- `ucon[serialization]` optional dependency (`tomli-w`) for TOML export
+- Arithmetic expression factors in `from_toml()` via `_parse_factor()`
+  - `_build_edge_map()` now accepts string factor expressions (e.g., `"1/3"`, `"1852/3600"`)
+  - Parity with `load_package()`, which already supported expression factors
+- Production-ready `examples/units/comprehensive.ucon.toml`
+  - Complete default conversion graph: 4 bases, 43 dimensions, 214 units, 139 edges, 18 product edges, 26 cross-basis edges, 1 context
+  - Exact ratio factors where applicable (e.g., `"1/3"` for foot→yard, `"1/7"` for day→week)
+  - Deduplicated cross-basis edges and cleaned empty unit entry from machine-generated export
+
 ### Changed
 
+- `ConversionGraph._rebased` changed from `dict[Unit, list[RebasedUnit]]` to `dict[Unit, set[RebasedUnit]]`
+  - Prevents duplicate `RebasedUnit` accumulation when multiple cross-basis edges share the same source unit and transform (e.g., joule → electron_volt/hartree/rydberg)
+  - Eliminates cubic amplification of `[[cross_basis_edges]]` on repeated round-trips
+  - `list_rebased_units()` return type unchanged (`dict[Unit, list[RebasedUnit]]`)
+- Product expression parsing (`_parse_product_expression`) uses `get_unit_by_name()` as primary resolver
+  - Scale-prefixed names (e.g., `kwatt`) now decompose correctly into `UnitFactor` with proper `Scale`
+  - Falls back to `_resolve_unit()` when the full resolver is unavailable
+- Map deserialization uses implicit subclass discovery instead of an explicit registry
+  - `_build_map()` walks `Map.__subclasses__()` to find the class matching the `"type"` key
+  - No registry to manage; defining `_map_type` on a subclass is sufficient
 - Updated `docs/external/ucon-tools` submodule from 0.2.1 to 0.3.2
 
 ## [1.1.2] - 2026-04-03
@@ -642,7 +705,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.1.2...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.2.0...HEAD
+[1.2.0]: https://github.com/withtwoemms/ucon/compare/1.1.2...1.2.0
 [1.1.2]: https://github.com/withtwoemms/ucon/compare/1.1.1...1.1.2
 [1.1.1]: https://github.com/withtwoemms/ucon/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/withtwoemms/ucon/compare/1.0.0...1.1.0
