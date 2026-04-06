@@ -382,6 +382,7 @@ class Unit:
     name: str = ""
     dimension: Dimension = field(default=NONE)
     aliases: tuple[str, ...] = ()
+    _base_decomposition: 'BaseDecomposition | None' = field(default=None, repr=False, compare=False, hash=False)
 
     def __post_init__(self):
         object.__setattr__(
@@ -792,6 +793,30 @@ class UnitFactor:
         return NotImplemented
 
 
+@dataclass(frozen=True)
+class BaseDecomposition:
+    """Decomposition of a unit into SI base units.
+
+    Represents: 1 unit = prefactor × ∏(base_unit ^ exponent)
+
+    Parameters
+    ----------
+    factors : tuple[tuple[Unit, float], ...]
+        (base_unit, exponent) pairs, sorted by base unit name for stability.
+    prefactor : float
+        Multiplicative scalar relating this unit to the coherent SI form.
+
+    Examples
+    --------
+    - kilogram → BaseDecomposition(((kilogram, 1.0),), 1.0)
+    - gram → BaseDecomposition(((kilogram, 1.0),), 0.001)
+    - pascal → BaseDecomposition(((kilogram, 1.0), (meter, -1.0), (second, -2.0)), 1.0)
+    - bar → BaseDecomposition(((kilogram, 1.0), (meter, -1.0), (second, -2.0)), 100000.0)
+    """
+    factors: tuple  # tuple[tuple[Unit, float], ...]
+    prefactor: float = 1.0
+
+
 class UnitProduct:
     """
     Represents a product or quotient of Units.
@@ -1054,6 +1079,39 @@ class UnitProduct:
             result *= factor.scale.value.evaluated ** power
 
         self._fold_scale_cache = result
+        return result
+
+    def to_base_form(self) -> tuple:
+        """Expand all factors to SI base units algebraically.
+
+        Returns
+        -------
+        (base_factors, prefactor)
+            base_factors: dict mapping base Unit → net exponent
+            prefactor: cumulative scalar (product of all scale, decomposition prefactors)
+        """
+        cached = getattr(self, '_to_base_form_cache', None)
+        if cached is not None:
+            return cached
+
+        base_factors: dict = {}
+        prefactor = getattr(self, '_residual_scale_factor', 1.0)
+
+        for uf, exp in self.factors.items():
+            prefactor *= uf.scale.value.evaluated ** exp
+
+            decomp = uf.unit._base_decomposition
+            if decomp is None:
+                # No decomposition — treat unit as its own base
+                base_factors[uf.unit] = base_factors.get(uf.unit, 0.0) + exp
+            else:
+                prefactor *= decomp.prefactor ** exp
+                for base_unit, base_exp in decomp.factors:
+                    base_factors[base_unit] = base_factors.get(base_unit, 0.0) + base_exp * exp
+
+        # Drop zero-exponent entries
+        result = ({u: e for u, e in base_factors.items() if abs(e) > 1e-12}, prefactor)
+        self._to_base_form_cache = result
         return result
 
     # ------------- Helpers ---------------------------------------------------
@@ -1349,9 +1407,22 @@ class Number:
 
     @property
     def _canonical_magnitude(self) -> float:
-        """Quantity folded to base-unit scale (internal use for eq/div)."""
+        """Quantity in coherent SI base-unit scale (internal use for eq/div).
+
+        Multiplies scale and decomposition factors into the quantity
+        incrementally to minimize floating-point accumulation error.
+        """
         if isinstance(self.unit, UnitProduct):
-            return self.quantity * self.unit.fold_scale()
+            result = self.quantity * getattr(self.unit, '_residual_scale_factor', 1.0)
+            for uf, exp in self.unit.factors.items():
+                result *= uf.scale.value.evaluated ** exp
+                decomp = uf.unit._base_decomposition
+                if decomp is not None:
+                    result *= decomp.prefactor ** exp
+            return result
+        decomp = getattr(self.unit, '_base_decomposition', None)
+        if decomp is not None:
+            return self.quantity * decomp.prefactor
         return self.quantity
 
     def simplify(self) -> 'Number':

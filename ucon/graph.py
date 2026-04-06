@@ -41,6 +41,7 @@ from ucon.basis.transforms import (
     SI_TO_NATURAL,
 )
 from ucon.core import (
+    BaseDecomposition,
     Dimension,
     RebasedUnit,
     Unit,
@@ -212,6 +213,46 @@ class ConversionGraph:
         # Store forward and inverse
         self._unit_edges[dim].setdefault(src, {})[dst] = map
         self._unit_edges[dim].setdefault(dst, {})[src] = map.inverse()
+
+        # Propagate base decompositions along this edge
+        self._propagate_base_decomposition(src, dst, map)
+        self._propagate_base_decomposition(dst, src, map.inverse())
+
+    def _propagate_base_decomposition(self, src: Unit, dst: Unit, edge_map: Map) -> None:
+        """Propagate BaseDecomposition from src to dst along an edge.
+
+        If src has a known decomposition and the edge map has a computable
+        slope (derivative), set dst's decomposition with adjusted prefactor.
+
+        Only applies to LinearMap and AffineMap edges (not LogMap etc.).
+        """
+        if src._base_decomposition is None:
+            return
+        if dst._base_decomposition is not None:
+            return  # Already has one
+
+        # Only propagate along maps with a constant derivative (linear/affine)
+        try:
+            slope = edge_map.derivative(1.0)
+        except (TypeError, AttributeError):
+            return
+
+        # For non-linear maps (LogMap, InverseLogMap, ReciprocalMap), skip
+        if not isinstance(edge_map, (LinearMap, AffineMap)):
+            return
+
+        if slope == 0:
+            return
+
+        # dst prefactor: if src → dst via map with slope a,
+        # then 1 dst_unit = (1/a) src_units in terms of the edge,
+        # so dst.prefactor = src.prefactor / a
+        new_prefactor = src._base_decomposition.prefactor / slope
+        decomp = BaseDecomposition(
+            factors=src._base_decomposition.factors,
+            prefactor=new_prefactor,
+        )
+        object.__setattr__(dst, '_base_decomposition', decomp)
 
     def _add_product_edge(self, *, src: UnitProduct, dst: UnitProduct, map: Map) -> None:
         """Add edge between UnitProducts."""
@@ -1039,6 +1080,7 @@ def _build_standard_graph() -> ConversionGraph:
     """Build the default graph with common conversions."""
     graph = ConversionGraph()
     _build_standard_edges(graph)
+    _compute_base_decompositions(graph)
     return graph
 
 
@@ -1462,3 +1504,184 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
             (units.joule, units.rydberg): LinearMap(1 / 2.1798723611035e-18),
         },
     )
+
+
+def _compute_base_decompositions(graph: ConversionGraph) -> None:
+    """Compute BaseDecomposition for all SI units in the graph via BFS.
+
+    Algorithm:
+    1. Define the SI root unit per base dimension.
+    2. Set base decomposition on each root unit.
+    3. For each dimension partition in the graph, find the reference unit
+       (coherent SI unit for that dimension), compute its base expansion,
+       then BFS to all reachable units setting their decompositions.
+    """
+    from ucon import units
+    from ucon.dimension import (
+        MASS, LENGTH, TIME, CURRENT, TEMPERATURE,
+        LUMINOUS_INTENSITY, AMOUNT_OF_SUBSTANCE, INFORMATION,
+    )
+
+    # Step 1: SI root units (one per base dimension)
+    si_roots: dict = {
+        MASS: units.kilogram,
+        LENGTH: units.meter,
+        TIME: units.second,
+        CURRENT: units.ampere,
+        TEMPERATURE: units.kelvin,
+        LUMINOUS_INTENSITY: units.candela,
+        AMOUNT_OF_SUBSTANCE: units.mole,
+        INFORMATION: units.bit,
+    }
+
+    # Step 2: Set self-referencing decomposition on each root
+    for dim, root_unit in si_roots.items():
+        decomp = BaseDecomposition(
+            factors=((root_unit, 1.0),),
+            prefactor=1.0,
+        )
+        object.__setattr__(root_unit, '_base_decomposition', decomp)
+
+    # Step 3: For each dimension partition, compute decompositions via BFS
+    for dim, adjacency in graph._unit_edges.items():
+        # Skip non-SI dimensions (CGS, CGS-ESU, etc.)
+        from ucon.basis.builtin import SI as SI_BASIS
+        if not hasattr(dim, 'vector') or dim.vector.basis != SI_BASIS:
+            continue
+
+        # Skip pseudo-dimensions (angle, ratio, count, solid_angle)
+        if getattr(dim, 'is_pseudo', False):
+            continue
+
+        # Determine the base expansion for this dimension
+        base_expansion = dim.base_expansion()
+        if not base_expansion:
+            continue  # dimensionless
+
+        # Build base factors tuple from dimension's base expansion
+        base_factors = []
+        for base_dim, exp in sorted(base_expansion.items(), key=lambda x: x[0].name):
+            root_unit = si_roots.get(base_dim)
+            if root_unit is None:
+                break
+            base_factors.append((root_unit, float(exp)))
+        else:
+            base_factors_tuple = tuple(base_factors)
+
+            # Find the reference unit for this dimension.
+            # The reference unit is the coherent SI unit (prefactor=1.0).
+            # We identify it as one that already has a decomposition set
+            # (i.e., a root unit in a base dimension), or we find a designated
+            # coherent unit for derived dimensions.
+            _coherent_si_units = {
+                'force': units.newton,
+                'energy': units.joule,
+                'power': units.watt,
+                'pressure': units.pascal,
+                'voltage': units.volt,
+                'resistance': units.ohm,
+                'charge': units.coulomb,
+                'frequency': units.hertz,
+                'illuminance': units.lux,
+                'capacitance': units.farad,
+                'inductance': units.henry,
+                'magnetic_flux': units.weber,
+                'magnetic_flux_density': units.tesla,
+                'conductance': units.siemens,
+                'catalytic_activity': units.katal,
+                'dynamic_viscosity': units.pascal_second,
+                'kinematic_viscosity': units.square_meter_per_second,
+                'acceleration': units.meter_per_second_squared,
+                'wavenumber': units.reciprocal_meter,
+                'radiant_exposure': units.joule_per_square_meter,
+                'electric_dipole_moment': units.coulomb_meter,
+                'exposure': units.coulomb_per_kilogram,
+            }
+
+            # Find or designate the reference unit
+            ref_unit = None
+            dim_name = getattr(dim, 'name', None)
+
+            # For base dimensions, the root unit IS the reference
+            if dim in si_roots:
+                ref_unit = si_roots[dim]
+            elif dim_name in _coherent_si_units:
+                ref_unit = _coherent_si_units[dim_name]
+            else:
+                # Try to find any unit in this partition that's listed in si_roots values
+                for unit_node in adjacency:
+                    if isinstance(unit_node, RebasedUnit):
+                        continue
+                    if unit_node in si_roots.values():
+                        ref_unit = unit_node
+                        break
+
+            if ref_unit is None:
+                # No reference unit found; try to use the first non-rebased node
+                for unit_node in adjacency:
+                    if not isinstance(unit_node, RebasedUnit):
+                        ref_unit = unit_node
+                        break
+
+            if ref_unit is None:
+                continue
+
+            # Set the reference unit's decomposition (prefactor=1.0 for coherent SI)
+            if ref_unit._base_decomposition is None:
+                decomp = BaseDecomposition(
+                    factors=base_factors_tuple,
+                    prefactor=1.0,
+                )
+                object.__setattr__(ref_unit, '_base_decomposition', decomp)
+
+            # BFS from reference unit to all reachable units in this partition
+            visited = {ref_unit}
+            queue = deque([ref_unit])
+
+            while queue:
+                current = queue.popleft()
+                current_decomp = current._base_decomposition if not isinstance(current, RebasedUnit) else None
+
+                if current_decomp is None:
+                    continue
+
+                if current not in adjacency:
+                    continue
+
+                for neighbor, edge_map in adjacency[current].items():
+                    if neighbor in visited:
+                        continue
+                    visited.add(neighbor)
+
+                    # Skip RebasedUnits (cross-basis)
+                    if isinstance(neighbor, RebasedUnit):
+                        continue
+
+                    # Only propagate along linear/affine maps
+                    if not isinstance(edge_map, (LinearMap, AffineMap)):
+                        queue.append(neighbor)
+                        continue
+
+                    try:
+                        slope = edge_map.derivative(1.0)
+                    except (TypeError, AttributeError):
+                        queue.append(neighbor)
+                        continue
+
+                    if slope == 0:
+                        queue.append(neighbor)
+                        continue
+
+                    # neighbor prefactor = current prefactor / slope
+                    # Because: edge_map converts current → neighbor
+                    # If 1 current = slope neighbor, then 1 neighbor = (1/slope) current
+                    # In base units: 1 neighbor = (current_prefactor / slope) × base_product
+                    new_prefactor = current_decomp.prefactor / slope
+                    neighbor_decomp = BaseDecomposition(
+                        factors=current_decomp.factors,
+                        prefactor=new_prefactor,
+                    )
+                    if neighbor._base_decomposition is None:
+                        object.__setattr__(neighbor, '_base_decomposition', neighbor_decomp)
+
+                    queue.append(neighbor)
