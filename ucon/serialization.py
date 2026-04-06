@@ -757,9 +757,13 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
             try:
                 src_prod = _parse_product_expression(src_expr, unit_map, graph)
                 dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
-            except GraphLoadError:
+            except GraphLoadError as exc:
                 if strict:
                     raise
+                warnings.warn(
+                    f"[{section}]: skipping product edge — {exc}",
+                    stacklevel=2,
+                )
                 continue
             if src_prod is None or dst_prod is None:
                 if strict:
@@ -767,6 +771,11 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                     raise GraphLoadError(
                         f"[{section}]: cannot resolve product expression '{failed}'"
                     )
+                warnings.warn(
+                    f"[{section}]: skipping unresolvable product edge "
+                    f"'{src_expr}' -> '{dst_expr}'",
+                    stacklevel=2,
+                )
                 continue
             graph.add_edge(src=src_prod, dst=dst_prod, map=m)
 
@@ -982,45 +991,40 @@ def _parse_product_expression(
 ) -> Union[UnitProduct, None]:
     """Parse a product expression string into a UnitProduct.
 
-    Grammar::
+    Grammar (left-associative)::
 
-        expression  := numerator ('/' denominator)?
-        numerator   := factor ('*' factor)*
-        denominator := factor ('*' factor)*
+        expression  := segment ('/' segment)*
+        segment     := factor ('*' factor)*
         factor      := unit_name ('^' exponent)?
 
-    At most one ``/`` is allowed.  Everything after ``/`` has exponents
-    negated.  Uses ``get_unit_by_name()`` as the primary resolver so that
+    The first segment is the numerator.  Each subsequent ``/`` negates
+    the exponents of every factor in its segment.  Multiple ``/`` are
+    allowed—``mg/kg/day`` parses as ``mg¹·kg⁻¹·day⁻¹``, matching
+    standard dosage notation.
+
+    Uses ``get_unit_by_name()`` as the primary resolver so that
     scale-prefixed names (e.g. ``"kwatt"``) are decomposed correctly into
     a ``UnitFactor`` carrying the proper ``Scale``.
 
     Raises
     ------
     GraphLoadError
-        If the expression contains multiple ``/`` or an invalid exponent.
+        If an exponent is not a valid number.
     """
     expr = expr.strip()
     if not expr:
         return None
 
-    slash_count = expr.count("/")
-    if slash_count > 1:
-        raise GraphLoadError(
-            f"Multiple '/' in product expression '{expr}' — at most one is allowed"
-        )
+    segments = expr.split("/")
 
-    if slash_count == 1:
-        num_str, den_str = expr.split("/", 1)
-    else:
-        num_str = expr
-        den_str = None
-
-    factors = _parse_factors(num_str, expr, unit_map, graph)
+    # First segment → numerator (positive exponents)
+    factors = _parse_factors(segments[0], expr, unit_map, graph)
     if factors is None:
         return None
 
-    if den_str is not None:
-        den_factors = _parse_factors(den_str, expr, unit_map, graph)
+    # Remaining segments → denominators (negated exponents)
+    for seg in segments[1:]:
+        den_factors = _parse_factors(seg, expr, unit_map, graph)
         if den_factors is None:
             return None
         for uf, exp in den_factors.items():

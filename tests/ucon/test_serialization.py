@@ -1768,12 +1768,32 @@ class TestProductExpressionGrammar:
         assert found["second"] == -1.0
         assert found["kilogram"] == -1.0
 
-    def test_multiple_slash_raises(self):
-        """'m/s/kg' raises GraphLoadError."""
+    def test_multiple_slash_left_associative(self):
+        """'meter/second/kilogram' → meter^1, second^-1, kilogram^-1 (dosage-style)."""
         graph = get_default_graph()
         with using_graph(graph):
-            with pytest.raises(GraphLoadError, match="Multiple '/'"):
-                _parse_product_expression("m/s/kg", {}, graph)
+            result = _parse_product_expression("meter/second/kilogram", {}, graph)
+        assert result is not None
+        found = {}
+        for uf, exp in result.factors.items():
+            found[uf.unit.name] = exp
+        assert found["meter"] == 1.0
+        assert found["second"] == -1.0
+        assert found["kilogram"] == -1.0
+
+    def test_triple_slash_dosage(self):
+        """'gram/kilogram/day/each' → g^1, kg^-1, day^-1, ea^-1."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("gram/kilogram/day/each", {}, graph)
+        assert result is not None
+        found = {}
+        for uf, exp in result.factors.items():
+            found[uf.unit.name] = exp
+        assert found["gram"] == 1.0
+        assert found["kilogram"] == -1.0
+        assert found["day"] == -1.0
+        assert found["each"] == -1.0
 
     def test_invalid_exponent_raises(self):
         """'meter^abc' raises GraphLoadError."""
@@ -1872,6 +1892,32 @@ class TestProductExpressionGrammar:
         graph.to_toml(path)
         restored = ConversionGraph.from_toml(path)
         assert graph == restored
+
+    def test_non_strict_warns_on_bad_expression(self, tmp_path):
+        """Non-strict mode warns when a product expression is skipped."""
+        doc = {
+            "package": {"format_version": FORMAT_VERSION},
+            "units": [{"name": "meter", "dimension": "length"}],
+            "product_edges": [
+                {"src": "meter^xyz", "dst": "meter", "factor": 1.0, "product": True},
+            ],
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.warns(UserWarning, match="skipping product edge"):
+            from_toml(path, strict=False)
+
+    def test_non_strict_warns_on_unresolvable(self, tmp_path):
+        """Non-strict mode warns when a unit name cannot be resolved."""
+        doc = {
+            "package": {"format_version": FORMAT_VERSION},
+            "units": [{"name": "meter", "dimension": "length"}],
+            "product_edges": [
+                {"src": "meter", "dst": "nonexistent_unit", "factor": 1.0, "product": True},
+            ],
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.warns(UserWarning, match="skipping unresolvable product edge"):
+            from_toml(path, strict=False)
 
 
 # ---------------------------------------------------------------------------
