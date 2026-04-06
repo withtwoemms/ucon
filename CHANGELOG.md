@@ -52,6 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Loaded packages, basis graph topology, and context equality
 - Serialization format reference documentation (`docs/reference/serialization-format.md`)
 - `ucon[serialization]` optional dependency (`tomli-w`) for TOML export
+- Arithmetic expression factors in `from_toml()` via `_parse_factor()`
+  - `_build_edge_map()` now accepts string factor expressions (e.g., `"1/3"`, `"1852/3600"`)
+  - Parity with `load_package()`, which already supported expression factors
+- Production-ready `examples/units/comprehensive.ucon.toml`
+  - Complete default conversion graph: 4 bases, 43 dimensions, 214 units, 139 edges, 18 product edges, 26 cross-basis edges, 1 context
+  - Exact ratio factors where applicable (e.g., `"1/3"` for foot→yard, `"1/7"` for day→week)
+  - Deduplicated cross-basis edges and cleaned empty unit entry from machine-generated export
 
 ### Changed
 
