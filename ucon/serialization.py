@@ -19,6 +19,7 @@ Format version: 1.2
 """
 from __future__ import annotations
 
+import re
 import sys
 import warnings
 from fractions import Fraction
@@ -43,12 +44,8 @@ from ucon.core import RebasedUnit, Scale, Unit, UnitFactor, UnitProduct
 from ucon.dimension import Dimension, resolve, _DIMENSION_ATTRS
 from ucon.maps import (
     AffineMap,
-    ComposedMap,
-    ExpMap,
     LinearMap,
-    LogMap,
     Map,
-    ReciprocalMap,
 )
 
 FORMAT_VERSION = "1.2"
@@ -542,7 +539,7 @@ def _product_key(prod: UnitProduct) -> tuple:
 # Import: from_toml()
 # ---------------------------------------------------------------------------
 
-def from_toml(path: Union[str, Path], *, strict: bool = True):
+def from_toml(path: Union[str, Path], *, strict: bool = True, map_types=None):
     """Import a ConversionGraph from a TOML file.
 
     Parameters
@@ -553,6 +550,11 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
         When ``True`` (default), raise :class:`GraphLoadError` if any edge
         references an unresolvable unit.  When ``False``, silently skip
         unresolvable edges (forward-compatible loading of partial files).
+    map_types : mapping, optional
+        Map-type registry mapping type-name strings to :class:`Map`
+        subclasses.  Defaults to the built-in :data:`MAP_TYPES`.
+        Pass a custom registry (from :func:`register_map_type`) to
+        deserialize graphs containing custom map types.
 
     Returns
     -------
@@ -744,7 +746,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                         f"[{section}]: cannot resolve unit '{unresolvable}'"
                     )
                 continue
-            m = _build_edge_map(edge_spec, _build_map)
+            m = _build_edge_map(edge_spec, _build_map, map_types=map_types)
             graph.add_edge(src=src_unit, dst=dst_unit, map=m)
 
     # 8. Materialize product edges
@@ -753,7 +755,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
             section = f"product_edges[{i}]"
             src_expr = _require(edge_spec, "src", section)
             dst_expr = _require(edge_spec, "dst", section)
-            m = _build_edge_map(edge_spec, _build_map)
+            m = _build_edge_map(edge_spec, _build_map, map_types=map_types)
             try:
                 src_prod = _parse_product_expression(src_expr, unit_map, graph)
                 dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
@@ -794,7 +796,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                         f"[{section}]: cannot resolve unit '{unresolvable}'"
                     )
                 continue
-            m = _build_edge_map(edge_spec, _build_map)
+            m = _build_edge_map(edge_spec, _build_map, map_types=map_types)
             transform_name = edge_spec.get("transform")
             bt = transform_map.get(transform_name) if transform_name else None
             if bt is not None:
@@ -869,7 +871,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                         )
                     continue
 
-                m = _build_edge_map(edge_spec, _build_map)
+                m = _build_edge_map(edge_spec, _build_map, map_types=map_types)
                 ctx_edges.append(ContextEdge(src=src_unit, dst=dst_unit, map=m))
 
             ctx = ConversionContext(
@@ -918,10 +920,10 @@ def _resolve_context_unit(
     return resolved
 
 
-def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:
+def _build_edge_map(edge_spec: dict, build_map_fn, *, map_types=None) -> Map:
     """Build a Map from an edge specification dict."""
     if "map" in edge_spec:
-        return build_map_fn(edge_spec["map"])
+        return build_map_fn(edge_spec["map"], map_types=map_types)
     factor = edge_spec.get("factor", 1.0)
     offset = edge_spec.get("offset")
     if offset is not None:
@@ -989,8 +991,6 @@ def _parse_product_expression(
     GraphLoadError
         If an exponent is not a valid number.
     """
-    import re
-
     expr = expr.strip()
     if not expr:
         return None

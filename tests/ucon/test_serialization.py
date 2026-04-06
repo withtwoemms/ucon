@@ -2012,8 +2012,17 @@ class TestMapToDict:
 class TestMapTypeRegistry:
     """Tests for MAP_TYPES / register_map_type()."""
 
-    def test_register_map_type(self):
-        """Custom type appears in MAP_TYPES after registration."""
+    def test_map_types_is_immutable(self):
+        """MAP_TYPES is a MappingProxyType — cannot be mutated."""
+        from types import MappingProxyType
+        from ucon.packages import MAP_TYPES
+
+        assert isinstance(MAP_TYPES, MappingProxyType)
+        with pytest.raises(TypeError):
+            MAP_TYPES["foo"] = LinearMap  # type: ignore[index]
+
+    def test_register_map_type_returns_new_dict(self):
+        """register_map_type returns a new dict containing the custom entry."""
         from ucon.packages import MAP_TYPES, register_map_type
         from ucon.maps import Map
         from dataclasses import dataclass
@@ -2030,16 +2039,19 @@ class TestMapTypeRegistry:
             def __pow__(self, n): return self
             def derivative(self, x): return self.factor
 
-        register_map_type("test_custom_xyz", TestCustomMap)
-        assert MAP_TYPES["test_custom_xyz"] is TestCustomMap
-        # Cleanup
-        del MAP_TYPES["test_custom_xyz"]
+        result = register_map_type("test_custom_xyz", TestCustomMap)
+        # Returns a plain dict, not a MappingProxyType
+        assert isinstance(result, dict)
+        assert result["test_custom_xyz"] is TestCustomMap
+        # Global MAP_TYPES is NOT mutated
+        assert "test_custom_xyz" not in MAP_TYPES
 
     def test_register_duplicate_same_ok(self):
         """Registering the same class for the same name is idempotent."""
-        from ucon.packages import MAP_TYPES, register_map_type
+        from ucon.packages import register_map_type
 
-        register_map_type("linear", LinearMap)  # already registered
+        result = register_map_type("linear", LinearMap)
+        assert result["linear"] is LinearMap
 
     def test_register_duplicate_different_raises(self):
         """Registering a different class for an existing name raises ValueError."""
@@ -2055,9 +2067,42 @@ class TestMapTypeRegistry:
         with pytest.raises(TypeError, match="cls must be a Map subclass"):
             register_map_type("bad", str)
 
+    def test_register_chaining(self):
+        """Multiple registrations can be chained via the registry parameter."""
+        from ucon.packages import register_map_type
+        from ucon.maps import Map
+        from dataclasses import dataclass
+
+        @dataclass(frozen=True)
+        class MapA(Map):
+            _map_type = "a"
+            def __call__(self, x): return x
+            @property
+            def invertible(self): return True
+            def inverse(self): return self
+            def __matmul__(self, other): return self
+            def __pow__(self, n): return self
+            def derivative(self, x): return 1.0
+
+        @dataclass(frozen=True)
+        class MapB(Map):
+            _map_type = "b"
+            def __call__(self, x): return x
+            @property
+            def invertible(self): return True
+            def inverse(self): return self
+            def __matmul__(self, other): return self
+            def __pow__(self, n): return self
+            def derivative(self, x): return 1.0
+
+        reg = register_map_type("a", MapA)
+        reg = register_map_type("b", MapB, registry=reg)
+        assert "a" in reg and "b" in reg
+        assert "linear" in reg  # built-ins preserved
+
     def test_roundtrip_custom_map(self, tmp_path):
-        """Custom Map subclass survives export/import after registration."""
-        from ucon.packages import MAP_TYPES, register_map_type
+        """Custom Map subclass survives export/import with custom registry."""
+        from ucon.packages import register_map_type
         from ucon.maps import Map
         from ucon import units
         from ucon.core import UnitFactor, Scale, UnitProduct
@@ -2078,7 +2123,7 @@ class TestMapTypeRegistry:
                 raise ValueError
             def derivative(self, x): return self.a
 
-        register_map_type("test_scale_rt", ScaleMap)
+        custom_types = register_map_type("test_scale_rt", ScaleMap)
 
         graph = get_default_graph()
         prod_m = UnitProduct({UnitFactor(units.meter, Scale.one): 1})
@@ -2087,7 +2132,5 @@ class TestMapTypeRegistry:
 
         path = tmp_path / "custom_map.ucon.toml"
         graph.to_toml(path)
-        restored = ConversionGraph.from_toml(path)
+        restored = ConversionGraph.from_toml(path, map_types=custom_types)
         assert graph == restored
-        # Cleanup
-        del MAP_TYPES["test_scale_rt"]

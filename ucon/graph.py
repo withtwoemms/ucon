@@ -986,7 +986,7 @@ class ConversionGraph:
         to_toml(self, path)
 
     @classmethod
-    def from_toml(cls, path: Union[str, 'Path'], *, strict: bool = True) -> 'ConversionGraph':
+    def from_toml(cls, path: Union[str, 'Path'], *, strict: bool = True, map_types=None) -> 'ConversionGraph':
         """Import a graph from a TOML file.
 
         Parameters
@@ -997,6 +997,11 @@ class ConversionGraph:
             When ``True`` (default), raise ``GraphLoadError`` if any edge
             references an unresolvable unit.  When ``False``, silently skip
             unresolvable edges.
+        map_types : mapping, optional
+            Map-type registry.  Defaults to the built-in
+            :data:`MAP_TYPES`.  Pass a custom registry (from
+            :func:`register_map_type`) to deserialize graphs containing
+            custom map types.
 
         Returns
         -------
@@ -1004,7 +1009,7 @@ class ConversionGraph:
             The reconstructed graph.
         """
         from ucon.serialization import from_toml
-        return from_toml(path, strict=strict)
+        return from_toml(path, strict=strict, map_types=map_types)
 
     # ------------- Equality ---------------------------------------------------
 

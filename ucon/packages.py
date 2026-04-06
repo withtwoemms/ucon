@@ -48,6 +48,7 @@ from typing import TYPE_CHECKING
 
 import ast
 import operator
+from types import MappingProxyType
 
 from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
@@ -178,17 +179,25 @@ class UnitDef:
         )
 
 
-MAP_TYPES: dict[str, type[Map]] = {
+MAP_TYPES: MappingProxyType = MappingProxyType({
     'linear': LinearMap,
     'affine': AffineMap,
     'log': LogMap,
     'exp': ExpMap,
     'reciprocal': ReciprocalMap,
-}
+})
 
 
-def register_map_type(type_name: str, cls: type) -> None:
-    """Register a custom Map subclass for TOML deserialization.
+def register_map_type(
+    type_name: str,
+    cls: type,
+    registry: dict[str, type[Map]] | None = None,
+) -> dict[str, type[Map]]:
+    """Create a new map-type registry with an additional entry.
+
+    Does **not** mutate any global state.  Returns a plain ``dict``
+    that can be passed to :func:`from_toml` via the *map_types*
+    parameter.
 
     Parameters
     ----------
@@ -196,25 +205,38 @@ def register_map_type(type_name: str, cls: type) -> None:
         The string identifier used in TOML ``type`` fields.
     cls : type
         A :class:`Map` subclass.
+    registry : dict, optional
+        Base registry to extend.  Defaults to the built-in
+        :data:`MAP_TYPES`.  Pass a previously returned registry to
+        chain multiple registrations.
+
+    Returns
+    -------
+    dict[str, type[Map]]
+        A **new** dict containing all entries from *registry* plus the
+        new *(type_name, cls)* pair.
 
     Raises
     ------
     TypeError
         If *cls* is not a Map subclass.
     ValueError
-        If *type_name* is already registered to a different class.
+        If *type_name* is already present in *registry* and maps to a
+        different class.
     """
     if not (isinstance(cls, type) and issubclass(cls, Map)):
         raise TypeError(f"cls must be a Map subclass, got {cls}")
-    existing = MAP_TYPES.get(type_name)
+    base = dict(registry) if registry is not None else dict(MAP_TYPES)
+    existing = base.get(type_name)
     if existing is not None and existing is not cls:
         raise ValueError(
             f"Map type '{type_name}' already registered to {existing.__name__}"
         )
-    MAP_TYPES[type_name] = cls
+    base[type_name] = cls
+    return base
 
 
-def _build_map(map_spec: dict) -> Map:
+def _build_map(map_spec: dict, map_types=None) -> Map:
     """Build a Map from a TOML inline table specification.
 
     Parameters
@@ -222,6 +244,9 @@ def _build_map(map_spec: dict) -> Map:
     map_spec : dict
         Must contain a ``type`` key selecting the map class.
         Remaining keys are passed as constructor arguments.
+    map_types : mapping, optional
+        Unit-type registry mapping type-name strings to :class:`Map`
+        subclasses.  Defaults to the built-in :data:`MAP_TYPES`.
 
     Returns
     -------
@@ -233,6 +258,8 @@ def _build_map(map_spec: dict) -> Map:
     PackageLoadError
         If the type is unknown or constructor arguments are invalid.
     """
+    if map_types is None:
+        map_types = MAP_TYPES
     spec = dict(map_spec)  # Shallow copy to pop from
     map_type = spec.pop('type', None)
     if map_type is None:
@@ -247,15 +274,15 @@ def _build_map(map_spec: dict) -> Map:
                 "Composed map requires 'outer' and 'inner' keys"
             )
         return ComposedMap(
-            outer=_build_map(outer_spec),
-            inner=_build_map(inner_spec),
+            outer=_build_map(outer_spec, map_types=map_types),
+            inner=_build_map(inner_spec, map_types=map_types),
         )
 
-    cls = MAP_TYPES.get(map_type)
+    cls = map_types.get(map_type)
     if cls is None:
         raise PackageLoadError(
             f"Unknown map type '{map_type}'. "
-            f"Valid types: {', '.join(sorted(MAP_TYPES))}, composed"
+            f"Valid types: {', '.join(sorted(map_types))}, composed"
         )
 
     try:
@@ -304,8 +331,13 @@ class EdgeDef:
     offset: float = 0.0
     map_spec: dict | None = None
 
-    def _build_edge_map(self) -> Map:
+    def _build_edge_map(self, map_types=None) -> Map:
         """Build the Map for this edge.
+
+        Parameters
+        ----------
+        map_types : mapping, optional
+            Map-type registry.  Defaults to :data:`MAP_TYPES`.
 
         Returns
         -------
@@ -313,13 +345,13 @@ class EdgeDef:
             A LinearMap, AffineMap, LogMap, or ReciprocalMap.
         """
         if self.map_spec is not None:
-            return _build_map(self.map_spec)
+            return _build_map(self.map_spec, map_types=map_types)
 
         if self.offset != 0.0:
             return AffineMap(self.factor, self.offset)
         return LinearMap(self.factor)
 
-    def materialize(self, graph: 'ConversionGraph'):
+    def materialize(self, graph: 'ConversionGraph', *, map_types=None):
         """Resolve units and add edge to graph.
 
         Parameters
@@ -327,6 +359,8 @@ class EdgeDef:
         graph : ConversionGraph
             The graph to add the edge to. Units are resolved
             using the graph's name registry.
+        map_types : mapping, optional
+            Map-type registry.  Defaults to :data:`MAP_TYPES`.
 
         Raises
         ------
@@ -351,7 +385,7 @@ class EdgeDef:
                     f"Cannot resolve destination unit '{self.dst}' in edge"
                 )
 
-        graph.add_edge(src=src_unit, dst=dst_unit, map=self._build_edge_map())
+        graph.add_edge(src=src_unit, dst=dst_unit, map=self._build_edge_map(map_types=map_types))
 
 
 @dataclass(frozen=True)
