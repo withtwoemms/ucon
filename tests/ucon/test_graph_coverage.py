@@ -35,7 +35,7 @@ from ucon.graph import (
     reset_default_graph,
     using_graph,
 )
-from ucon.maps import LinearMap, AffineMap
+from ucon.maps import LinearMap, AffineMap, Map
 
 
 # -----------------------------------------------------------------------
@@ -851,6 +851,596 @@ class TestFactorwisePseudoDimIsolation(unittest.TestCase):
 
         with self.assertRaises((ConversionNotFound, DimensionMismatch)):
             graph._convert_factorwise(src=src, dst=dst)
+
+
+# -----------------------------------------------------------------------
+# Helper: stub Map subclass for testing _maps_equal fallbacks
+# -----------------------------------------------------------------------
+class _StubMap(Map):
+    """Minimal concrete Map subclass for testing."""
+
+    def __init__(self, fn, name="stub"):
+        object.__setattr__(self, '_fn', fn)
+        object.__setattr__(self, '_name', name)
+
+    def __call__(self, x):
+        return self._fn(x)
+
+    @property
+    def invertible(self):
+        return True
+
+    def inverse(self):
+        return self
+
+    def __matmul__(self, other):
+        from ucon.maps import ComposedMap
+        return ComposedMap(outer=self, inner=other)
+
+    def __pow__(self, n):
+        return self
+
+    def derivative(self, x):
+        return 1.0
+
+
+# -----------------------------------------------------------------------
+# _maps_equal: fallback branches
+# Covers lines 1024, 1032, 1034, 1042, 1044-1045
+# -----------------------------------------------------------------------
+class TestMapsEqualFallbacks(unittest.TestCase):
+    """Test _maps_equal fallback evaluation points for exotic maps."""
+
+    def test_first_try_false_at_zero(self):
+        """Line 1024: maps agree at 1.0 but differ at 0.0."""
+        m1 = LinearMap(1)  # identity: 1->1, 0->0
+        m2 = _StubMap(lambda x: 999.0 if x == 0.0 else x)  # 1->1, 0->999
+        # m1(1)=1, m2(1)=1 → pass first check
+        # m1(0)=0, m2(0)=999 → differ → return False (line 1024)
+        self.assertFalse(ConversionGraph._maps_equal(m1, m2))
+
+    def test_fallback_to_second_try_block(self):
+        """Lines 1032, 1034: first try raises at 0.0, second try succeeds."""
+        from ucon.maps import LogMap
+        # LogMap raises ValueError at x=0.0 (log(0) is undefined).
+        m1 = LogMap(scale=10)  # 10 * log10(x)
+        m2 = LogMap(scale=20)  # 20 * log10(x)
+        # First try: m1(1.0)=0, m2(1.0)=0 → agree. m1(0.0) → ValueError → except.
+        # Second try: m1(1.0)=0, m2(1.0)=0 → agree. m1(2.0)≈3.01, m2(2.0)≈6.02 → differ.
+        # Line 1034: return False
+        self.assertFalse(ConversionGraph._maps_equal(m1, m2))
+
+    def test_fallback_second_try_equal(self):
+        """Second try block returns True when maps agree at 1.0 and 2.0."""
+        from ucon.maps import LogMap
+        m1 = LogMap(scale=10)
+        m2 = LogMap(scale=10)  # identical
+        # First try raises at 0.0, second try checks 1.0 and 2.0 → agree → True
+        self.assertTrue(ConversionGraph._maps_equal(m1, m2))
+
+    def test_fallback_second_try_differ_at_one(self):
+        """Line 1032: maps differ at 1.0 in the second try block.
+
+        To reach line 1032, the first try must raise (sending us to second try),
+        and then the maps must disagree at 1.0. A map that raises at 1.0 on
+        first call but returns a value on subsequent calls creates this scenario.
+        """
+        call_count = [0]
+
+        def fn_flaky(x):
+            if x == 1.0:
+                call_count[0] += 1
+                if call_count[0] <= 1:
+                    raise ValueError("first call at 1.0 raises")
+                return 999.0  # second call returns different value
+            if x == 0.0:
+                raise ValueError("always fails at 0")
+            return x
+
+        m1 = _StubMap(fn_flaky)
+        m2 = LinearMap(1)  # always returns x: 1.0→1.0
+
+        # First try: m1(1.0) raises → except (call_count=1)
+        # Second try: m1(1.0) returns 999.0 (call_count=2), m2(1.0) returns 1.0
+        # abs(999 - 1) > 1e-9 → line 1032: return False
+        self.assertFalse(ConversionGraph._maps_equal(m1, m2))
+
+    def test_fallback_third_try_differ_at_half(self):
+        """Line 1042: third try block, maps differ at 0.5."""
+        def fn1(x):
+            if x == 0.0 or x == 1.0:
+                raise ValueError("bad")
+            return x * 2.0
+        def fn2(x):
+            if x == 0.0 or x == 1.0:
+                raise ValueError("bad")
+            return x * 3.0
+        m1 = _StubMap(fn1)
+        m2 = _StubMap(fn2)
+        # First try: raises at 1.0 → except → second try: raises at 1.0 → except
+        # Third try: 0.5*2=1.0, 0.5*3=1.5 → differ → line 1042: return False
+        self.assertFalse(ConversionGraph._maps_equal(m1, m2))
+
+    def test_fallback_third_try_equal(self):
+        """Lines 1044-1045: third try block, maps agree at 0.5 and 2.0."""
+        def fn(x):
+            if x == 0.0 or x == 1.0:
+                raise ValueError("bad")
+            return x * 2.0
+
+        m1 = _StubMap(fn)
+        m2 = _StubMap(fn)
+        # First try: raises at 1.0 → second try: raises at 1.0
+        # Third try: 0.5*2=1.0 agree, 2.0*2=4.0 agree → True (line 1045)
+        self.assertTrue(ConversionGraph._maps_equal(m1, m2))
+
+    def test_fallback_third_try_differ_at_two(self):
+        """Line 1044: third try block, maps agree at 0.5 but differ at 2.0."""
+        def fn1(x):
+            if x == 0.0 or x == 1.0:
+                raise ValueError("bad")
+            if x == 2.0:
+                return 100.0
+            return x
+
+        def fn2(x):
+            if x == 0.0 or x == 1.0:
+                raise ValueError("bad")
+            if x == 2.0:
+                return 200.0
+            return x
+
+        m1 = _StubMap(fn1)  # 0.5->0.5, 2.0->100
+        m2 = _StubMap(fn2)  # 0.5->0.5, 2.0->200
+        # Third try: agree at 0.5, differ at 2.0 → line 1044
+        self.assertFalse(ConversionGraph._maps_equal(m1, m2))
+
+    def test_all_points_raise_falls_back_to_type_check(self):
+        """Line 1048: all evaluation points raise, falls back to type comparison."""
+        m1 = _StubMap(lambda x: (_ for _ in ()).throw(ValueError("always")))
+        m2 = _StubMap(lambda x: (_ for _ in ()).throw(ValueError("always")))
+
+        # The lambda approach above is tricky; use a direct raising function
+        def always_raise(x):
+            raise ValueError("always fails")
+
+        m1 = _StubMap(always_raise, "a")
+        m2 = _StubMap(always_raise, "b")
+        # All three try blocks raise → type(m1) is type(m2) → True
+        self.assertTrue(ConversionGraph._maps_equal(m1, m2))
+
+        # Different types → False
+        m3 = LinearMap(1)
+        self.assertFalse(ConversionGraph._maps_equal(m1, m3))
+
+
+# -----------------------------------------------------------------------
+# _cross_basis_edge_signature: early-continue branches
+# Covers lines 1075, 1077, 1082
+# -----------------------------------------------------------------------
+class TestCrossBasisEdgeSignature(unittest.TestCase):
+    """Test early-continue branches in _cross_basis_edge_signature."""
+
+    def _make_rebased(self, original, bt, rebased_dim=None):
+        """Create a RebasedUnit with proper rebased_dimension."""
+        if rebased_dim is None:
+            rebased_dim = original.dimension
+        return RebasedUnit(
+            original=original,
+            rebased_dimension=rebased_dim,
+            basis_transform=bt,
+        )
+
+    def test_dimension_not_in_edges(self):
+        """Line 1075: rebased unit's dimension not in _unit_edges."""
+        graph = ConversionGraph()
+        bt = BasisTransform.identity(SI)
+        rebased = self._make_rebased(units.meter, bt)
+        # Don't add the rebased dimension to _unit_edges
+        sig = graph._cross_basis_edge_signature([rebased])
+        self.assertEqual(sig, {})
+
+    def test_rebased_not_in_dimension_edges(self):
+        """Line 1077: rebased unit's dimension exists but rebased not a source."""
+        graph = ConversionGraph()
+        bt = BasisTransform.identity(SI)
+        rebased = self._make_rebased(units.meter, bt)
+        dim = rebased.dimension
+        graph._ensure_dimension(dim)
+        # Dimension exists in edges but rebased is not a source node
+        sig = graph._cross_basis_edge_signature([rebased])
+        self.assertEqual(sig, {})
+
+    def test_rebased_destination_skipped(self):
+        """Line 1082: destinations that are RebasedUnit are skipped."""
+        graph = ConversionGraph()
+        bt = BasisTransform.identity(SI)
+        rebased_src = self._make_rebased(units.meter, bt)
+        rebased_dst = self._make_rebased(units.foot, bt)
+        dim = rebased_src.dimension
+        graph._ensure_dimension(dim)
+        # Add an edge from rebased_src to rebased_dst (not to a plain Unit)
+        graph._unit_edges[dim][rebased_src] = {rebased_dst: LinearMap(3.28084)}
+        sig = graph._cross_basis_edge_signature([rebased_src])
+        # rebased_dst is a RebasedUnit → skipped → empty signature
+        self.assertEqual(sig, {})
+
+    def test_non_rebased_destination_included(self):
+        """Normal case: non-rebased destinations are included in signature."""
+        graph = ConversionGraph()
+        bt = BasisTransform.identity(SI)
+        rebased_src = self._make_rebased(units.meter, bt)
+        dim = rebased_src.dimension
+        graph._ensure_dimension(dim)
+        # Add an edge from rebased_src to a plain Unit
+        graph._unit_edges[dim][rebased_src] = {units.foot: LinearMap(3.28084)}
+        sig = graph._cross_basis_edge_signature([rebased_src])
+        expected_key = ("meter", "foot", "SI_TO_SI")
+        self.assertIn(expected_key, sig)
+
+
+# -----------------------------------------------------------------------
+# __eq__: inequality branches
+# Covers lines 1095, 1099, 1116, 1133, 1147, 1153, 1157, 1165, 1169,
+#         1173, 1180, 1188, 1192, 1194, 1197, 1199, 1201
+# -----------------------------------------------------------------------
+class TestGraphEquality(unittest.TestCase):
+    """Test __eq__ returns False for each structural mismatch."""
+
+    def _make_minimal_graph(self):
+        """Create a minimal graph with known structure for comparison."""
+        g = ConversionGraph()
+        g.register_unit(units.meter)
+        g.register_unit(units.foot)
+        g.add_edge(src=units.meter, dst=units.foot, map=LinearMap(3.28084))
+        return g
+
+    def test_not_a_graph(self):
+        """Line 1095: comparing with non-ConversionGraph returns NotImplemented."""
+        g = self._make_minimal_graph()
+        result = g.__eq__("not a graph")
+        self.assertIs(result, NotImplemented)
+
+    def test_name_registry_mismatch(self):
+        """Line 1099: different registered unit names."""
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        extra = Unit(name="extra_unit", dimension=Dimension.length)
+        g2.register_unit(extra)
+        self.assertNotEqual(g1, g2)
+
+    def test_loaded_packages_mismatch(self):
+        """Line 1103: different loaded packages."""
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        g2._loaded_packages = frozenset({"some_package"})
+        self.assertNotEqual(g1, g2)
+
+    def test_constants_length_mismatch(self):
+        """Line 1107: different number of constants."""
+        from ucon.constants import Constant
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        c = Constant(
+            symbol="x", name="test", value=1.0,
+            unit=units.meter, uncertainty=None,
+            source="test", category="session",
+        )
+        g2._package_constants = (c,)
+        self.assertNotEqual(g1, g2)
+
+    def test_constants_field_mismatch(self):
+        """Line 1113: same number of constants but different fields."""
+        from ucon.constants import Constant
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        c1 = Constant(
+            symbol="x", name="test", value=1.0,
+            unit=units.meter, uncertainty=None,
+            source="test", category="session",
+        )
+        c2 = Constant(
+            symbol="y", name="test2", value=2.0,
+            unit=units.meter, uncertainty=None,
+            source="test", category="session",
+        )
+        g1._package_constants = (c1,)
+        g2._package_constants = (c2,)
+        self.assertNotEqual(g1, g2)
+
+    def test_constants_unit_dimension_mismatch(self):
+        """Line 1116: constants have same fields but different unit dimensions."""
+        from ucon.constants import Constant
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        c1 = Constant(
+            symbol="x", name="test", value=1.0,
+            unit=units.meter, uncertainty=None,
+            source="test", category="session",
+        )
+        c2 = Constant(
+            symbol="x", name="test", value=1.0,
+            unit=units.second, uncertainty=None,
+            source="test", category="session",
+        )
+        g1._package_constants = (c1,)
+        g2._package_constants = (c2,)
+        self.assertNotEqual(g1, g2)
+
+    def test_basis_graph_one_none(self):
+        """Line 1120: one graph has basis_graph, other doesn't."""
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        g1._basis_graph = BasisGraph()
+        g2._basis_graph = None
+        self.assertNotEqual(g1, g2)
+
+    def test_basis_graph_edge_mismatch(self):
+        """Line 1133: both have basis_graphs but with different edges."""
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        bg1 = BasisGraph()
+        bg2 = BasisGraph()
+        bg1.add_transform(CGS_TO_SI)
+        # bg2 has no connections
+        g1._basis_graph = bg1
+        g2._basis_graph = bg2
+        self.assertNotEqual(g1, g2)
+
+    def test_dimension_set_mismatch(self):
+        """Line 1139/1147: different dimension sets in unit edges."""
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        # Add a time dimension to g2 only
+        t = units.second
+        g2.register_unit(t)
+        g2._ensure_dimension(Dimension.time)
+        g2._unit_edges[Dimension.time][t] = {}
+        g2.add_edge(src=units.second, dst=units.second, map=LinearMap(1))
+        self.assertNotEqual(g1, g2)
+
+    def test_src_node_mismatch(self):
+        """Line 1147: same dimensions but different source units."""
+        g1 = ConversionGraph()
+        g2 = ConversionGraph()
+        a = Unit(name="a_len", dimension=Dimension.length)
+        b = Unit(name="b_len", dimension=Dimension.length)
+        c = Unit(name="c_len", dimension=Dimension.length)
+        g1.register_unit(a)
+        g1.register_unit(b)
+        g1.register_unit(c)
+        g2.register_unit(a)
+        g2.register_unit(b)
+        g2.register_unit(c)
+        g1.add_edge(src=a, dst=b, map=LinearMap(2))
+        g2.add_edge(src=a, dst=c, map=LinearMap(3))
+        # g1 has {a: {b: ...}, b: {a: ...}} but g2 has {a: {c: ...}, c: {a: ...}}
+        self.assertNotEqual(g1, g2)
+
+    def test_dst_node_mismatch(self):
+        """Line 1153: same source nodes but different destinations for a source.
+
+        Directly manipulate _unit_edges to create the exact scenario
+        where src nodes match but dst nodes for a given src differ,
+        avoiding add_edge's bidirectional insertion.
+        """
+        g1 = ConversionGraph()
+        g2 = ConversionGraph()
+        a = Unit(name="d_len", dimension=Dimension.length)
+        b = Unit(name="e_len", dimension=Dimension.length)
+        c = Unit(name="f_len", dimension=Dimension.length)
+        for g in (g1, g2):
+            g.register_unit(a)
+            g.register_unit(b)
+            g.register_unit(c)
+            g._ensure_dimension(Dimension.length)
+        # Both have same src nodes: {a}
+        # g1: a→{b}, g2: a→{c}
+        g1._unit_edges[Dimension.length] = {a: {b: LinearMap(2)}}
+        g2._unit_edges[Dimension.length] = {a: {c: LinearMap(3)}}
+        self.assertNotEqual(g1, g2)
+
+    def test_map_mismatch(self):
+        """Line 1157: same structure but different conversion maps."""
+        g1 = ConversionGraph()
+        g2 = ConversionGraph()
+        a = Unit(name="g_len", dimension=Dimension.length)
+        b = Unit(name="h_len", dimension=Dimension.length)
+        g1.register_unit(a)
+        g1.register_unit(b)
+        g2.register_unit(a)
+        g2.register_unit(b)
+        g1.add_edge(src=a, dst=b, map=LinearMap(2))
+        g2.add_edge(src=a, dst=b, map=LinearMap(5))
+        self.assertNotEqual(g1, g2)
+
+    def test_product_edge_key_mismatch(self):
+        """Line 1161/1165: different product edge source keys."""
+        g1 = ConversionGraph()
+        g2 = ConversionGraph()
+        a = Unit(name="vol_x", dimension=Dimension.volume)
+        b = Unit(name="vol_y", dimension=Dimension.volume)
+        c = Unit(name="vol_z", dimension=Dimension.volume)
+        pa = UnitProduct.from_unit(a)
+        pb = UnitProduct.from_unit(b)
+        pc = UnitProduct.from_unit(c)
+        g1.add_edge(src=pa, dst=pb, map=LinearMap(2))
+        g2.add_edge(src=pa, dst=pc, map=LinearMap(3))
+        self.assertNotEqual(g1, g2)
+
+    def test_product_edge_dst_mismatch(self):
+        """Line 1165: same product src keys but different destinations.
+
+        Directly manipulate _product_edges to create the exact scenario
+        where src keys match but dst keys for a given src differ.
+        """
+        g1 = ConversionGraph()
+        g2 = ConversionGraph()
+        a = Unit(name="vol_p", dimension=Dimension.volume)
+        b = Unit(name="vol_q", dimension=Dimension.volume)
+        c = Unit(name="vol_r", dimension=Dimension.volume)
+        pa = UnitProduct.from_unit(a)
+        pb = UnitProduct.from_unit(b)
+        pc = UnitProduct.from_unit(c)
+        ka = g1._product_key(pa)
+        kb = g1._product_key(pb)
+        kc = g1._product_key(pc)
+        # Both have same src key: {ka}
+        # g1: ka→{kb}, g2: ka→{kc}
+        g1._product_edges = {ka: {kb: LinearMap(2)}}
+        g2._product_edges = {ka: {kc: LinearMap(3)}}
+        self.assertNotEqual(g1, g2)
+
+    def test_product_edge_map_mismatch(self):
+        """Line 1169: same product structure but different maps."""
+        g1 = ConversionGraph()
+        g2 = ConversionGraph()
+        a = Unit(name="vol_m", dimension=Dimension.volume)
+        b = Unit(name="vol_n", dimension=Dimension.volume)
+        pa = UnitProduct.from_unit(a)
+        pb = UnitProduct.from_unit(b)
+        g1.add_edge(src=pa, dst=pb, map=LinearMap(2))
+        g2.add_edge(src=pa, dst=pb, map=LinearMap(7))
+        self.assertNotEqual(g1, g2)
+
+    def _make_rebased(self, original, bt, rebased_dim=None):
+        """Create a RebasedUnit with proper rebased_dimension."""
+        if rebased_dim is None:
+            rebased_dim = original.dimension
+        return RebasedUnit(
+            original=original,
+            rebased_dimension=rebased_dim,
+            basis_transform=bt,
+        )
+
+    def test_rebased_key_mismatch(self):
+        """Line 1173: different rebased unit original keys."""
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        bt = BasisTransform.identity(SI)
+        r1 = self._make_rebased(units.meter, bt)
+        r2 = self._make_rebased(units.second, bt)
+        g1._rebased = {units.meter: [r1]}
+        g2._rebased = {units.second: [r2]}
+        self.assertNotEqual(g1, g2)
+
+    def test_rebased_edge_signature_key_mismatch(self):
+        """Line 1180: same rebased keys but different edge signatures."""
+        g1 = ConversionGraph()
+        g2 = ConversionGraph()
+        bt = BasisTransform.identity(SI)
+        r = self._make_rebased(units.meter, bt)
+        dim = r.dimension
+        # g1: rebased meter → foot
+        g1._ensure_dimension(dim)
+        g1._unit_edges[dim][r] = {units.foot: LinearMap(3.28084)}
+        g1._rebased = {units.meter: [r]}
+        # g2: rebased meter → inch (different destination)
+        inch = Unit(name="test_inch_eq", dimension=Dimension.length)
+        g2._ensure_dimension(dim)
+        g2._unit_edges[dim][r] = {inch: LinearMap(39.3701)}
+        g2._rebased = {units.meter: [r]}
+        self.assertNotEqual(g1, g2)
+
+    def test_rebased_edge_map_mismatch(self):
+        """Line 1184: same rebased signature keys but different maps."""
+        g1 = ConversionGraph()
+        g2 = ConversionGraph()
+        bt = BasisTransform.identity(SI)
+        r = self._make_rebased(units.meter, bt)
+        dim = r.dimension
+        g1._ensure_dimension(dim)
+        g1._unit_edges[dim][r] = {units.foot: LinearMap(3.28084)}
+        g1._rebased = {units.meter: [r]}
+        g2._ensure_dimension(dim)
+        g2._unit_edges[dim][r] = {units.foot: LinearMap(999.0)}
+        g2._rebased = {units.meter: [r]}
+        self.assertNotEqual(g1, g2)
+
+    def test_context_key_mismatch(self):
+        """Line 1188: different context names."""
+        from ucon.contexts import ConversionContext, ContextEdge
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        ctx = ConversionContext(
+            name="test_ctx",
+            edges=(
+                ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458)),
+            ),
+            description="test context",
+        )
+        g1.register_context(ctx)
+        self.assertNotEqual(g1, g2)
+
+    def test_context_description_mismatch(self):
+        """Line 1192: same context name but different descriptions."""
+        from ucon.contexts import ConversionContext, ContextEdge
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        edge = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
+        ctx1 = ConversionContext(name="ctx", edges=(edge,), description="alpha")
+        ctx2 = ConversionContext(name="ctx", edges=(edge,), description="beta")
+        g1.register_context(ctx1)
+        g2.register_context(ctx2)
+        self.assertNotEqual(g1, g2)
+
+    def test_context_edge_count_mismatch(self):
+        """Line 1194: same context name but different number of edges."""
+        from ucon.contexts import ConversionContext, ContextEdge
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        edge1 = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
+        edge2 = ContextEdge(src=units.second, dst=units.hertz, map=LinearMap(1))
+        ctx1 = ConversionContext(name="ctx", edges=(edge1,))
+        ctx2 = ConversionContext(name="ctx", edges=(edge1, edge2))
+        g1.register_context(ctx1)
+        g2.register_context(ctx2)
+        self.assertNotEqual(g1, g2)
+
+    def test_context_edge_src_mismatch(self):
+        """Line 1197: same context structure but different edge source."""
+        from ucon.contexts import ConversionContext, ContextEdge
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        edge1 = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
+        edge2 = ContextEdge(src=units.foot, dst=units.hertz, map=LinearMap(299792458))
+        ctx1 = ConversionContext(name="ctx", edges=(edge1,))
+        ctx2 = ConversionContext(name="ctx", edges=(edge2,))
+        g1.register_context(ctx1)
+        g2.register_context(ctx2)
+        self.assertNotEqual(g1, g2)
+
+    def test_context_edge_dst_mismatch(self):
+        """Line 1199: same context structure but different edge destination."""
+        from ucon.contexts import ConversionContext, ContextEdge
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        edge1 = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
+        edge2 = ContextEdge(src=units.meter, dst=units.second, map=LinearMap(299792458))
+        ctx1 = ConversionContext(name="ctx", edges=(edge1,))
+        ctx2 = ConversionContext(name="ctx", edges=(edge2,))
+        g1.register_context(ctx1)
+        g2.register_context(ctx2)
+        self.assertNotEqual(g1, g2)
+
+    def test_context_edge_map_mismatch(self):
+        """Line 1201: same context structure but different edge map."""
+        from ucon.contexts import ConversionContext, ContextEdge
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        edge1 = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
+        edge2 = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(42))
+        ctx1 = ConversionContext(name="ctx", edges=(edge1,))
+        ctx2 = ConversionContext(name="ctx", edges=(edge2,))
+        g1.register_context(ctx1)
+        g2.register_context(ctx2)
+        self.assertNotEqual(g1, g2)
+
+    def test_equal_graphs(self):
+        """Positive case: structurally identical graphs are equal."""
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        self.assertEqual(g1, g2)
 
 
 if __name__ == '__main__':
