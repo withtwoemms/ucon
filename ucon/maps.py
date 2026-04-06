@@ -121,7 +121,11 @@ class Map(ABC):
         return abs(self(1.0) - 1.0) < tol and abs(self(0.0) - 0.0) < tol
 
     def to_dict(self) -> dict:
-        """Serialize this map to a TOML-friendly dict."""
+        """Serialize this map to a TOML-friendly dict.
+
+        Map-valued fields are recursively serialized via their own
+        ``to_dict()``.  Lists are handled element-wise.
+        """
         if not hasattr(self, '_map_type'):
             raise TypeError(
                 f"Cannot serialize map type: {type(self).__name__}. "
@@ -132,7 +136,12 @@ class Map(ABC):
         for f in dc_fields(self):
             if f.name.startswith('_'):
                 continue
-            d[f.name] = getattr(self, f.name)
+            val = getattr(self, f.name)
+            if isinstance(val, Map):
+                val = val.to_dict()
+            elif isinstance(val, list):
+                val = [v.to_dict() if isinstance(v, Map) else v for v in val]
+            d[f.name] = val
         return d
 
 
