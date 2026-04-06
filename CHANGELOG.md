@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.2.0] - 2026-04-04
+## [1.2.0] - 2026-04-06
 
 ### Added
 
@@ -22,7 +22,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GraphLoadError` exception for structured error reporting during TOML import
 - Strict parsing mode on `from_toml()` (default `strict=True`)
   - Raises `GraphLoadError` on unresolvable unit references in edges, product edges, and cross-basis edges
-  - `strict=False` silently skips unresolvable edges for forward-compatible loading
+  - `strict=False` warns and skips unresolvable edges for forward-compatible loading
+- Format version validation in `from_toml()`
+  - Major version mismatch raises `GraphLoadError`
+  - Newer minor version emits `UserWarning`
+  - Missing `format_version` or `[package]` table accepted for backward compatibility
+- Product expression grammar with `/` division support
+  - Parser: `meter/second`, `mg/kg/day`, `kg*m/s^2` all parse correctly
+  - Left-to-right arithmetic precedence (`*` and `/` are left-associative)
+  - Invalid exponents raise `GraphLoadError` (previously returned `None`)
+  - Emitter: uses `/` notation when there are both positive and negative exponents
+- Implicit `Map` subclass discovery for TOML deserialization
+  - Any imported `Map` subclass with a `_map_type` class attribute is automatically deserializable
+  - `_build_map()` recursively resolves nested map specs (dicts with `"type"` keys)
+  - Custom `Map` subclasses need only define `_map_type` and be imported before `from_toml()`
+- `Map.to_dict()` base implementation with recursive serialization
+  - Introspects dataclass fields, skips `_`-prefixed attributes
+  - Recursively serializes `Map`-valued fields and lists containing `Map` instances
+  - Subclasses may override to omit default values (e.g., `LogMap`, `ExpMap`)
+- `_map_type` class attribute on all concrete `Map` subclasses: `LinearMap` (`"linear"`),
+  `AffineMap` (`"affine"`), `LogMap` (`"log"`), `ExpMap` (`"exp"`),
+  `ReciprocalMap` (`"reciprocal"`), `ComposedMap` (`"composed"`)
 - `ConversionGraph.register_context()` for attaching named `ConversionContext` objects to a graph
 - `ConversionGraph.__eq__` with comprehensive field comparison
   - Symmetric unit-edge comparison across all dimension partitions
@@ -42,6 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Product expression parsing (`_parse_product_expression`) uses `get_unit_by_name()` as primary resolver
   - Scale-prefixed names (e.g., `kwatt`) now decompose correctly into `UnitFactor` with proper `Scale`
   - Falls back to `_resolve_unit()` when the full resolver is unavailable
+- Map deserialization uses implicit subclass discovery instead of an explicit registry
+  - `_build_map()` walks `Map.__subclasses__()` to find the class matching the `"type"` key
+  - No registry to manage; defining `_map_type` on a subclass is sufficient
 - Updated `docs/external/ucon-tools` submodule from 0.2.1 to 0.3.2
 
 ## [1.1.2] - 2026-04-03
