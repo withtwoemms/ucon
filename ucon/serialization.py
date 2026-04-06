@@ -225,7 +225,7 @@ def _product_key_to_expression(key: tuple) -> str:
 
     num_expr = "*".join(num_parts)
     if den_parts:
-        den_expr = "*".join(den_parts)
+        den_expr = "/".join(den_parts)
         return f"{num_expr}/{den_expr}"
     return num_expr
 
@@ -929,59 +929,35 @@ def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:
     return LinearMap(a=factor)
 
 
-def _parse_factors(
-    s: str,
-    expr: str,
+def _resolve_single_factor(
+    unit_name: str,
     unit_map: dict[str, Unit],
     graph,
-) -> dict:
-    """Parse a ``*``-separated list of factors into a {UnitFactor: exponent} dict.
+) -> Union[dict, None]:
+    """Resolve a single unit name to a ``{UnitFactor: exponent}`` dict.
 
-    Raises :class:`GraphLoadError` on invalid exponents.
-    Returns ``None`` for unresolvable unit names (caller decides how to handle).
+    Uses ``get_unit_by_name()`` first (handles scale prefixes like
+    ``"kwatt"`` → ``UnitFactor(watt, kilo)``), then falls back to local
+    resolution via *unit_map* / *graph*.
+
+    Returns ``None`` if the unit cannot be resolved.
     """
     from ucon.resolver import get_unit_by_name
 
-    factors: dict = {}
-    parts = s.split("*")
-    for part in parts:
-        part = part.strip()
-        if not part:
-            continue
-        # Check for exponent
-        if "^" in part:
-            unit_name, exp_str = part.rsplit("^", 1)
-            try:
-                exp = float(exp_str.strip())
-            except ValueError:
-                raise GraphLoadError(
-                    f"Invalid exponent '{exp_str.strip()}' in product expression '{expr}'"
-                )
-        else:
-            unit_name = part
-            exp = 1.0
+    unit_name = unit_name.strip()
 
-        unit_name = unit_name.strip()
+    try:
+        resolved = get_unit_by_name(unit_name)
+        if isinstance(resolved, UnitProduct):
+            return dict(resolved.factors)
+        return {UnitFactor(resolved, Scale.one): 1.0}
+    except Exception:
+        pass
 
-        # Primary: try the full resolver (handles scale prefixes)
-        try:
-            resolved = get_unit_by_name(unit_name)
-            if isinstance(resolved, UnitProduct):
-                for uf, uf_exp in resolved.factors.items():
-                    factors[uf] = exp * uf_exp
-            else:
-                factors[UnitFactor(resolved, Scale.one)] = exp
-            continue
-        except Exception:
-            pass
-
-        # Fallback: local resolution
-        unit = _resolve_unit(unit_name, unit_map, graph)
-        if unit is None:
-            return None
-        factors[UnitFactor(unit, Scale.one)] = exp
-
-    return factors
+    unit = _resolve_unit(unit_name, unit_map, graph)
+    if unit is None:
+        return None
+    return {UnitFactor(unit, Scale.one): 1.0}
 
 
 def _parse_product_expression(
@@ -991,16 +967,18 @@ def _parse_product_expression(
 ) -> Union[UnitProduct, None]:
     """Parse a product expression string into a UnitProduct.
 
-    Grammar (left-associative)::
+    Grammar (left-to-right, standard arithmetic precedence)::
 
-        expression  := segment ('/' segment)*
-        segment     := factor ('*' factor)*
-        factor      := unit_name ('^' exponent)?
+        expression := factor (('*' | '/') factor)*
+        factor     := unit_name ('^' exponent)?
 
-    The first segment is the numerator.  Each subsequent ``/`` negates
-    the exponents of every factor in its segment.  Multiple ``/`` are
-    allowed—``mg/kg/day`` parses as ``mg¹·kg⁻¹·day⁻¹``, matching
-    standard dosage notation.
+    ``*`` and ``/`` have equal precedence and are left-associative.
+    Each ``*`` keeps the following factor in the numerator; each ``/``
+    puts it in the denominator.  This matches standard mathematical
+    convention::
+
+        meter/second*kilogram   → m¹·s⁻¹·kg¹   (= m·kg/s)
+        mg/kg/day               → mg¹·kg⁻¹·day⁻¹
 
     Uses ``get_unit_by_name()`` as the primary resolver so that
     scale-prefixed names (e.g. ``"kwatt"``) are decomposed correctly into
@@ -1011,24 +989,51 @@ def _parse_product_expression(
     GraphLoadError
         If an exponent is not a valid number.
     """
+    import re
+
     expr = expr.strip()
     if not expr:
         return None
 
-    segments = expr.split("/")
+    # Tokenize on * and / while keeping delimiters
+    tokens = re.split(r'\s*([*/])\s*', expr)
 
-    # First segment → numerator (positive exponents)
-    factors = _parse_factors(segments[0], expr, unit_map, graph)
-    if factors is None:
-        return None
+    factors: dict = {}
+    sign = 1.0  # first factor is always positive (numerator)
 
-    # Remaining segments → denominators (negated exponents)
-    for seg in segments[1:]:
-        den_factors = _parse_factors(seg, expr, unit_map, graph)
-        if den_factors is None:
+    for token in tokens:
+        token = token.strip()
+        if not token:
+            continue
+        if token == '*':
+            sign = 1.0
+            continue
+        if token == '/':
+            sign = -1.0
+            continue
+
+        # Parse exponent
+        if '^' in token:
+            name_part, exp_str = token.rsplit('^', 1)
+            try:
+                base_exp = float(exp_str.strip())
+            except ValueError:
+                raise GraphLoadError(
+                    f"Invalid exponent '{exp_str.strip()}' in "
+                    f"product expression '{expr}'"
+                )
+        else:
+            name_part = token
+            base_exp = 1.0
+
+        effective_exp = sign * base_exp
+
+        resolved = _resolve_single_factor(name_part, unit_map, graph)
+        if resolved is None:
             return None
-        for uf, exp in den_factors.items():
-            factors[uf] = factors.get(uf, 0.0) - exp
+
+        for uf, uf_exp in resolved.items():
+            factors[uf] = factors.get(uf, 0.0) + effective_exp * uf_exp
 
     if not factors:
         return None

@@ -1755,11 +1755,24 @@ class TestProductExpressionGrammar:
         assert found["meter"] == 1.0
         assert found["second"] == -2.0
 
-    def test_division_compound_den(self):
-        """'meter/second*kilogram' → meter^1, second^-1, kg^-1."""
+    def test_division_then_multiply(self):
+        """'meter/second*kilogram' → meter^1, second^-1, kg^1 (standard math)."""
         graph = get_default_graph()
         with using_graph(graph):
             result = _parse_product_expression("meter/second*kilogram", {}, graph)
+        assert result is not None
+        found = {}
+        for uf, exp in result.factors.items():
+            found[uf.unit.name] = exp
+        assert found["meter"] == 1.0
+        assert found["second"] == -1.0
+        assert found["kilogram"] == 1.0
+
+    def test_compound_denominator_via_slashes(self):
+        """'meter/second/kilogram' → meter^1, second^-1, kg^-1."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter/second/kilogram", {}, graph)
         assert result is not None
         found = {}
         for uf, exp in result.factors.items():
