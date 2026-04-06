@@ -488,13 +488,6 @@ class ComposedMap(Map):
             return self.inverse()
         raise ValueError("ComposedMap only supports exp=1 or exp=-1")
 
-    def to_dict(self) -> dict:
-        return {
-            "type": self._map_type,
-            "outer": self.outer.to_dict(),
-            "inner": self.inner.to_dict(),
-        }
-
     def derivative(self, x: float) -> float:
         """Chain rule: d/dx [outer(inner(x))] = outer'(inner(x)) * inner'(x)."""
         inner_val = self.inner(x)
