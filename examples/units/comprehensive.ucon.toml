@@ -1,0 +1,2311 @@
+[package]
+name = "comprehensive"
+version = "1.2.0"
+description = "Complete ucon default conversion graph — all bases, dimensions, units, and edges."
+format_version = "1.2"
+
+[bases.CGS]
+components = [{ name = "length", symbol = "L" }, { name = "mass", symbol = "M" }, { name = "time", symbol = "T" }]
+
+[bases.CGS-ESU]
+components = [{ name = "length", symbol = "L" }, { name = "mass", symbol = "M" }, { name = "time", symbol = "T" }, { name = "charge", symbol = "Q" }]
+
+[bases.SI]
+components = [{ name = "time", symbol = "T" }, { name = "length", symbol = "L" }, { name = "mass", symbol = "M" }, { name = "current", symbol = "I" }, { name = "temperature", symbol = "Θ" }, { name = "luminous_intensity", symbol = "J" }, { name = "amount_of_substance", symbol = "N" }, { name = "information", symbol = "B" }]
+
+[bases.natural]
+components = [{ name = "energy", symbol = "E" }]
+
+[dimensions.acceleration]
+basis = "SI"
+vector = [-2, 1, 0, 0, 0, 0, 0, 0]
+
+[dimensions.angle]
+basis = "SI"
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
+tag = "angle"
+
+[dimensions.catalytic_activity]
+basis = "SI"
+vector = [-1, 0, 0, 0, 0, 0, 1, 0]
+
+[dimensions.cgs_emu_capacitance]
+basis = "CGS"
+vector = [-1, 0, 2]
+
+[dimensions.cgs_emu_charge]
+basis = "CGS"
+vector = ["1/2", "1/2", 0]
+
+[dimensions.cgs_emu_current]
+basis = "CGS"
+vector = ["1/2", "1/2", -1]
+
+[dimensions.cgs_emu_inductance]
+basis = "CGS"
+vector = [1, 0, 0]
+
+[dimensions.cgs_emu_resistance]
+basis = "CGS"
+vector = [1, 0, -1]
+
+[dimensions.cgs_emu_voltage]
+basis = "CGS"
+vector = ["3/2", "1/2", -2]
+
+[dimensions.cgs_esu_capacitance]
+basis = "CGS-ESU"
+vector = [1, 0, 0, 0]
+
+[dimensions.cgs_esu_charge]
+basis = "CGS-ESU"
+vector = ["3/2", "1/2", -1, 0]
+
+[dimensions.cgs_esu_current]
+basis = "CGS-ESU"
+vector = ["3/2", "1/2", -2, 0]
+
+[dimensions.cgs_esu_electric_dipole_moment]
+basis = "CGS-ESU"
+vector = ["5/2", "1/2", -1, 0]
+
+[dimensions.cgs_esu_magnetic_field_strength]
+basis = "CGS-ESU"
+vector = ["1/2", "1/2", -2, 0]
+
+[dimensions.cgs_esu_magnetic_flux]
+basis = "CGS-ESU"
+vector = ["1/2", "1/2", 0, 0]
+
+[dimensions.cgs_esu_magnetic_flux_density]
+basis = "CGS-ESU"
+vector = ["-3/2", "1/2", 0, 0]
+
+[dimensions.cgs_esu_resistance]
+basis = "CGS-ESU"
+vector = [-1, 0, 1, 0]
+
+[dimensions.cgs_esu_voltage]
+basis = "CGS-ESU"
+vector = ["1/2", "1/2", -1, 0]
+
+[dimensions.charge]
+basis = "SI"
+vector = [1, 0, 0, 1, 0, 0, 0, 0]
+
+[dimensions.current]
+basis = "SI"
+vector = [0, 0, 0, 1, 0, 0, 0, 0]
+
+[dimensions.dynamic_viscosity]
+basis = "SI"
+vector = [-1, -1, 1, 0, 0, 0, 0, 0]
+
+[dimensions.energy]
+basis = "SI"
+vector = [-2, 2, 1, 0, 0, 0, 0, 0]
+
+[dimensions.exposure]
+basis = "SI"
+vector = [1, 0, -1, 1, 0, 0, 0, 0]
+
+[dimensions.force]
+basis = "SI"
+vector = [-2, 1, 1, 0, 0, 0, 0, 0]
+
+[dimensions.frequency]
+basis = "SI"
+vector = [-1, 0, 0, 0, 0, 0, 0, 0]
+
+[dimensions.illuminance]
+basis = "SI"
+vector = [0, -2, 0, 0, 0, 1, 0, 0]
+
+[dimensions.information]
+basis = "SI"
+vector = [0, 0, 0, 0, 0, 0, 0, 1]
+
+[dimensions.kinematic_viscosity]
+basis = "SI"
+vector = [-1, 2, 0, 0, 0, 0, 0, 0]
+
+[dimensions.length]
+basis = "SI"
+vector = [0, 1, 0, 0, 0, 0, 0, 0]
+
+[dimensions.linear_density]
+basis = "SI"
+vector = [0, -1, 1, 0, 0, 0, 0, 0]
+
+[dimensions.mass]
+basis = "SI"
+vector = [0, 0, 1, 0, 0, 0, 0, 0]
+
+[dimensions.natural_energy]
+basis = "natural"
+vector = [1]
+
+[dimensions.power]
+basis = "SI"
+vector = [-3, 2, 1, 0, 0, 0, 0, 0]
+
+[dimensions.pressure]
+basis = "SI"
+vector = [-2, -1, 1, 0, 0, 0, 0, 0]
+
+[dimensions.radiant_exposure]
+basis = "SI"
+vector = [-2, 0, 1, 0, 0, 0, 0, 0]
+
+[dimensions.ratio]
+basis = "SI"
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
+tag = "ratio"
+
+[dimensions.resistance]
+basis = "SI"
+vector = [-3, 2, 1, -2, 0, 0, 0, 0]
+
+[dimensions.solid_angle]
+basis = "SI"
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
+tag = "solid_angle"
+
+[dimensions.temperature]
+basis = "SI"
+vector = [0, 0, 0, 0, 1, 0, 0, 0]
+
+[dimensions.time]
+basis = "SI"
+vector = [1, 0, 0, 0, 0, 0, 0, 0]
+
+[dimensions.voltage]
+basis = "SI"
+vector = [-3, 2, 1, -1, 0, 0, 0, 0]
+
+[dimensions.volume]
+basis = "SI"
+vector = [0, 3, 0, 0, 0, 0, 0, 0]
+
+[dimensions.wavenumber]
+basis = "SI"
+vector = [0, -1, 0, 0, 0, 0, 0, 0]
+
+[transforms.CGS_TO_SI]
+source = "CGS"
+target = "SI"
+matrix = [
+    [0, 1, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0, 0, 0, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0],
+]
+
+[transforms.SI_TO_CGS]
+source = "SI"
+target = "CGS"
+matrix = [
+    [0, 0, 1],
+    [1, 0, 0],
+    [0, 1, 0],
+    ["1/2", "1/2", -1],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+]
+
+[transforms.SI_TO_CGS-ESU]
+source = "SI"
+target = "CGS-ESU"
+matrix = [
+    [0, 0, 1, 0],
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    ["3/2", "1/2", -2, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+]
+
+[transforms.SI_TO_natural]
+source = "SI"
+target = "natural"
+matrix = [
+    [-1],
+    [-1],
+    [1],
+    [0],
+    [1],
+    [0],
+    [0],
+    [0],
+]
+
+[[transforms.SI_TO_natural.bindings]]
+source_component = "length"
+constant_symbol = "ℏc"
+target_expression = [-1]
+
+[[transforms.SI_TO_natural.bindings]]
+source_component = "time"
+constant_symbol = "ℏ"
+target_expression = [-1]
+
+[[transforms.SI_TO_natural.bindings]]
+source_component = "mass"
+constant_symbol = "c"
+exponent = "-2"
+target_expression = [1]
+
+[[transforms.SI_TO_natural.bindings]]
+source_component = "temperature"
+constant_symbol = "k_B"
+exponent = "-1"
+target_expression = [1]
+
+[[units]]
+name = "arcsecond"
+dimension = "angle"
+aliases = ["arcsec", '"']
+
+[[units]]
+name = "percent"
+dimension = "ratio"
+aliases = ["%"]
+
+[[units]]
+name = "arcminute"
+dimension = "angle"
+aliases = ["arcmin", "'"]
+
+[[units]]
+name = "fraction"
+dimension = "ratio"
+aliases = ["frac", "1"]
+
+[[units]]
+name = "reciprocal_meter"
+dimension = "wavenumber"
+aliases = ["m⁻¹", "1/m"]
+
+[[units]]
+name = "nines"
+dimension = "ratio"
+aliases = ["9s"]
+
+[[units]]
+name = "ampere"
+dimension = "current"
+aliases = ["A", "I", "amp"]
+
+[[units]]
+name = "ampere_per_meter"
+dimension = "magnetic_field_strength"
+aliases = ["A/m"]
+
+[[units]]
+name = "astronomical_unit"
+dimension = "length"
+aliases = ["au", "AU"]
+
+[[units]]
+name = "international_ampere"
+dimension = "current"
+aliases = ["A_int"]
+
+[[units]]
+name = "ampere_hour"
+dimension = "charge"
+aliases = ["Ah"]
+
+[[units]]
+name = "byte"
+dimension = "information"
+aliases = ["B", "bytes"]
+
+[[units]]
+name = "btu"
+dimension = "energy"
+aliases = ["BTU"]
+
+[[units]]
+name = "barye"
+dimension = "cgs_pressure"
+aliases = ["Ba"]
+
+[[units]]
+name = "biot"
+dimension = "cgs_emu_current"
+aliases = ["Bi", "abampere", "abA"]
+
+[[units]]
+name = "becquerel"
+dimension = "frequency"
+aliases = ["Bq"]
+
+[[units]]
+name = "coulomb"
+dimension = "charge"
+aliases = ["C"]
+
+[[units]]
+name = "coulomb_meter"
+dimension = "electric_dipole_moment"
+aliases = ["C·m", "C*m"]
+
+[[units]]
+name = "coulomb_per_kilogram"
+dimension = "exposure"
+aliases = ["C/kg"]
+
+[[units]]
+name = "curie"
+dimension = "frequency"
+aliases = ["Ci"]
+
+[[units]]
+name = "debye"
+dimension = "cgs_esu_electric_dipole_moment"
+aliases = ["D_dipole"]
+
+[[units]]
+name = "denier"
+dimension = "linear_density"
+aliases = ["den", "D_tex"]
+
+[[units]]
+name = "dalton"
+dimension = "mass"
+aliases = ["Da", "u", "amu"]
+
+[[units]]
+name = "hartree"
+dimension = "natural_energy"
+aliases = ["Eh", "Ha"]
+
+[[units]]
+name = "farad"
+dimension = "capacitance"
+aliases = ["F"]
+
+[[units]]
+name = "statcoulomb"
+dimension = "cgs_esu_charge"
+aliases = ["statC", "esu", "franklin", "Fr"]
+
+[[units]]
+name = "gauss"
+dimension = "cgs_esu_magnetic_flux_density"
+aliases = ["G", "Gs"]
+
+[[units]]
+name = "galileo"
+dimension = "cgs_acceleration"
+aliases = ["Gal"]
+
+[[units]]
+name = "gilbert"
+dimension = "cgs_emu_current"
+aliases = ["Gb", "Gi"]
+
+[[units]]
+name = "gray"
+dimension = "energy"
+aliases = ["Gy"]
+
+[[units]]
+name = "henry"
+dimension = "inductance"
+aliases = ["H"]
+
+[[units]]
+name = "hertz"
+dimension = "frequency"
+aliases = ["Hz"]
+
+[[units]]
+name = "enzyme_unit"
+dimension = "catalytic_activity"
+aliases = ["U", "IU"]
+
+[[units]]
+name = "joule"
+dimension = "energy"
+aliases = ["J"]
+
+[[units]]
+name = "joule_per_kelvin"
+dimension = "entropy"
+aliases = ["J/K"]
+
+[[units]]
+name = "joule_per_square_meter"
+dimension = "radiant_exposure"
+aliases = ["J/m²", "J/m2"]
+
+[[units]]
+name = "jansky"
+dimension = "radiant_exposure"
+aliases = ["Jy"]
+
+[[units]]
+name = "kelvin"
+dimension = "temperature"
+aliases = ["K"]
+
+[[units]]
+name = "kayser"
+dimension = "cgs_wavenumber"
+aliases = ["K_wave"]
+
+[[units]]
+name = "liter"
+dimension = "volume"
+aliases = ["L", "l"]
+
+[[units]]
+name = "langley"
+dimension = "cgs_radiant_exposure"
+aliases = ["Ly_rad"]
+
+[[units]]
+name = "maxwell"
+dimension = "cgs_esu_magnetic_flux"
+aliases = ["Mx"]
+
+[[units]]
+name = "newton"
+dimension = "force"
+aliases = ["N"]
+
+[[units]]
+name = "nautical_mile"
+dimension = "length"
+aliases = ["nmi", "NM"]
+
+[[units]]
+name = "neper"
+dimension = "ratio"
+aliases = ["Np"]
+
+[[units]]
+name = "oersted"
+dimension = "cgs_esu_magnetic_field_strength"
+aliases = ["Oe"]
+
+[[units]]
+name = "poise"
+dimension = "cgs_dynamic_viscosity"
+aliases = ["P"]
+
+[[units]]
+name = "metric_horsepower"
+dimension = "power"
+aliases = ["PS"]
+
+[[units]]
+name = "pascal"
+dimension = "pressure"
+aliases = ["Pa"]
+
+[[units]]
+name = "pascal_second"
+dimension = "dynamic_viscosity"
+aliases = ["Pa·s", "Pa*s"]
+
+[[units]]
+name = "rankine"
+dimension = "temperature"
+aliases = ["°R", "degR", "R"]
+
+[[units]]
+name = "roentgen"
+dimension = "exposure"
+aliases = ["R_exp"]
+
+[[units]]
+name = "rydberg"
+dimension = "natural_energy"
+aliases = ["Ry"]
+
+[[units]]
+name = "siemens"
+dimension = "conductance"
+aliases = ["S"]
+
+[[units]]
+name = "stokes"
+dimension = "cgs_kinematic_viscosity"
+aliases = ["St"]
+
+[[units]]
+name = "sievert"
+dimension = "energy"
+aliases = ["Sv"]
+
+[[units]]
+name = "tesla"
+dimension = "magnetic_flux_density"
+aliases = ["T"]
+
+[[units]]
+name = "refrigeration_ton"
+dimension = "power"
+aliases = ["TR", "ton_ref"]
+
+[[units]]
+name = "torr"
+dimension = "pressure"
+aliases = ["Torr"]
+
+[[units]]
+name = "short_ton"
+dimension = "mass"
+aliases = ["short_tons", "US_ton"]
+
+[[units]]
+name = "volt"
+dimension = "voltage"
+aliases = ["V"]
+
+[[units]]
+name = "volt_ampere"
+dimension = "power"
+aliases = ["VA"]
+
+[[units]]
+name = "international_volt"
+dimension = "voltage"
+aliases = ["V_int"]
+
+[[units]]
+name = "watt"
+dimension = "power"
+aliases = ["W"]
+
+[[units]]
+name = "weber"
+dimension = "magnetic_flux"
+aliases = ["Wb"]
+
+[[units]]
+name = "webers_per_meter"
+dimension = "magnetic_permeability"
+aliases = ["Wb/m"]
+
+[[units]]
+name = "watt_hour"
+dimension = "energy"
+aliases = ["Wh"]
+
+[[units]]
+name = "abcoulomb"
+dimension = "cgs_emu_charge"
+aliases = ["abC"]
+
+[[units]]
+name = "abfarad"
+dimension = "cgs_emu_capacitance"
+aliases = ["abF"]
+
+[[units]]
+name = "abhenry"
+dimension = "cgs_emu_inductance"
+aliases = ["abH"]
+
+[[units]]
+name = "abvolt"
+dimension = "cgs_emu_voltage"
+aliases = ["abV"]
+
+[[units]]
+name = "abohm"
+dimension = "cgs_emu_resistance"
+aliases = ["abΩ"]
+
+[[units]]
+name = "acre"
+dimension = "area"
+aliases = ["ac", "acres"]
+
+[[units]]
+name = "acre_foot"
+dimension = "volume"
+aliases = ["ac_ft", "acre_feet"]
+
+[[units]]
+name = "angstrom"
+dimension = "length"
+aliases = ["Å", "angstroms"]
+
+[[units]]
+name = "technical_atmosphere"
+dimension = "pressure"
+aliases = ["at"]
+
+[[units]]
+name = "atmosphere"
+dimension = "pressure"
+aliases = ["atm"]
+
+[[units]]
+name = "bit"
+dimension = "information"
+aliases = ["b", "bits"]
+
+[[units]]
+name = "barn"
+dimension = "area"
+aliases = ["b_area"]
+
+[[units]]
+name = "bar"
+dimension = "pressure"
+aliases = ["bar"]
+
+[[units]]
+name = "barrel"
+dimension = "volume"
+aliases = ["bbl", "barrels"]
+
+[[units]]
+name = "basis_point"
+dimension = "ratio"
+aliases = ["bp", "bps"]
+
+[[units]]
+name = "bel"
+dimension = "ratio"
+
+[[units]]
+name = "boiler_horsepower"
+dimension = "power"
+aliases = ["hp_boiler"]
+
+[[units]]
+name = "bushel"
+dimension = "volume"
+aliases = ["bu", "bushels"]
+
+[[units]]
+name = "cable"
+dimension = "length"
+aliases = ["cables"]
+
+[[units]]
+name = "calorie"
+dimension = "energy"
+aliases = ["cal", "calories"]
+
+[[units]]
+name = "thermochemical_calorie"
+dimension = "energy"
+aliases = ["cal_th"]
+
+[[units]]
+name = "candela"
+dimension = "luminous_intensity"
+aliases = ["cd"]
+
+[[units]]
+name = "carat"
+dimension = "mass"
+aliases = ["ct_mass", "carats"]
+
+[[units]]
+name = "celsius"
+dimension = "temperature"
+aliases = ["°C", "degC"]
+
+[[units]]
+name = "centimeter_mercury"
+dimension = "pressure"
+aliases = ["cmHg"]
+
+[[units]]
+name = "centimeter_water"
+dimension = "pressure"
+aliases = ["cmH2O", "cmAq"]
+
+[[units]]
+name = "chain"
+dimension = "length"
+aliases = ["ch", "chains"]
+
+[[units]]
+name = "cup"
+dimension = "volume"
+aliases = ["cp", "cups"]
+
+[[units]]
+name = "each"
+dimension = "count"
+aliases = ["ea", "item", "ct"]
+
+[[units]]
+name = "cubic_foot"
+dimension = "volume"
+aliases = ["ft³", "cu_ft"]
+
+[[units]]
+name = "cubic_inch"
+dimension = "volume"
+aliases = ["in³", "cu_in"]
+
+[[units]]
+name = "cubic_yard"
+dimension = "volume"
+aliases = ["yd³", "cu_yd"]
+
+[[units]]
+name = "day"
+dimension = "time"
+aliases = ["d"]
+
+[[units]]
+name = "decibel"
+dimension = "ratio"
+aliases = ["dB"]
+
+[[units]]
+name = "decibel_spl"
+dimension = "pressure"
+aliases = ["dBSPL", "dB_SPL"]
+
+[[units]]
+name = "decibel_volt"
+dimension = "voltage"
+aliases = ["dBV"]
+
+[[units]]
+name = "decibel_watt"
+dimension = "power"
+aliases = ["dBW"]
+
+[[units]]
+name = "decibel_milliwatt"
+dimension = "power"
+aliases = ["dBm"]
+
+[[units]]
+name = "degree"
+dimension = "angle"
+aliases = ["deg", "°"]
+
+[[units]]
+name = "fahrenheit"
+dimension = "temperature"
+aliases = ["°F", "degF"]
+
+[[units]]
+name = "reaumur"
+dimension = "temperature"
+aliases = ["°Ré", "degRe"]
+
+[[units]]
+name = "square_degree"
+dimension = "solid_angle"
+aliases = ["deg²", "sq_deg"]
+
+[[units]]
+name = "dram"
+dimension = "mass"
+aliases = ["dr", "drams"]
+
+[[units]]
+name = "pennyweight"
+dimension = "mass"
+aliases = ["dwt", "pennyweights"]
+
+[[units]]
+name = "dyne"
+dimension = "cgs_force"
+aliases = ["dyn"]
+
+[[units]]
+name = "electron_volt"
+dimension = "natural_energy"
+aliases = ["eV"]
+
+[[units]]
+name = "electrical_horsepower"
+dimension = "power"
+aliases = ["hp_e"]
+
+[[units]]
+name = "erg"
+dimension = "cgs_energy"
+aliases = ["erg"]
+
+[[units]]
+name = "fathom"
+dimension = "length"
+aliases = ["ftm", "fathoms"]
+
+[[units]]
+name = "foot_candle"
+dimension = "illuminance"
+aliases = ["fc", "ftc"]
+
+[[units]]
+name = "foot"
+dimension = "length"
+aliases = ["ft", "feet"]
+
+[[units]]
+name = "fluid_ounce"
+dimension = "volume"
+aliases = ["floz", "fl_oz"]
+
+[[units]]
+name = "fortnight"
+dimension = "time"
+aliases = ["fn", "fortnights"]
+
+[[units]]
+name = "foot_pound"
+dimension = "energy"
+aliases = ["ft_lb", "ft_lbf"]
+
+[[units]]
+name = "furlong"
+dimension = "length"
+aliases = ["fur", "furlongs"]
+
+[[units]]
+name = "gram"
+dimension = "mass"
+aliases = ["g"]
+
+[[units]]
+name = "standard_gravity"
+dimension = "acceleration"
+aliases = ["g0", "gn"]
+
+[[units]]
+name = "gallon"
+dimension = "volume"
+aliases = ["gal", "gallons"]
+
+[[units]]
+name = "gram_force"
+dimension = "force"
+aliases = ["gf"]
+
+[[units]]
+name = "gill"
+dimension = "volume"
+aliases = ["gi", "gills"]
+
+[[units]]
+name = "gradian"
+dimension = "angle"
+aliases = ["grad", "gon"]
+
+[[units]]
+name = "grain"
+dimension = "mass"
+aliases = ["gr", "grains"]
+
+[[units]]
+name = "hour"
+dimension = "time"
+aliases = ["h", "hr"]
+
+[[units]]
+name = "hectare"
+dimension = "area"
+aliases = ["ha"]
+
+[[units]]
+name = "hand"
+dimension = "length"
+aliases = ["hh", "hands"]
+
+[[units]]
+name = "horsepower"
+dimension = "power"
+aliases = ["hp"]
+
+[[units]]
+name = "imperial_cup"
+dimension = "volume"
+aliases = ["imp_cup"]
+
+[[units]]
+name = "imperial_fluid_ounce"
+dimension = "volume"
+aliases = ["imp_floz"]
+
+[[units]]
+name = "imperial_gallon"
+dimension = "volume"
+aliases = ["imp_gal"]
+
+[[units]]
+name = "imperial_gill"
+dimension = "volume"
+aliases = ["imp_gi"]
+
+[[units]]
+name = "imperial_pint"
+dimension = "volume"
+aliases = ["imp_pt"]
+
+[[units]]
+name = "imperial_quart"
+dimension = "volume"
+aliases = ["imp_qt"]
+
+[[units]]
+name = "long_ton"
+dimension = "mass"
+aliases = ["long_tons", "imperial_ton"]
+
+[[units]]
+name = "inch"
+dimension = "length"
+aliases = ["in", "inches"]
+
+[[units]]
+name = "inch_water"
+dimension = "pressure"
+aliases = ["inH2O", "inAq"]
+
+[[units]]
+name = "inch_mercury"
+dimension = "pressure"
+aliases = ["inHg"]
+
+[[units]]
+name = "international_ohm"
+dimension = "resistance"
+aliases = ["ohm_int"]
+
+[[units]]
+name = "katal"
+dimension = "catalytic_activity"
+aliases = ["kat"]
+
+[[units]]
+name = "kilogram"
+dimension = "mass"
+aliases = ["kg"]
+
+[[units]]
+name = "kilogram_force"
+dimension = "force"
+aliases = ["kgf"]
+
+[[units]]
+name = "kip"
+dimension = "force"
+aliases = ["klbf"]
+
+[[units]]
+name = "knot"
+dimension = "velocity"
+aliases = ["kn", "kt", "knots"]
+
+[[units]]
+name = "ksi"
+dimension = "pressure"
+aliases = ["ksi"]
+
+[[units]]
+name = "pound"
+dimension = "mass"
+aliases = ["lb", "lbs"]
+
+[[units]]
+name = "pound_force"
+dimension = "force"
+aliases = ["lbf"]
+
+[[units]]
+name = "psi"
+dimension = "pressure"
+aliases = ["psi", "lbf/in²"]
+
+[[units]]
+name = "league"
+dimension = "length"
+aliases = ["lea", "leagues"]
+
+[[units]]
+name = "light_year"
+dimension = "length"
+aliases = ["ly", "light_years"]
+
+[[units]]
+name = "lumen"
+dimension = "luminous_intensity"
+aliases = ["lm"]
+
+[[units]]
+name = "lux"
+dimension = "illuminance"
+aliases = ["lx"]
+
+[[units]]
+name = "meter"
+dimension = "length"
+aliases = ["m"]
+
+[[units]]
+name = "meter_per_second_squared"
+dimension = "acceleration"
+aliases = ["m/s²", "m/s2"]
+
+[[units]]
+name = "square_meter_per_second"
+dimension = "kinematic_viscosity"
+aliases = ["m²/s", "m2/s"]
+
+[[units]]
+name = "metric_ton"
+dimension = "mass"
+aliases = ["t", "tonne", "tonnes"]
+
+[[units]]
+name = "metric_ton_force"
+dimension = "force"
+aliases = ["tf", "tonne_force"]
+
+[[units]]
+name = "mile"
+dimension = "length"
+aliases = ["mi", "miles"]
+
+[[units]]
+name = "mil"
+dimension = "length"
+aliases = ["thou"]
+
+[[units]]
+name = "mile_per_hour"
+dimension = "velocity"
+aliases = ["mph"]
+
+[[units]]
+name = "millimeter_mercury"
+dimension = "pressure"
+aliases = ["mmHg"]
+
+[[units]]
+name = "millimeter_water"
+dimension = "pressure"
+aliases = ["mmH2O", "mmAq"]
+
+[[units]]
+name = "minute"
+dimension = "time"
+aliases = ["min"]
+
+[[units]]
+name = "minim"
+dimension = "volume"
+aliases = ["min_vol", "minims"]
+
+[[units]]
+name = "month"
+dimension = "time"
+aliases = ["mo", "months"]
+
+[[units]]
+name = "mole"
+dimension = "amount_of_substance"
+aliases = ["mol", "n"]
+
+[[units]]
+name = "molar"
+dimension = "concentration"
+aliases = ["mol/L"]
+
+[[units]]
+name = "ohm"
+dimension = "resistance"
+aliases = ["Ω"]
+
+[[units]]
+name = "ounce"
+dimension = "mass"
+aliases = ["oz", "ounces"]
+
+[[units]]
+name = "ounce_force"
+dimension = "force"
+aliases = ["ozf"]
+
+[[units]]
+name = "troy_ounce"
+dimension = "mass"
+aliases = ["ozt", "troy_oz"]
+
+[[units]]
+name = "pH"
+dimension = "concentration"
+
+[[units]]
+name = "parsec"
+dimension = "length"
+aliases = ["pc", "parsecs"]
+
+[[units]]
+name = "poundal"
+dimension = "force"
+aliases = ["pdl"]
+
+[[units]]
+name = "peck"
+dimension = "volume"
+aliases = ["pk", "pecks"]
+
+[[units]]
+name = "rod"
+dimension = "length"
+aliases = ["rd", "rods", "perch", "pole"]
+
+[[units]]
+name = "permille"
+dimension = "ratio"
+aliases = ["‰"]
+
+[[units]]
+name = "phot"
+dimension = "illuminance"
+aliases = ["ph"]
+
+[[units]]
+name = "pica"
+dimension = "length"
+aliases = ["pica"]
+
+[[units]]
+name = "pint"
+dimension = "volume"
+aliases = ["pt", "pints"]
+
+[[units]]
+name = "point"
+dimension = "length"
+aliases = ["pt_typo"]
+
+[[units]]
+name = "ppb"
+dimension = "ratio"
+
+[[units]]
+name = "ppm"
+dimension = "ratio"
+
+[[units]]
+name = "quart"
+dimension = "volume"
+aliases = ["qt", "quarts"]
+
+[[units]]
+name = "radian"
+dimension = "angle"
+aliases = ["rad"]
+
+[[units]]
+name = "rad_dose"
+dimension = "energy"
+aliases = ["rad_absorbed"]
+
+[[units]]
+name = "rem"
+dimension = "energy"
+aliases = ["rem"]
+
+[[units]]
+name = "turn"
+dimension = "angle"
+aliases = ["rev", "revolution"]
+
+[[units]]
+name = "reyn"
+dimension = "dynamic_viscosity"
+aliases = ["reyn"]
+
+[[units]]
+name = "second"
+dimension = "time"
+aliases = ["s", "sec"]
+
+[[units]]
+name = "shake"
+dimension = "time"
+aliases = ["shakes"]
+
+[[units]]
+name = "ton_force"
+dimension = "force"
+aliases = ["tnf", "short_ton_force"]
+
+[[units]]
+name = "slug"
+dimension = "mass"
+aliases = ["slug"]
+
+[[units]]
+name = "steradian"
+dimension = "solid_angle"
+aliases = ["sr"]
+
+[[units]]
+name = "stone"
+dimension = "mass"
+aliases = ["st"]
+
+[[units]]
+name = "stere"
+dimension = "volume"
+aliases = ["st_vol"]
+
+[[units]]
+name = "statampere"
+dimension = "cgs_esu_current"
+aliases = ["statA"]
+
+[[units]]
+name = "statfarad"
+dimension = "cgs_esu_capacitance"
+aliases = ["statF"]
+
+[[units]]
+name = "statvolt"
+dimension = "cgs_esu_voltage"
+aliases = ["statV"]
+
+[[units]]
+name = "statohm"
+dimension = "cgs_esu_resistance"
+aliases = ["statΩ"]
+
+[[units]]
+name = "ton_tnt"
+dimension = "energy"
+aliases = ["tTNT"]
+
+[[units]]
+name = "tablespoon"
+dimension = "volume"
+aliases = ["tbsp"]
+
+[[units]]
+name = "teaspoon"
+dimension = "volume"
+aliases = ["tsp"]
+
+[[units]]
+name = "tex"
+dimension = "linear_density"
+aliases = ["tex"]
+
+[[units]]
+name = "therm"
+dimension = "energy"
+aliases = ["thm", "therms"]
+
+[[units]]
+name = "tonne_oil_equivalent"
+dimension = "energy"
+aliases = ["toe"]
+
+[[units]]
+name = "week"
+dimension = "time"
+aliases = ["wk", "weeks"]
+
+[[units]]
+name = "yard"
+dimension = "length"
+aliases = ["yd", "yards"]
+
+[[units]]
+name = "year"
+dimension = "time"
+aliases = ["yr", "years"]
+
+[[edges]]
+src = "acre_foot"
+dst = "liter"
+factor = 1233481.83754752
+
+[[edges]]
+src = "ampere"
+dst = "international_ampere"
+factor = 0.9999780004839894
+
+[[edges]]
+src = "ampere_hour"
+dst = "coulomb"
+factor = 3600
+
+[[edges]]
+src = "angstrom"
+dst = "meter"
+factor = 1e-10
+
+[[edges]]
+src = "arcminute"
+dst = "arcsecond"
+factor = 60
+
+[[edges]]
+src = "arcminute"
+dst = "degree"
+factor = "1/60"
+
+[[edges]]
+src = "astronomical_unit"
+dst = "meter"
+factor = 149597870700
+
+[[edges]]
+src = "atmosphere"
+dst = "pascal"
+factor = 101325
+
+[[edges]]
+src = "bar"
+dst = "pascal"
+factor = 99999.99999999999
+
+[[edges]]
+src = "barrel"
+dst = "gallon"
+factor = 42
+
+[[edges]]
+src = "basis_point"
+dst = "fraction"
+factor = 0.0001
+
+[[edges]]
+src = "becquerel"
+dst = "curie"
+factor = 2.7027027027027027e-11
+
+[[edges]]
+src = "bel"
+dst = "decibel"
+factor = 10
+
+[[edges]]
+src = "bel"
+dst = "fraction"
+map = { type = "exp", scale = 1.0, base = 10 }
+
+[[edges]]
+src = "biot"
+dst = "gilbert"
+factor = 12.566370614359172
+
+[[edges]]
+src = "bit"
+dst = "byte"
+factor = 0.125
+
+[[edges]]
+src = "boiler_horsepower"
+dst = "watt"
+factor = 9809.5
+
+[[edges]]
+src = "btu"
+dst = "joule"
+factor = 1055.06
+
+[[edges]]
+src = "bushel"
+dst = "liter"
+factor = 35.23907016688
+
+[[edges]]
+src = "bushel"
+dst = "peck"
+factor = 4
+
+[[edges]]
+src = "cable"
+dst = "nautical_mile"
+factor = 0.1
+
+[[edges]]
+src = "calorie"
+dst = "joule"
+factor = 4.184
+
+[[edges]]
+src = "carat"
+dst = "gram"
+factor = 0.2
+
+[[edges]]
+src = "celsius"
+dst = "fahrenheit"
+factor = 1.7999999999999998
+offset = 32
+
+[[edges]]
+src = "celsius"
+dst = "kelvin"
+factor = 1
+offset = 273.15
+
+[[edges]]
+src = "celsius"
+dst = "reaumur"
+factor = 0.8
+
+[[edges]]
+src = "centimeter_mercury"
+dst = "pascal"
+factor = 1333.22
+
+[[edges]]
+src = "centimeter_water"
+dst = "pascal"
+factor = 98.0665
+
+[[edges]]
+src = "chain"
+dst = "meter"
+factor = 20.1168
+
+[[edges]]
+src = "coulomb_per_kilogram"
+dst = "roentgen"
+factor = 3875.9689922480625
+
+[[edges]]
+src = "cubic_foot"
+dst = "liter"
+factor = 28.316846592
+
+[[edges]]
+src = "cubic_inch"
+dst = "liter"
+factor = 0.016387064
+
+[[edges]]
+src = "cubic_yard"
+dst = "liter"
+factor = 764.554857984
+
+[[edges]]
+src = "cup"
+dst = "fluid_ounce"
+factor = 8
+
+[[edges]]
+src = "cup"
+dst = "pint"
+factor = 0.5
+
+[[edges]]
+src = "dalton"
+dst = "kilogram"
+factor = 1.6605390666e-27
+
+[[edges]]
+src = "day"
+dst = "fortnight"
+factor = "1/14"
+
+[[edges]]
+src = "day"
+dst = "hour"
+factor = 24
+
+[[edges]]
+src = "day"
+dst = "week"
+factor = "1/7"
+
+[[edges]]
+src = "day"
+dst = "year"
+factor = "1/365.25"
+
+[[edges]]
+src = "decibel"
+dst = "fraction"
+map = { type = "exp", scale = 0.1, base = 10 }
+
+[[edges]]
+src = "decibel_milliwatt"
+dst = "watt"
+map = { type = "exp", scale = 0.1, base = 10, reference = 0.001 }
+
+[[edges]]
+src = "decibel_spl"
+dst = "pascal"
+map = { type = "exp", scale = 0.05, base = 10, reference = 2e-05 }
+
+[[edges]]
+src = "decibel_volt"
+dst = "volt"
+map = { type = "exp", scale = 0.05, base = 10 }
+
+[[edges]]
+src = "decibel_watt"
+dst = "watt"
+map = { type = "exp", scale = 0.1, base = 10 }
+
+[[edges]]
+src = "degree"
+dst = "radian"
+factor = 0.017453292519943295
+
+[[edges]]
+src = "denier"
+dst = "tex"
+factor = "1/9"
+
+[[edges]]
+src = "dram"
+dst = "ounce"
+factor = 0.0625
+
+[[edges]]
+src = "electrical_horsepower"
+dst = "watt"
+factor = 746
+
+[[edges]]
+src = "enzyme_unit"
+dst = "katal"
+factor = 1.6666666666666667e-08
+
+[[edges]]
+src = "fathom"
+dst = "foot"
+factor = 6
+
+[[edges]]
+src = "fluid_ounce"
+dst = "minim"
+factor = 480
+
+[[edges]]
+src = "fluid_ounce"
+dst = "tablespoon"
+factor = 2
+
+[[edges]]
+src = "foot"
+dst = "inch"
+factor = 12
+
+[[edges]]
+src = "foot"
+dst = "meter"
+factor = 0.3047999902464003
+
+[[edges]]
+src = "foot"
+dst = "mile"
+factor = "1/5280"
+
+[[edges]]
+src = "foot"
+dst = "yard"
+factor = "1/3"
+
+[[edges]]
+src = "foot_candle"
+dst = "lux"
+factor = 10.763910417
+
+[[edges]]
+src = "foot_pound"
+dst = "joule"
+factor = 1.3558179483314
+
+[[edges]]
+src = "fraction"
+dst = "neper"
+map = { type = "log", scale = 1, base = 2.718281828459045 }
+
+[[edges]]
+src = "fraction"
+dst = "nines"
+
+[edges.map]
+type = "composed"
+
+[edges.map.outer]
+type = "log"
+scale = -1
+base = 10.0
+
+[edges.map.inner]
+type = "affine"
+a = -1
+b = 1
+
+[[edges]]
+src = "fraction"
+dst = "percent"
+factor = 100
+
+[[edges]]
+src = "fraction"
+dst = "permille"
+factor = 1000
+
+[[edges]]
+src = "fraction"
+dst = "ppb"
+factor = 1000000000
+
+[[edges]]
+src = "fraction"
+dst = "ppm"
+factor = 1000000
+
+[[edges]]
+src = "furlong"
+dst = "meter"
+factor = 201.168
+
+[[edges]]
+src = "gallon"
+dst = "liter"
+factor = 3.785412534257983
+
+[[edges]]
+src = "gallon"
+dst = "quart"
+factor = 4
+
+[[edges]]
+src = "gill"
+dst = "pint"
+factor = 0.25
+
+[[edges]]
+src = "gradian"
+dst = "turn"
+factor = 0.0025
+
+[[edges]]
+src = "grain"
+dst = "pennyweight"
+factor = "1/24"
+
+[[edges]]
+src = "grain"
+dst = "pound"
+factor = "1/7000"
+
+[[edges]]
+src = "gram"
+dst = "kilogram"
+factor = 0.001
+
+[[edges]]
+src = "gram"
+dst = "troy_ounce"
+factor = 0.03215072258749015
+
+[[edges]]
+src = "gram_force"
+dst = "newton"
+factor = 0.00980665
+
+[[edges]]
+src = "gray"
+dst = "rad_dose"
+factor = 100
+
+[[edges]]
+src = "hand"
+dst = "inch"
+factor = 4
+
+[[edges]]
+src = "horsepower"
+dst = "watt"
+factor = 745.7
+
+[[edges]]
+src = "hour"
+dst = "minute"
+factor = 60
+
+[[edges]]
+src = "imperial_cup"
+dst = "liter"
+factor = 0.284130625
+
+[[edges]]
+src = "imperial_fluid_ounce"
+dst = "liter"
+factor = 0.0284130625
+
+[[edges]]
+src = "imperial_gallon"
+dst = "imperial_pint"
+factor = 8
+
+[[edges]]
+src = "imperial_gallon"
+dst = "liter"
+factor = 4.54609
+
+[[edges]]
+src = "imperial_gill"
+dst = "liter"
+factor = 0.1420653125
+
+[[edges]]
+src = "imperial_quart"
+dst = "liter"
+factor = 1.1365225
+
+[[edges]]
+src = "inch"
+dst = "mil"
+factor = 1000
+
+[[edges]]
+src = "inch"
+dst = "point"
+factor = 72
+
+[[edges]]
+src = "inch_mercury"
+dst = "pascal"
+factor = 3386.389
+
+[[edges]]
+src = "inch_water"
+dst = "pascal"
+factor = 249.08891
+
+[[edges]]
+src = "international_ohm"
+dst = "ohm"
+factor = 1.00049
+
+[[edges]]
+src = "international_volt"
+dst = "volt"
+factor = 1.00034
+
+[[edges]]
+src = "jansky"
+dst = "joule_per_square_meter"
+factor = 1e-26
+
+[[edges]]
+src = "joule"
+dst = "therm"
+factor = 9.478133944988911e-09
+
+[[edges]]
+src = "joule"
+dst = "thermochemical_calorie"
+factor = 0.2390057361376673
+
+[[edges]]
+src = "joule"
+dst = "ton_tnt"
+factor = 2.390057361376673e-10
+
+[[edges]]
+src = "joule"
+dst = "tonne_oil_equivalent"
+factor = 2.3884589662749594e-11
+
+[[edges]]
+src = "joule"
+dst = "watt_hour"
+factor = "1/3600"
+
+[[edges]]
+src = "kelvin"
+dst = "rankine"
+factor = 1.8
+
+[[edges]]
+src = "kilogram"
+dst = "metric_ton"
+factor = 0.001
+
+[[edges]]
+src = "kilogram"
+dst = "pound"
+factor = 2.20462
+
+[[edges]]
+src = "kilogram"
+dst = "slug"
+factor = 0.06852177964766101
+
+[[edges]]
+src = "kilogram_force"
+dst = "newton"
+factor = 9.80665
+
+[[edges]]
+src = "kip"
+dst = "pound_force"
+factor = 1000
+
+[[edges]]
+src = "ksi"
+dst = "psi"
+factor = 1000
+
+[[edges]]
+src = "league"
+dst = "mile"
+factor = 3
+
+[[edges]]
+src = "light_year"
+dst = "meter"
+factor = 9460730472580800.0
+
+[[edges]]
+src = "liter"
+dst = "stere"
+factor = 0.001
+
+[[edges]]
+src = "long_ton"
+dst = "pound"
+factor = 2240
+
+[[edges]]
+src = "lux"
+dst = "phot"
+factor = 0.0001
+
+[[edges]]
+src = "meter"
+dst = "nautical_mile"
+factor = "1/1852"
+
+[[edges]]
+src = "meter"
+dst = "parsec"
+factor = 3.240779289444365e-17
+
+[[edges]]
+src = "meter"
+dst = "rod"
+factor = 0.19883878151594686
+
+[[edges]]
+src = "meter_per_second_squared"
+dst = "standard_gravity"
+factor = 0.10197162129779283
+
+[[edges]]
+src = "metric_horsepower"
+dst = "watt"
+factor = 735.49875
+
+[[edges]]
+src = "metric_ton_force"
+dst = "newton"
+factor = 9806.65
+
+[[edges]]
+src = "millimeter_mercury"
+dst = "torr"
+factor = 1
+
+[[edges]]
+src = "millimeter_water"
+dst = "pascal"
+factor = 9.80665
+
+[[edges]]
+src = "minute"
+dst = "second"
+factor = 60
+
+[[edges]]
+src = "month"
+dst = "year"
+factor = "1/12"
+
+[[edges]]
+src = "newton"
+dst = "ounce_force"
+factor = 3.596943089595368
+
+[[edges]]
+src = "newton"
+dst = "pound_force"
+factor = 0.2248089430997105
+
+[[edges]]
+src = "newton"
+dst = "poundal"
+factor = 7.233011464323171
+
+[[edges]]
+src = "newton"
+dst = "ton_force"
+factor = 0.00011240447154985525
+
+[[edges]]
+src = "ounce"
+dst = "pound"
+factor = 0.0625
+
+[[edges]]
+src = "pascal"
+dst = "psi"
+factor = 0.000145038
+
+[[edges]]
+src = "pascal"
+dst = "technical_atmosphere"
+factor = 1.0197162129779282e-05
+
+[[edges]]
+src = "pascal"
+dst = "torr"
+factor = 0.007500616850729803
+
+[[edges]]
+src = "pascal_second"
+dst = "reyn"
+factor = 0.00014503774389728312
+
+[[edges]]
+src = "pica"
+dst = "point"
+factor = 12
+
+[[edges]]
+src = "pint"
+dst = "quart"
+factor = 0.5
+
+[[edges]]
+src = "pound"
+dst = "short_ton"
+factor = 0.0005
+
+[[edges]]
+src = "pound"
+dst = "stone"
+factor = "1/14"
+
+[[edges]]
+src = "radian"
+dst = "turn"
+factor = 0.15915494309189535
+
+[[edges]]
+src = "refrigeration_ton"
+dst = "watt"
+factor = 3516.8525
+
+[[edges]]
+src = "rem"
+dst = "sievert"
+factor = 0.01
+
+[[edges]]
+src = "second"
+dst = "shake"
+factor = 100000000
+
+[[edges]]
+src = "square_degree"
+dst = "steradian"
+factor = 0.00030461741978670857
+
+[[edges]]
+src = "tablespoon"
+dst = "teaspoon"
+factor = 3
+
+[[edges]]
+src = "volt_ampere"
+dst = "watt"
+factor = 1
+
+[[product_edges]]
+src = "acre"
+dst = "meter^2"
+factor = 4046.8564224
+product = true
+
+[[product_edges]]
+src = "btu/hour"
+dst = "watt"
+factor = 0.29307222222222223
+product = true
+
+[[product_edges]]
+src = "coulomb_meter"
+dst = "coulomb*meter"
+factor = 1
+product = true
+
+[[product_edges]]
+src = "coulomb_per_kilogram"
+dst = "coulomb/kilogram"
+factor = 1
+product = true
+
+[[product_edges]]
+src = "hour*kwatt"
+dst = "joule"
+factor = 3600000
+product = true
+
+[[product_edges]]
+src = "joule_per_square_meter"
+dst = "joule/meter^2.0"
+factor = 1
+product = true
+
+[[product_edges]]
+src = "knot"
+dst = "meter/second"
+factor = "1852/3600"
+product = true
+
+[[product_edges]]
+src = "liter"
+dst = "meter^3"
+factor = 0.001
+product = true
+
+[[product_edges]]
+src = "mole/liter"
+dst = "pH"
+map = { type = "log", scale = -1, base = 10 }
+product = true
+
+[[product_edges]]
+src = "meter/second"
+dst = "mile_per_hour"
+factor = 2.2369362920544025
+product = true
+
+[[product_edges]]
+src = "meter^2"
+dst = "barn"
+factor = 1e+28
+product = true
+
+[[product_edges]]
+src = "meter^2"
+dst = "hectare"
+factor = 0.0001
+product = true
+
+[[product_edges]]
+src = "meter_per_second_squared"
+dst = "meter/second^2.0"
+factor = 1
+product = true
+
+[[product_edges]]
+src = "molar"
+dst = "mole/liter"
+factor = 1
+product = true
+
+[[product_edges]]
+src = "pascal_second"
+dst = "pascal*second"
+factor = 1
+product = true
+
+[[product_edges]]
+src = "reciprocal_meter"
+dst = "meter^-1"
+factor = 1
+product = true
+
+[[product_edges]]
+src = "square_meter_per_second"
+dst = "meter^2/second"
+factor = 1
+product = true
+
+[[product_edges]]
+src = "tex"
+dst = "gram/meter"
+factor = 0.001
+product = true
+
+[[cross_basis_edges]]
+src = "barye"
+dst = "pascal"
+factor = 0.1
+transform = "CGS_TO_SI"
+
+[[cross_basis_edges]]
+src = "dyne"
+dst = "newton"
+factor = 1e-05
+transform = "CGS_TO_SI"
+
+[[cross_basis_edges]]
+src = "erg"
+dst = "joule"
+factor = 1e-07
+transform = "CGS_TO_SI"
+
+[[cross_basis_edges]]
+src = "galileo"
+dst = "meter_per_second_squared"
+factor = 0.01
+transform = "CGS_TO_SI"
+
+[[cross_basis_edges]]
+src = "kayser"
+dst = "reciprocal_meter"
+factor = 100
+transform = "CGS_TO_SI"
+
+[[cross_basis_edges]]
+src = "langley"
+dst = "joule_per_square_meter"
+factor = 41840
+transform = "CGS_TO_SI"
+
+[[cross_basis_edges]]
+src = "poise"
+dst = "pascal_second"
+factor = 0.1
+transform = "CGS_TO_SI"
+
+[[cross_basis_edges]]
+src = "stokes"
+dst = "square_meter_per_second"
+factor = 0.0001
+transform = "CGS_TO_SI"
+
+[[cross_basis_edges]]
+src = "ampere"
+dst = "biot"
+factor = 0.1
+transform = "SI_TO_CGS"
+
+[[cross_basis_edges]]
+src = "coulomb"
+dst = "abcoulomb"
+factor = 0.1
+transform = "SI_TO_CGS"
+
+[[cross_basis_edges]]
+src = "farad"
+dst = "abfarad"
+factor = 1e-09
+transform = "SI_TO_CGS"
+
+[[cross_basis_edges]]
+src = "henry"
+dst = "abhenry"
+factor = 1000000000
+transform = "SI_TO_CGS"
+
+[[cross_basis_edges]]
+src = "ohm"
+dst = "abohm"
+factor = 1000000000
+transform = "SI_TO_CGS"
+
+[[cross_basis_edges]]
+src = "volt"
+dst = "abvolt"
+factor = 100000000
+transform = "SI_TO_CGS"
+
+[[cross_basis_edges]]
+src = "ampere"
+dst = "statampere"
+factor = 2997924580
+transform = "SI_TO_CGS-ESU"
+
+[[cross_basis_edges]]
+src = "ampere_per_meter"
+dst = "oersted"
+factor = 0.012566370614359173
+transform = "SI_TO_CGS-ESU"
+
+[[cross_basis_edges]]
+src = "coulomb"
+dst = "statcoulomb"
+factor = 2997924580
+transform = "SI_TO_CGS-ESU"
+
+[[cross_basis_edges]]
+src = "coulomb_meter"
+dst = "debye"
+factor = 2.9979245800000002e+29
+transform = "SI_TO_CGS-ESU"
+
+[[cross_basis_edges]]
+src = "farad"
+dst = "statfarad"
+factor = 898755178736.8176
+transform = "SI_TO_CGS-ESU"
+
+[[cross_basis_edges]]
+src = "ohm"
+dst = "statohm"
+factor = 1.1126500560536185e-12
+transform = "SI_TO_CGS-ESU"
+
+[[cross_basis_edges]]
+src = "tesla"
+dst = "gauss"
+factor = 10000
+transform = "SI_TO_CGS-ESU"
+
+[[cross_basis_edges]]
+src = "volt"
+dst = "statvolt"
+factor = 0.0033356409519815205
+transform = "SI_TO_CGS-ESU"
+
+[[cross_basis_edges]]
+src = "weber"
+dst = "maxwell"
+factor = 100000000
+transform = "SI_TO_CGS-ESU"
+
+[[cross_basis_edges]]
+src = "joule"
+dst = "electron_volt"
+factor = 6.241509074460763e+18
+transform = "SI_TO_natural"
+
+[[cross_basis_edges]]
+src = "joule"
+dst = "hartree"
+factor = 2.2937122783963248e+17
+transform = "SI_TO_natural"
+
+[[cross_basis_edges]]
+src = "joule"
+dst = "rydberg"
+factor = 4.587424556792755e+17
+transform = "SI_TO_natural"
+
+[contexts.spectroscopy]
+description = "Spectroscopy: wavelength/frequency/energy via c and h."
+edges = [
+    { src = "meter", dst = "hertz", map = { type = "reciprocal", a = 299792458.0 } },
+    { src = "hertz", dst = "joule", factor = 6.62607015e-34 },
+]
