@@ -919,10 +919,11 @@ def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:
     """Build a Map from an edge specification dict."""
     if "map" in edge_spec:
         return build_map_fn(edge_spec["map"])
-    factor = edge_spec.get("factor", 1.0)
+    from ucon.packages import _parse_factor
+    factor = _parse_factor(edge_spec.get("factor", 1.0))
     offset = edge_spec.get("offset")
     if offset is not None:
-        return AffineMap(a=factor, b=offset)
+        return AffineMap(a=factor, b=_parse_factor(offset))
     return LinearMap(a=factor)
 
 
