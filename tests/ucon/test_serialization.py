@@ -22,11 +22,19 @@ from ucon.serialization import (
     FORMAT_VERSION,
     GraphLoadError,
     _serialize_map,
+    _serialize_constant,
     _extract_forward_edges,
     _extract_cross_basis_edges,
+    _extract_product_edges,
     _serialize_basis,
     _serialize_dimension,
     _serialize_transform,
+    _resolve_unit,
+    _resolve_context_unit,
+    _parse_product_expression,
+    _product_key,
+    _product_key_to_expression,
+    _unit_sort_key,
     to_toml,
     from_toml,
 )
@@ -832,3 +840,811 @@ class TestContextSerialization:
                 freq = m(500e-9)
                 expected = c / 500e-9
                 assert abs(freq - expected) / expected < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# Coverage: Map serialization edge cases (lines 89, 96, 106, 115)
+# ---------------------------------------------------------------------------
+
+class TestSerializeMapEdgeCases:
+    def test_log_with_offset(self):
+        """LogMap with non-zero offset includes offset key (line 89)."""
+        m = LogMap(scale=10, base=10, offset=3.0)
+        d = _serialize_map(m)
+        assert d["offset"] == 3.0
+        assert d["type"] == "log"
+
+    def test_exp_with_offset(self):
+        """ExpMap with non-zero offset includes offset key (line 96)."""
+        m = ExpMap(scale=0.1, base=10, offset=2.0)
+        d = _serialize_map(m)
+        assert d["offset"] == 2.0
+        assert d["type"] == "exp"
+
+    def test_unknown_map_type_raises(self):
+        """Serializing an unknown Map subclass raises TypeError (line 106)."""
+        from ucon.maps import Map
+
+        class CustomMap(Map):
+            def __call__(self, x): return x
+            @property
+            def invertible(self): return True
+            def inverse(self): return self
+            def __matmul__(self, other): return self
+            def __pow__(self, n): return self
+            def derivative(self, x): return 1.0
+
+        with pytest.raises(TypeError, match="Cannot serialize map type"):
+            _serialize_map(CustomMap())
+
+    def test_unit_sort_key(self):
+        """_unit_sort_key returns the unit name (line 115)."""
+        from ucon import units
+        assert _unit_sort_key(units.meter) == "meter"
+
+
+# ---------------------------------------------------------------------------
+# Coverage: Basis serialization — symbol != name (line 231)
+# ---------------------------------------------------------------------------
+
+class TestSerializeBasisSymbol:
+    def test_component_with_distinct_symbol(self):
+        """BasisComponent with symbol != name emits symbol key (line 231)."""
+        from ucon.basis import Basis, BasisComponent
+        b = Basis("test", [BasisComponent("length", "L")])
+        d = _serialize_basis(b)
+        assert d["components"][0]["name"] == "length"
+        assert d["components"][0]["symbol"] == "L"
+
+    def test_component_symbol_same_as_name_omits(self):
+        """BasisComponent with symbol == name omits symbol key."""
+        from ucon.basis import Basis, BasisComponent
+        b = Basis("test", [BasisComponent("length", "length")])
+        d = _serialize_basis(b)
+        assert "symbol" not in d["components"][0]
+
+
+# ---------------------------------------------------------------------------
+# Coverage: Constant serialization (lines 315, 316→318)
+# ---------------------------------------------------------------------------
+
+class TestSerializeConstant:
+    def test_constant_with_uncertainty(self):
+        """Constant with uncertainty includes uncertainty key (line 315)."""
+        from ucon.constants import Constant
+        from ucon import units
+
+        c = Constant(
+            symbol="G", name="gravitational constant",
+            value=6.674e-11, unit=units.meter,
+            uncertainty=1.5e-15, source="CODATA 2022",
+            category="measured",
+        )
+        d = _serialize_constant(c)
+        assert d["uncertainty"] == 1.5e-15
+
+    def test_constant_with_nondefault_source(self):
+        """Constant with non-CODATA source includes source key (line 316→318)."""
+        from ucon.constants import Constant
+        from ucon import units
+
+        c = Constant(
+            symbol="k", name="custom constant",
+            value=42.0, unit=units.meter,
+            uncertainty=None, source="custom-source",
+            category="session",
+        )
+        d = _serialize_constant(c)
+        assert d["source"] == "custom-source"
+
+    def test_constant_default_source_omitted(self):
+        """Constant with default source 'CODATA 2022' omits source key."""
+        from ucon.constants import Constant
+        from ucon import units
+
+        c = Constant(
+            symbol="c", name="speed of light",
+            value=3e8, unit=units.meter,
+            uncertainty=None,
+        )
+        d = _serialize_constant(c)
+        assert "source" not in d
+
+
+# ---------------------------------------------------------------------------
+# Coverage: Export — tomli_w import error (lines 337–338)
+# ---------------------------------------------------------------------------
+
+class TestTomlExportImportError:
+    def test_missing_tomli_w(self, tmp_path, monkeypatch):
+        """to_toml raises ImportError when tomli_w is missing (lines 337–338)."""
+        import builtins
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "tomli_w":
+                raise ImportError("no tomli_w")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+        graph = ConversionGraph()
+        with pytest.raises(ImportError, match="tomli_w"):
+            to_toml(graph, tmp_path / "out.toml")
+
+
+# ---------------------------------------------------------------------------
+# Coverage: _collect_transforms from basis_graph (line 434)
+# ---------------------------------------------------------------------------
+
+class TestCollectTransformsFromBasisGraph:
+    def test_basis_graph_transforms_included(self):
+        """Transforms from basis_graph._edges are included (line 434)."""
+        from ucon.serialization import _collect_transforms
+        from ucon.basis import Basis, BasisGraph, BasisTransform
+        from fractions import Fraction
+
+        a = Basis("A", ["x"])
+        b = Basis("B", ["y"])
+        bt = BasisTransform(source=a, target=b, matrix=((Fraction(1),),))
+
+        graph = ConversionGraph()
+        bg = BasisGraph()
+        bg.add_transform(bt)
+        graph._basis_graph = bg
+        graph._rebased = {}
+
+        result = _collect_transforms(graph)
+        assert "A_TO_B" in result
+        assert result["A_TO_B"] is bt
+
+
+# ---------------------------------------------------------------------------
+# Coverage: _collect_units skips RebasedUnit (line 444)
+# ---------------------------------------------------------------------------
+
+class TestCollectUnitsSkipsRebased:
+    def test_rebased_unit_excluded(self):
+        """RebasedUnit entries in _name_registry_cs are skipped (line 444)."""
+        from ucon.serialization import _collect_units
+        from ucon.core import RebasedUnit, Unit
+        from ucon.dimension import Dimension
+        from ucon.basis import Basis, BasisTransform
+        from fractions import Fraction
+
+        a = Basis("A", ["x"])
+        b = Basis("B", ["y"])
+        bt = BasisTransform(source=a, target=b, matrix=((Fraction(1),),))
+        dim = Dimension.length
+        u = Unit("meter", dim)
+        ru = RebasedUnit(original=u, rebased_dimension=dim, basis_transform=bt)
+
+        graph = ConversionGraph()
+        graph.register_unit(u)
+        # Manually insert rebased unit into the CS registry
+        graph._name_registry_cs["rebased_meter"] = ru
+
+        units_list = _collect_units(graph)
+        names = {u["name"] for u in units_list}
+        assert "meter" in names
+        # RebasedUnit should have been skipped
+        assert "rebased_meter" not in names
+
+
+# ---------------------------------------------------------------------------
+# Coverage: _product_key (line 488)
+# ---------------------------------------------------------------------------
+
+class TestProductKey:
+    def test_product_key_basic(self):
+        """_product_key produces a sorted tuple of factor metadata (line 488)."""
+        from ucon import units
+        from ucon.core import UnitFactor, Scale, UnitProduct
+
+        prod = UnitProduct({
+            UnitFactor(units.meter, Scale.one): 1,
+            UnitFactor(units.second, Scale.one): -1,
+        })
+        key = _product_key(prod)
+        assert isinstance(key, tuple)
+        assert len(key) == 2
+
+
+# ---------------------------------------------------------------------------
+# Coverage: _extract_cross_basis_edges branches (lines 193, 195, 198)
+# ---------------------------------------------------------------------------
+
+class TestExtractCrossBasisBranches:
+    def test_dim_not_in_unit_edges_skipped(self):
+        """Rebased unit whose dimension is not in _unit_edges is skipped (line 193)."""
+        from ucon.core import RebasedUnit, Unit
+        from ucon.dimension import Dimension
+        from ucon.basis import Basis, BasisTransform
+        from fractions import Fraction
+
+        a = Basis("A", ["x"])
+        b = Basis("B", ["y"])
+        bt = BasisTransform(source=a, target=b, matrix=((Fraction(1),),))
+        dim = Dimension.length
+        u = Unit("meter", dim)
+        ru = RebasedUnit(original=u, rebased_dimension=dim, basis_transform=bt)
+
+        graph = ConversionGraph()
+        graph._rebased = {u: [ru]}
+        graph._unit_edges = {}  # No edges at all
+
+        result = _extract_cross_basis_edges(graph)
+        assert result == []
+
+    def test_rebased_not_in_dim_edges_skipped(self):
+        """Rebased unit not present as a source in _unit_edges[dim] is skipped (line 195)."""
+        from ucon.core import RebasedUnit, Unit
+        from ucon.dimension import Dimension
+        from ucon.basis import Basis, BasisTransform
+        from fractions import Fraction
+
+        a = Basis("A", ["x"])
+        b = Basis("B", ["y"])
+        bt = BasisTransform(source=a, target=b, matrix=((Fraction(1),),))
+        dim = Dimension.length
+        u = Unit("meter", dim)
+        ru = RebasedUnit(original=u, rebased_dimension=dim, basis_transform=bt)
+
+        graph = ConversionGraph()
+        graph._rebased = {u: [ru]}
+        graph._unit_edges = {dim: {}}  # Dim exists, but rebased unit is not a key
+
+        result = _extract_cross_basis_edges(graph)
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# Coverage: from_toml validation — types (lines 527, 535–538, 560–570, 580, 591, 615)
+# ---------------------------------------------------------------------------
+
+class TestFromTomlValidation:
+    def test_components_not_a_list(self, tmp_path):
+        """Non-list components raises GraphLoadError (line 527)."""
+        doc = {"bases": {"X": {"components": "bad"}}}
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="components must be a list"):
+            from_toml(path)
+
+    def test_component_as_string(self, tmp_path):
+        """String component is accepted as BasisComponent(name) (line 535–536)."""
+        doc = {
+            "bases": {"X": {"components": ["length"]}},
+            "dimensions": {"custom_dim": {"basis": "X", "vector": [1]}},
+            "units": [{"name": "foo", "dimension": "custom_dim"}],
+        }
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path)
+        assert "foo" in g._name_registry_cs
+
+    def test_component_invalid_type(self, tmp_path):
+        """Non-string, non-dict component raises GraphLoadError (line 538)."""
+        import tomli_w
+        # TOML doesn't allow mixing types in arrays with tomli_w,
+        # so we write raw TOML with an integer component
+        path = tmp_path / "bad_comp.ucon.toml"
+        content = b"""
+[bases.X]
+components = [42]
+"""
+        with open(path, "wb") as f:
+            f.write(content)
+        with pytest.raises(GraphLoadError, match="expected string or table"):
+            from_toml(path)
+
+    def test_vector_not_a_list(self, tmp_path):
+        """Non-list vector raises GraphLoadError (line 560)."""
+        doc = {
+            "bases": {"X": {"components": [{"name": "a"}]}},
+            "dimensions": {"custom_dim": {"basis": "X", "vector": "bad"}},
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="vector must be a list"):
+            from_toml(path)
+
+    def test_fractional_vector_and_tag(self, tmp_path):
+        """Fractional vector components and tag are parsed (lines 565, 569–570)."""
+        doc = {
+            "bases": {"X": {"components": [{"name": "a"}, {"name": "b"}]}},
+            "dimensions": {
+                "custom_dim": {
+                    "basis": "X",
+                    "vector": ["1/2", 1],
+                    "tag": "test-tag",
+                },
+            },
+            "units": [{"name": "foo", "dimension": "custom_dim"}],
+        }
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path)
+        assert "foo" in g._name_registry_cs
+
+    def test_transform_unknown_source_basis(self, tmp_path):
+        """Unknown source basis in transform raises GraphLoadError (line 580)."""
+        doc = {
+            "bases": {"B": {"components": [{"name": "x"}]}},
+            "transforms": {"T": {"source": "NOPE", "target": "B", "matrix": [[1]]}},
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="unknown source basis.*NOPE"):
+            from_toml(path)
+
+    def test_matrix_not_a_list(self, tmp_path):
+        """Non-list matrix raises GraphLoadError (line 591)."""
+        doc = {
+            "bases": {"A": {"components": [{"name": "x"}]}},
+            "transforms": {"T": {"source": "A", "target": "A", "matrix": "bad"}},
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="matrix must be a list"):
+            from_toml(path)
+
+    def test_binding_unknown_source_component(self, tmp_path):
+        """Unknown source_component in binding raises GraphLoadError (line 615)."""
+        doc = {
+            "bases": {
+                "A": {"components": [{"name": "x"}]},
+                "B": {"components": [{"name": "y"}]},
+            },
+            "transforms": {
+                "T": {
+                    "source": "A",
+                    "target": "B",
+                    "matrix": [[1]],
+                    "bindings": [{
+                        "source_component": "nonexistent",
+                        "target_expression": [1],
+                        "constant_symbol": "c",
+                    }],
+                },
+            },
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="unknown source_component.*nonexistent"):
+            from_toml(path)
+
+
+# ---------------------------------------------------------------------------
+# Coverage: Strict/non-strict edge loading (lines 716, 728–733, 802–807)
+# ---------------------------------------------------------------------------
+
+class TestStrictModeBranches:
+    def _minimal_doc_with_units(self):
+        return {
+            "units": [
+                {"name": "meter", "dimension": "length"},
+                {"name": "foot", "dimension": "length"},
+            ],
+        }
+
+    def test_nonstrict_skips_unknown_product_edge(self, tmp_path):
+        """Non-strict mode skips unresolvable product edges (line 716)."""
+        doc = self._minimal_doc_with_units()
+        doc["product_edges"] = [{
+            "src": "nonexistent*meter",
+            "dst": "foot",
+            "factor": 1.0,
+            "product": True,
+        }]
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path, strict=False)
+        assert "meter" in g._name_registry_cs
+
+    def test_strict_rejects_unknown_cross_basis_src(self, tmp_path):
+        """Strict mode rejects unresolvable cross-basis edge src (lines 728–733)."""
+        doc = self._minimal_doc_with_units()
+        doc["cross_basis_edges"] = [{
+            "src": "nonexistent",
+            "dst": "meter",
+            "factor": 1.0,
+        }]
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="cannot resolve unit.*nonexistent"):
+            from_toml(path, strict=True)
+
+    def test_strict_rejects_unknown_cross_basis_dst(self, tmp_path):
+        """Strict mode rejects unresolvable cross-basis edge dst (lines 728–733)."""
+        doc = self._minimal_doc_with_units()
+        doc["cross_basis_edges"] = [{
+            "src": "meter",
+            "dst": "nonexistent",
+            "factor": 1.0,
+        }]
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="cannot resolve unit.*nonexistent"):
+            from_toml(path, strict=True)
+
+    def test_nonstrict_skips_unknown_cross_basis_edge(self, tmp_path):
+        """Non-strict mode skips unresolvable cross-basis edges (line 733)."""
+        doc = self._minimal_doc_with_units()
+        doc["cross_basis_edges"] = [{
+            "src": "nonexistent",
+            "dst": "meter",
+            "factor": 1.0,
+        }]
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path, strict=False)
+        assert "meter" in g._name_registry_cs
+
+    def test_strict_rejects_unknown_context_edge_src(self, tmp_path):
+        """Strict mode rejects unresolvable context edge src (lines 802–807)."""
+        doc = self._minimal_doc_with_units()
+        doc["contexts"] = {
+            "myctx": {
+                "description": "test",
+                "edges": [{"src": "nonexistent", "dst": "meter", "factor": 1.0}],
+            },
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="cannot resolve unit.*nonexistent"):
+            from_toml(path, strict=True)
+
+    def test_strict_rejects_unknown_context_edge_dst(self, tmp_path):
+        """Strict mode rejects unresolvable context edge dst (lines 802–807)."""
+        doc = self._minimal_doc_with_units()
+        doc["contexts"] = {
+            "myctx": {
+                "description": "test",
+                "edges": [{"src": "meter", "dst": "nonexistent", "factor": 1.0}],
+            },
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="cannot resolve unit.*nonexistent"):
+            from_toml(path, strict=True)
+
+    def test_nonstrict_skips_unknown_context_edge(self, tmp_path):
+        """Non-strict mode skips unresolvable context edges (line 807)."""
+        doc = self._minimal_doc_with_units()
+        doc["contexts"] = {
+            "myctx": {
+                "description": "test",
+                "edges": [{"src": "nonexistent", "dst": "meter", "factor": 1.0}],
+            },
+        }
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path, strict=False)
+        assert "meter" in g._name_registry_cs
+
+
+# ---------------------------------------------------------------------------
+# Coverage: _resolve_unit fallback (lines 833, 836)
+# ---------------------------------------------------------------------------
+
+class TestResolveUnitFallbacks:
+    def test_resolve_from_graph_registry(self):
+        """Unit resolved from graph.resolve_unit() when not in unit_map (line 833)."""
+        from ucon import units
+
+        graph = get_default_graph()
+        # unit_map intentionally missing 'meter'
+        result = _resolve_unit("meter", {}, graph)
+        assert result is not None
+        assert result.name == "meter"
+
+    def test_resolve_case_insensitive(self):
+        """Case-insensitive fallback in _name_registry (line 836)."""
+        from ucon import units
+
+        graph = ConversionGraph()
+        u = units.meter
+        graph.register_unit(u)
+        # Verify it's in the case-insensitive registry
+        assert "meter" in graph._name_registry
+        # resolve_unit won't find "Meter" via resolve_unit (case-sensitive)
+        # so it should hit the _name_registry fallback
+        result = _resolve_unit("meter", {}, graph)
+        assert result is not None
+
+    def test_resolve_returns_none(self):
+        """Completely unknown name returns None."""
+        graph = ConversionGraph()
+        result = _resolve_unit("nonexistent", {}, graph)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Coverage: _resolve_context_unit fallback (lines 852–855)
+# ---------------------------------------------------------------------------
+
+class TestResolveContextUnit:
+    def test_context_unit_via_resolver(self):
+        """_resolve_context_unit resolves via get_unit_by_name first (line 851)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _resolve_context_unit("meter", {}, graph)
+        assert result is not None
+
+    def test_context_unit_fallback_to_local(self):
+        """_resolve_context_unit falls back to _resolve_unit on exception (lines 852–855)."""
+        from ucon import units
+
+        graph = ConversionGraph()
+        graph.register_unit(units.meter)
+        unit_map = {"meter": units.meter}
+
+        # In an empty graph context, get_unit_by_name may fail — but
+        # _resolve_unit(meter, unit_map, graph) succeeds via unit_map
+        with using_graph(graph):
+            result = _resolve_context_unit("meter", unit_map, graph)
+        assert result is not None
+
+    def test_context_unit_returns_none(self):
+        """_resolve_context_unit returns None when all resolution fails."""
+        graph = ConversionGraph()
+        with using_graph(graph):
+            result = _resolve_context_unit("nonexistent", {}, graph)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Coverage: _parse_product_expression edge cases (lines 888, 894–895, 920, 923)
+# ---------------------------------------------------------------------------
+
+class TestParseProductExpression:
+    def test_empty_expression(self):
+        """Empty expression returns None (line 923)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("", {}, graph)
+        assert result is None
+
+    def test_invalid_exponent(self):
+        """Invalid exponent string returns None (lines 894–895)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter^abc", {}, graph)
+        assert result is None
+
+    def test_fallback_to_local_resolution(self):
+        """Resolver failure falls back to _resolve_unit (line 920)."""
+        from ucon import units
+
+        graph = ConversionGraph()
+        graph.register_unit(units.meter)
+        unit_map = {"meter": units.meter}
+
+        with using_graph(graph):
+            result = _parse_product_expression("meter", unit_map, graph)
+        assert result is not None
+
+    def test_unresolvable_unit_returns_none(self):
+        """Completely unknown unit in expression returns None (line 918–919)."""
+        graph = ConversionGraph()
+        with using_graph(graph):
+            result = _parse_product_expression("nonexistent", {}, graph)
+        assert result is None
+
+    def test_empty_part_skipped(self):
+        """Empty part from split is skipped (line 888)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            # "meter*" splits to ["meter", ""] — empty part should be skipped
+            result = _parse_product_expression("meter*", {}, graph)
+        assert result is not None
+
+
+# ---------------------------------------------------------------------------
+# Coverage: Dimension serialization — fractional components (line 287)
+# ---------------------------------------------------------------------------
+
+class TestSerializeDimensionFractional:
+    def test_fractional_vector_component(self):
+        """Dimension with fractional vector component serializes as string (line 244)."""
+        from ucon.basis import Basis, Vector
+        from ucon.dimension import Dimension
+        from fractions import Fraction
+
+        b = Basis("test", ["a", "b"])
+        v = Vector(b, (Fraction(1, 2), Fraction(1)))
+        d = Dimension(vector=v, name="half_dim")
+        result = _serialize_dimension(d)
+        assert result["vector"] == ["1/2", 1]
+
+
+# ---------------------------------------------------------------------------
+# Coverage: _serialize_transform — binding with fractional target_expression (line 287)
+# ---------------------------------------------------------------------------
+
+class TestSerializeTransformBindings:
+    def test_binding_fractional_target_expression(self):
+        """Fractional binding target_expression serializes as string (line 287)."""
+        from ucon.basis import Basis, Vector
+        from ucon.basis.transforms import (
+            ConstantBoundBasisTransform,
+            ConstantBinding,
+            BasisComponent,
+        )
+        from fractions import Fraction
+
+        a = Basis("A", [BasisComponent("x", "X")])
+        b = Basis("B", [BasisComponent("y", "Y")])
+        binding = ConstantBinding(
+            source_component=a[0],
+            target_expression=Vector(b, (Fraction(1, 3),)),
+            constant_symbol="c",
+            exponent=Fraction(2),
+        )
+        bt = ConstantBoundBasisTransform(
+            source=a,
+            target=b,
+            matrix=((Fraction(1),),),
+            bindings=(binding,),
+        )
+        result = _serialize_transform(bt)
+        assert "bindings" in result
+        assert result["bindings"][0]["target_expression"] == ["1/3"]
+        assert result["bindings"][0]["exponent"] == "2"
+
+
+# ---------------------------------------------------------------------------
+# Coverage: _product_key_to_expression edge cases
+# ---------------------------------------------------------------------------
+
+class TestProductKeyToExpression:
+    def test_negative_exponent(self):
+        """Exponent of -1 renders as ^-1."""
+        key = (("meter", None, None, -1.0),)
+        expr = _product_key_to_expression(key)
+        assert expr == "meter^-1"
+
+    def test_fractional_exponent(self):
+        """Non-integer exponent renders as ^exp."""
+        key = (("meter", None, None, 0.5),)
+        expr = _product_key_to_expression(key)
+        assert expr == "meter^0.5"
+
+    def test_empty_key(self):
+        """Empty key returns 'dimensionless'."""
+        expr = _product_key_to_expression(())
+        assert expr == "dimensionless"
+
+
+# ---------------------------------------------------------------------------
+# Coverage: Export empty sections produce no keys
+# ---------------------------------------------------------------------------
+
+class TestExportEmptySections:
+    def test_empty_graph_exports_minimal(self, tmp_path):
+        """An empty graph exports only package metadata."""
+        graph = ConversionGraph()
+        path = tmp_path / "empty.ucon.toml"
+        graph.to_toml(path)
+
+        with open(path, "rb") as f:
+            doc = tomllib.load(f)
+
+        assert "package" in doc
+        # No bases, dimensions, units, edges, etc.
+        assert "units" not in doc or doc["units"] == []
+        assert "edges" not in doc or doc["edges"] == []
+
+
+# ---------------------------------------------------------------------------
+# Coverage: Context with description="" (line 465→467 branch)
+# ---------------------------------------------------------------------------
+
+class TestContextDescriptionBranch:
+    def test_context_without_description(self, tmp_path):
+        """Context with empty description omits key in export (line 465→467)."""
+        from ucon.contexts import ConversionContext, ContextEdge
+        from ucon import units
+
+        graph = get_default_graph()
+        ctx = ConversionContext(
+            name="no_desc",
+            edges=(
+                ContextEdge(
+                    src=units.meter,
+                    dst=units.foot,
+                    map=LinearMap(3.28084),
+                ),
+            ),
+            description="",
+        )
+        graph.register_context(ctx)
+
+        path = tmp_path / "ctx_no_desc.ucon.toml"
+        graph.to_toml(path)
+
+        with open(path, "rb") as f:
+            doc = tomllib.load(f)
+
+        ctx_spec = doc["contexts"]["no_desc"]
+        assert "description" not in ctx_spec
+
+
+# ---------------------------------------------------------------------------
+# Coverage: Remaining lines (198, 762–765, 836, 920, 737→721)
+# ---------------------------------------------------------------------------
+
+class TestRemainingCoverage:
+    def test_resolve_unit_case_insensitive_fallback(self):
+        """Case-different name resolved via _name_registry (line 836)."""
+        from ucon import units
+
+        graph = ConversionGraph()
+        graph.register_unit(units.meter)
+        # "Meter" not in _name_registry_cs, but "meter" is in _name_registry
+        result = _resolve_unit("Meter", {}, graph)
+        assert result is not None
+        assert result.name == "meter"
+
+    def test_constant_unit_fallback_to_local(self, tmp_path):
+        """Constant with unresolvable unit falls back to _resolve_unit (lines 762–765)."""
+        doc = {
+            "units": [{"name": "meter", "dimension": "length"}],
+            "constants": [{
+                "symbol": "k",
+                "name": "test constant",
+                "value": 42.0,
+                "unit": "zzz_unknown_unit_zzz",
+                "category": "session",
+            }],
+        }
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path)
+        assert len(g._package_constants) == 1
+        # The constant unit should be "unknown" since neither resolver found it
+        assert g._package_constants[0].unit.name == "unknown"
+
+    def test_cross_basis_edge_without_transform_key(self, tmp_path):
+        """Cross-basis edge without transform key skips add_edge (line 737→721)."""
+        doc = {
+            "units": [
+                {"name": "meter", "dimension": "length"},
+                {"name": "foot", "dimension": "length"},
+            ],
+            "cross_basis_edges": [{
+                "src": "meter",
+                "dst": "foot",
+                "factor": 3.28084,
+                # No "transform" key — bt will be None
+            }],
+        }
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path)
+        # Graph should load; edge was not added (no transform)
+        assert "meter" in g._name_registry_cs
+
+    def test_parse_product_expression_local_fallback(self):
+        """Product expression falls back to local resolution (line 920)."""
+        from ucon.core import Unit
+        from ucon.dimension import Dimension
+
+        # Create a minimal graph and put the unit ONLY in unit_map, not
+        # registered in the graph, so get_unit_by_name will fail but
+        # _resolve_unit will find it via unit_map
+        graph = ConversionGraph()
+        custom = Unit("zzzwidget_notregistered", Dimension.length)
+        unit_map = {"zzzwidget_notregistered": custom}
+
+        with using_graph(graph):
+            result = _parse_product_expression("zzzwidget_notregistered", unit_map, graph)
+        assert result is not None
+
+    def test_extract_cross_basis_dst_is_rebased_skipped(self):
+        """RebasedUnit dst in cross-basis extraction is skipped (line 198)."""
+        from ucon.core import RebasedUnit, Unit
+        from ucon.dimension import Dimension
+        from ucon.basis import Basis, BasisTransform
+        from fractions import Fraction
+
+        a = Basis("A", ["x"])
+        b = Basis("B", ["y"])
+        bt = BasisTransform(source=a, target=b, matrix=((Fraction(1),),))
+        dim = Dimension.length
+        u = Unit("meter", dim)
+        ru1 = RebasedUnit(original=u, rebased_dimension=dim, basis_transform=bt)
+        ru2 = RebasedUnit(original=u, rebased_dimension=dim, basis_transform=bt)
+
+        graph = ConversionGraph()
+        graph._rebased = {u: [ru1]}
+        # ru1 maps to ru2 (both are RebasedUnit)
+        graph._unit_edges = {dim: {ru1: {ru2: LinearMap(1.0)}}}
+
+        result = _extract_cross_basis_edges(graph)
+        # ru2 is a RebasedUnit, so the edge should be skipped
+        assert result == []
