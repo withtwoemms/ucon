@@ -178,13 +178,40 @@ class UnitDef:
         )
 
 
-_MAP_TYPES: dict[str, type[Map]] = {
+MAP_TYPES: dict[str, type[Map]] = {
     'linear': LinearMap,
     'affine': AffineMap,
     'log': LogMap,
     'exp': ExpMap,
     'reciprocal': ReciprocalMap,
 }
+
+
+def register_map_type(type_name: str, cls: type) -> None:
+    """Register a custom Map subclass for TOML deserialization.
+
+    Parameters
+    ----------
+    type_name : str
+        The string identifier used in TOML ``type`` fields.
+    cls : type
+        A :class:`Map` subclass.
+
+    Raises
+    ------
+    TypeError
+        If *cls* is not a Map subclass.
+    ValueError
+        If *type_name* is already registered to a different class.
+    """
+    if not (isinstance(cls, type) and issubclass(cls, Map)):
+        raise TypeError(f"cls must be a Map subclass, got {cls}")
+    existing = MAP_TYPES.get(type_name)
+    if existing is not None and existing is not cls:
+        raise ValueError(
+            f"Map type '{type_name}' already registered to {existing.__name__}"
+        )
+    MAP_TYPES[type_name] = cls
 
 
 def _build_map(map_spec: dict) -> Map:
@@ -224,11 +251,11 @@ def _build_map(map_spec: dict) -> Map:
             inner=_build_map(inner_spec),
         )
 
-    cls = _MAP_TYPES.get(map_type)
+    cls = MAP_TYPES.get(map_type)
     if cls is None:
         raise PackageLoadError(
             f"Unknown map type '{map_type}'. "
-            f"Valid types: {', '.join(sorted(_MAP_TYPES))}, composed"
+            f"Valid types: {', '.join(sorted(MAP_TYPES))}, composed"
         )
 
     try:
@@ -543,8 +570,10 @@ def load_package(path: str | Path) -> UnitPackage:
 __all__ = [
     'ConstantDef',
     'EdgeDef',
+    'MAP_TYPES',
     'PackageLoadError',
     'UnitDef',
     'UnitPackage',
     'load_package',
+    'register_map_type',
 ]

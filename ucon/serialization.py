@@ -20,6 +20,7 @@ Format version: 1.2
 from __future__ import annotations
 
 import sys
+import warnings
 from fractions import Fraction
 from pathlib import Path
 from typing import Union
@@ -68,6 +69,41 @@ def _require(spec: dict, key: str, section: str) -> object:
         ) from None
 
 
+def _check_format_version(doc: dict) -> None:
+    """Validate the ``format_version`` field in a TOML document.
+
+    Rules:
+    - Missing ``format_version`` (or missing ``[package]``) → silently accepted
+      for backward compatibility with old files.
+    - Major version mismatch → :class:`GraphLoadError`.
+    - File minor > our minor → :class:`UserWarning`.
+    """
+    raw = doc.get("package", {}).get("format_version")
+    if raw is None:
+        return  # backward compat with old files
+    parts = str(raw).split(".")
+    if len(parts) < 2:
+        raise GraphLoadError(
+            f"Malformed format_version: '{raw}' (expected 'major.minor')"
+        )
+    try:
+        file_major, file_minor = int(parts[0]), int(parts[1])
+    except ValueError:
+        raise GraphLoadError(f"Malformed format_version: '{raw}'") from None
+    our_major, our_minor = (int(x) for x in FORMAT_VERSION.split("."))
+    if file_major != our_major:
+        raise GraphLoadError(
+            f"Incompatible format version: file is {raw}, "
+            f"this library supports {FORMAT_VERSION}.x"
+        )
+    if file_minor > our_minor:
+        warnings.warn(
+            f"TOML file format version {raw} is newer than supported "
+            f"{FORMAT_VERSION}. Some features may not be loaded.",
+            stacklevel=3,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Map serialization
 # ---------------------------------------------------------------------------
@@ -75,35 +111,9 @@ def _require(spec: dict, key: str, section: str) -> object:
 def _serialize_map(m: Map) -> dict:
     """Serialize a Map instance to a TOML-friendly dict.
 
-    Reverse of ``packages._build_map()``.
+    Delegates to ``Map.to_dict()``.
     """
-    if isinstance(m, LinearMap):
-        return {"type": "linear", "a": m.a}
-    if isinstance(m, AffineMap):
-        return {"type": "affine", "a": m.a, "b": m.b}
-    if isinstance(m, LogMap):
-        d: dict = {"type": "log", "scale": m.scale, "base": m.base}
-        if m.reference != 1.0:
-            d["reference"] = m.reference
-        if m.offset != 0.0:
-            d["offset"] = m.offset
-        return d
-    if isinstance(m, ExpMap):
-        d = {"type": "exp", "scale": m.scale, "base": m.base}
-        if m.reference != 1.0:
-            d["reference"] = m.reference
-        if m.offset != 0.0:
-            d["offset"] = m.offset
-        return d
-    if isinstance(m, ReciprocalMap):
-        return {"type": "reciprocal", "a": m.a}
-    if isinstance(m, ComposedMap):
-        return {
-            "type": "composed",
-            "outer": _serialize_map(m.outer),
-            "inner": _serialize_map(m.inner),
-        }
-    raise TypeError(f"Cannot serialize map type: {type(m).__name__}")
+    return m.to_dict()
 
 
 # ---------------------------------------------------------------------------
@@ -164,23 +174,60 @@ def _extract_product_edges(graph) -> list[dict]:
 def _product_key_to_expression(key: tuple) -> str:
     """Convert a product key tuple back to a unit expression string.
 
-    Each element is (name, dimension, scale, exponent).
+    Each element is ``(name, dimension, scale, exponent)``.
+
+    Uses ``/`` notation when there are both positive and negative exponents::
+
+        meter^1, second^-1 → "meter/second"
+        kg^1, m^1, s^-2   → "kg*m/s^2"
+
+    All-negative exponents keep the ``^-n`` form (no ``"1/..."``).
     """
-    parts = []
+    num_parts: list[str] = []
+    den_parts: list[str] = []
+
     for name, dim, scale, exp in key:
         scale_val = scale.value.evaluated if hasattr(scale, 'value') else 1.0
         prefix = ""
         if abs(scale_val - 1.0) > 1e-15:
-            # Find the scale prefix
             prefix = scale.shorthand if hasattr(scale, 'shorthand') else ""
         unit_str = prefix + name if prefix else name
-        if abs(exp - 1.0) < 1e-12:
-            parts.append(unit_str)
-        elif abs(exp - (-1.0)) < 1e-12:
-            parts.append(f"{unit_str}^-1")
+
+        if exp > 0:
+            if abs(exp - 1.0) < 1e-12:
+                num_parts.append(unit_str)
+            else:
+                num_parts.append(f"{unit_str}^{exp}")
         else:
-            parts.append(f"{unit_str}^{exp}")
-    return "*".join(parts) if parts else "dimensionless"
+            abs_exp = abs(exp)
+            if abs(abs_exp - 1.0) < 1e-12:
+                den_parts.append(unit_str)
+            else:
+                den_parts.append(f"{unit_str}^{abs_exp}")
+
+    if not num_parts and not den_parts:
+        return "dimensionless"
+
+    # All-negative: no numerator to anchor the `/` on → use ^-n form
+    if not num_parts:
+        neg_parts = []
+        for name, dim, scale, exp in key:
+            scale_val = scale.value.evaluated if hasattr(scale, 'value') else 1.0
+            prefix = ""
+            if abs(scale_val - 1.0) > 1e-15:
+                prefix = scale.shorthand if hasattr(scale, 'shorthand') else ""
+            unit_str = prefix + name if prefix else name
+            if abs(exp - (-1.0)) < 1e-12:
+                neg_parts.append(f"{unit_str}^-1")
+            else:
+                neg_parts.append(f"{unit_str}^{exp}")
+        return "*".join(neg_parts)
+
+    num_expr = "*".join(num_parts)
+    if den_parts:
+        den_expr = "*".join(den_parts)
+        return f"{num_expr}/{den_expr}"
+    return num_expr
 
 
 def _extract_cross_basis_edges(graph) -> list[dict]:
@@ -519,6 +566,8 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     with open(path, "rb") as f:
         doc = tomllib.load(f)
 
+    _check_format_version(doc)
+
     # 1. Build bases
     basis_map: dict[str, Basis] = {}
     for name, spec in doc.get("bases", {}).items():
@@ -705,8 +754,13 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
             src_expr = _require(edge_spec, "src", section)
             dst_expr = _require(edge_spec, "dst", section)
             m = _build_edge_map(edge_spec, _build_map)
-            src_prod = _parse_product_expression(src_expr, unit_map, graph)
-            dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
+            try:
+                src_prod = _parse_product_expression(src_expr, unit_map, graph)
+                dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
+            except GraphLoadError:
+                if strict:
+                    raise
+                continue
             if src_prod is None or dst_prod is None:
                 if strict:
                     failed = src_expr if src_prod is None else dst_expr
@@ -866,22 +920,21 @@ def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:
     return LinearMap(a=factor)
 
 
-def _parse_product_expression(
+def _parse_factors(
+    s: str,
     expr: str,
     unit_map: dict[str, Unit],
     graph,
-) -> Union[UnitProduct, None]:
-    """Parse a product expression string like 'meter*second^-1' into a UnitProduct.
+) -> dict:
+    """Parse a ``*``-separated list of factors into a {UnitFactor: exponent} dict.
 
-    Uses ``get_unit_by_name()`` as the primary resolver so that scale-prefixed
-    names (e.g. ``"kwatt"``) are decomposed correctly into a ``UnitFactor``
-    carrying the proper ``Scale``.
+    Raises :class:`GraphLoadError` on invalid exponents.
+    Returns ``None`` for unresolvable unit names (caller decides how to handle).
     """
     from ucon.resolver import get_unit_by_name
 
-    # Split on * and parse each factor
-    parts = expr.split("*")
-    factors = {}
+    factors: dict = {}
+    parts = s.split("*")
     for part in parts:
         part = part.strip()
         if not part:
@@ -890,9 +943,11 @@ def _parse_product_expression(
         if "^" in part:
             unit_name, exp_str = part.rsplit("^", 1)
             try:
-                exp = float(exp_str)
+                exp = float(exp_str.strip())
             except ValueError:
-                return None
+                raise GraphLoadError(
+                    f"Invalid exponent '{exp_str.strip()}' in product expression '{expr}'"
+                )
         else:
             unit_name = part
             exp = 1.0
@@ -903,11 +958,9 @@ def _parse_product_expression(
         try:
             resolved = get_unit_by_name(unit_name)
             if isinstance(resolved, UnitProduct):
-                # Extract the single UnitFactor (e.g. UnitFactor(watt, kilo))
                 for uf, uf_exp in resolved.factors.items():
                     factors[uf] = exp * uf_exp
             else:
-                # Plain Unit — wrap with Scale.one
                 factors[UnitFactor(resolved, Scale.one)] = exp
             continue
         except Exception:
@@ -918,6 +971,60 @@ def _parse_product_expression(
         if unit is None:
             return None
         factors[UnitFactor(unit, Scale.one)] = exp
+
+    return factors
+
+
+def _parse_product_expression(
+    expr: str,
+    unit_map: dict[str, Unit],
+    graph,
+) -> Union[UnitProduct, None]:
+    """Parse a product expression string into a UnitProduct.
+
+    Grammar::
+
+        expression  := numerator ('/' denominator)?
+        numerator   := factor ('*' factor)*
+        denominator := factor ('*' factor)*
+        factor      := unit_name ('^' exponent)?
+
+    At most one ``/`` is allowed.  Everything after ``/`` has exponents
+    negated.  Uses ``get_unit_by_name()`` as the primary resolver so that
+    scale-prefixed names (e.g. ``"kwatt"``) are decomposed correctly into
+    a ``UnitFactor`` carrying the proper ``Scale``.
+
+    Raises
+    ------
+    GraphLoadError
+        If the expression contains multiple ``/`` or an invalid exponent.
+    """
+    expr = expr.strip()
+    if not expr:
+        return None
+
+    slash_count = expr.count("/")
+    if slash_count > 1:
+        raise GraphLoadError(
+            f"Multiple '/' in product expression '{expr}' — at most one is allowed"
+        )
+
+    if slash_count == 1:
+        num_str, den_str = expr.split("/", 1)
+    else:
+        num_str = expr
+        den_str = None
+
+    factors = _parse_factors(num_str, expr, unit_map, graph)
+    if factors is None:
+        return None
+
+    if den_str is not None:
+        den_factors = _parse_factors(den_str, expr, unit_map, graph)
+        if den_factors is None:
+            return None
+        for uf, exp in den_factors.items():
+            factors[uf] = factors.get(uf, 0.0) - exp
 
     if not factors:
         return None

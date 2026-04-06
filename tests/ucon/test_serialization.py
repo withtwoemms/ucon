@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,7 @@ from ucon.maps import AffineMap, ComposedMap, ExpMap, LinearMap, LogMap, Recipro
 from ucon.serialization import (
     FORMAT_VERSION,
     GraphLoadError,
+    _check_format_version,
     _serialize_map,
     _serialize_constant,
     _extract_forward_edges,
@@ -1392,11 +1394,11 @@ class TestParseProductExpression:
         assert result is None
 
     def test_invalid_exponent(self):
-        """Invalid exponent string returns None (lines 894–895)."""
+        """Invalid exponent string raises GraphLoadError."""
         graph = get_default_graph()
         with using_graph(graph):
-            result = _parse_product_expression("meter^abc", {}, graph)
-        assert result is None
+            with pytest.raises(GraphLoadError, match="Invalid exponent.*abc"):
+                _parse_product_expression("meter^abc", {}, graph)
 
     def test_fallback_to_local_resolution(self):
         """Resolver failure falls back to _resolve_unit (line 920)."""
@@ -1648,3 +1650,385 @@ class TestRemainingCoverage:
         result = _extract_cross_basis_edges(graph)
         # ru2 is a RebasedUnit, so the edge should be skipped
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# Change 1: Format version validation
+# ---------------------------------------------------------------------------
+
+class TestFormatVersionValidation:
+    """Tests for _check_format_version()."""
+
+    def test_missing_format_version_accepted(self):
+        """No format_version key → no error."""
+        _check_format_version({"package": {"name": "test"}})
+
+    def test_matching_version_accepted(self):
+        """Matching format_version → no error."""
+        _check_format_version({"package": {"format_version": FORMAT_VERSION}})
+
+    def test_older_minor_accepted(self):
+        """Older minor version → no error, no warning."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _check_format_version({"package": {"format_version": "1.0"}})
+
+    def test_newer_minor_warns(self):
+        """Newer minor version → UserWarning."""
+        with pytest.warns(UserWarning, match="newer than supported"):
+            _check_format_version({"package": {"format_version": "1.99"}})
+
+    def test_incompatible_major_raises(self):
+        """Major version 2 → GraphLoadError."""
+        with pytest.raises(GraphLoadError, match="Incompatible format version"):
+            _check_format_version({"package": {"format_version": "2.0"}})
+
+    def test_incompatible_major_lower_raises(self):
+        """Major version 0 → GraphLoadError."""
+        with pytest.raises(GraphLoadError, match="Incompatible format version"):
+            _check_format_version({"package": {"format_version": "0.5"}})
+
+    def test_malformed_version_raises(self):
+        """Non-numeric version → GraphLoadError."""
+        with pytest.raises(GraphLoadError, match="Malformed format_version"):
+            _check_format_version({"package": {"format_version": "abc"}})
+
+    def test_no_package_table_accepted(self):
+        """No [package] table → no error."""
+        _check_format_version({})
+
+    def test_semver_tolerated(self):
+        """Semver '1.2.3' parses as 1.2 → no error."""
+        _check_format_version({"package": {"format_version": "1.2.3"}})
+
+    def test_format_version_roundtrip(self, tmp_path):
+        """from_toml validates version during import."""
+        doc = {
+            "package": {"format_version": "2.0"},
+            "units": [{"name": "meter", "dimension": "length"}],
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="Incompatible format version"):
+            from_toml(path)
+
+    def test_format_version_warning_roundtrip(self, tmp_path):
+        """from_toml warns on newer minor version during import."""
+        doc = {
+            "package": {"format_version": "1.99"},
+            "units": [{"name": "meter", "dimension": "length"}],
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.warns(UserWarning, match="newer than supported"):
+            from_toml(path)
+
+
+# ---------------------------------------------------------------------------
+# Change 2: Product expression grammar
+# ---------------------------------------------------------------------------
+
+class TestProductExpressionGrammar:
+    """Tests for '/' division sugar in product expressions."""
+
+    def test_division_basic(self):
+        """'meter/second' → meter^1, second^-1."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter/second", {}, graph)
+        assert result is not None
+        from ucon.core import UnitFactor, Scale
+        found = {}
+        for uf, exp in result.factors.items():
+            found[uf.unit.name] = exp
+        assert found["meter"] == 1.0
+        assert found["second"] == -1.0
+
+    def test_division_compound_num(self):
+        """'kg*meter/second^2' → kg^1, meter^1, second^-2."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("kg*meter/second^2", {}, graph)
+        assert result is not None
+        found = {}
+        for uf, exp in result.factors.items():
+            found[uf.unit.name] = exp
+        assert found.get("kilogram", found.get("kg")) == 1.0
+        assert found["meter"] == 1.0
+        assert found["second"] == -2.0
+
+    def test_division_compound_den(self):
+        """'meter/second*kilogram' → meter^1, second^-1, kg^-1."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter/second*kilogram", {}, graph)
+        assert result is not None
+        found = {}
+        for uf, exp in result.factors.items():
+            found[uf.unit.name] = exp
+        assert found["meter"] == 1.0
+        assert found["second"] == -1.0
+        assert found["kilogram"] == -1.0
+
+    def test_multiple_slash_raises(self):
+        """'m/s/kg' raises GraphLoadError."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            with pytest.raises(GraphLoadError, match="Multiple '/'"):
+                _parse_product_expression("m/s/kg", {}, graph)
+
+    def test_invalid_exponent_raises(self):
+        """'meter^abc' raises GraphLoadError."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            with pytest.raises(GraphLoadError, match="Invalid exponent.*abc"):
+                _parse_product_expression("meter^abc", {}, graph)
+
+    def test_backward_compat_star(self):
+        """'meter*second^-1' still works (unchanged)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter*second^-1", {}, graph)
+        assert result is not None
+        found = {}
+        for uf, exp in result.factors.items():
+            found[uf.unit.name] = exp
+        assert found["meter"] == 1.0
+        assert found["second"] == -1.0
+
+    def test_whitespace_tolerance(self):
+        """'meter / second' with whitespace works."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter / second", {}, graph)
+        assert result is not None
+        found = {}
+        for uf, exp in result.factors.items():
+            found[uf.unit.name] = exp
+        assert found["meter"] == 1.0
+        assert found["second"] == -1.0
+
+    def test_division_with_prefix(self):
+        """'kwatt/hour' → kilo-watt^1, hour^-1."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("kwatt/hour", {}, graph)
+        assert result is not None
+        from ucon.core import Scale
+        found_kilo_watt = False
+        found_hour = False
+        for uf, exp in result.factors.items():
+            if uf.unit.name == "watt" and uf.scale == Scale.kilo:
+                assert exp == 1.0
+                found_kilo_watt = True
+            if uf.unit.name == "hour":
+                assert exp == -1.0
+                found_hour = True
+        assert found_kilo_watt
+        assert found_hour
+
+    def test_emitter_slash_notation(self):
+        """Product key with meter^1, second^-1 emits 'meter/second'."""
+        from ucon import units
+        from ucon.core import UnitFactor, Scale, UnitProduct
+
+        prod = UnitProduct({
+            UnitFactor(units.meter, Scale.one): 1,
+            UnitFactor(units.second, Scale.one): -1,
+        })
+        key = _product_key(prod)
+        expr = _product_key_to_expression(key)
+        assert "/" in expr
+        assert "^-1" not in expr
+
+    def test_emitter_all_negative(self):
+        """Product key with second^-1 only emits 'second^-1' (no '1/second')."""
+        from ucon import units
+        from ucon.core import UnitFactor, Scale, UnitProduct
+
+        prod = UnitProduct({
+            UnitFactor(units.second, Scale.one): -1,
+        })
+        key = _product_key(prod)
+        expr = _product_key_to_expression(key)
+        assert expr == "second^-1"
+        assert "/" not in expr
+
+    def test_roundtrip_division(self, tmp_path):
+        """Product edges with '/' notation survive export + reimport."""
+        from ucon import units
+        from ucon.core import UnitFactor, Scale, UnitProduct
+
+        graph = get_default_graph()
+        m_per_s = UnitProduct({
+            UnitFactor(units.meter, Scale.one): 1,
+            UnitFactor(units.second, Scale.one): -1,
+        })
+        ft_per_s = UnitProduct({
+            UnitFactor(units.foot, Scale.one): 1,
+            UnitFactor(units.second, Scale.one): -1,
+        })
+        graph.add_edge(src=m_per_s, dst=ft_per_s, map=LinearMap(3.28084))
+
+        path = tmp_path / "division.ucon.toml"
+        graph.to_toml(path)
+        restored = ConversionGraph.from_toml(path)
+        assert graph == restored
+
+
+# ---------------------------------------------------------------------------
+# Change 3: Map to_dict() and map type registry
+# ---------------------------------------------------------------------------
+
+class TestMapToDict:
+    """Tests for Map.to_dict() on all subclasses."""
+
+    def test_linear_to_dict(self):
+        m = LinearMap(3.28084)
+        assert m.to_dict() == {"type": "linear", "a": 3.28084}
+
+    def test_affine_to_dict(self):
+        m = AffineMap(1.8, 32.0)
+        assert m.to_dict() == {"type": "affine", "a": 1.8, "b": 32.0}
+
+    def test_log_to_dict_omits_defaults(self):
+        m = LogMap(scale=10, base=10)
+        d = m.to_dict()
+        assert d == {"type": "log", "scale": 10.0, "base": 10.0}
+        assert "reference" not in d
+        assert "offset" not in d
+
+    def test_log_to_dict_includes_nondefaults(self):
+        m = LogMap(scale=10, base=10, reference=1e-3)
+        d = m.to_dict()
+        assert d["reference"] == 1e-3
+
+    def test_exp_to_dict(self):
+        m = ExpMap(scale=0.1, base=10, reference=1e-3)
+        d = m.to_dict()
+        assert d["type"] == "exp"
+        assert d["scale"] == 0.1
+        assert d["reference"] == 1e-3
+        assert "offset" not in d
+
+    def test_reciprocal_to_dict(self):
+        m = ReciprocalMap(299792458.0)
+        assert m.to_dict() == {"type": "reciprocal", "a": 299792458.0}
+
+    def test_composed_to_dict_recursive(self):
+        m = ComposedMap(LogMap(scale=-1), AffineMap(a=-1, b=1))
+        d = m.to_dict()
+        assert d["type"] == "composed"
+        assert d["outer"]["type"] == "log"
+        assert d["inner"]["type"] == "affine"
+
+    def test_no_map_type_raises(self):
+        """Custom Map without _map_type raises TypeError."""
+        from ucon.maps import Map
+
+        class BareMap(Map):
+            def __call__(self, x): return x
+            @property
+            def invertible(self): return True
+            def inverse(self): return self
+            def __matmul__(self, other): return self
+            def __pow__(self, n): return self
+            def derivative(self, x): return 1.0
+
+        with pytest.raises(TypeError, match="Cannot serialize map type"):
+            BareMap().to_dict()
+
+    def test_serialize_map_delegates(self):
+        """_serialize_map(m) == m.to_dict() for all concrete types."""
+        maps = [
+            LinearMap(2.5),
+            AffineMap(1.8, 32.0),
+            LogMap(scale=10, base=10),
+            ExpMap(scale=0.1, base=10),
+            ReciprocalMap(42.0),
+            ComposedMap(LogMap(scale=-1), AffineMap(a=-1, b=1)),
+        ]
+        for m in maps:
+            assert _serialize_map(m) == m.to_dict()
+
+
+class TestMapTypeRegistry:
+    """Tests for MAP_TYPES / register_map_type()."""
+
+    def test_register_map_type(self):
+        """Custom type appears in MAP_TYPES after registration."""
+        from ucon.packages import MAP_TYPES, register_map_type
+        from ucon.maps import Map
+        from dataclasses import dataclass
+
+        @dataclass(frozen=True)
+        class TestCustomMap(Map):
+            _map_type = "test_custom_xyz"
+            factor: float = 1.0
+            def __call__(self, x): return self.factor * x
+            @property
+            def invertible(self): return True
+            def inverse(self): return self
+            def __matmul__(self, other): return self
+            def __pow__(self, n): return self
+            def derivative(self, x): return self.factor
+
+        register_map_type("test_custom_xyz", TestCustomMap)
+        assert MAP_TYPES["test_custom_xyz"] is TestCustomMap
+        # Cleanup
+        del MAP_TYPES["test_custom_xyz"]
+
+    def test_register_duplicate_same_ok(self):
+        """Registering the same class for the same name is idempotent."""
+        from ucon.packages import MAP_TYPES, register_map_type
+
+        register_map_type("linear", LinearMap)  # already registered
+
+    def test_register_duplicate_different_raises(self):
+        """Registering a different class for an existing name raises ValueError."""
+        from ucon.packages import register_map_type
+
+        with pytest.raises(ValueError, match="already registered"):
+            register_map_type("linear", AffineMap)
+
+    def test_register_non_map_raises(self):
+        """Registering a non-Map class raises TypeError."""
+        from ucon.packages import register_map_type
+
+        with pytest.raises(TypeError, match="cls must be a Map subclass"):
+            register_map_type("bad", str)
+
+    def test_roundtrip_custom_map(self, tmp_path):
+        """Custom Map subclass survives export/import after registration."""
+        from ucon.packages import MAP_TYPES, register_map_type
+        from ucon.maps import Map
+        from ucon import units
+        from ucon.core import UnitFactor, Scale, UnitProduct
+        from dataclasses import dataclass
+
+        @dataclass(frozen=True)
+        class ScaleMap(Map):
+            _map_type = "test_scale_rt"
+            a: float
+            def __call__(self, x): return self.a * x
+            @property
+            def invertible(self): return self.a != 0
+            def inverse(self): return ScaleMap(1.0 / self.a)
+            def __matmul__(self, other): return ComposedMap(self, other)
+            def __pow__(self, n):
+                if n == 1: return self
+                if n == -1: return self.inverse()
+                raise ValueError
+            def derivative(self, x): return self.a
+
+        register_map_type("test_scale_rt", ScaleMap)
+
+        graph = get_default_graph()
+        prod_m = UnitProduct({UnitFactor(units.meter, Scale.one): 1})
+        prod_ft = UnitProduct({UnitFactor(units.foot, Scale.one): 1})
+        graph.add_edge(src=prod_m, dst=prod_ft, map=ScaleMap(a=3.28084))
+
+        path = tmp_path / "custom_map.ucon.toml"
+        graph.to_toml(path)
+        restored = ConversionGraph.from_toml(path)
+        assert graph == restored
+        # Cleanup
+        del MAP_TYPES["test_scale_rt"]
