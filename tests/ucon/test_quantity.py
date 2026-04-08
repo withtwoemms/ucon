@@ -814,3 +814,175 @@ class TestNumberCanonicalBaseForm(unittest.TestCase):
         self.assertAlmostEqual(bmi.quantity, 70 / (1.75 ** 2), places=10)
         # Dimension should be mass / length^2 = kg/m^2
         self.assertEqual(bmi.unit.dimension, Dimension.mass / Dimension.area)
+
+
+class TestBaseSignature(unittest.TestCase):
+    """Tests for Unit.base_signature, UnitProduct.base_signature, and Number.base_signature."""
+
+    def test_unit_base_signature_coherent_base(self):
+        """Coherent base units report themselves as a self-leaf."""
+        self.assertEqual(units.meter.base_signature, (("meter", 1.0),))
+        self.assertEqual(units.kilogram.base_signature, (("kilogram", 1.0),))
+        self.assertEqual(units.second.base_signature, (("second", 1.0),))
+
+    def test_unit_base_signature_derived_unit(self):
+        """Derived units expose their base-unit decomposition."""
+        # joule = kg·m²/s² (sorted alphabetically by name)
+        self.assertEqual(
+            units.joule.base_signature,
+            (("kilogram", 1.0), ("meter", 2.0), ("second", -2.0)),
+        )
+
+    def test_unit_base_signature_is_sorted_and_hashable(self):
+        """base_signature is a tuple of sorted pairs, usable as a dict key."""
+        sig = units.joule.base_signature
+        self.assertIsInstance(sig, tuple)
+        names = [n for n, _ in sig]
+        self.assertEqual(names, sorted(names))
+        # Hashable
+        {sig: "energy"}
+
+    def test_unit_base_signature_prefactor_dropped(self):
+        """base_signature identifies shape only — prefactor is not present."""
+        # gram has base_form with prefactor 0.001 (1 g = 0.001 kg)
+        sig = units.gram.base_signature
+        # signature should just be (("kilogram", 1.0),), no prefactor info
+        self.assertEqual(sig, (("kilogram", 1.0),))
+
+    def test_unit_base_signature_no_base_form_is_self_leaf(self):
+        """Units without a base_form (e.g., celsius) report themselves."""
+        sig = units.celsius.base_signature
+        self.assertEqual(sig, (("celsius", 1.0),))
+
+    def test_unit_product_base_signature_simple_ratio(self):
+        """UnitProduct.base_signature composes factors from base_forms."""
+        mps = units.meter / units.second
+        self.assertEqual(
+            mps.base_signature,
+            (("meter", 1.0), ("second", -1.0)),
+        )
+
+    def test_unit_product_base_signature_squared(self):
+        """Composition handles integer exponents."""
+        area = units.meter * units.meter
+        self.assertEqual(area.base_signature, (("meter", 2.0),))
+
+    def test_unit_product_base_signature_energy(self):
+        """kg·m²/s² produces the same signature as joule."""
+        manual = (units.kilogram * units.meter * units.meter) / (units.second * units.second)
+        self.assertEqual(manual.base_signature, units.joule.base_signature)
+
+    def test_number_base_signature_delegates_to_unit(self):
+        """Number.base_signature delegates to its unit."""
+        n = units.meter(5)
+        self.assertEqual(n.base_signature, units.meter.base_signature)
+
+    def test_number_base_signature_invariant_under_to_base(self):
+        """n.base_signature == n.to_base().base_signature for every n."""
+        cases = [
+            (Scale.kilo * units.meter)(5),
+            units.joule(1),
+            (Scale.kilo * units.meter)(90) / units.hour(1),
+            units.gram(500),
+        ]
+        for n in cases:
+            with self.subTest(n=n):
+                self.assertEqual(n.base_signature, n.to_base().base_signature)
+
+    def test_base_signature_groups_same_kind(self):
+        """Dispatch by base_signature groups same-kind quantities together."""
+        speed1 = (Scale.kilo * units.meter)(90) / units.hour(1)
+        speed2 = units.meter(10) / units.second(1)
+        energy = units.joule(100)
+        bucket: dict = {}
+        for n in (speed1, speed2, energy):
+            bucket.setdefault(n.base_signature, []).append(n)
+        # speed1 and speed2 should share a bucket, energy in its own
+        self.assertEqual(len(bucket), 2)
+
+
+class TestNumberInBaseForm(unittest.TestCase):
+    """Tests for Number.in_base_form predicate."""
+
+    def test_plain_base_unit_is_in_base_form(self):
+        """Coherent base units are in base form."""
+        self.assertTrue(units.meter(5).in_base_form)
+        self.assertTrue(units.kilogram(1).in_base_form)
+        self.assertTrue(units.second(10).in_base_form)
+
+    def test_scaled_unit_is_not_in_base_form(self):
+        """Scaled units (e.g., km, mg) are not in base form."""
+        self.assertFalse((Scale.kilo * units.meter)(5).in_base_form)
+        km = Scale.kilo * units.meter
+        self.assertFalse(km(5).in_base_form)
+
+    def test_derived_unit_is_not_in_base_form(self):
+        """Derived units (joule, newton) expand via base_form, so not in base form."""
+        self.assertFalse(units.joule(1).in_base_form)
+
+    def test_no_base_form_unit_is_leaf(self):
+        """Units with base_form=None (celsius) count as already in base form."""
+        self.assertTrue(units.celsius(20).in_base_form)
+
+    def test_to_base_result_is_in_base_form(self):
+        """The output of to_base() is always in base form."""
+        cases = [
+            (Scale.kilo * units.meter)(5),
+            units.joule(1),
+            (Scale.kilo * units.meter)(90) / units.hour(1),
+            units.gram(500),
+            units.meter(5),
+        ]
+        for n in cases:
+            with self.subTest(n=n):
+                self.assertTrue(n.to_base().in_base_form)
+
+    def test_compound_base_unit_product_is_in_base_form(self):
+        """meter/second built from base units is in base form."""
+        mps = units.meter(10) / units.second(1)
+        self.assertTrue(mps.in_base_form)
+
+    def test_compound_with_scaled_factor_is_not_in_base_form(self):
+        """km/s is not in base form because km has a scale prefix."""
+        kmps = (Scale.kilo * units.meter)(10) / units.second(1)
+        self.assertFalse(kmps.in_base_form)
+
+
+class TestNumberSameDimensionAs(unittest.TestCase):
+    """Tests for Number.same_dimension_as."""
+
+    def test_same_dimension_number(self):
+        """Two Numbers with the same dimension compare equal."""
+        self.assertTrue((Scale.kilo * units.meter)(5).same_dimension_as(units.meter(1)))
+        self.assertTrue(units.gram(1).same_dimension_as(units.kilogram(1)))
+
+    def test_different_dimension_number(self):
+        """Two Numbers with different dimensions compare false."""
+        self.assertFalse((Scale.kilo * units.meter)(5).same_dimension_as(units.hour(2)))
+        self.assertFalse(units.kilogram(1).same_dimension_as(units.second(1)))
+
+    def test_same_dimension_against_unit(self):
+        """Number can be compared to a plain Unit."""
+        self.assertTrue((Scale.kilo * units.meter)(5).same_dimension_as(units.meter))
+        self.assertFalse((Scale.kilo * units.meter)(5).same_dimension_as(units.second))
+
+    def test_same_dimension_against_unit_product(self):
+        """Number can be compared to a UnitProduct."""
+        speed_n = (Scale.kilo * units.meter)(90) / units.hour(1)
+        speed_u = units.meter / units.second
+        self.assertTrue(speed_n.same_dimension_as(speed_u))
+
+    def test_composite_same_dimension(self):
+        """Composite quantities compare dimensions correctly."""
+        speed1 = (Scale.kilo * units.meter)(90) / units.hour(1)
+        speed2 = units.meter(10) / units.second(1)
+        self.assertTrue(speed1.same_dimension_as(speed2))
+
+    def test_raises_type_error_on_bad_input(self):
+        """Non-Number/Unit/UnitProduct argument raises TypeError."""
+        with self.assertRaises(TypeError):
+            units.meter(5).same_dimension_as(42)
+        with self.assertRaises(TypeError):
+            units.meter(5).same_dimension_as("kilometer")
+        with self.assertRaises(TypeError):
+            units.meter(5).same_dimension_as(None)
