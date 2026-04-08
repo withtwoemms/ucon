@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-04-08
+
 ### Added
+
+- **`BaseForm`** — a new dataclass at `ucon.core.BaseForm` (re-exported from
+  `ucon`) representing a unit's definitional decomposition into the canonical
+  base units of its basis:
+
+        1 U  ≡  prefactor × b₁^e₁ × b₂^e₂ × ... × bₙ^eₙ
+
+  `BaseForm` is immutable, dimensionally consistent with its parent `Unit`,
+  and references only base units of that unit's own basis.
+
+- **`Unit.base_form`** — new public attribute on `Unit`, set at construction
+  and never overwritten thereafter. Carried by 137 atomic units in
+  `ucon/units.py`: **129** via constructor literal plus **8** via a
+  one-shot `Unit._set_base_form` bootstrap (one per unit) for the
+  self-referential SI base units (`kilogram`, `meter`, `second`, `ampere`,
+  `kelvin`, `candela`, `mole`, `bit`), whose `base_form` cannot be expressed
+  as a constructor literal because each references itself. The 4 affine
+  non-base temperature units (`celsius`, `fahrenheit`, `rankine`, `reaumur`)
+  carry `base_form = None` because `y = a·x + b` cannot be represented as a
+  single `(prefactor, factors)` pair.
 
 - **`Number.to_base()`** — new public method that returns a new `Number`
   expressed in the basis's coherent base units (e.g., SI: `kg, m, s, A, K,
@@ -32,30 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   multi-factor `base_form`, self-referential coherent bases, units with
   `base_form = None`, zero-quantity uncertainty propagation, and the
   `to_base().quantity == canonical_magnitude` identity.
-
-## [1.3.0] - 2026-04-08
-
-### Added
-
-- **`BaseForm`** — a new dataclass at `ucon.core.BaseForm` (re-exported from
-  `ucon`) representing a unit's definitional decomposition into the canonical
-  base units of its basis:
-
-        1 U  ≡  prefactor × b₁^e₁ × b₂^e₂ × ... × bₙ^eₙ
-
-  `BaseForm` is immutable, dimensionally consistent with its parent `Unit`,
-  and references only base units of that unit's own basis.
-
-- **`Unit.base_form`** — new public attribute on `Unit`, set at construction
-  and never overwritten thereafter. Carried by 137 atomic units in
-  `ucon/units.py`: **129** via constructor literal plus **8** via a
-  one-shot `Unit._set_base_form` bootstrap (one per unit) for the
-  self-referential SI base units (`kilogram`, `meter`, `second`, `ampere`,
-  `kelvin`, `candela`, `mole`, `bit`), whose `base_form` cannot be expressed
-  as a constructor literal because each references itself. The 4 affine
-  non-base temperature units (`celsius`, `fahrenheit`, `rankine`, `reaumur`)
-  carry `base_form = None` because `y = a·x + b` cannot be represented as a
-  single `(prefactor, factors)` pair.
 
 - **`Unit._set_base_form(bf)`** — the single sanctioned post-construction
   mutation point for `base_form`. Guards against re-assignment
@@ -115,6 +113,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`tests/ucon/test_base_form.py`** — 34 tests covering the `BaseForm`
   contract, the graph-independence invariant, affine-unit `None` handling,
   and the cold-start subprocess smoke test.
+
+- **`Unit.base_signature` / `UnitProduct.base_signature` /
+  `Number.base_signature`** — new public properties returning a hashable,
+  sorted tuple of `(base_unit_name, exponent)` pairs that fingerprint the
+  unit's base-form decomposition. The prefactor is intentionally dropped:
+  `base_signature` identifies the *shape* of a quantity (which base units
+  participate, and with what exponents), not its scale. Useful as a
+  dispatch key for grouping formula inputs by kind. The identity
+  `n.base_signature == n.to_base().base_signature` holds for every
+  `Number n`. Examples:
+  `units.meter.base_signature → (("meter", 1.0),)`;
+  `units.joule.base_signature → (("kilogram", 1.0), ("meter", 2.0), ("second", -2.0))`.
+  Units with `base_form = None` (affine temperature, logarithmic) report
+  themselves as a self-leaf so the API is total.
+
+- **`Number.in_base_form`** — new public property; a fast predicate for
+  "is this Number already what `to_base()` would return?" Returns `True`
+  when every factor is at `Scale.one`, every underlying `Unit` is a leaf
+  (either `base_form is None` or a self-referential coherent base), and
+  any residual scale factor on a `UnitProduct` is `1.0`. Useful as a
+  hot-path guard against redundant `to_base()` calls and as an invariant
+  assertion at formula boundaries.
+
+- **`Number.same_dimension_as(other)`** — new public method that returns
+  `True` if `self` and `other` share a `Dimension`. Accepts a `Number`,
+  `Unit`, or `UnitProduct`; raises `TypeError` for any other type. A
+  lightweight, graph-free compatibility check for the common
+  "can these be added / compared / fed into the same formula slot?"
+  question, distinct from `Unit.is_compatible` which is unit-to-unit
+  and basis-graph-aware.
+
+- `tests/ucon/test_quantity.py::TestBaseSignature`,
+  `TestNumberInBaseForm`, and `TestNumberSameDimensionAs` — 24 new tests
+  covering coherent base units, derived units, prefactor independence,
+  composition under arithmetic, the `to_base()` invariance identity,
+  scaled-vs-unscaled distinctions, leaf-detection for `base_form = None`
+  units, residual-scale-factor handling on `UnitProduct`, and the
+  `TypeError` contract on `same_dimension_as`.
+
+- **`ConversionGraph.add_edge` documented as public API.** The keyword-only
+  signature (`src`, `dst`, `map`, `basis_transform`) was already in use
+  but unmarked; v1.3.0 promotes it to a public, semver-stable surface
+  with an expanded docstring covering the most common usage patterns
+  (linear edges, affine temperature edges, composite-unit edges) and a
+  cross-reference to `ConversionGraph.connect_systems` for bulk
+  cross-basis registration. No behavioral change.
 
 ### Changed
 
