@@ -1470,6 +1470,132 @@ class Number:
             return self.quantity * bf.prefactor
         return self.quantity
 
+    @property
+    def canonical_magnitude(self) -> float:
+        """Quantity expressed in coherent base-unit scale, as a plain float.
+
+        This is the magnitude you would get from :meth:`to_base` and then
+        reading ``.quantity``. It is a pure function of ``(self.quantity,
+        self.unit)`` and does NOT consult any conversion graph.
+
+        Use :attr:`canonical_magnitude` at interop boundaries where you need
+        a raw float in SI-coherent units (e.g., for a dimensionless formula
+        constant, a JSON payload, or a plotting library). For unit-safe
+        composition, prefer :meth:`to_base`, which returns a new ``Number``.
+
+        Examples
+        --------
+        >>> from ucon.units import kilometer, hour
+        >>> kilometer(5).canonical_magnitude
+        5000.0
+        >>> (kilometer(90) / hour(1)).canonical_magnitude
+        25.0
+        """
+        return self._canonical_magnitude
+
+    def to_base(self) -> 'Number':
+        """Return a new Number expressed in coherent base-unit scale.
+
+        Walks ``self.unit`` and decomposes each factor through its
+        :attr:`~Unit.base_form` (when available) to produce a quantity in the
+        basis's canonical base units (e.g., SI: ``kg, m, s, A, K, cd, mol``).
+
+        This is a pure algebraic operation; no :class:`~ucon.graph.ConversionGraph`
+        is consulted. Units that lack a ``base_form`` (affine temperature
+        units, logarithmic units, or units whose definition is graph-only)
+        are preserved as-is at ``Scale.one``.
+
+        Returns
+        -------
+        Number
+            A new ``Number`` whose unit is either a plain base ``Unit`` (when
+            the decomposition collapses to a single factor at exponent 1) or
+            a :class:`UnitProduct` of base units. Uncertainty is scaled by the
+            same multiplier as the quantity.
+
+        Examples
+        --------
+        >>> from ucon.units import kilometer, hour, joule
+        >>> kilometer(5).to_base()
+        <5000 m>
+        >>> (kilometer(90) / hour(1)).to_base()
+        <25 m/s>
+        >>> joule(1).to_base()
+        <1 kg·m²/s²>
+
+        Notes
+        -----
+        ``to_base()`` is the unit-safe counterpart to
+        :attr:`canonical_magnitude`. The identity
+        ``n.to_base().quantity == n.canonical_magnitude`` holds for every
+        ``Number n``.
+        """
+        # Total multiplier from self.unit to base-unit scale.
+        # Compute on a unit Number so quantity=0 is handled correctly.
+        multiplier = Number(1.0, self.unit)._canonical_magnitude
+        canonical_q = self.quantity * multiplier
+
+        new_uncertainty = None
+        if self.uncertainty is not None:
+            new_uncertainty = self.uncertainty * abs(multiplier)
+
+        def _decompose(unit) -> dict:
+            """Return a dict[UnitFactor, float] of base-unit factors for `unit`.
+
+            If `unit` has no useful base_form (None or self-referential),
+            it is preserved as-is at Scale.one.
+            """
+            bf = unit.base_form
+            if bf is None:
+                return {UnitFactor(unit, Scale.one): 1.0}
+            # Self-referential coherent base (e.g., kilogram -> kilogram^1)
+            if (len(bf.factors) == 1
+                    and bf.factors[0][0] is unit
+                    and abs(bf.factors[0][1] - 1.0) < 1e-12):
+                return {UnitFactor(unit, Scale.one): 1.0}
+            out: dict = {}
+            for base_unit, base_exp in bf.factors:
+                key = UnitFactor(base_unit, Scale.one)
+                out[key] = out.get(key, 0.0) + base_exp
+            return out
+
+        # Accumulate base-unit factors with combined exponents
+        base_dict: dict = {}
+        if isinstance(self.unit, UnitProduct):
+            for uf, exp in self.unit.factors.items():
+                for key, base_exp in _decompose(uf.unit).items():
+                    base_dict[key] = base_dict.get(key, 0.0) + base_exp * exp
+        else:
+            for key, base_exp in _decompose(self.unit).items():
+                base_dict[key] = base_dict.get(key, 0.0) + base_exp
+
+        # Drop zero exponents
+        base_dict = {k: e for k, e in base_dict.items() if abs(e) > 1e-12}
+
+        # Degenerate case: everything cancelled. Preserve structural unit.
+        if not base_dict:
+            return Number(
+                quantity=canonical_q,
+                unit=self.unit,
+                uncertainty=new_uncertainty,
+            )
+
+        # Single factor at exp 1.0: return as plain Unit for ergonomic output
+        if len(base_dict) == 1:
+            key, exp = next(iter(base_dict.items()))
+            if abs(exp - 1.0) < 1e-12:
+                return Number(
+                    quantity=canonical_q,
+                    unit=key.unit,
+                    uncertainty=new_uncertainty,
+                )
+
+        return Number(
+            quantity=canonical_q,
+            unit=UnitProduct(base_dict),
+            uncertainty=new_uncertainty,
+        )
+
     def simplify(self) -> 'Number':
         """Return a new Number expressed in base scale (Scale.one).
 

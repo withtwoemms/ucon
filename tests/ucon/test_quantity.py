@@ -673,3 +673,144 @@ class TestNumberToStringTarget(unittest.TestCase):
         """String target works for cross-basis conversions."""
         result = units.joule(1).to("eV")
         self.assertAlmostEqual(result.quantity, 1 / 1.602176634e-19, places=0)
+
+
+class TestNumberCanonicalBaseForm(unittest.TestCase):
+    """Tests for Number.to_base() and Number.canonical_magnitude."""
+
+    # ----- canonical_magnitude -----
+
+    def test_canonical_magnitude_scaled_unit(self):
+        """canonical_magnitude folds scale prefix into base-unit scale."""
+        km = Scale.kilo * units.meter
+        self.assertEqual(km(5).canonical_magnitude, 5000.0)
+
+    def test_canonical_magnitude_compound_unit(self):
+        """canonical_magnitude handles compound units (km/hr -> m/s)."""
+        km = Scale.kilo * units.meter
+        speed = km(90) / units.hour(1)
+        self.assertAlmostEqual(speed.canonical_magnitude, 25.0, places=10)
+
+    def test_canonical_magnitude_derived_unit(self):
+        """canonical_magnitude walks single-unit base_form (joule -> 1 in kg m^2 / s^2)."""
+        self.assertAlmostEqual(units.joule(1).canonical_magnitude, 1.0, places=12)
+
+    def test_canonical_magnitude_scaled_base(self):
+        """canonical_magnitude handles scaled base unit (gram -> kilogram)."""
+        self.assertAlmostEqual(units.gram(500).canonical_magnitude, 0.5, places=12)
+
+    def test_canonical_magnitude_self_referential_base(self):
+        """canonical_magnitude is identity for coherent base unit (meter)."""
+        self.assertEqual(units.meter(42).canonical_magnitude, 42.0)
+
+    def test_canonical_magnitude_no_base_form(self):
+        """canonical_magnitude leaves affine units untouched (base_form is None)."""
+        # celsius has base_form=None, so canonical_magnitude returns quantity as-is.
+        self.assertEqual(units.celsius(20).canonical_magnitude, 20.0)
+
+    def test_canonical_magnitude_returns_float(self):
+        """canonical_magnitude returns a plain numeric type."""
+        result = units.meter(3).canonical_magnitude
+        self.assertIsInstance(result, (int, float))
+
+    # ----- to_base() -----
+
+    def test_to_base_scaled_unit(self):
+        """to_base() decomposes km to m with folded quantity."""
+        km = Scale.kilo * units.meter
+        result = km(5).to_base()
+        self.assertAlmostEqual(result.quantity, 5000.0, places=10)
+        self.assertEqual(result.unit.dimension, Dimension.length)
+
+    def test_to_base_compound_unit(self):
+        """to_base() decomposes km/hr to m/s."""
+        km = Scale.kilo * units.meter
+        speed = km(90) / units.hour(1)
+        result = speed.to_base()
+        self.assertAlmostEqual(result.quantity, 25.0, places=10)
+        self.assertEqual(result.unit.dimension, Dimension.velocity)
+
+    def test_to_base_joule_expands_factors(self):
+        """to_base() expands joule into kg, m, s factors."""
+        result = units.joule(1).to_base()
+        self.assertAlmostEqual(result.quantity, 1.0, places=12)
+        self.assertIsInstance(result.unit, UnitProduct)
+        self.assertEqual(result.unit.dimension, Dimension.energy)
+
+    def test_to_base_scaled_base_unit(self):
+        """to_base() folds gram -> kilogram (scaled base)."""
+        result = units.gram(500).to_base()
+        self.assertAlmostEqual(result.quantity, 0.5, places=12)
+        # kilogram is the coherent base - ergonomic output is plain Unit
+        self.assertEqual(result.unit.dimension, Dimension.mass)
+
+    def test_to_base_self_referential_coherent_base(self):
+        """to_base() is identity (up to copy) for coherent base unit."""
+        result = units.meter(42).to_base()
+        self.assertEqual(result.quantity, 42.0)
+        self.assertEqual(result.unit, units.meter)
+
+    def test_to_base_no_base_form_is_identity(self):
+        """to_base() preserves units with no base_form (affine / graph-only)."""
+        result = units.celsius(20).to_base()
+        self.assertEqual(result.quantity, 20.0)
+        self.assertEqual(result.unit, units.celsius)
+
+    def test_to_base_propagates_uncertainty(self):
+        """to_base() scales uncertainty by the same multiplier as the quantity."""
+        km = Scale.kilo * units.meter
+        result = km(5, uncertainty=0.1).to_base()
+        self.assertAlmostEqual(result.quantity, 5000.0, places=10)
+        self.assertAlmostEqual(result.uncertainty, 100.0, places=10)
+
+    def test_to_base_quantity_zero_with_uncertainty(self):
+        """to_base() handles quantity=0 correctly (doesn't divide by zero)."""
+        km = Scale.kilo * units.meter
+        result = km(0, uncertainty=0.5).to_base()
+        self.assertEqual(result.quantity, 0.0)
+        self.assertAlmostEqual(result.uncertainty, 500.0, places=10)
+
+    def test_to_base_returns_new_number(self):
+        """to_base() returns a new Number (no mutation)."""
+        km = Scale.kilo * units.meter
+        original = km(5)
+        result = original.to_base()
+        self.assertIsNot(result, original)
+        self.assertEqual(original.quantity, 5)  # unchanged
+
+    def test_to_base_quantity_matches_canonical_magnitude(self):
+        """Identity: n.to_base().quantity == n.canonical_magnitude for every n."""
+        km = Scale.kilo * units.meter
+        cases = [
+            km(5),
+            km(90) / units.hour(1),
+            units.joule(1),
+            units.gram(500),
+            units.meter(42),
+            units.meter(1.234, uncertainty=0.005),
+        ]
+        for n in cases:
+            with self.subTest(n=n):
+                self.assertAlmostEqual(
+                    n.to_base().quantity,
+                    n.canonical_magnitude,
+                    places=12,
+                )
+
+    def test_to_base_compositional_with_arithmetic(self):
+        """to_base() preserves arithmetic composition (unit-safe)."""
+        km = Scale.kilo * units.meter
+        d = km(5).to_base()  # 5000 m
+        t = units.hour(1).to_base()  # 3600 s
+        v = d / t
+        self.assertAlmostEqual(v.quantity, 5000.0 / 3600.0, places=10)
+        self.assertEqual(v.unit.dimension, Dimension.velocity)
+
+    def test_to_base_bmi_style_composition(self):
+        """to_base() enables unit-safe BMI-style composition (70 kg / (1.75 m)^2)."""
+        mass = units.kilogram(70)
+        height = units.meter(1.75)
+        bmi = mass.to_base() / (height.to_base() * height.to_base())
+        self.assertAlmostEqual(bmi.quantity, 70 / (1.75 ** 2), places=10)
+        # Dimension should be mass / length^2 = kg/m^2
+        self.assertEqual(bmi.unit.dimension, Dimension.mass / Dimension.area)
