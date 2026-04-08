@@ -7,6 +7,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-04-08
+
+### Added
+
+- **`BaseForm`** — a new dataclass at `ucon.core.BaseForm` (re-exported from
+  `ucon`) representing a unit's definitional decomposition into the canonical
+  base units of its basis:
+
+        1 U  ≡  prefactor × b₁^e₁ × b₂^e₂ × ... × bₙ^eₙ
+
+  `BaseForm` is immutable, dimensionally consistent with its parent `Unit`,
+  and references only base units of that unit's own basis.
+
+- **`Unit.base_form`** — new public attribute on `Unit`, set at construction
+  and never overwritten thereafter. Carried by 137 atomic units in
+  `ucon/units.py`: **129** via constructor literal plus **8** via a
+  one-shot `Unit._set_base_form` bootstrap (one per unit) for the
+  self-referential SI base units (`kilogram`, `meter`, `second`, `ampere`,
+  `kelvin`, `candela`, `mole`, `bit`), whose `base_form` cannot be expressed
+  as a constructor literal because each references itself. The 4 affine
+  non-base temperature units (`celsius`, `fahrenheit`, `rankine`, `reaumur`)
+  carry `base_form = None` because `y = a·x + b` cannot be represented as a
+  single `(prefactor, factors)` pair.
+
+- **`Unit._set_base_form(bf)`** — the single sanctioned post-construction
+  mutation point for `base_form`. Guards against re-assignment
+  (`ValueError`) and non-`BaseForm` inputs (`TypeError`). Used by the SI
+  bootstrap in `ucon/units.py` and by the TOML deserializer in
+  `ucon/serialization.py`; no other caller mutates `base_form`.
+
+- **TOML serialization of `base_form`.** `to_toml` now emits each unit's
+  `base_form` as an inline dict on the `[[units]]` entry:
+
+        base_form = { prefactor = 1.0, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+  `from_toml` resolves the factor references in a second pass after all
+  units are registered, so forward references between units in the same
+  document are supported. Affine and logarithmic units whose `base_form`
+  is `None` omit the key. `examples/units/comprehensive.ucon.toml` ships
+  with 134 `base_form` entries, round-trip verified.
+
+- **`TestRoundTrip::test_base_form_roundtrip`** — asserts that every
+  non-`RebasedUnit`'s `base_form` (both the `None` case and the populated
+  case) survives TOML export/import bit-for-bit. Necessary because
+  `Unit.__eq__` ignores `base_form` (`compare=False`), so
+  `test_graph_equality` alone cannot detect a dropped or corrupted
+  `base_form`.
+
+- **Graph-independent quantity arithmetic.** `Number` equality, comparison,
+  and arithmetic now route through `Number._canonical_magnitude`, a pure
+  function of `(quantity, unit)` that reads `base_form` directly and never
+  consults a `ConversionGraph`. Importing `ucon.units` and evaluating
+  `gram(1000) == kilogram(1)`, dimensional ratios, and similar expressions
+  no longer requires the default graph to be built. This is enforced by
+  `tests/ucon/test_base_form.py::TestNoGraphInit::test_cold_start_subprocess`,
+  which runs a subprocess-isolated smoke test against a fresh interpreter.
+
+- **`scripts/generate_base_forms.py`** — a drift detector that compares the
+  hand-written `base_form` literals in `ucon/units.py` against an internal
+  BFS oracle computed over the standard conversion graph. Modes: `--check`
+  (CI gate), `--report` (human-readable diff), `--emit` (regenerate
+  literals). *(Scheduled for retirement in v1.4.0 when `ucon.toml` becomes
+  the source of truth for the unit catalog.)*
+
+- **`make base-forms-check`** — Makefile target wiring the drift detector
+  into CI.
+
+- **`base_forms` CI job** (`.github/workflows/tests.yaml`) — single-version
+  GitHub Actions job (Python 3.12) that runs `make base-forms-check` on
+  every push to `main` and every pull request, and is included in the
+  aggregating `ci` job's `needs:` list so branch-protected merges are
+  blocked on drift. This closes a gap in the pytest-based suite:
+  `Unit.__eq__` uses `compare=False` for `base_form`, so neither
+  `test_graph_equality` nor `test_base_form_roundtrip` can detect a
+  hand-edited literal in `ucon/units.py` whose prefactor has silently
+  drifted from what the graph would compute; only the BFS oracle
+  can. Scheduled for removal in v1.4.0 alongside the drift script
+  itself.
+
+- **`tests/ucon/test_base_form.py`** — 34 tests covering the `BaseForm`
+  contract, the graph-independence invariant, affine-unit `None` handling,
+  and the cold-start subprocess smoke test.
+
+### Changed
+
+- **`FORMAT_VERSION`** bumped from `"1.2"` to `"1.3"` in `ucon.serialization`
+  to mark the addition of the optional `base_form` field on `[[units]]`
+  entries. Older `1.2` files continue to load without warning (no
+  `base_form` data to drop). Newer `1.3` files loaded by an older `1.2`
+  library keep the same major version, so `_check_format_version` does
+  not raise; it emits a `UserWarning` that the file is newer than
+  supported, and any `base_form` entries are silently dropped by the
+  older deserializer. Downstream consumers who serialize their own
+  `.ucon.toml` files should bump their `format_version` when they begin
+  emitting `base_form`.
+
+### Notes
+
+- `Number.to(target)` continues to route through `ConversionGraph.convert()`
+  in both its fast path (plain `Unit → Unit`) and its general path
+  (`UnitProduct → UnitProduct`). The graph remains load-bearing for
+  everything `BaseForm` structurally cannot represent: affine temperature
+  conversions, logarithmic and other non-linear conversions, cross-basis
+  conversions (SI ↔ CGS ↔ natural via `RebasedUnit` edges), user-registered
+  custom edges, and uncertainty propagation via `Map.derivative()`. This
+  release decouples *arithmetic* from the graph; explicit conversion via
+  `.to()` still uses it.
+
 ## [1.2.0] - 2026-04-06
 
 ### Added
