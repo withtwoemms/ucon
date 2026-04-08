@@ -72,9 +72,9 @@ none = Unit()
 # -- SI canonical base units (definitional bootstrap) -------------------
 # These 8 units anchor the SI basis. Their `base_form` is self-referential
 # (1 kg ≡ 1 × kg, etc.), which cannot be expressed as a constructor literal
-# because the Unit being constructed is itself the factor. We work around the
-# fixed-point with a one-shot object.__setattr__ on each base unit, the *only*
-# in-codebase mutation of `base_form` after construction.
+# because the Unit being constructed is itself the factor. We work around
+# the fixed-point by calling ``Unit._set_base_form`` once per base unit;
+# that method encapsulates the sanctioned post-construction mutation.
 #
 # Every other unit in this module receives `base_form=...` via the Unit
 # constructor (definitional, never mutated).
@@ -86,14 +86,14 @@ kelvin = Unit(name='kelvin', dimension=TEMPERATURE, aliases=('K',))
 candela = Unit(name='candela', dimension=LUMINOUS_INTENSITY, aliases=('cd',))
 mole = Unit(name='mole', dimension=AMOUNT_OF_SUBSTANCE, aliases=('mol', 'n'))
 bit = Unit(name='bit', dimension=INFORMATION, aliases=('b', 'bits'))
-object.__setattr__(kilogram, 'base_form', _self_base(kilogram))
-object.__setattr__(meter, 'base_form', _self_base(meter))
-object.__setattr__(second, 'base_form', _self_base(second))
-object.__setattr__(ampere, 'base_form', _self_base(ampere))
-object.__setattr__(kelvin, 'base_form', _self_base(kelvin))
-object.__setattr__(candela, 'base_form', _self_base(candela))
-object.__setattr__(mole, 'base_form', _self_base(mole))
-object.__setattr__(bit, 'base_form', _self_base(bit))
+kilogram._set_base_form(_self_base(kilogram))
+meter._set_base_form(_self_base(meter))
+second._set_base_form(_self_base(second))
+ampere._set_base_form(_self_base(ampere))
+kelvin._set_base_form(_self_base(kelvin))
+candela._set_base_form(_self_base(candela))
+mole._set_base_form(_self_base(mole))
+bit._set_base_form(_self_base(bit))
 # -----------------------------------------------------------------------
 
 

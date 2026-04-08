@@ -302,6 +302,74 @@ class TestRoundTrip:
         with pytest.raises(FileNotFoundError):
             ConversionGraph.from_toml("/nonexistent/path.toml")
 
+    def test_base_form_roundtrip(self, tmp_path):
+        """Every unit's ``base_form`` survives TOML round-trip.
+
+        ``Unit`` equality ignores ``base_form`` (``compare=False``), so
+        ``test_graph_equality`` alone cannot catch drops or corruption of
+        the definitional decomposition.  This test asserts each unit's
+        ``(prefactor, factors)`` pair is preserved bit-for-bit.
+        """
+        from ucon.core import RebasedUnit
+
+        def iter_units(g):
+            seen: set[int] = set()
+            for _, adj in g._unit_edges.items():
+                for u in adj:
+                    if id(u) in seen:
+                        continue
+                    seen.add(id(u))
+                    yield u
+
+        graph = get_default_graph()
+        path = tmp_path / "base_form.ucon.toml"
+        graph.to_toml(path)
+        restored = ConversionGraph.from_toml(path)
+
+        restored_by_name = {
+            u.name: u for u in iter_units(restored)
+            if not isinstance(u, RebasedUnit)
+        }
+
+        checked = 0
+        for u in iter_units(graph):
+            if isinstance(u, RebasedUnit):
+                continue
+            if u.base_form is None:
+                # Affine and logarithmic units have base_form=None by
+                # design; verify the restored unit agrees.
+                u2 = restored_by_name.get(u.name)
+                assert u2 is not None, f"unit '{u.name}' missing after reload"
+                assert u2.base_form is None, (
+                    f"unit '{u.name}' gained a base_form after reload: "
+                    f"{u2.base_form!r}"
+                )
+                continue
+            checked += 1
+            u2 = restored_by_name.get(u.name)
+            assert u2 is not None, f"unit '{u.name}' missing after reload"
+            assert u2.base_form is not None, (
+                f"unit '{u.name}' lost its base_form on reload"
+            )
+            assert u2.base_form.prefactor == u.base_form.prefactor, (
+                f"prefactor mismatch for '{u.name}': "
+                f"{u2.base_form.prefactor} != {u.base_form.prefactor}"
+            )
+            orig_factors = [(f[0].name, f[1]) for f in u.base_form.factors]
+            new_factors = [(f[0].name, f[1]) for f in u2.base_form.factors]
+            assert orig_factors == new_factors, (
+                f"factors mismatch for '{u.name}': "
+                f"{new_factors} != {orig_factors}"
+            )
+
+        # Guard against a future regression where the iterator finds
+        # zero units with base_form (e.g. if the default graph is
+        # emptied); the real default graph has > 100.
+        assert checked > 100, (
+            f"only {checked} units with base_form checked; "
+            f"expected > 100 from the default graph"
+        )
+
     def test_composed_map_roundtrip_via_nines(self, tmp_path):
         """ComposedMap (nines = -log10(1-x)) survives round-trip."""
         graph = get_default_graph()

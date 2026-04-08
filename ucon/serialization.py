@@ -40,7 +40,7 @@ from ucon.basis import (
 )
 from ucon.basis.transforms import ConstantBoundBasisTransform, ConstantBinding
 from ucon.constants import Constant
-from ucon.core import RebasedUnit, Scale, Unit, UnitFactor, UnitProduct
+from ucon.core import BaseForm, RebasedUnit, Scale, Unit, UnitFactor, UnitProduct
 from ucon.dimension import Dimension, resolve, _DIMENSION_ATTRS
 from ucon.maps import (
     AffineMap,
@@ -48,7 +48,7 @@ from ucon.maps import (
     Map,
 )
 
-FORMAT_VERSION = "1.2"
+FORMAT_VERSION = "1.3"
 
 
 class GraphLoadError(Exception):
@@ -343,6 +343,11 @@ def _serialize_unit(unit: Unit) -> dict:
     d: dict = {"name": unit.name, "dimension": unit.dimension.name}
     if unit.aliases:
         d["aliases"] = list(unit.aliases)
+    if unit.base_form is not None:
+        d["base_form"] = {
+            "prefactor": float(unit.base_form.prefactor),
+            "factors": [[u.name, float(exp)] for u, exp in unit.base_form.factors],
+        }
     return d
 
 
@@ -698,8 +703,10 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     graph = ConversionGraph()
     graph._basis_graph = basis_graph if transform_map else None
 
-    # 6. Register units
+    # 6. Register units (two-pass: units first, then base_forms which
+    #    reference other units by name).
     unit_map: dict[str, Unit] = {}
+    pending_base_forms: list[tuple[Unit, dict, str]] = []
     for i, unit_spec in enumerate(doc.get("units", [])):
         section = f"units[{i}]"
         uname = _require(unit_spec, "name", section)
@@ -725,6 +732,33 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
         # Also register aliases for lookup
         for alias in aliases:
             unit_map[alias] = unit
+
+        bf_spec = unit_spec.get("base_form")
+        if bf_spec is not None:
+            pending_base_forms.append((unit, bf_spec, section))
+
+    # Pass 2: resolve base_form factor references now that all units exist.
+    for unit, bf_spec, section in pending_base_forms:
+        raw_factors = bf_spec.get("factors", [])
+        resolved: list[tuple[Unit, float]] = []
+        for entry in raw_factors:
+            if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+                raise GraphLoadError(
+                    f"[{section}]: invalid base_form factor {entry!r} "
+                    f"for unit '{unit.name}'"
+                )
+            fname, fexp = entry
+            fu = unit_map.get(fname)
+            if fu is None:
+                raise GraphLoadError(
+                    f"[{section}]: unknown factor unit '{fname}' "
+                    f"in base_form for unit '{unit.name}'"
+                )
+            resolved.append((fu, float(fexp)))
+        prefactor = float(bf_spec.get("prefactor", 1.0))
+        unit._set_base_form(
+            BaseForm(factors=tuple(resolved), prefactor=prefactor),
+        )
 
     # 7. Materialize edges
     with using_graph(graph):

@@ -390,6 +390,44 @@ class Unit:
             hash((self.name, self._norm(self.aliases), self.dimension)),
         )
 
+    # ----------------- base_form mutation contract -----------------
+
+    def _set_base_form(self, bf: 'BaseForm') -> None:
+        """Install ``base_form`` on a Unit whose constructor could not supply it.
+
+        This is the **single sanctioned mutation** of ``base_form`` after
+        construction. Two legitimate callers exist:
+
+        1. ``ucon.units`` SI bootstrap, where a coherent base unit's
+           ``base_form`` is self-referential (1 kg ≡ 1 × kg) and cannot be
+           expressed as a constructor literal because the Unit being
+           constructed is itself the factor.
+        2. ``ucon.serialization`` TOML loader, where forward references to
+           other units in ``factors`` require a two-pass resolve.
+
+        ``base_form`` is declared on a frozen dataclass with
+        ``compare=False, hash=False`` so this late set does not violate the
+        dataclass's equality or hashing guarantees. The idempotency guard
+        below ensures no unit ever has its ``base_form`` overwritten after
+        its first assignment.
+
+        Raises
+        ------
+        ValueError
+            If the Unit already has a non-None ``base_form``.
+        TypeError
+            If ``bf`` is not a BaseForm instance.
+        """
+        if not isinstance(bf, BaseForm):
+            raise TypeError(
+                f"_set_base_form expects a BaseForm, got {type(bf).__name__}"
+            )
+        if self.base_form is not None:
+            raise ValueError(
+                f"base_form already set on {self!r}; refusing to overwrite"
+            )
+        object.__setattr__(self, 'base_form', bf)
+
     # ----------------- symbolic helpers -----------------
 
     @staticmethod
