@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`Number.to_base()`** — new public method that returns a new `Number`
+  expressed in the basis's coherent base units (e.g., SI: `kg, m, s, A, K,
+  cd, mol`). It decomposes each factor of `self.unit` through its
+  `base_form` and folds scale prefixes, without consulting any
+  `ConversionGraph`. Units that lack a `base_form` (affine temperature,
+  logarithmic, or graph-only units) are preserved as-is. Uncertainty is
+  scaled by the same multiplier as the quantity. Examples:
+  `kilometer(5).to_base()` → `<5000.0 m>`;
+  `(kilometer(90) / hour(1)).to_base()` → `<25.0 m/s>`;
+  `joule(1).to_base()` → `<1.0 m²·kg/s²>`.
+
+- **`Number.canonical_magnitude`** — new public property that returns
+  `self._canonical_magnitude` as a plain float. Useful at interop
+  boundaries where a raw SI-coherent magnitude is needed (formula
+  constants, JSON payloads, plotting libraries). The identity
+  `n.to_base().quantity == n.canonical_magnitude` holds for every
+  `Number n`. Prefer `to_base()` for unit-safe composition.
+
+- `tests/ucon/test_quantity.py::TestNumberCanonicalBaseForm` — 19 new
+  tests covering scaled units, compound units, derived units with
+  multi-factor `base_form`, self-referential coherent bases, units with
+  `base_form = None`, zero-quantity uncertainty propagation, and the
+  `to_base().quantity == canonical_magnitude` identity.
+
 ## [1.3.0] - 2026-04-08
 
 ### Added
