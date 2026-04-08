@@ -28,7 +28,7 @@ Notes
 The design allows for future extensibility: users can register their own units,
 systems, or aliases dynamically, without modifying the core definitions.
 """
-from ucon.core import Dimension, Scale, Unit, UnitSystem, UnknownUnitError  # noqa: F401
+from ucon.core import BaseForm, Dimension, Scale, Unit, UnitSystem, UnknownUnitError  # noqa: F401
 from ucon.dimension import (
     NONE, TIME, LENGTH, MASS, CURRENT, TEMPERATURE,
     LUMINOUS_INTENSITY, AMOUNT_OF_SUBSTANCE, INFORMATION,
@@ -61,99 +61,126 @@ from ucon.dimension import (
 from ucon.resolver import register_unit, register_priority_scaled_alias, get_unit_by_name
 
 
+# ----- bootstrap helper for self-referential base units --------------------
+def _self_base(unit: Unit) -> BaseForm:
+    """For coherent base units of a basis: 1 U = 1.0 × U^1."""
+    return BaseForm(factors=((unit, 1.0),), prefactor=1.0)
+# ---------------------------------------------------------------------------
+
 none = Unit()
+
+# -- SI canonical base units (definitional bootstrap) -------------------
+# These 8 units anchor the SI basis. Their `base_form` is self-referential
+# (1 kg ≡ 1 × kg, etc.), which cannot be expressed as a constructor literal
+# because the Unit being constructed is itself the factor. We work around the
+# fixed-point with a one-shot object.__setattr__ on each base unit, the *only*
+# in-codebase mutation of `base_form` after construction.
+#
+# Every other unit in this module receives `base_form=...` via the Unit
+# constructor (definitional, never mutated).
+kilogram = Unit(name='kilogram', dimension=MASS, aliases=('kg',))
+meter = Unit(name='meter', dimension=LENGTH, aliases=('m',))
+second = Unit(name='second', dimension=TIME, aliases=('s', 'sec'))
+ampere = Unit(name='ampere', dimension=CURRENT, aliases=('A', 'I', 'amp'))
+kelvin = Unit(name='kelvin', dimension=TEMPERATURE, aliases=('K',))
+candela = Unit(name='candela', dimension=LUMINOUS_INTENSITY, aliases=('cd',))
+mole = Unit(name='mole', dimension=AMOUNT_OF_SUBSTANCE, aliases=('mol', 'n'))
+bit = Unit(name='bit', dimension=INFORMATION, aliases=('b', 'bits'))
+object.__setattr__(kilogram, 'base_form', _self_base(kilogram))
+object.__setattr__(meter, 'base_form', _self_base(meter))
+object.__setattr__(second, 'base_form', _self_base(second))
+object.__setattr__(ampere, 'base_form', _self_base(ampere))
+object.__setattr__(kelvin, 'base_form', _self_base(kelvin))
+object.__setattr__(candela, 'base_form', _self_base(candela))
+object.__setattr__(mole, 'base_form', _self_base(mole))
+object.__setattr__(bit, 'base_form', _self_base(bit))
+# -----------------------------------------------------------------------
+
 
 
 # -- International System of Units (SI) --------------------------------
-ampere = Unit(name='ampere', dimension=CURRENT, aliases=('A', 'I', 'amp'))
 becquerel = Unit(name='becquerel', dimension=FREQUENCY, aliases=('Bq',))
 celsius = Unit(name='celsius', dimension=TEMPERATURE, aliases=('°C', 'degC'))
-coulomb = Unit(name='coulomb', dimension=CHARGE, aliases=('C',))
+coulomb = Unit(name='coulomb', dimension=CHARGE, aliases=('C',), base_form=BaseForm(factors=((ampere, 1.0), (second, 1.0)), prefactor=1.0))
 farad = Unit(name='farad', dimension=CAPACITANCE, aliases=('F',))
-gram = Unit(name='gram', dimension=MASS, aliases=('g',))
+gram = Unit(name='gram', dimension=MASS, aliases=('g',), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=0.001))
 gray = Unit(name='gray', dimension=ENERGY, aliases=('Gy',))
 henry = Unit(name='henry', dimension=INDUCTANCE, aliases=('H',))
-hertz = Unit(name='hertz', dimension=FREQUENCY, aliases=('Hz',))
-joule = Unit(name='joule', dimension=ENERGY, aliases=('J',))
+hertz = Unit(name='hertz', dimension=FREQUENCY, aliases=('Hz',), base_form=BaseForm(factors=((second, -1.0),), prefactor=1.0))
+joule = Unit(name='joule', dimension=ENERGY, aliases=('J',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -2.0)), prefactor=1.0))
 joule_per_kelvin = Unit(name='joule_per_kelvin', dimension=ENTROPY, aliases=('J/K',))
-katal = Unit(name='katal', dimension=CATALYTIC_ACTIVITY, aliases=('kat',))
-kelvin = Unit(name='kelvin', dimension=TEMPERATURE, aliases=('K',))
-kilogram = Unit(name='kilogram', dimension=MASS, aliases=('kg',))
-liter = Unit(name='liter', dimension=VOLUME, aliases=('L', 'l'))
-candela = Unit(name='candela', dimension=LUMINOUS_INTENSITY, aliases=('cd',))
+katal = Unit(name='katal', dimension=CATALYTIC_ACTIVITY, aliases=('kat',), base_form=BaseForm(factors=((mole, 1.0), (second, -1.0)), prefactor=1.0))
+liter = Unit(name='liter', dimension=VOLUME, aliases=('L', 'l'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=1.0))
 lumen = Unit(name='lumen', dimension=LUMINOUS_INTENSITY, aliases=('lm',))
-lux = Unit(name='lux', dimension=ILLUMINANCE, aliases=('lx',))
-meter = Unit(name='meter', dimension=LENGTH, aliases=('m',))
-mole = Unit(name='mole', dimension=AMOUNT_OF_SUBSTANCE, aliases=('mol', 'n'))
-newton = Unit(name='newton', dimension=FORCE, aliases=('N',))
-ohm = Unit(name='ohm', dimension=RESISTANCE, aliases=('Ω',))
-pascal = Unit(name='pascal', dimension=PRESSURE, aliases=('Pa',))
+lux = Unit(name='lux', dimension=ILLUMINANCE, aliases=('lx',), base_form=BaseForm(factors=((meter, -2.0), (candela, 1.0)), prefactor=1.0))
+newton = Unit(name='newton', dimension=FORCE, aliases=('N',), base_form=BaseForm(factors=((meter, 1.0), (kilogram, 1.0), (second, -2.0)), prefactor=1.0))
+ohm = Unit(name='ohm', dimension=RESISTANCE, aliases=('Ω',), base_form=BaseForm(factors=((ampere, -2.0), (meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=1.0))
+pascal = Unit(name='pascal', dimension=PRESSURE, aliases=('Pa',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=1.0))
 radian = Unit(name='radian', dimension=ANGLE, aliases=('rad',))
 siemens = Unit(name='siemens', dimension=CONDUCTANCE, aliases=('S',))
 sievert = Unit(name='sievert', dimension=ENERGY, aliases=('Sv',))
 steradian = Unit(name='steradian', dimension=SOLID_ANGLE, aliases=('sr',))
 tesla = Unit(name='tesla', dimension=MAGNETIC_FLUX_DENSITY, aliases=('T',))
-volt = Unit(name='volt', dimension=VOLTAGE, aliases=('V',))
-watt = Unit(name='watt', dimension=POWER, aliases=('W',))
+volt = Unit(name='volt', dimension=VOLTAGE, aliases=('V',), base_form=BaseForm(factors=((ampere, -1.0), (meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=1.0))
+watt = Unit(name='watt', dimension=POWER, aliases=('W',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=1.0))
 weber = Unit(name='weber', dimension=MAGNETIC_FLUX, aliases=('Wb',))
 webers_per_meter = Unit(name='webers_per_meter', dimension=MAGNETIC_PERMEABILITY, aliases=('Wb/m',))
 # ----------------------------------------------------------------------
 
 
 # -- Named SI Intermediates (for cross-basis Unit→Unit edges) ----------
-pascal_second = Unit(name='pascal_second', dimension=DYNAMIC_VISCOSITY, aliases=('Pa·s', 'Pa*s'))
-square_meter_per_second = Unit(name='square_meter_per_second', dimension=KINEMATIC_VISCOSITY, aliases=('m²/s', 'm2/s'))
+pascal_second = Unit(name='pascal_second', dimension=DYNAMIC_VISCOSITY, aliases=('Pa·s', 'Pa*s'), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -1.0)), prefactor=1.0))
+square_meter_per_second = Unit(name='square_meter_per_second', dimension=KINEMATIC_VISCOSITY, aliases=('m²/s', 'm2/s'), base_form=BaseForm(factors=((meter, 2.0), (second, -1.0)), prefactor=1.0))
 ampere_per_meter = Unit(name='ampere_per_meter', dimension=MAGNETIC_FIELD_STRENGTH, aliases=('A/m',))
-meter_per_second_squared = Unit(name='meter_per_second_squared', dimension=ACCELERATION, aliases=('m/s²', 'm/s2'))
-reciprocal_meter = Unit(name='reciprocal_meter', dimension=WAVENUMBER, aliases=('m⁻¹', '1/m'))
-joule_per_square_meter = Unit(name='joule_per_square_meter', dimension=RADIANT_EXPOSURE, aliases=('J/m²', 'J/m2'))
+meter_per_second_squared = Unit(name='meter_per_second_squared', dimension=ACCELERATION, aliases=('m/s²', 'm/s2'), base_form=BaseForm(factors=((meter, 1.0), (second, -2.0)), prefactor=1.0))
+reciprocal_meter = Unit(name='reciprocal_meter', dimension=WAVENUMBER, aliases=('m⁻¹', '1/m'), base_form=BaseForm(factors=((meter, -1.0),), prefactor=1.0))
+joule_per_square_meter = Unit(name='joule_per_square_meter', dimension=RADIANT_EXPOSURE, aliases=('J/m²', 'J/m2'), base_form=BaseForm(factors=((kilogram, 1.0), (second, -2.0)), prefactor=1.0))
 coulomb_meter = Unit(name='coulomb_meter', dimension=ELECTRIC_DIPOLE_MOMENT, aliases=('C·m', 'C*m'))
-coulomb_per_kilogram = Unit(name='coulomb_per_kilogram', dimension=EXPOSURE, aliases=('C/kg',))
+coulomb_per_kilogram = Unit(name='coulomb_per_kilogram', dimension=EXPOSURE, aliases=('C/kg',), base_form=BaseForm(factors=((ampere, 1.0), (kilogram, -1.0), (second, 1.0)), prefactor=1.0))
 # ----------------------------------------------------------------------
 
 
 # -- Time Units --------------------------------------------------------
-second = Unit(name='second', dimension=TIME, aliases=('s', 'sec'))
-minute = Unit(name='minute', dimension=TIME, aliases=('min',))
-hour = Unit(name='hour', dimension=TIME, aliases=('h', 'hr'))
-day = Unit(name='day', dimension=TIME, aliases=('d',))
-week = Unit(name='week', dimension=TIME, aliases=('wk', 'weeks'))
-year = Unit(name='year', dimension=TIME, aliases=('yr', 'years'))
-month = Unit(name='month', dimension=TIME, aliases=('mo', 'months'))
-fortnight = Unit(name='fortnight', dimension=TIME, aliases=('fn', 'fortnights'))
-shake = Unit(name='shake', dimension=TIME, aliases=('shakes',))
+minute = Unit(name='minute', dimension=TIME, aliases=('min',), base_form=BaseForm(factors=((second, 1.0),), prefactor=60.0))
+hour = Unit(name='hour', dimension=TIME, aliases=('h', 'hr'), base_form=BaseForm(factors=((second, 1.0),), prefactor=3600.0))
+day = Unit(name='day', dimension=TIME, aliases=('d',), base_form=BaseForm(factors=((second, 1.0),), prefactor=86400.0))
+week = Unit(name='week', dimension=TIME, aliases=('wk', 'weeks'), base_form=BaseForm(factors=((second, 1.0),), prefactor=604800.0))
+year = Unit(name='year', dimension=TIME, aliases=('yr', 'years'), base_form=BaseForm(factors=((second, 1.0),), prefactor=31557600.0))
+month = Unit(name='month', dimension=TIME, aliases=('mo', 'months'), base_form=BaseForm(factors=((second, 1.0),), prefactor=2629800.0))
+fortnight = Unit(name='fortnight', dimension=TIME, aliases=('fn', 'fortnights'), base_form=BaseForm(factors=((second, 1.0),), prefactor=1209600.0))
+shake = Unit(name='shake', dimension=TIME, aliases=('shakes',), base_form=BaseForm(factors=((second, 1.0),), prefactor=1e-08))
 # ----------------------------------------------------------------------
 
 
 # -- Imperial / US Customary Units -------------------------------------
 # Length
-foot = Unit(name='foot', dimension=LENGTH, aliases=('ft', 'feet'))
-inch = Unit(name='inch', dimension=LENGTH, aliases=('in', 'inches'))
-yard = Unit(name='yard', dimension=LENGTH, aliases=('yd', 'yards'))
-mile = Unit(name='mile', dimension=LENGTH, aliases=('mi', 'miles'))
-nautical_mile = Unit(name='nautical_mile', dimension=LENGTH, aliases=('nmi', 'NM'))
-fathom = Unit(name='fathom', dimension=LENGTH, aliases=('ftm', 'fathoms'))
-furlong = Unit(name='furlong', dimension=LENGTH, aliases=('fur', 'furlongs'))
-chain = Unit(name='chain', dimension=LENGTH, aliases=('ch', 'chains'))
-rod = Unit(name='rod', dimension=LENGTH, aliases=('rd', 'rods', 'perch', 'pole'))
-mil = Unit(name='mil', dimension=LENGTH, aliases=('thou',))
-hand = Unit(name='hand', dimension=LENGTH, aliases=('hh', 'hands'))
-league = Unit(name='league', dimension=LENGTH, aliases=('lea', 'leagues'))
-cable = Unit(name='cable', dimension=LENGTH, aliases=('cables',))
+foot = Unit(name='foot', dimension=LENGTH, aliases=('ft', 'feet'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=0.3047999902464003))
+inch = Unit(name='inch', dimension=LENGTH, aliases=('in', 'inches'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=0.025399999187200026))
+yard = Unit(name='yard', dimension=LENGTH, aliases=('yd', 'yards'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=0.914399970739201))
+mile = Unit(name='mile', dimension=LENGTH, aliases=('mi', 'miles'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=1609.3439485009937))
+nautical_mile = Unit(name='nautical_mile', dimension=LENGTH, aliases=('nmi', 'NM'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=1852.0))
+fathom = Unit(name='fathom', dimension=LENGTH, aliases=('ftm', 'fathoms'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=1.828799941478402))
+furlong = Unit(name='furlong', dimension=LENGTH, aliases=('fur', 'furlongs'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=201.168))
+chain = Unit(name='chain', dimension=LENGTH, aliases=('ch', 'chains'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=20.1168))
+rod = Unit(name='rod', dimension=LENGTH, aliases=('rd', 'rods', 'perch', 'pole'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=5.0292))
+mil = Unit(name='mil', dimension=LENGTH, aliases=('thou',), base_form=BaseForm(factors=((meter, 1.0),), prefactor=2.5399999187200026e-05))
+hand = Unit(name='hand', dimension=LENGTH, aliases=('hh', 'hands'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=0.1015999967488001))
+league = Unit(name='league', dimension=LENGTH, aliases=('lea', 'leagues'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=4828.031845502982))
+cable = Unit(name='cable', dimension=LENGTH, aliases=('cables',), base_form=BaseForm(factors=((meter, 1.0),), prefactor=185.2))
 
 # Mass
-pound = Unit(name='pound', dimension=MASS, aliases=('lb', 'lbs'))
-ounce = Unit(name='ounce', dimension=MASS, aliases=('oz', 'ounces'))
-metric_ton = Unit(name='metric_ton', dimension=MASS, aliases=('t', 'tonne', 'tonnes'))
-stone = Unit(name='stone', dimension=MASS, aliases=('st',))
-grain = Unit(name='grain', dimension=MASS, aliases=('gr', 'grains'))
-slug = Unit(name='slug', dimension=MASS, aliases=('slug',))
-carat = Unit(name='carat', dimension=MASS, aliases=('ct_mass', 'carats'))
-troy_ounce = Unit(name='troy_ounce', dimension=MASS, aliases=('ozt', 'troy_oz'))
-long_ton = Unit(name='long_ton', dimension=MASS, aliases=('long_tons', 'imperial_ton'))
-short_ton = Unit(name='short_ton', dimension=MASS, aliases=('short_tons', 'US_ton'))
-dram = Unit(name='dram', dimension=MASS, aliases=('dr', 'drams'))
-pennyweight = Unit(name='pennyweight', dimension=MASS, aliases=('dwt', 'pennyweights'))
+pound = Unit(name='pound', dimension=MASS, aliases=('lb', 'lbs'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=0.45359290943563974))
+ounce = Unit(name='ounce', dimension=MASS, aliases=('oz', 'ounces'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=0.028349556839727483))
+metric_ton = Unit(name='metric_ton', dimension=MASS, aliases=('t', 'tonne', 'tonnes'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=1000.0))
+stone = Unit(name='stone', dimension=MASS, aliases=('st',), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=6.350300732098956))
+grain = Unit(name='grain', dimension=MASS, aliases=('gr', 'grains'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=6.479898706223426e-05))
+slug = Unit(name='slug', dimension=MASS, aliases=('slug',), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=14.5939))
+carat = Unit(name='carat', dimension=MASS, aliases=('ct_mass', 'carats'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=0.0002))
+troy_ounce = Unit(name='troy_ounce', dimension=MASS, aliases=('ozt', 'troy_oz'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=0.031103500000000003))
+long_ton = Unit(name='long_ton', dimension=MASS, aliases=('long_tons', 'imperial_ton'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=1016.0481171358331))
+short_ton = Unit(name='short_ton', dimension=MASS, aliases=('short_tons', 'US_ton'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=907.1858188712795))
+dram = Unit(name='dram', dimension=MASS, aliases=('dr', 'drams'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=0.0017718473024829677))
+pennyweight = Unit(name='pennyweight', dimension=MASS, aliases=('dwt', 'pennyweights'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=0.0015551756894936224))
 
 # Temperature
 fahrenheit = Unit(name='fahrenheit', dimension=TEMPERATURE, aliases=('°F', 'degF'))
@@ -161,76 +188,76 @@ rankine = Unit(name='rankine', dimension=TEMPERATURE, aliases=('°R', 'degR', 'R
 reaumur = Unit(name='reaumur', dimension=TEMPERATURE, aliases=('°Ré', 'degRe'))
 
 # Historical electrical
-international_ampere = Unit(name='international_ampere', dimension=CURRENT, aliases=('A_int',))
-international_volt = Unit(name='international_volt', dimension=VOLTAGE, aliases=('V_int',))
-international_ohm = Unit(name='international_ohm', dimension=RESISTANCE, aliases=('ohm_int',))
+international_ampere = Unit(name='international_ampere', dimension=CURRENT, aliases=('A_int',), base_form=BaseForm(factors=((ampere, 1.0),), prefactor=1.000022))
+international_volt = Unit(name='international_volt', dimension=VOLTAGE, aliases=('V_int',), base_form=BaseForm(factors=((ampere, -1.0), (meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=1.00034))
+international_ohm = Unit(name='international_ohm', dimension=RESISTANCE, aliases=('ohm_int',), base_form=BaseForm(factors=((ampere, -2.0), (meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=1.00049))
 
 # Volume
-gallon = Unit(name='gallon', dimension=VOLUME, aliases=('gal', 'gallons'))
-quart = Unit(name='quart', dimension=VOLUME, aliases=('qt', 'quarts'))
-pint_volume = Unit(name='pint', dimension=VOLUME, aliases=('pt', 'pints'))
-cup = Unit(name='cup', dimension=VOLUME, aliases=('cp', 'cups'))
-fluid_ounce = Unit(name='fluid_ounce', dimension=VOLUME, aliases=('floz', 'fl_oz'))
-tablespoon = Unit(name='tablespoon', dimension=VOLUME, aliases=('tbsp',))
-teaspoon = Unit(name='teaspoon', dimension=VOLUME, aliases=('tsp',))
-barrel = Unit(name='barrel', dimension=VOLUME, aliases=('bbl', 'barrels'))
-imperial_gallon = Unit(name='imperial_gallon', dimension=VOLUME, aliases=('imp_gal',))
-imperial_pint = Unit(name='imperial_pint', dimension=VOLUME, aliases=('imp_pt',))
-bushel = Unit(name='bushel', dimension=VOLUME, aliases=('bu', 'bushels'))
-peck = Unit(name='peck', dimension=VOLUME, aliases=('pk', 'pecks'))
-gill = Unit(name='gill', dimension=VOLUME, aliases=('gi', 'gills'))
-minim = Unit(name='minim', dimension=VOLUME, aliases=('min_vol', 'minims'))
-cubic_foot = Unit(name='cubic_foot', dimension=VOLUME, aliases=('ft³', 'cu_ft'))
-cubic_inch = Unit(name='cubic_inch', dimension=VOLUME, aliases=('in³', 'cu_in'))
-cubic_yard = Unit(name='cubic_yard', dimension=VOLUME, aliases=('yd³', 'cu_yd'))
-acre_foot = Unit(name='acre_foot', dimension=VOLUME, aliases=('ac_ft', 'acre_feet'))
-stere = Unit(name='stere', dimension=VOLUME, aliases=('st_vol',))
-imperial_quart = Unit(name='imperial_quart', dimension=VOLUME, aliases=('imp_qt',))
-imperial_fluid_ounce = Unit(name='imperial_fluid_ounce', dimension=VOLUME, aliases=('imp_floz',))
-imperial_gill = Unit(name='imperial_gill', dimension=VOLUME, aliases=('imp_gi',))
-imperial_cup = Unit(name='imperial_cup', dimension=VOLUME, aliases=('imp_cup',))
+gallon = Unit(name='gallon', dimension=VOLUME, aliases=('gal', 'gallons'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=3.785412534257983))
+quart = Unit(name='quart', dimension=VOLUME, aliases=('qt', 'quarts'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.9463531335644958))
+pint_volume = Unit(name='pint', dimension=VOLUME, aliases=('pt', 'pints'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.4731765667822479))
+cup = Unit(name='cup', dimension=VOLUME, aliases=('cp', 'cups'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.23658828339112395))
+fluid_ounce = Unit(name='fluid_ounce', dimension=VOLUME, aliases=('floz', 'fl_oz'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.029573535423890494))
+tablespoon = Unit(name='tablespoon', dimension=VOLUME, aliases=('tbsp',), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.014786767711945247))
+teaspoon = Unit(name='teaspoon', dimension=VOLUME, aliases=('tsp',), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.004928922570648415))
+barrel = Unit(name='barrel', dimension=VOLUME, aliases=('bbl', 'barrels'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=158.9873264388353))
+imperial_gallon = Unit(name='imperial_gallon', dimension=VOLUME, aliases=('imp_gal',), base_form=BaseForm(factors=((meter, 3.0),), prefactor=4.54609))
+imperial_pint = Unit(name='imperial_pint', dimension=VOLUME, aliases=('imp_pt',), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.56826125))
+bushel = Unit(name='bushel', dimension=VOLUME, aliases=('bu', 'bushels'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=35.23907016688))
+peck = Unit(name='peck', dimension=VOLUME, aliases=('pk', 'pecks'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=8.80976754172))
+gill = Unit(name='gill', dimension=VOLUME, aliases=('gi', 'gills'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.11829414169556197))
+minim = Unit(name='minim', dimension=VOLUME, aliases=('min_vol', 'minims'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=6.161153213310519e-05))
+cubic_foot = Unit(name='cubic_foot', dimension=VOLUME, aliases=('ft³', 'cu_ft'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=28.316846592000005))
+cubic_inch = Unit(name='cubic_inch', dimension=VOLUME, aliases=('in³', 'cu_in'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.016387064))
+cubic_yard = Unit(name='cubic_yard', dimension=VOLUME, aliases=('yd³', 'cu_yd'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=764.5548579840001))
+acre_foot = Unit(name='acre_foot', dimension=VOLUME, aliases=('ac_ft', 'acre_feet'), base_form=BaseForm(factors=((meter, 3.0),), prefactor=1233481.83754752))
+stere = Unit(name='stere', dimension=VOLUME, aliases=('st_vol',), base_form=BaseForm(factors=((meter, 3.0),), prefactor=1000.0))
+imperial_quart = Unit(name='imperial_quart', dimension=VOLUME, aliases=('imp_qt',), base_form=BaseForm(factors=((meter, 3.0),), prefactor=1.1365225))
+imperial_fluid_ounce = Unit(name='imperial_fluid_ounce', dimension=VOLUME, aliases=('imp_floz',), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.028413062499999996))
+imperial_gill = Unit(name='imperial_gill', dimension=VOLUME, aliases=('imp_gi',), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.1420653125))
+imperial_cup = Unit(name='imperial_cup', dimension=VOLUME, aliases=('imp_cup',), base_form=BaseForm(factors=((meter, 3.0),), prefactor=0.284130625))
 
 # Energy
-calorie = Unit(name='calorie', dimension=ENERGY, aliases=('cal', 'calories'))
-btu = Unit(name='btu', dimension=ENERGY, aliases=('BTU',))
-watt_hour = Unit(name='watt_hour', dimension=ENERGY, aliases=('Wh',))
-therm = Unit(name='therm', dimension=ENERGY, aliases=('thm', 'therms'))
-foot_pound = Unit(name='foot_pound', dimension=ENERGY, aliases=('ft_lb', 'ft_lbf'))
-thermochemical_calorie = Unit(name='thermochemical_calorie', dimension=ENERGY, aliases=('cal_th',))
-ton_tnt = Unit(name='ton_tnt', dimension=ENERGY, aliases=('tTNT',))
-tonne_oil_equivalent = Unit(name='tonne_oil_equivalent', dimension=ENERGY, aliases=('toe',))
+calorie = Unit(name='calorie', dimension=ENERGY, aliases=('cal', 'calories'), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -2.0)), prefactor=4.184))
+btu = Unit(name='btu', dimension=ENERGY, aliases=('BTU',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -2.0)), prefactor=1055.06))
+watt_hour = Unit(name='watt_hour', dimension=ENERGY, aliases=('Wh',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -2.0)), prefactor=3600.0))
+therm = Unit(name='therm', dimension=ENERGY, aliases=('thm', 'therms'), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -2.0)), prefactor=105506000.0))
+foot_pound = Unit(name='foot_pound', dimension=ENERGY, aliases=('ft_lb', 'ft_lbf'), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -2.0)), prefactor=1.3558179483314))
+thermochemical_calorie = Unit(name='thermochemical_calorie', dimension=ENERGY, aliases=('cal_th',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -2.0)), prefactor=4.184))
+ton_tnt = Unit(name='ton_tnt', dimension=ENERGY, aliases=('tTNT',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -2.0)), prefactor=4184000000.0))
+tonne_oil_equivalent = Unit(name='tonne_oil_equivalent', dimension=ENERGY, aliases=('toe',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -2.0)), prefactor=41868000000.0))
 
 # Power
-horsepower = Unit(name='horsepower', dimension=POWER, aliases=('hp',))
-volt_ampere = Unit(name='volt_ampere', dimension=POWER, aliases=('VA',))
-metric_horsepower = Unit(name='metric_horsepower', dimension=POWER, aliases=('PS',))
-electrical_horsepower = Unit(name='electrical_horsepower', dimension=POWER, aliases=('hp_e',))
-boiler_horsepower = Unit(name='boiler_horsepower', dimension=POWER, aliases=('hp_boiler',))
-refrigeration_ton = Unit(name='refrigeration_ton', dimension=POWER, aliases=('TR', 'ton_ref'))
+horsepower = Unit(name='horsepower', dimension=POWER, aliases=('hp',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=745.7))
+volt_ampere = Unit(name='volt_ampere', dimension=POWER, aliases=('VA',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=1.0))
+metric_horsepower = Unit(name='metric_horsepower', dimension=POWER, aliases=('PS',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=735.4987500000001))
+electrical_horsepower = Unit(name='electrical_horsepower', dimension=POWER, aliases=('hp_e',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=746.0))
+boiler_horsepower = Unit(name='boiler_horsepower', dimension=POWER, aliases=('hp_boiler',), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=9809.5))
+refrigeration_ton = Unit(name='refrigeration_ton', dimension=POWER, aliases=('TR', 'ton_ref'), base_form=BaseForm(factors=((meter, 2.0), (kilogram, 1.0), (second, -3.0)), prefactor=3516.8525))
 
 # Pressure
-bar = Unit(name='bar', dimension=PRESSURE, aliases=('bar',))
-psi = Unit(name='psi', dimension=PRESSURE, aliases=('psi', 'lbf/in²'))
-atmosphere = Unit(name='atmosphere', dimension=PRESSURE, aliases=('atm',))
-torr = Unit(name='torr', dimension=PRESSURE, aliases=('Torr',))
-millimeter_mercury = Unit(name='millimeter_mercury', dimension=PRESSURE, aliases=('mmHg',))
-inch_mercury = Unit(name='inch_mercury', dimension=PRESSURE, aliases=('inHg',))
-centimeter_water = Unit(name='centimeter_water', dimension=PRESSURE, aliases=('cmH2O', 'cmAq'))
-centimeter_mercury = Unit(name='centimeter_mercury', dimension=PRESSURE, aliases=('cmHg',))
-ksi = Unit(name='ksi', dimension=PRESSURE, aliases=('ksi',))
-technical_atmosphere = Unit(name='technical_atmosphere', dimension=PRESSURE, aliases=('at',))
-millimeter_water = Unit(name='millimeter_water', dimension=PRESSURE, aliases=('mmH2O', 'mmAq'))
-inch_water = Unit(name='inch_water', dimension=PRESSURE, aliases=('inH2O', 'inAq'))
+bar = Unit(name='bar', dimension=PRESSURE, aliases=('bar',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=99999.99999999999))
+psi = Unit(name='psi', dimension=PRESSURE, aliases=('psi', 'lbf/in²'), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=6894.744825494008))
+atmosphere = Unit(name='atmosphere', dimension=PRESSURE, aliases=('atm',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=101325.0))
+torr = Unit(name='torr', dimension=PRESSURE, aliases=('Torr',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=133.322368))
+millimeter_mercury = Unit(name='millimeter_mercury', dimension=PRESSURE, aliases=('mmHg',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=133.322368))
+inch_mercury = Unit(name='inch_mercury', dimension=PRESSURE, aliases=('inHg',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=3386.3890000000006))
+centimeter_water = Unit(name='centimeter_water', dimension=PRESSURE, aliases=('cmH2O', 'cmAq'), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=98.0665))
+centimeter_mercury = Unit(name='centimeter_mercury', dimension=PRESSURE, aliases=('cmHg',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=1333.22))
+ksi = Unit(name='ksi', dimension=PRESSURE, aliases=('ksi',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=6894744.825494008))
+technical_atmosphere = Unit(name='technical_atmosphere', dimension=PRESSURE, aliases=('at',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=98066.5))
+millimeter_water = Unit(name='millimeter_water', dimension=PRESSURE, aliases=('mmH2O', 'mmAq'), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=9.80665))
+inch_water = Unit(name='inch_water', dimension=PRESSURE, aliases=('inH2O', 'inAq'), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -2.0)), prefactor=249.08891))
 
 # Force
-pound_force = Unit(name='pound_force', dimension=FORCE, aliases=('lbf',))
-kilogram_force = Unit(name='kilogram_force', dimension=FORCE, aliases=('kgf',))
-kip = Unit(name='kip', dimension=FORCE, aliases=('klbf',))
-poundal = Unit(name='poundal', dimension=FORCE, aliases=('pdl',))
-gram_force = Unit(name='gram_force', dimension=FORCE, aliases=('gf',))
-ounce_force = Unit(name='ounce_force', dimension=FORCE, aliases=('ozf',))
-ton_force = Unit(name='ton_force', dimension=FORCE, aliases=('tnf', 'short_ton_force'))
-metric_ton_force = Unit(name='metric_ton_force', dimension=FORCE, aliases=('tf', 'tonne_force'))
+pound_force = Unit(name='pound_force', dimension=FORCE, aliases=('lbf',), base_form=BaseForm(factors=((meter, 1.0), (kilogram, 1.0), (second, -2.0)), prefactor=4.4482216152605))
+kilogram_force = Unit(name='kilogram_force', dimension=FORCE, aliases=('kgf',), base_form=BaseForm(factors=((meter, 1.0), (kilogram, 1.0), (second, -2.0)), prefactor=9.80665))
+kip = Unit(name='kip', dimension=FORCE, aliases=('klbf',), base_form=BaseForm(factors=((meter, 1.0), (kilogram, 1.0), (second, -2.0)), prefactor=4448.2216152605))
+poundal = Unit(name='poundal', dimension=FORCE, aliases=('pdl',), base_form=BaseForm(factors=((meter, 1.0), (kilogram, 1.0), (second, -2.0)), prefactor=0.138255))
+gram_force = Unit(name='gram_force', dimension=FORCE, aliases=('gf',), base_form=BaseForm(factors=((meter, 1.0), (kilogram, 1.0), (second, -2.0)), prefactor=0.00980665))
+ounce_force = Unit(name='ounce_force', dimension=FORCE, aliases=('ozf',), base_form=BaseForm(factors=((meter, 1.0), (kilogram, 1.0), (second, -2.0)), prefactor=0.2780138509537812))
+ton_force = Unit(name='ton_force', dimension=FORCE, aliases=('tnf', 'short_ton_force'), base_form=BaseForm(factors=((meter, 1.0), (kilogram, 1.0), (second, -2.0)), prefactor=8896.443230521))
+metric_ton_force = Unit(name='metric_ton_force', dimension=FORCE, aliases=('tf', 'tonne_force'), base_form=BaseForm(factors=((meter, 1.0), (kilogram, 1.0), (second, -2.0)), prefactor=9806.65))
 # ----------------------------------------------------------------------
 
 
@@ -248,52 +275,52 @@ mile_per_hour = Unit(name='mile_per_hour', dimension=VELOCITY, aliases=('mph',))
 
 # -- Scientific Units --------------------------------------------------
 # Length
-angstrom = Unit(name='angstrom', dimension=LENGTH, aliases=('Å', 'angstroms'))
-light_year = Unit(name='light_year', dimension=LENGTH, aliases=('ly', 'light_years'))
-parsec = Unit(name='parsec', dimension=LENGTH, aliases=('pc', 'parsecs'))
-astronomical_unit = Unit(name='astronomical_unit', dimension=LENGTH, aliases=('au', 'AU'))
+angstrom = Unit(name='angstrom', dimension=LENGTH, aliases=('Å', 'angstroms'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=1e-10))
+light_year = Unit(name='light_year', dimension=LENGTH, aliases=('ly', 'light_years'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=9460730472580800.0))
+parsec = Unit(name='parsec', dimension=LENGTH, aliases=('pc', 'parsecs'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=3.085677581491367e+16))
+astronomical_unit = Unit(name='astronomical_unit', dimension=LENGTH, aliases=('au', 'AU'), base_form=BaseForm(factors=((meter, 1.0),), prefactor=149597870700.0))
 
 # Mass
-dalton = Unit(name='dalton', dimension=MASS, aliases=('Da', 'u', 'amu'))
+dalton = Unit(name='dalton', dimension=MASS, aliases=('Da', 'u', 'amu'), base_form=BaseForm(factors=((kilogram, 1.0),), prefactor=1.6605390666e-27))
 
 # Area
 barn = Unit(name='barn', dimension=AREA, aliases=('b_area',))
 
 # Charge
-ampere_hour = Unit(name='ampere_hour', dimension=CHARGE, aliases=('Ah',))
+ampere_hour = Unit(name='ampere_hour', dimension=CHARGE, aliases=('Ah',), base_form=BaseForm(factors=((ampere, 1.0), (second, 1.0)), prefactor=3600.0))
 
 
 # Radiation
 curie = Unit(name='curie', dimension=FREQUENCY, aliases=('Ci',))
 rem = Unit(name='rem', dimension=ENERGY, aliases=('rem',))
 rad_dose = Unit(name='rad_dose', dimension=ENERGY, aliases=('rad_absorbed',))
-roentgen = Unit(name='roentgen', dimension=EXPOSURE, aliases=('R_exp',))
+roentgen = Unit(name='roentgen', dimension=EXPOSURE, aliases=('R_exp',), base_form=BaseForm(factors=((ampere, 1.0), (kilogram, -1.0), (second, 1.0)), prefactor=0.000258))
 
 
 # Catalytic activity
-enzyme_unit = Unit(name='enzyme_unit', dimension=CATALYTIC_ACTIVITY, aliases=('U', 'IU'))
+enzyme_unit = Unit(name='enzyme_unit', dimension=CATALYTIC_ACTIVITY, aliases=('U', 'IU'), base_form=BaseForm(factors=((mole, 1.0), (second, -1.0)), prefactor=1.6666666666666667e-08))
 
 # Typography
-point_typo = Unit(name='point', dimension=LENGTH, aliases=('pt_typo',))
-pica = Unit(name='pica', dimension=LENGTH, aliases=('pica',))
+point_typo = Unit(name='point', dimension=LENGTH, aliases=('pt_typo',), base_form=BaseForm(factors=((meter, 1.0),), prefactor=0.00035277776648888926))
+pica = Unit(name='pica', dimension=LENGTH, aliases=('pica',), base_form=BaseForm(factors=((meter, 1.0),), prefactor=0.0042333331978666715))
 
 # Textile (linear density)
-tex = Unit(name='tex', dimension=LINEAR_DENSITY, aliases=('tex',))
-denier = Unit(name='denier', dimension=LINEAR_DENSITY, aliases=('den', 'D_tex'))
+tex = Unit(name='tex', dimension=LINEAR_DENSITY, aliases=('tex',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0)), prefactor=9.0))
+denier = Unit(name='denier', dimension=LINEAR_DENSITY, aliases=('den', 'D_tex'), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0)), prefactor=1.0))
 
 # Photometry
-foot_candle = Unit(name='foot_candle', dimension=ILLUMINANCE, aliases=('fc', 'ftc'))
-phot = Unit(name='phot', dimension=ILLUMINANCE, aliases=('ph',))
+foot_candle = Unit(name='foot_candle', dimension=ILLUMINANCE, aliases=('fc', 'ftc'), base_form=BaseForm(factors=((meter, -2.0), (candela, 1.0)), prefactor=10.763910417))
+phot = Unit(name='phot', dimension=ILLUMINANCE, aliases=('ph',), base_form=BaseForm(factors=((meter, -2.0), (candela, 1.0)), prefactor=10000.0))
 
 # Viscosity
-reyn = Unit(name='reyn', dimension=DYNAMIC_VISCOSITY, aliases=('reyn',))
+reyn = Unit(name='reyn', dimension=DYNAMIC_VISCOSITY, aliases=('reyn',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -1.0)), prefactor=6894.757))
 
 # Spectroscopy / Radiation (SI-basis)
-jansky = Unit(name='jansky', dimension=RADIANT_EXPOSURE, aliases=('Jy',))
+jansky = Unit(name='jansky', dimension=RADIANT_EXPOSURE, aliases=('Jy',), base_form=BaseForm(factors=((kilogram, 1.0), (second, -2.0)), prefactor=1.0000000000000002e-26))
 
 # Acceleration
 galileo = Unit(name='galileo', dimension=CGS_ACCELERATION, aliases=('Gal',))
-standard_gravity = Unit(name='standard_gravity', dimension=ACCELERATION, aliases=('g0', 'gn'))
+standard_gravity = Unit(name='standard_gravity', dimension=ACCELERATION, aliases=('g0', 'gn'), base_form=BaseForm(factors=((meter, 1.0), (second, -2.0)), prefactor=9.80665))
 
 # Concentration
 molar = Unit(name='molar', dimension=CONCENTRATION, aliases=('mol/L',))
@@ -343,8 +370,7 @@ rydberg = Unit(name='rydberg', dimension=NATURAL_ENERGY, aliases=('Ry',))
 
 
 # -- Information Units -------------------------------------------------
-bit = Unit(name='bit', dimension=INFORMATION, aliases=('b', 'bits'))
-byte = Unit(name='byte', dimension=INFORMATION, aliases=('B', 'bytes'))
+byte = Unit(name='byte', dimension=INFORMATION, aliases=('B', 'bytes'), base_form=BaseForm(factors=((bit, 1.0),), prefactor=8.0))
 # ----------------------------------------------------------------------
 
 

@@ -3,106 +3,168 @@
 # See the LICENSE file for details.
 
 """
-Tests for BaseDecomposition, UnitProduct.to_base_form(), and the arithmetic
+Tests for BaseForm, UnitProduct.to_base_form(), and the arithmetic
 regressions that motivated the base-unit decomposition feature.
+
+In v1.3.0, ``BaseForm`` is *definitional*: it is set on each ``Unit`` at
+construction time in ``ucon/units.py`` and never mutated thereafter.
+The previous v1.2.x behavior populated this field lazily by walking the
+``ConversionGraph`` after import; that mechanism (and the ``_ensure_graph``
+autouse fixture it required) is gone.
+
+The ``TestNoGraphInit`` class below proves the new property: arithmetic
+on quantities works *without* the default ``ConversionGraph`` ever being
+materialized.
 """
 
 import math
+import subprocess
+import sys
+
 import pytest
 
 from ucon import Scale, Number, Ratio
 from ucon import units
-from ucon.core import BaseDecomposition, UnitProduct, UnitFactor
-from ucon.graph import get_default_graph
+from ucon.core import BaseForm, UnitProduct, UnitFactor
 
 
 # -----------------------------------------------------------------------
-# Fixtures
+# TestNoGraphInit — graph independence regression net
 # -----------------------------------------------------------------------
 
-@pytest.fixture(autouse=True)
-def _ensure_graph():
-    """Ensure the default graph (and therefore decompositions) is built."""
-    get_default_graph()
+class TestNoGraphInit:
+    """Verify that base_form works WITHOUT initializing the default graph.
+
+    These tests prove that v1.3.0's definitional ``base_form`` is independent
+    of the conversion graph. They monkeypatch out the cached default graph
+    and assert that core arithmetic still works.
+    """
+
+    def test_kilogram_base_form_no_graph(self, monkeypatch):
+        from ucon import graph as graph_mod
+        monkeypatch.setattr(graph_mod, '_default_graph', None, raising=False)
+        assert units.kilogram.base_form is not None
+        assert units.kilogram.base_form.prefactor == 1.0
+
+    def test_canonical_magnitude_no_graph(self, monkeypatch):
+        from ucon import graph as graph_mod
+        monkeypatch.setattr(graph_mod, '_default_graph', None, raising=False)
+        n = units.gram(1000)
+        assert abs(n._canonical_magnitude - 1.0) < 1e-12
+
+    def test_arithmetic_no_graph(self, monkeypatch):
+        from ucon import graph as graph_mod
+        monkeypatch.setattr(graph_mod, '_default_graph', None, raising=False)
+        n = units.newton(1)
+        d = (Scale.kilo * units.gram * units.meter / units.second ** 2)(1)
+        assert n == d  # must work with no graph initialized
+
+    def test_cold_start_subprocess(self):
+        """A truly fresh interpreter must not need the default graph for
+        ``units.gram(1000) == units.kilogram(1)`` to hold.
+
+        Subprocess isolation guarantees no test-suite import has already
+        triggered graph construction as a side effect.
+        """
+        code = (
+            "from ucon import units; "
+            "assert units.gram(1000) == units.kilogram(1)"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"cold-start smoke test failed:\n"
+            f"stdout={result.stdout!r}\nstderr={result.stderr!r}"
+        )
 
 
 # -----------------------------------------------------------------------
-# BaseDecomposition field tests
+# BaseForm field tests
 # -----------------------------------------------------------------------
 
-class TestBaseDecompositionField:
-    """Verify _base_decomposition is set correctly on standard units."""
+class TestBaseFormField:
+    """Verify base_form is set correctly on standard units."""
 
     def test_kilogram_prefactor(self):
-        assert units.kilogram._base_decomposition is not None
-        assert units.kilogram._base_decomposition.prefactor == 1.0
+        assert units.kilogram.base_form is not None
+        assert units.kilogram.base_form.prefactor == 1.0
 
     def test_kilogram_factors(self):
-        decomp = units.kilogram._base_decomposition
-        assert len(decomp.factors) == 1
-        assert decomp.factors[0] == (units.kilogram, 1.0)
+        bf = units.kilogram.base_form
+        assert len(bf.factors) == 1
+        assert bf.factors[0] == (units.kilogram, 1.0)
 
     def test_gram_prefactor(self):
-        decomp = units.gram._base_decomposition
-        assert decomp is not None
-        assert abs(decomp.prefactor - 0.001) < 1e-12
+        bf = units.gram.base_form
+        assert bf is not None
+        assert abs(bf.prefactor - 0.001) < 1e-12
 
     def test_meter_prefactor(self):
-        decomp = units.meter._base_decomposition
-        assert decomp is not None
-        assert decomp.prefactor == 1.0
+        bf = units.meter.base_form
+        assert bf is not None
+        assert bf.prefactor == 1.0
 
     def test_second_prefactor(self):
-        decomp = units.second._base_decomposition
-        assert decomp is not None
-        assert decomp.prefactor == 1.0
+        bf = units.second.base_form
+        assert bf is not None
+        assert bf.prefactor == 1.0
 
     def test_pascal_prefactor(self):
-        decomp = units.pascal._base_decomposition
-        assert decomp is not None
-        assert abs(decomp.prefactor - 1.0) < 1e-12
+        bf = units.pascal.base_form
+        assert bf is not None
+        assert abs(bf.prefactor - 1.0) < 1e-12
 
     def test_pascal_factors(self):
-        decomp = units.pascal._base_decomposition
-        factor_dict = dict(decomp.factors)
+        bf = units.pascal.base_form
+        factor_dict = dict(bf.factors)
         assert abs(factor_dict[units.kilogram] - 1.0) < 1e-12
         assert abs(factor_dict[units.meter] - (-1.0)) < 1e-12
         assert abs(factor_dict[units.second] - (-2.0)) < 1e-12
 
     def test_bar_prefactor(self):
-        decomp = units.bar._base_decomposition
-        assert decomp is not None
-        assert abs(decomp.prefactor - 100000.0) < 1e-6
+        bf = units.bar.base_form
+        assert bf is not None
+        assert abs(bf.prefactor - 100000.0) < 1e-6
 
     def test_foot_prefactor(self):
-        decomp = units.foot._base_decomposition
-        assert decomp is not None
-        assert abs(decomp.prefactor - 0.3048) < 1e-6
+        bf = units.foot.base_form
+        assert bf is not None
+        assert abs(bf.prefactor - 0.3048) < 1e-6
 
     def test_calorie_prefactor(self):
-        decomp = units.calorie._base_decomposition
-        assert decomp is not None
-        assert abs(decomp.prefactor - 4.184) < 1e-6
+        bf = units.calorie.base_form
+        assert bf is not None
+        assert abs(bf.prefactor - 4.184) < 1e-6
 
     def test_newton_prefactor(self):
-        decomp = units.newton._base_decomposition
-        assert decomp is not None
-        assert abs(decomp.prefactor - 1.0) < 1e-12
+        bf = units.newton.base_form
+        assert bf is not None
+        assert abs(bf.prefactor - 1.0) < 1e-12
 
     def test_joule_prefactor(self):
-        decomp = units.joule._base_decomposition
-        assert decomp is not None
-        assert abs(decomp.prefactor - 1.0) < 1e-12
+        bf = units.joule.base_form
+        assert bf is not None
+        assert abs(bf.prefactor - 1.0) < 1e-12
 
     def test_watt_prefactor(self):
-        decomp = units.watt._base_decomposition
-        assert decomp is not None
-        assert abs(decomp.prefactor - 1.0) < 1e-12
+        bf = units.watt.base_form
+        assert bf is not None
+        assert abs(bf.prefactor - 1.0) < 1e-12
 
-    def test_dimensionless_unit_has_no_decomposition(self):
+    def test_dimensionless_unit_has_no_base_form(self):
         from ucon.core import Unit
         u = Unit()
-        assert u._base_decomposition is None
+        assert u.base_form is None
+
+    def test_celsius_has_no_base_form(self):
+        """Affine units cannot be expressed as (prefactor, factors)."""
+        assert units.celsius.base_form is None
+
+    def test_fahrenheit_has_no_base_form(self):
+        assert units.fahrenheit.base_form is None
 
 
 # -----------------------------------------------------------------------
@@ -147,7 +209,7 @@ class TestToBaseForm:
         """kilo*gram should have prefactor 1.0 (= 1 kg in base units)."""
         up = Scale.kilo * units.gram
         _, prefactor = up.to_base_form()
-        # kilo * gram: scale=kilo (1000), gram decomp prefactor=0.001
+        # kilo * gram: scale=kilo (1000), gram base_form prefactor=0.001
         # total = 1000 * 0.001 = 1.0
         assert abs(prefactor - 1.0) < 1e-12
 

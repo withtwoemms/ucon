@@ -74,7 +74,7 @@ from ucon.basis.transforms import (
     SI_TO_NATURAL,
 )
 from ucon.core import (
-    BaseDecomposition,
+    BaseForm,
     DimensionConstraint,
     DimensionNotCovered,
     Number,
@@ -151,7 +151,7 @@ __all__ = [
     'spectroscopy',
     'using_context',
     # Core types
-    'BaseDecomposition',
+    'BaseForm',
     'Constant',
     'ConstantDef',
     'ConversionGraph',
