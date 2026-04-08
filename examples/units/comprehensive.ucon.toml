@@ -1,8 +1,8 @@
 [package]
 name = "comprehensive"
-version = "1.2.0"
+version = "1.3.0"
 description = "Complete ucon default conversion graph — all bases, dimensions, units, and edges."
-format_version = "1.2"
+format_version = "1.3"
 
 [bases.CGS]
 components = [{ name = "length", symbol = "L" }, { name = "mass", symbol = "M" }, { name = "time", symbol = "T" }]
@@ -288,6 +288,7 @@ aliases = ["frac", "1"]
 name = "reciprocal_meter"
 dimension = "wavenumber"
 aliases = ["m⁻¹", "1/m"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", -1.0 ] ] }
 
 [[units]]
 name = "nines"
@@ -298,6 +299,7 @@ aliases = ["9s"]
 name = "ampere"
 dimension = "current"
 aliases = ["A", "I", "amp"]
+base_form = { prefactor = 1.0, factors = [ [ "ampere", 1.0 ] ] }
 
 [[units]]
 name = "ampere_per_meter"
@@ -308,26 +310,31 @@ aliases = ["A/m"]
 name = "astronomical_unit"
 dimension = "length"
 aliases = ["au", "AU"]
+base_form = { prefactor = 149597870700.0, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "international_ampere"
 dimension = "current"
 aliases = ["A_int"]
+base_form = { prefactor = 1.000022, factors = [ [ "ampere", 1.0 ] ] }
 
 [[units]]
 name = "ampere_hour"
 dimension = "charge"
 aliases = ["Ah"]
+base_form = { prefactor = 3600.0, factors = [ [ "ampere", 1.0 ], [ "second", 1.0 ] ] }
 
 [[units]]
 name = "byte"
 dimension = "information"
 aliases = ["B", "bytes"]
+base_form = { prefactor = 8.0, factors = [ [ "bit", 1.0 ] ] }
 
 [[units]]
 name = "btu"
 dimension = "energy"
 aliases = ["BTU"]
+base_form = { prefactor = 1055.06, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "barye"
@@ -348,6 +355,7 @@ aliases = ["Bq"]
 name = "coulomb"
 dimension = "charge"
 aliases = ["C"]
+base_form = { prefactor = 1.0, factors = [ [ "ampere", 1.0 ], [ "second", 1.0 ] ] }
 
 [[units]]
 name = "coulomb_meter"
@@ -358,6 +366,7 @@ aliases = ["C·m", "C*m"]
 name = "coulomb_per_kilogram"
 dimension = "exposure"
 aliases = ["C/kg"]
+base_form = { prefactor = 1.0, factors = [ [ "ampere", 1.0 ], [ "kilogram", -1.0 ], [ "second", 1.0 ] ] }
 
 [[units]]
 name = "curie"
@@ -373,11 +382,13 @@ aliases = ["D_dipole"]
 name = "denier"
 dimension = "linear_density"
 aliases = ["den", "D_tex"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "dalton"
 dimension = "mass"
 aliases = ["Da", "u", "amu"]
+base_form = { prefactor = 1.6605390666e-27, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "hartree"
@@ -428,11 +439,13 @@ aliases = ["Hz"]
 name = "enzyme_unit"
 dimension = "catalytic_activity"
 aliases = ["U", "IU"]
+base_form = { prefactor = 1.6666666666666667e-08, factors = [ [ "mole", 1.0 ], [ "second", -1.0 ] ] }
 
 [[units]]
 name = "joule"
 dimension = "energy"
 aliases = ["J"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "joule_per_kelvin"
@@ -443,16 +456,19 @@ aliases = ["J/K"]
 name = "joule_per_square_meter"
 dimension = "radiant_exposure"
 aliases = ["J/m²", "J/m2"]
+base_form = { prefactor = 1.0, factors = [ [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "jansky"
 dimension = "radiant_exposure"
 aliases = ["Jy"]
+base_form = { prefactor = 1.0000000000000002e-26, factors = [ [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "kelvin"
 dimension = "temperature"
 aliases = ["K"]
+base_form = { prefactor = 1.0, factors = [ [ "kelvin", 1.0 ] ] }
 
 [[units]]
 name = "kayser"
@@ -463,6 +479,7 @@ aliases = ["K_wave"]
 name = "liter"
 dimension = "volume"
 aliases = ["L", "l"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "langley"
@@ -478,11 +495,13 @@ aliases = ["Mx"]
 name = "newton"
 dimension = "force"
 aliases = ["N"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "nautical_mile"
 dimension = "length"
 aliases = ["nmi", "NM"]
+base_form = { prefactor = 1852.0, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "neper"
@@ -503,16 +522,19 @@ aliases = ["P"]
 name = "metric_horsepower"
 dimension = "power"
 aliases = ["PS"]
+base_form = { prefactor = 735.4987500000001, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "pascal"
 dimension = "pressure"
 aliases = ["Pa"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "pascal_second"
 dimension = "dynamic_viscosity"
 aliases = ["Pa·s", "Pa*s"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -1.0 ] ] }
 
 [[units]]
 name = "rankine"
@@ -523,6 +545,7 @@ aliases = ["°R", "degR", "R"]
 name = "roentgen"
 dimension = "exposure"
 aliases = ["R_exp"]
+base_form = { prefactor = 0.000258, factors = [ [ "ampere", 1.0 ], [ "kilogram", -1.0 ], [ "second", 1.0 ] ] }
 
 [[units]]
 name = "rydberg"
@@ -553,36 +576,43 @@ aliases = ["T"]
 name = "refrigeration_ton"
 dimension = "power"
 aliases = ["TR", "ton_ref"]
+base_form = { prefactor = 3516.8525, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "torr"
 dimension = "pressure"
 aliases = ["Torr"]
+base_form = { prefactor = 133.322368, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "short_ton"
 dimension = "mass"
 aliases = ["short_tons", "US_ton"]
+base_form = { prefactor = 907.1858188712795, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "volt"
 dimension = "voltage"
 aliases = ["V"]
+base_form = { prefactor = 1.0, factors = [ [ "ampere", -1.0 ], [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "volt_ampere"
 dimension = "power"
 aliases = ["VA"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "international_volt"
 dimension = "voltage"
 aliases = ["V_int"]
+base_form = { prefactor = 1.00034, factors = [ [ "ampere", -1.0 ], [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "watt"
 dimension = "power"
 aliases = ["W"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "weber"
@@ -598,6 +628,7 @@ aliases = ["Wb/m"]
 name = "watt_hour"
 dimension = "energy"
 aliases = ["Wh"]
+base_form = { prefactor = 3600.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "abcoulomb"
@@ -633,26 +664,31 @@ aliases = ["ac", "acres"]
 name = "acre_foot"
 dimension = "volume"
 aliases = ["ac_ft", "acre_feet"]
+base_form = { prefactor = 1233481.83754752, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "angstrom"
 dimension = "length"
 aliases = ["Å", "angstroms"]
+base_form = { prefactor = 1e-10, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "technical_atmosphere"
 dimension = "pressure"
 aliases = ["at"]
+base_form = { prefactor = 98066.5, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "atmosphere"
 dimension = "pressure"
 aliases = ["atm"]
+base_form = { prefactor = 101325.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "bit"
 dimension = "information"
 aliases = ["b", "bits"]
+base_form = { prefactor = 1.0, factors = [ [ "bit", 1.0 ] ] }
 
 [[units]]
 name = "barn"
@@ -663,11 +699,13 @@ aliases = ["b_area"]
 name = "bar"
 dimension = "pressure"
 aliases = ["bar"]
+base_form = { prefactor = 99999.99999999999, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "barrel"
 dimension = "volume"
 aliases = ["bbl", "barrels"]
+base_form = { prefactor = 158.9873264388353, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "basis_point"
@@ -682,26 +720,31 @@ dimension = "ratio"
 name = "boiler_horsepower"
 dimension = "power"
 aliases = ["hp_boiler"]
+base_form = { prefactor = 9809.5, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "bushel"
 dimension = "volume"
 aliases = ["bu", "bushels"]
+base_form = { prefactor = 35.23907016688, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "cable"
 dimension = "length"
 aliases = ["cables"]
+base_form = { prefactor = 185.2, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "calorie"
 dimension = "energy"
 aliases = ["cal", "calories"]
+base_form = { prefactor = 4.184, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "thermochemical_calorie"
 dimension = "energy"
 aliases = ["cal_th"]
+base_form = { prefactor = 4.184, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "candela"
@@ -712,6 +755,7 @@ aliases = ["cd"]
 name = "carat"
 dimension = "mass"
 aliases = ["ct_mass", "carats"]
+base_form = { prefactor = 0.0002, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "celsius"
@@ -722,21 +766,25 @@ aliases = ["°C", "degC"]
 name = "centimeter_mercury"
 dimension = "pressure"
 aliases = ["cmHg"]
+base_form = { prefactor = 1333.22, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "centimeter_water"
 dimension = "pressure"
 aliases = ["cmH2O", "cmAq"]
+base_form = { prefactor = 98.0665, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "chain"
 dimension = "length"
 aliases = ["ch", "chains"]
+base_form = { prefactor = 20.1168, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "cup"
 dimension = "volume"
 aliases = ["cp", "cups"]
+base_form = { prefactor = 0.23658828339112395, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "each"
@@ -747,21 +795,25 @@ aliases = ["ea", "item", "ct"]
 name = "cubic_foot"
 dimension = "volume"
 aliases = ["ft³", "cu_ft"]
+base_form = { prefactor = 28.316846592000005, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "cubic_inch"
 dimension = "volume"
 aliases = ["in³", "cu_in"]
+base_form = { prefactor = 0.016387064, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "cubic_yard"
 dimension = "volume"
 aliases = ["yd³", "cu_yd"]
+base_form = { prefactor = 764.5548579840001, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "day"
 dimension = "time"
 aliases = ["d"]
+base_form = { prefactor = 86400.0, factors = [ [ "second", 1.0 ] ] }
 
 [[units]]
 name = "decibel"
@@ -812,11 +864,13 @@ aliases = ["deg²", "sq_deg"]
 name = "dram"
 dimension = "mass"
 aliases = ["dr", "drams"]
+base_form = { prefactor = 0.0017718473024829677, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "pennyweight"
 dimension = "mass"
 aliases = ["dwt", "pennyweights"]
+base_form = { prefactor = 0.0015551756894936224, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "dyne"
@@ -832,6 +886,7 @@ aliases = ["eV"]
 name = "electrical_horsepower"
 dimension = "power"
 aliases = ["hp_e"]
+base_form = { prefactor = 746.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "erg"
@@ -842,61 +897,73 @@ aliases = ["erg"]
 name = "fathom"
 dimension = "length"
 aliases = ["ftm", "fathoms"]
+base_form = { prefactor = 1.828799941478402, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "foot_candle"
 dimension = "illuminance"
 aliases = ["fc", "ftc"]
+base_form = { prefactor = 10.763910417, factors = [ [ "meter", -2.0 ], [ "candela", 1.0 ] ] }
 
 [[units]]
 name = "foot"
 dimension = "length"
 aliases = ["ft", "feet"]
+base_form = { prefactor = 0.3047999902464003, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "fluid_ounce"
 dimension = "volume"
 aliases = ["floz", "fl_oz"]
+base_form = { prefactor = 0.029573535423890494, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "fortnight"
 dimension = "time"
 aliases = ["fn", "fortnights"]
+base_form = { prefactor = 1209600.0, factors = [ [ "second", 1.0 ] ] }
 
 [[units]]
 name = "foot_pound"
 dimension = "energy"
 aliases = ["ft_lb", "ft_lbf"]
+base_form = { prefactor = 1.3558179483314, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "furlong"
 dimension = "length"
 aliases = ["fur", "furlongs"]
+base_form = { prefactor = 201.168, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "gram"
 dimension = "mass"
 aliases = ["g"]
+base_form = { prefactor = 0.001, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "standard_gravity"
 dimension = "acceleration"
 aliases = ["g0", "gn"]
+base_form = { prefactor = 9.80665, factors = [ [ "meter", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "gallon"
 dimension = "volume"
 aliases = ["gal", "gallons"]
+base_form = { prefactor = 3.785412534257983, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "gram_force"
 dimension = "force"
 aliases = ["gf"]
+base_form = { prefactor = 0.00980665, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "gill"
 dimension = "volume"
 aliases = ["gi", "gills"]
+base_form = { prefactor = 0.11829414169556197, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "gradian"
@@ -907,11 +974,13 @@ aliases = ["grad", "gon"]
 name = "grain"
 dimension = "mass"
 aliases = ["gr", "grains"]
+base_form = { prefactor = 6.479898706223426e-05, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "hour"
 dimension = "time"
 aliases = ["h", "hr"]
+base_form = { prefactor = 3600.0, factors = [ [ "second", 1.0 ] ] }
 
 [[units]]
 name = "hectare"
@@ -922,86 +991,103 @@ aliases = ["ha"]
 name = "hand"
 dimension = "length"
 aliases = ["hh", "hands"]
+base_form = { prefactor = 0.1015999967488001, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "horsepower"
 dimension = "power"
 aliases = ["hp"]
+base_form = { prefactor = 745.7, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "imperial_cup"
 dimension = "volume"
 aliases = ["imp_cup"]
+base_form = { prefactor = 0.284130625, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "imperial_fluid_ounce"
 dimension = "volume"
 aliases = ["imp_floz"]
+base_form = { prefactor = 0.028413062499999996, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "imperial_gallon"
 dimension = "volume"
 aliases = ["imp_gal"]
+base_form = { prefactor = 4.54609, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "imperial_gill"
 dimension = "volume"
 aliases = ["imp_gi"]
+base_form = { prefactor = 0.1420653125, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "imperial_pint"
 dimension = "volume"
 aliases = ["imp_pt"]
+base_form = { prefactor = 0.56826125, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "imperial_quart"
 dimension = "volume"
 aliases = ["imp_qt"]
+base_form = { prefactor = 1.1365225, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "long_ton"
 dimension = "mass"
 aliases = ["long_tons", "imperial_ton"]
+base_form = { prefactor = 1016.0481171358331, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "inch"
 dimension = "length"
 aliases = ["in", "inches"]
+base_form = { prefactor = 0.025399999187200026, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "inch_water"
 dimension = "pressure"
 aliases = ["inH2O", "inAq"]
+base_form = { prefactor = 249.08891, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "inch_mercury"
 dimension = "pressure"
 aliases = ["inHg"]
+base_form = { prefactor = 3386.3890000000006, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "international_ohm"
 dimension = "resistance"
 aliases = ["ohm_int"]
+base_form = { prefactor = 1.00049, factors = [ [ "ampere", -2.0 ], [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "katal"
 dimension = "catalytic_activity"
 aliases = ["kat"]
+base_form = { prefactor = 1.0, factors = [ [ "mole", 1.0 ], [ "second", -1.0 ] ] }
 
 [[units]]
 name = "kilogram"
 dimension = "mass"
 aliases = ["kg"]
+base_form = { prefactor = 1.0, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "kilogram_force"
 dimension = "force"
 aliases = ["kgf"]
+base_form = { prefactor = 9.80665, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "kip"
 dimension = "force"
 aliases = ["klbf"]
+base_form = { prefactor = 4448.2216152605, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "knot"
@@ -1012,31 +1098,37 @@ aliases = ["kn", "kt", "knots"]
 name = "ksi"
 dimension = "pressure"
 aliases = ["ksi"]
+base_form = { prefactor = 6894744.825494008, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "pound"
 dimension = "mass"
 aliases = ["lb", "lbs"]
+base_form = { prefactor = 0.45359290943563974, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "pound_force"
 dimension = "force"
 aliases = ["lbf"]
+base_form = { prefactor = 4.4482216152605, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "psi"
 dimension = "pressure"
 aliases = ["psi", "lbf/in²"]
+base_form = { prefactor = 6894.744825494008, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "league"
 dimension = "length"
 aliases = ["lea", "leagues"]
+base_form = { prefactor = 4828.031845502982, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "light_year"
 dimension = "length"
 aliases = ["ly", "light_years"]
+base_form = { prefactor = 9460730472580800.0, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "lumen"
@@ -1047,41 +1139,49 @@ aliases = ["lm"]
 name = "lux"
 dimension = "illuminance"
 aliases = ["lx"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", -2.0 ], [ "candela", 1.0 ] ] }
 
 [[units]]
 name = "meter"
 dimension = "length"
 aliases = ["m"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "meter_per_second_squared"
 dimension = "acceleration"
 aliases = ["m/s²", "m/s2"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "square_meter_per_second"
 dimension = "kinematic_viscosity"
 aliases = ["m²/s", "m2/s"]
+base_form = { prefactor = 1.0, factors = [ [ "meter", 2.0 ], [ "second", -1.0 ] ] }
 
 [[units]]
 name = "metric_ton"
 dimension = "mass"
 aliases = ["t", "tonne", "tonnes"]
+base_form = { prefactor = 1000.0, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "metric_ton_force"
 dimension = "force"
 aliases = ["tf", "tonne_force"]
+base_form = { prefactor = 9806.65, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "mile"
 dimension = "length"
 aliases = ["mi", "miles"]
+base_form = { prefactor = 1609.3439485009937, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "mil"
 dimension = "length"
 aliases = ["thou"]
+base_form = { prefactor = 2.5399999187200026e-05, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "mile_per_hour"
@@ -1092,26 +1192,31 @@ aliases = ["mph"]
 name = "millimeter_mercury"
 dimension = "pressure"
 aliases = ["mmHg"]
+base_form = { prefactor = 133.322368, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "millimeter_water"
 dimension = "pressure"
 aliases = ["mmH2O", "mmAq"]
+base_form = { prefactor = 9.80665, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "minute"
 dimension = "time"
 aliases = ["min"]
+base_form = { prefactor = 60.0, factors = [ [ "second", 1.0 ] ] }
 
 [[units]]
 name = "minim"
 dimension = "volume"
 aliases = ["min_vol", "minims"]
+base_form = { prefactor = 6.161153213310519e-05, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "month"
 dimension = "time"
 aliases = ["mo", "months"]
+base_form = { prefactor = 2629800.0, factors = [ [ "second", 1.0 ] ] }
 
 [[units]]
 name = "mole"
@@ -1127,21 +1232,25 @@ aliases = ["mol/L"]
 name = "ohm"
 dimension = "resistance"
 aliases = ["Ω"]
+base_form = { prefactor = 1.0, factors = [ [ "ampere", -2.0 ], [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "ounce"
 dimension = "mass"
 aliases = ["oz", "ounces"]
+base_form = { prefactor = 0.028349556839727483, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "ounce_force"
 dimension = "force"
 aliases = ["ozf"]
+base_form = { prefactor = 0.2780138509537812, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "troy_ounce"
 dimension = "mass"
 aliases = ["ozt", "troy_oz"]
+base_form = { prefactor = 0.031103500000000003, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "pH"
@@ -1151,21 +1260,25 @@ dimension = "concentration"
 name = "parsec"
 dimension = "length"
 aliases = ["pc", "parsecs"]
+base_form = { prefactor = 3.085677581491367e+16, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "poundal"
 dimension = "force"
 aliases = ["pdl"]
+base_form = { prefactor = 0.138255, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "peck"
 dimension = "volume"
 aliases = ["pk", "pecks"]
+base_form = { prefactor = 8.80976754172, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "rod"
 dimension = "length"
 aliases = ["rd", "rods", "perch", "pole"]
+base_form = { prefactor = 5.0292, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "permille"
@@ -1176,21 +1289,25 @@ aliases = ["‰"]
 name = "phot"
 dimension = "illuminance"
 aliases = ["ph"]
+base_form = { prefactor = 10000.0, factors = [ [ "meter", -2.0 ], [ "candela", 1.0 ] ] }
 
 [[units]]
 name = "pica"
 dimension = "length"
 aliases = ["pica"]
+base_form = { prefactor = 0.0042333331978666715, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "pint"
 dimension = "volume"
 aliases = ["pt", "pints"]
+base_form = { prefactor = 0.4731765667822479, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "point"
 dimension = "length"
 aliases = ["pt_typo"]
+base_form = { prefactor = 0.00035277776648888926, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "ppb"
@@ -1204,6 +1321,7 @@ dimension = "ratio"
 name = "quart"
 dimension = "volume"
 aliases = ["qt", "quarts"]
+base_form = { prefactor = 0.9463531335644958, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "radian"
@@ -1229,26 +1347,31 @@ aliases = ["rev", "revolution"]
 name = "reyn"
 dimension = "dynamic_viscosity"
 aliases = ["reyn"]
+base_form = { prefactor = 6894.757, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -1.0 ] ] }
 
 [[units]]
 name = "second"
 dimension = "time"
 aliases = ["s", "sec"]
+base_form = { prefactor = 1.0, factors = [ [ "second", 1.0 ] ] }
 
 [[units]]
 name = "shake"
 dimension = "time"
 aliases = ["shakes"]
+base_form = { prefactor = 1e-08, factors = [ [ "second", 1.0 ] ] }
 
 [[units]]
 name = "ton_force"
 dimension = "force"
 aliases = ["tnf", "short_ton_force"]
+base_form = { prefactor = 8896.443230521, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "slug"
 dimension = "mass"
 aliases = ["slug"]
+base_form = { prefactor = 14.5939, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "steradian"
@@ -1259,11 +1382,13 @@ aliases = ["sr"]
 name = "stone"
 dimension = "mass"
 aliases = ["st"]
+base_form = { prefactor = 6.350300732098956, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "stere"
 dimension = "volume"
 aliases = ["st_vol"]
+base_form = { prefactor = 1000.0, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "statampere"
@@ -1289,46 +1414,55 @@ aliases = ["statΩ"]
 name = "ton_tnt"
 dimension = "energy"
 aliases = ["tTNT"]
+base_form = { prefactor = 4184000000.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "tablespoon"
 dimension = "volume"
 aliases = ["tbsp"]
+base_form = { prefactor = 0.014786767711945247, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "teaspoon"
 dimension = "volume"
 aliases = ["tsp"]
+base_form = { prefactor = 0.004928922570648415, factors = [ [ "meter", 3.0 ] ] }
 
 [[units]]
 name = "tex"
 dimension = "linear_density"
 aliases = ["tex"]
+base_form = { prefactor = 9.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "therm"
 dimension = "energy"
 aliases = ["thm", "therms"]
+base_form = { prefactor = 105506000.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "tonne_oil_equivalent"
 dimension = "energy"
 aliases = ["toe"]
+base_form = { prefactor = 41868000000.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
 
 [[units]]
 name = "week"
 dimension = "time"
 aliases = ["wk", "weeks"]
+base_form = { prefactor = 604800.0, factors = [ [ "second", 1.0 ] ] }
 
 [[units]]
 name = "yard"
 dimension = "length"
 aliases = ["yd", "yards"]
+base_form = { prefactor = 0.914399970739201, factors = [ [ "meter", 1.0 ] ] }
 
 [[units]]
 name = "year"
 dimension = "time"
 aliases = ["yr", "years"]
+base_form = { prefactor = 31557600.0, factors = [ [ "second", 1.0 ] ] }
 
 [[edges]]
 src = "acre_foot"
