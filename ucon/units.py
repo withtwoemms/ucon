@@ -310,7 +310,14 @@ denier = Unit(name='denier', dimension=LINEAR_DENSITY, aliases=('den', 'D_tex'),
 
 # Photometry
 foot_candle = Unit(name='foot_candle', dimension=ILLUMINANCE, aliases=('fc', 'ftc'), base_form=BaseForm(factors=((meter, -2.0), (candela, 1.0)), prefactor=10.763910417))
+# phot uses SI-basis ILLUMINANCE (cd·m⁻²) despite being conventionally called
+# "CGS" because its dimensional formula involves candela, which belongs to the
+# SI basis — CGS has no luminous intensity component.
 phot = Unit(name='phot', dimension=ILLUMINANCE, aliases=('ph',), base_form=BaseForm(factors=((meter, -2.0), (candela, 1.0)), prefactor=10000.0))
+nit = Unit(name='nit', dimension=ILLUMINANCE, aliases=('nt',), base_form=BaseForm(factors=((meter, -2.0), (candela, 1.0)), prefactor=1.0))
+stilb = Unit(name='stilb', dimension=ILLUMINANCE, aliases=('sb',), base_form=BaseForm(factors=((meter, -2.0), (candela, 1.0)), prefactor=10000.0))
+lambert = Unit(name='lambert', dimension=ILLUMINANCE, aliases=('La',), base_form=BaseForm(factors=((meter, -2.0), (candela, 1.0)), prefactor=3183.0988618379067))
+apostilb = Unit(name='apostilb', dimension=ILLUMINANCE, aliases=('asb',), base_form=BaseForm(factors=((meter, -2.0), (candela, 1.0)), prefactor=0.3183098861837907))
 
 # Viscosity
 reyn = Unit(name='reyn', dimension=DYNAMIC_VISCOSITY, aliases=('reyn',), base_form=BaseForm(factors=((meter, -1.0), (kilogram, 1.0), (second, -1.0)), prefactor=6894.757))
