@@ -136,29 +136,103 @@ class ConversionGraph:
         map: Map,
         basis_transform: BasisTransform | ConstantBoundBasisTransform | None = None,
     ) -> None:
-        """Register a conversion edge. Also registers the inverse.
+        """Register a conversion edge (and its inverse) on this graph.
+
+        ``add_edge`` is the primary mechanism for extending a
+        :class:`ConversionGraph` with domain-specific units. Call it on
+        either the default package graph (``ucon.graph.default_graph``) or
+        your own ``ConversionGraph`` instance to wire new units into the
+        conversion system.
+
+        For every forward edge ``src → dst`` registered with :class:`Map`
+        ``m``, the inverse ``dst → src`` is automatically registered using
+        ``m.inverse()``. Adding an inconsistent inverse (one whose
+        round-trip is not the identity) raises
+        :exc:`CyclicInconsistency`. Adding an edge between units of
+        different dimensions without a ``basis_transform`` raises
+        :exc:`DimensionMismatch`.
 
         Parameters
         ----------
         src : Unit or UnitProduct
-            Source unit expression.
+            Source unit expression. Both plain :class:`Unit` instances and
+            composite :class:`UnitProduct` expressions are accepted; the
+            graph dispatches to the appropriate edge-type internally.
         dst : Unit or UnitProduct
             Destination unit expression.
         map : Map
-            The conversion morphism (src → dst).
+            The conversion morphism ``src → dst``. Typically
+            :class:`LinearMap` for pure scalings, :class:`AffineMap` for
+            offset conversions (e.g., °C ↔ K), or :class:`LogMap` for
+            logarithmic units (dB, nepers).
         basis_transform : BasisTransform or ConstantBoundBasisTransform, optional
-            If provided, creates a cross-basis edge. The src unit is rebased
-            to the dst's dimension and the edge connects the rebased unit
-            to dst.
+            For cross-basis edges (e.g., CGS ↔ SI when dimensional
+            exponents differ, as for electromagnetic units). The ``src``
+            unit is rebased to the dst's dimension and the edge connects
+            the rebased unit to ``dst``. Most edges do not need this.
 
         Raises
         ------
         DimensionMismatch
-            If src and dst have different dimensions (and no basis_transform).
+            ``src`` and ``dst`` have different dimensions and no
+            ``basis_transform`` was supplied.
         CyclicInconsistency
-            If the reverse edge exists and round-trip is not identity.
+            A reverse edge exists already and composing it with the new
+            ``map`` does not yield the identity. This protects against
+            silently registering incompatible conversions.
         NoTransformPath
-            If basis_graph is set and no path exists between src/dst bases.
+            The graph has a :class:`BasisGraph` attached and no path
+            exists between the source and destination bases.
+
+        Examples
+        --------
+        Register a simple linear conversion on the default graph::
+
+            from ucon import units, LinearMap
+            from ucon.graph import default_graph
+
+            default_graph.add_edge(
+                src=units.mile,
+                dst=units.kilometer,
+                map=LinearMap(1.609344),
+            )
+
+        Register an affine temperature conversion::
+
+            from ucon import units, AffineMap
+            from ucon.graph import default_graph
+
+            default_graph.add_edge(
+                src=units.celsius,
+                dst=units.kelvin,
+                map=AffineMap(a=1.0, b=273.15),
+            )
+
+        Register a composite-unit edge (``joule`` ↔ ``kWh``)::
+
+            from ucon import units, LinearMap
+            from ucon.graph import default_graph
+
+            kwh = units.kilo * units.watt * units.hour
+            default_graph.add_edge(
+                src=units.joule,
+                dst=kwh,
+                map=LinearMap(1 / 3.6e6),
+            )
+
+        See Also
+        --------
+        ConversionGraph.convert : Path-find between registered units.
+        ConversionGraph.connect_systems : Bulk-add cross-basis edges.
+        Number.to : User-facing conversion that delegates to this graph.
+
+        Notes
+        -----
+        **Stability:** ``add_edge`` is part of the public API of
+        :mod:`ucon` as of v1.3.0. Its keyword-only signature
+        (``src``, ``dst``, ``map``, ``basis_transform``) is considered
+        stable and will not change in a backwards-incompatible way
+        without a major-version bump.
         """
         # Clear conversion cache (new edge may create shorter paths)
         self._conversion_cache.clear()
@@ -1711,3 +1785,5 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
             (units.joule, units.rydberg): LinearMap(1 / 2.1798723611035e-18),
         },
     )
+
+

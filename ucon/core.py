@@ -382,12 +382,51 @@ class Unit:
     name: str = ""
     dimension: Dimension = field(default=NONE)
     aliases: tuple[str, ...] = ()
+    base_form: 'BaseForm | None' = field(default=None, repr=False, compare=False, hash=False)
 
     def __post_init__(self):
         object.__setattr__(
             self, '_hash_cache',
             hash((self.name, self._norm(self.aliases), self.dimension)),
         )
+
+    # ----------------- base_form mutation contract -----------------
+
+    def _set_base_form(self, bf: 'BaseForm') -> None:
+        """Install ``base_form`` on a Unit whose constructor could not supply it.
+
+        This is the **single sanctioned mutation** of ``base_form`` after
+        construction. Two legitimate callers exist:
+
+        1. ``ucon.units`` SI bootstrap, where a coherent base unit's
+           ``base_form`` is self-referential (1 kg ≡ 1 × kg) and cannot be
+           expressed as a constructor literal because the Unit being
+           constructed is itself the factor.
+        2. ``ucon.serialization`` TOML loader, where forward references to
+           other units in ``factors`` require a two-pass resolve.
+
+        ``base_form`` is declared on a frozen dataclass with
+        ``compare=False, hash=False`` so this late set does not violate the
+        dataclass's equality or hashing guarantees. The idempotency guard
+        below ensures no unit ever has its ``base_form`` overwritten after
+        its first assignment.
+
+        Raises
+        ------
+        ValueError
+            If the Unit already has a non-None ``base_form``.
+        TypeError
+            If ``bf`` is not a BaseForm instance.
+        """
+        if not isinstance(bf, BaseForm):
+            raise TypeError(
+                f"_set_base_form expects a BaseForm, got {type(bf).__name__}"
+            )
+        if self.base_form is not None:
+            raise ValueError(
+                f"base_form already set on {self!r}; refusing to overwrite"
+            )
+        object.__setattr__(self, 'base_form', bf)
 
     # ----------------- symbolic helpers -----------------
 
@@ -413,6 +452,47 @@ class Unit:
     def basis(self) -> Basis:
         """The dimensional basis this unit belongs to."""
         return self.dimension.vector.basis
+
+    @property
+    def base_signature(self) -> tuple:
+        """Hashable, sorted projection of this unit's ``base_form`` to base-unit names.
+
+        Returns a tuple of ``(base_unit_name, exponent)`` pairs, sorted by
+        name. The prefactor from :attr:`base_form` is intentionally dropped —
+        ``base_signature`` identifies the *shape* of the decomposition (which
+        base units participate and with what exponents), not its scale.
+
+        Units without a ``base_form`` (e.g., affine temperature, logarithmic,
+        or graph-only units) report themselves as a self-leaf, so
+        ``base_signature`` is always defined and the identity
+        ``n.to_base().unit.base_signature == n.unit.base_signature`` holds
+        for every ``Number n``.
+
+        Intended uses
+        -------------
+        * Formula pre-validation: group inputs by ``base_signature`` to
+          check they are all the same kind of thing before a calculation.
+        * Dispatch keys: a hashable, basis-locked fingerprint suitable for
+          ``dict`` / ``set`` lookups (e.g., memoizing formulas by input kind).
+        * Round-trip equivalence checks in serialization / drift detection.
+
+        ``base_signature`` is basis-locked (compares CGS and SI forms on
+        their own base-unit vocabularies) and does **not** disambiguate
+        kinds of quantity that share dimensions (e.g., energy vs torque).
+
+        Examples
+        --------
+        >>> from ucon import units
+        >>> units.meter.base_signature
+        (('meter', 1.0),)
+        >>> units.joule.base_signature
+        (('kilogram', 1.0), ('meter', 2.0), ('second', -2.0))
+        """
+        if self.base_form is None:
+            return ((self.name, 1.0),)
+        return tuple(sorted(
+            (u.name, exp) for u, exp in self.base_form.factors
+        ))
 
     def is_compatible(
         self,
@@ -792,6 +872,38 @@ class UnitFactor:
         return NotImplemented
 
 
+@dataclass(frozen=True)
+class BaseForm:
+    """Definitional decomposition of a unit into canonical base units of its basis.
+
+    A unit's ``base_form`` answers: "in terms of the basis's canonical base units,
+    what does 1 of this unit equal?" Mathematically:
+
+        1 U  ≡  prefactor × b₁^e₁ × b₂^e₂ × ... × bₙ^eₙ
+
+    Examples (SI basis):
+        kilogram: BaseForm(prefactor=1.0, factors=((kilogram, 1.0),))
+        gram:     BaseForm(prefactor=0.001, factors=((kilogram, 1.0),))
+        newton:   BaseForm(prefactor=1.0,
+                           factors=((kilogram, 1.0), (meter, 1.0), (second, -2.0)))
+        bar:      BaseForm(prefactor=100000.0,
+                           factors=((kilogram, 1.0), (meter, -1.0), (second, -2.0)))
+        foot:     BaseForm(prefactor=0.3048, factors=((meter, 1.0),))
+
+    Invariants:
+        - ``prefactor`` is positive and finite
+        - ``factors`` references only base units of the unit's own basis
+        - dimensionally consistent with the parent Unit's ``dimension``
+        - immutable; set at Unit construction; never mutated
+
+    Affine units (kelvin/celsius/fahrenheit) and logarithmic units (dB, Np)
+    cannot be represented as a single (prefactor, factors) pair and have
+    ``base_form = None``.
+    """
+    factors: tuple  # tuple[tuple[Unit, float], ...]
+    prefactor: float = 1.0
+
+
 class UnitProduct:
     """
     Represents a product or quotient of Units.
@@ -1055,6 +1167,72 @@ class UnitProduct:
 
         self._fold_scale_cache = result
         return result
+
+    def to_base_form(self) -> tuple:
+        """Expand all factors to SI base units algebraically.
+
+        Returns
+        -------
+        (base_factors, prefactor)
+            base_factors: dict mapping base Unit → net exponent
+            prefactor: cumulative scalar (product of all scale, decomposition prefactors)
+        """
+        cached = getattr(self, '_to_base_form_cache', None)
+        if cached is not None:
+            return cached
+
+        base_factors: dict = {}
+        prefactor = getattr(self, '_residual_scale_factor', 1.0)
+
+        for uf, exp in self.factors.items():
+            prefactor *= uf.scale.value.evaluated ** exp
+
+            bf = uf.unit.base_form
+            if bf is None:
+                # No base_form — treat unit as its own base
+                base_factors[uf.unit] = base_factors.get(uf.unit, 0.0) + exp
+            else:
+                prefactor *= bf.prefactor ** exp
+                for base_unit, base_exp in bf.factors:
+                    base_factors[base_unit] = base_factors.get(base_unit, 0.0) + base_exp * exp
+
+        # Drop zero-exponent entries
+        result = ({u: e for u, e in base_factors.items() if abs(e) > 1e-12}, prefactor)
+        self._to_base_form_cache = result
+        return result
+
+    @property
+    def base_signature(self) -> tuple:
+        """Hashable, sorted projection of this product's base-unit decomposition.
+
+        Returns a tuple of ``(base_unit_name, exponent)`` pairs, sorted by
+        name. Composes each factor's ``Unit.base_signature`` contribution
+        with the product's exponents, collapsing duplicates and dropping
+        zero-exponent terms. The prefactor accumulated during base-form
+        expansion is intentionally dropped.
+
+        Leverages the same walk as :meth:`to_base_form` but discards the
+        cumulative scalar, returning only the basis-identity fingerprint.
+
+        Examples
+        --------
+        >>> from ucon.units import meter, second
+        >>> (meter / second).base_signature
+        (('meter', 1.0), ('second', -1.0))
+        >>> (meter * meter / (second * second)).base_signature
+        (('meter', 2.0), ('second', -2.0))
+        """
+        accumulated: dict = {}
+        for uf, exp in self.factors.items():
+            bf = uf.unit.base_form
+            if bf is None:
+                accumulated[uf.unit.name] = accumulated.get(uf.unit.name, 0.0) + exp
+            else:
+                for base_u, base_exp in bf.factors:
+                    accumulated[base_u.name] = accumulated.get(base_u.name, 0.0) + base_exp * exp
+        return tuple(sorted(
+            (name, exp) for name, exp in accumulated.items() if abs(exp) > 1e-12
+        ))
 
     # ------------- Helpers ---------------------------------------------------
 
@@ -1349,10 +1527,268 @@ class Number:
 
     @property
     def _canonical_magnitude(self) -> float:
-        """Quantity folded to base-unit scale (internal use for eq/div)."""
+        """Quantity in coherent base-unit scale.
+
+        Pure function of (self.quantity, self.unit). Does NOT consult any graph.
+        """
         if isinstance(self.unit, UnitProduct):
-            return self.quantity * self.unit.fold_scale()
+            result = self.quantity * getattr(self.unit, '_residual_scale_factor', 1.0)
+            for uf, exp in self.unit.factors.items():
+                result *= uf.scale.value.evaluated ** exp
+                bf = uf.unit.base_form
+                if bf is not None:
+                    result *= bf.prefactor ** exp
+            return result
+        bf = self.unit.base_form
+        if bf is not None:
+            return self.quantity * bf.prefactor
         return self.quantity
+
+    @property
+    def canonical_magnitude(self) -> float:
+        """Quantity expressed in coherent base-unit scale, as a plain float.
+
+        This is the magnitude you would get from :meth:`to_base` and then
+        reading ``.quantity``. It is a pure function of ``(self.quantity,
+        self.unit)`` and does NOT consult any conversion graph.
+
+        Use :attr:`canonical_magnitude` at interop boundaries where you need
+        a raw float in SI-coherent units (e.g., for a dimensionless formula
+        constant, a JSON payload, or a plotting library). For unit-safe
+        composition, prefer :meth:`to_base`, which returns a new ``Number``.
+
+        Examples
+        --------
+        >>> from ucon.units import kilometer, hour
+        >>> kilometer(5).canonical_magnitude
+        5000.0
+        >>> (kilometer(90) / hour(1)).canonical_magnitude
+        25.0
+        """
+        return self._canonical_magnitude
+
+    @property
+    def base_signature(self) -> tuple:
+        """Hashable, sorted base-unit-name projection of this Number's unit.
+
+        Delegates to ``self.unit.base_signature``. See
+        :attr:`Unit.base_signature` for semantics and intended uses.
+
+        The signature is invariant under :meth:`to_base` — that is,
+        ``n.base_signature == n.to_base().base_signature`` for every
+        ``Number n``. This makes it a useful dispatch / grouping key for
+        formula inputs expressed in arbitrary scales.
+
+        Examples
+        --------
+        >>> from ucon.units import kilometer, hour
+        >>> kilometer(5).base_signature
+        (('meter', 1.0),)
+        >>> (kilometer(90) / hour(1)).base_signature
+        (('meter', 1.0), ('second', -1.0))
+        """
+        return self.unit.base_signature
+
+    @property
+    def in_base_form(self) -> bool:
+        """True if this Number is already expressed in coherent base units.
+
+        A Number is *in base form* when :meth:`to_base` would produce an
+        output equivalent to ``self`` (up to structural identity of the
+        unit expression). Concretely, this holds when:
+
+        * every factor's scale is :attr:`Scale.one`,
+        * every factor's underlying :class:`Unit` is a *leaf* — either
+          ``base_form is None`` or a self-referential coherent base
+          (e.g., ``kilogram``, ``meter``), and
+        * any residual scale factor from cancelled factors is ``1.0``.
+
+        Use ``in_base_form`` as a fast pre-check to avoid a redundant
+        :meth:`to_base` call in hot paths, or as an invariant assertion at
+        formula boundaries.
+
+        Examples
+        --------
+        >>> from ucon.units import kilometer, meter, hour, joule
+        >>> meter(5).in_base_form
+        True
+        >>> kilometer(5).in_base_form
+        False
+        >>> kilometer(5).to_base().in_base_form
+        True
+        >>> joule(1).in_base_form  # joule has a non-trivial base_form
+        False
+        """
+        def _is_leaf(u: 'Unit') -> bool:
+            bf = u.base_form
+            if bf is None:
+                return True
+            return (len(bf.factors) == 1
+                    and bf.factors[0][0] is u
+                    and abs(bf.factors[0][1] - 1.0) < 1e-12)
+
+        if isinstance(self.unit, UnitProduct):
+            if getattr(self.unit, '_residual_scale_factor', 1.0) != 1.0:
+                return False
+            for uf in self.unit.factors:
+                if uf.scale is not Scale.one:
+                    return False
+                if not _is_leaf(uf.unit):
+                    return False
+            return True
+        return _is_leaf(self.unit)
+
+    def to_base(self) -> 'Number':
+        """Return a new Number expressed in coherent base-unit scale.
+
+        Walks ``self.unit`` and decomposes each factor through its
+        :attr:`~Unit.base_form` (when available) to produce a quantity in the
+        basis's canonical base units (e.g., SI: ``kg, m, s, A, K, cd, mol``).
+
+        This is a pure algebraic operation; no :class:`~ucon.graph.ConversionGraph`
+        is consulted. Units that lack a ``base_form`` (affine temperature
+        units, logarithmic units, or units whose definition is graph-only)
+        are preserved as-is at ``Scale.one``.
+
+        Returns
+        -------
+        Number
+            A new ``Number`` whose unit is either a plain base ``Unit`` (when
+            the decomposition collapses to a single factor at exponent 1) or
+            a :class:`UnitProduct` of base units. Uncertainty is scaled by the
+            same multiplier as the quantity.
+
+        Examples
+        --------
+        >>> from ucon.units import kilometer, hour, joule
+        >>> kilometer(5).to_base()
+        <5000 m>
+        >>> (kilometer(90) / hour(1)).to_base()
+        <25 m/s>
+        >>> joule(1).to_base()
+        <1 kg·m²/s²>
+
+        Notes
+        -----
+        ``to_base()`` is the unit-safe counterpart to
+        :attr:`canonical_magnitude`. The identity
+        ``n.to_base().quantity == n.canonical_magnitude`` holds for every
+        ``Number n``.
+        """
+        # Total multiplier from self.unit to base-unit scale.
+        # Compute on a unit Number so quantity=0 is handled correctly.
+        multiplier = Number(1.0, self.unit)._canonical_magnitude
+        canonical_q = self.quantity * multiplier
+
+        new_uncertainty = None
+        if self.uncertainty is not None:
+            new_uncertainty = self.uncertainty * abs(multiplier)
+
+        def _decompose(unit) -> dict:
+            """Return a dict[UnitFactor, float] of base-unit factors for `unit`.
+
+            If `unit` has no useful base_form (None or self-referential),
+            it is preserved as-is at Scale.one.
+            """
+            bf = unit.base_form
+            if bf is None:
+                return {UnitFactor(unit, Scale.one): 1.0}
+            # Self-referential coherent base (e.g., kilogram -> kilogram^1)
+            if (len(bf.factors) == 1
+                    and bf.factors[0][0] is unit
+                    and abs(bf.factors[0][1] - 1.0) < 1e-12):
+                return {UnitFactor(unit, Scale.one): 1.0}
+            out: dict = {}
+            for base_unit, base_exp in bf.factors:
+                key = UnitFactor(base_unit, Scale.one)
+                out[key] = out.get(key, 0.0) + base_exp
+            return out
+
+        # Accumulate base-unit factors with combined exponents
+        base_dict: dict = {}
+        if isinstance(self.unit, UnitProduct):
+            for uf, exp in self.unit.factors.items():
+                for key, base_exp in _decompose(uf.unit).items():
+                    base_dict[key] = base_dict.get(key, 0.0) + base_exp * exp
+        else:
+            for key, base_exp in _decompose(self.unit).items():
+                base_dict[key] = base_dict.get(key, 0.0) + base_exp
+
+        # Drop zero exponents
+        base_dict = {k: e for k, e in base_dict.items() if abs(e) > 1e-12}
+
+        # Degenerate case: everything cancelled. Preserve structural unit.
+        if not base_dict:
+            return Number(
+                quantity=canonical_q,
+                unit=self.unit,
+                uncertainty=new_uncertainty,
+            )
+
+        # Single factor at exp 1.0: return as plain Unit for ergonomic output
+        if len(base_dict) == 1:
+            key, exp = next(iter(base_dict.items()))
+            if abs(exp - 1.0) < 1e-12:
+                return Number(
+                    quantity=canonical_q,
+                    unit=key.unit,
+                    uncertainty=new_uncertainty,
+                )
+
+        return Number(
+            quantity=canonical_q,
+            unit=UnitProduct(base_dict),
+            uncertainty=new_uncertainty,
+        )
+
+    def same_dimension_as(self, other) -> bool:
+        """Return True if ``self`` and ``other`` share a dimension.
+
+        Accepts another :class:`Number`, :class:`Unit`, or
+        :class:`UnitProduct`. Compares on :attr:`Dimension` equality — the
+        fundamental invariant of unit compatibility — which is basis-aware
+        and scale-agnostic.
+
+        This is a lightweight compatibility check for the common case
+        "can I add / compare / feed these into the same formula slot?"
+        without the overhead of constructing a conversion or walking the
+        graph.
+
+        Parameters
+        ----------
+        other : Number, Unit, or UnitProduct
+            The quantity or unit expression to compare dimensions with.
+
+        Returns
+        -------
+        bool
+            True if the dimensions match, False otherwise.
+
+        Raises
+        ------
+        TypeError
+            If ``other`` is not a Number, Unit, or UnitProduct.
+
+        Examples
+        --------
+        >>> from ucon.units import kilometer, mile, hour, second, joule
+        >>> kilometer(5).same_dimension_as(mile(3))
+        True
+        >>> kilometer(5).same_dimension_as(hour(2))
+        False
+        >>> (kilometer(90) / hour(1)).same_dimension_as(
+        ...     kilometer(1) / second(1)
+        ... )
+        True
+        """
+        if isinstance(other, Number):
+            return self.unit.dimension == other.unit.dimension
+        if isinstance(other, (Unit, UnitProduct)):
+            return self.unit.dimension == other.dimension
+        raise TypeError(
+            f"same_dimension_as expects Number, Unit, or UnitProduct; "
+            f"got {type(other).__name__}"
+        )
 
     def simplify(self) -> 'Number':
         """Return a new Number expressed in base scale (Scale.one).

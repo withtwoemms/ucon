@@ -37,6 +37,7 @@ help:
 	@echo "  ${CYAN}clean${RESET}         - Remove build artifacts and caches"
 	@echo "  ${CYAN}stubs${RESET}         - Generate dimension.pyi type stubs"
 	@echo "  ${CYAN}stubs-check${RESET}   - Verify stubs are current (for CI)"
+	@echo "  ${CYAN}base-forms-check${RESET} - Verify base_form literals vs BFS oracle"
 	@echo "  ${CYAN}benchmark${RESET}     - Run array performance benchmarks"
 	@echo "  ${CYAN}benchmark-pint${RESET} - Run benchmarks with pint comparison"
 	@echo ""
@@ -169,6 +170,12 @@ stubs-check: ${DEPS_INSTALLED}
 	@echo "${GREEN}Verifying dimension stubs are current...${RESET}"
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
 		python scripts/generate_dimension_stubs.py --check
+
+.PHONY: base-forms-check
+base-forms-check: ${DEPS_INSTALLED}
+	@echo "${GREEN}Verifying base_form literals match BFS oracle...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
+		python scripts/generate_base_forms.py --check
 
 # --- Benchmarks ---
 .PHONY: benchmark

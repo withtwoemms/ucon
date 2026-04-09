@@ -83,6 +83,27 @@ jobs:
           uv sync --extra docs
           uv run mkdocs build --strict
 
+  base_forms:
+    name: base_form drift
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Verify base_form literals against BFS oracle
+        run: make base-forms-check PYTHON=3.12
+
   changelog:
     name: CHANGELOG
     runs-on: ubuntu-latest
@@ -107,7 +128,7 @@ jobs:
     name: CI
     runs-on: ubuntu-latest
     timeout-minutes: 1
-    needs: [run_tests, docs, changelog]
+    needs: [run_tests, docs, base_forms, changelog]
     if: always()
     steps:
       - name: Check all jobs passed
@@ -118,6 +139,10 @@ jobs:
           fi
           if [[ "${{ needs.docs.result }}" != "success" ]]; then
             echo "Docs build failed"
+            exit 1
+          fi
+          if [[ "${{ needs.base_forms.result }}" != "success" ]]; then
+            echo "base_form drift check failed"
             exit 1
           fi
           # changelog is skipped on push to main, only required for PRs
