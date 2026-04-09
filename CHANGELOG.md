@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-04-09
+
+### Added
+
+- **Photometric luminance units** — 4 new SI-basis ILLUMINANCE units:
+  - `nit` (`nt`) — 1 cd/m², the SI-coherent luminance unit
+  - `stilb` (`sb`) — 1 cd/cm² = 10,000 cd/m²
+  - `lambert` (`La`) — (1/π) cd/cm² ≈ 3183.1 cd/m²
+  - `apostilb` (`asb`) — (1/π) cd/m² ≈ 0.3183 cd/m²
+
+  All four carry `base_form` with `prefactor` relative to `cd·m⁻²` and
+  same-basis conversion edges (`nit→lux`, `stilb→nit`, `lambert→nit`,
+  `apostilb→nit`). No cross-basis edges needed — these are SI-basis
+  units because their dimensional formula involves `candela`, which
+  belongs exclusively to the SI basis (CGS has no luminous intensity
+  component).
+
+- `TestPhotometricConversions` — 6 new tests covering `stilb↔nit`,
+  `lambert→nit`, `apostilb→nit`, `stilb→lux` (multi-hop), and
+  `phot→stilb` (cross-validation).
+
+- Disposition comment on `phot` in `ucon/units.py` explaining why it
+  uses SI-basis ILLUMINANCE despite being conventionally called "CGS".
+
+- Deferral comment on ESU↔EMU cross-family conversion in `ucon/graph.py`,
+  noting that the bridge requires promoting `CGS_EMU` to a 4-component
+  basis and is scheduled for v1.4.0 (basis isomorphisms release). See
+  `docs/internal/IMPLEMENTATION_basis_isomorphisms.md`.
+
+### Notes
+
+- **Cross-basis edge audit (24/24 CGS→SI, 7/7 SI→CGS).** All atomic
+  CGS-family units were verified to have correct bidirectional edges in
+  the default graph. No missing edges found.
+
+- **ESU↔EMU cross-family conversion deferred to v1.4.0.** Requires
+  promoting `CGS_EMU` to a 4-component basis (`L, M, T, Φ`),
+  redefining ~15 dimension vectors, and adding a quantity-dependent
+  `CGS_ESU_TO_CGS_EMU` 4×4 transform. This is a refactoring-scale
+  change best done while the drift detector is still active as a safety
+  net.
+
 ## [1.3.0] - 2026-04-08
 
 ### Added
@@ -890,7 +932,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.3.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.3.1...HEAD
+[1.3.1]: https://github.com/withtwoemms/ucon/compare/1.3.0...1.3.1
 [1.3.0]: https://github.com/withtwoemms/ucon/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/withtwoemms/ucon/compare/1.1.2...1.2.0
 [1.1.2]: https://github.com/withtwoemms/ucon/compare/1.1.1...1.1.2

@@ -403,6 +403,45 @@ class TestInformationConversions(unittest.TestCase):
         self.assertAlmostEqual(result.quantity, 8000, places=0)
 
 
+class TestPhotometricConversions(unittest.TestCase):
+    """Tests for photometric luminance/illuminance conversions in the default graph."""
+
+    def setUp(self):
+        reset_default_graph()
+
+    def test_stilb_to_nit(self):
+        """1 sb = 10000 nt"""
+        result = units.stilb(1).to(units.nit)
+        self.assertAlmostEqual(result.quantity, 10000, places=5)
+
+    def test_nit_to_stilb(self):
+        """10000 nt = 1 sb"""
+        result = units.nit(10000).to(units.stilb)
+        self.assertAlmostEqual(result.quantity, 1.0, places=5)
+
+    def test_lambert_to_nit(self):
+        """1 La = 10000/π nt ≈ 3183.1"""
+        import math
+        result = units.lambert(1).to(units.nit)
+        self.assertAlmostEqual(result.quantity, 10000 / math.pi, places=1)
+
+    def test_apostilb_to_nit(self):
+        """1 asb = 1/π nt ≈ 0.3183"""
+        import math
+        result = units.apostilb(1).to(units.nit)
+        self.assertAlmostEqual(result.quantity, 1 / math.pi, places=4)
+
+    def test_stilb_to_lux(self):
+        """1 sb = 10000 lx (multi-hop: stilb → nit → lux)"""
+        result = units.stilb(1).to(units.lux)
+        self.assertAlmostEqual(result.quantity, 10000, places=2)
+
+    def test_phot_to_stilb(self):
+        """1 ph = 1 sb (cross-validates same dimension, different source)"""
+        result = units.phot(1).to(units.stilb)
+        self.assertAlmostEqual(result.quantity, 1.0, places=2)
+
+
 class TestConversionRoundTrips(unittest.TestCase):
     """Tests verifying round-trip conversion accuracy."""
 

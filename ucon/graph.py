@@ -1646,6 +1646,14 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     graph.add_edge(src=units.foot_candle, dst=units.lux, map=LinearMap(10.763910417))
     # 1 phot = 1 lm/cm² = 10000 lux (exact)
     graph.add_edge(src=units.phot, dst=units.lux, map=LinearMap(10000))
+    # 1 nit = 1 cd/m² (identity with lux when sr = 1)
+    graph.add_edge(src=units.nit, dst=units.lux, map=LinearMap(1))
+    # 1 stilb = 1 cd/cm² = 10000 cd/m² = 10000 nit (exact)
+    graph.add_edge(src=units.stilb, dst=units.nit, map=LinearMap(10000))
+    # 1 lambert = (1/π) cd/cm² = 10000/π nit
+    graph.add_edge(src=units.lambert, dst=units.nit, map=LinearMap(10000 / math.pi))
+    # 1 apostilb = (1/π) cd/m² = 1/π nit
+    graph.add_edge(src=units.apostilb, dst=units.nit, map=LinearMap(1 / math.pi))
 
     # --- Viscosity ---
     # 1 reyn = 1 lbf·s/in² = 6894.757 Pa·s (exact, from psi definition)
@@ -1772,6 +1780,9 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     )
     # Gilbert: 1 Gb = 1/(4π) biot (magnetomotive force)
     graph.add_edge(src=units.gilbert, dst=units.biot, map=LinearMap(1 / (4 * math.pi)))
+    # NOTE: ESU↔EMU cross-family conversion is deferred to v1.4.0.
+    # Requires promoting CGS_EMU to a 4-component basis and redefining
+    # ~15 dimension vectors. See docs/internal/IMPLEMENTATION_basis_isomorphisms.md.
 
     # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
     # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)
