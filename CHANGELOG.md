@@ -92,8 +92,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hand-written `base_form` literals in `ucon/units.py` against an internal
   BFS oracle computed over the standard conversion graph. Modes: `--check`
   (CI gate), `--report` (human-readable diff), `--emit` (regenerate
-  literals). *(Scheduled for retirement in v1.4.0 when `ucon.toml` becomes
-  the source of truth for the unit catalog.)*
+  literals). *(Scheduled to be superseded in v1.4.0 by a `ucon.toml`
+  catalog validator. The drift dimension changes — from "hand-written
+  literal vs. graph oracle" to "catalog TOML parseability, structural
+  validity, and round-trip integrity" — but the pre-release CI gate
+  remains: no malformed catalog reaches a tag.)*
 
 - **`make base-forms-check`** — Makefile target wiring the drift detector
   into CI.
@@ -107,8 +110,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `test_graph_equality` nor `test_base_form_roundtrip` can detect a
   hand-edited literal in `ucon/units.py` whose prefactor has silently
   drifted from what the graph would compute; only the BFS oracle
-  can. Scheduled for removal in v1.4.0 alongside the drift script
-  itself.
+  can. In v1.4.0 this job will be replaced (not removed) by a
+  `ucon.toml` catalog-validation job that asserts the shipped catalog
+  parses, resolves all references, and round-trips cleanly through
+  `to_toml`/`from_toml`. The release-blocking invariant — "no malformed
+  catalog reaches a tag" — persists across the transition; only the
+  oracle changes.
 
 - **`tests/ucon/test_base_form.py`** — 34 tests covering the `BaseForm`
   contract, the graph-independence invariant, affine-unit `None` handling,
@@ -883,7 +890,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.2.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/withtwoemms/ucon/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/withtwoemms/ucon/compare/1.1.2...1.2.0
 [1.1.2]: https://github.com/withtwoemms/ucon/compare/1.1.1...1.1.2
 [1.1.1]: https://github.com/withtwoemms/ucon/compare/1.1.0...1.1.1
