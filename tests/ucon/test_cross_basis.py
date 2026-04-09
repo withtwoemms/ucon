@@ -18,7 +18,7 @@ from ucon import (
     units,
     using_graph,
 )
-from ucon.basis.builtin import CGS, CGS_ESU, NATURAL, SI
+from ucon.basis.builtin import CGS, CGS_ESU, CGS_EMU, NATURAL, SI
 from ucon.core import RebasedUnit
 from ucon.dimension import (
     CGS_FORCE,
@@ -34,10 +34,21 @@ from ucon.dimension import (
     CGS_ESU_MAGNETIC_FLUX_DENSITY,
     CGS_ESU_MAGNETIC_FLUX,
     CGS_ESU_MAGNETIC_FIELD_STRENGTH,
+    CGS_EMU_CURRENT,
+    CGS_EMU_CHARGE,
+    CGS_EMU_VOLTAGE,
+    CGS_EMU_RESISTANCE,
+    CGS_EMU_CAPACITANCE,
+    CGS_EMU_INDUCTANCE,
     NATURAL_ENERGY,
     FORCE,
     ENERGY,
     PRESSURE,
+    CURRENT,
+    CHARGE,
+    VOLTAGE,
+    RESISTANCE,
+    CAPACITANCE,
     DYNAMIC_VISCOSITY,
     KINEMATIC_VISCOSITY,
 )
@@ -518,6 +529,153 @@ class TestUnitProductAsUnit(unittest.TestCase):
         from ucon.core import UnitProduct, UnitFactor, Scale
         prod = UnitProduct({UnitFactor(units.meter, Scale.one): 2})
         self.assertIsNone(prod.as_unit())
+
+
+class TestCGSEMUDimensionIsolation(unittest.TestCase):
+    """CGS-EMU dimensions are distinct from SI, CGS, and ESU counterparts."""
+
+    def test_emu_units_have_cgs_emu_basis(self):
+        for unit in (
+            units.biot, units.abcoulomb, units.abvolt,
+            units.abohm, units.abfarad, units.abhenry,
+        ):
+            self.assertEqual(
+                unit.dimension.basis, CGS_EMU,
+                f"{unit.name} should have CGS-EMU basis, got {unit.dimension.basis.name}",
+            )
+
+    def test_emu_dimensions_have_4_components(self):
+        for dim in (
+            CGS_EMU_CURRENT, CGS_EMU_CHARGE, CGS_EMU_VOLTAGE,
+            CGS_EMU_RESISTANCE, CGS_EMU_CAPACITANCE, CGS_EMU_INDUCTANCE,
+        ):
+            self.assertEqual(
+                len(dim.vector.components), 4,
+                f"{dim.name} should have 4-component vector",
+            )
+
+    def test_emu_dimensions_use_phi_component(self):
+        """EMU EM dimensions should have non-zero Φ component."""
+        for dim in (
+            CGS_EMU_CURRENT, CGS_EMU_CHARGE, CGS_EMU_VOLTAGE,
+            CGS_EMU_RESISTANCE, CGS_EMU_CAPACITANCE, CGS_EMU_INDUCTANCE,
+        ):
+            self.assertNotEqual(
+                dim.vector.components[3], 0,
+                f"{dim.name} should use the Φ component (4th), got all-zero",
+            )
+
+    def test_emu_current_is_not_si_current(self):
+        self.assertNotEqual(units.biot.dimension, CURRENT)
+
+    def test_emu_charge_is_not_si_charge(self):
+        self.assertNotEqual(units.abcoulomb.dimension, CHARGE)
+
+    def test_emu_voltage_is_not_si_voltage(self):
+        self.assertNotEqual(units.abvolt.dimension, VOLTAGE)
+
+    def test_emu_resistance_is_not_si_resistance(self):
+        self.assertNotEqual(units.abohm.dimension, RESISTANCE)
+
+    def test_emu_current_is_not_esu_current(self):
+        self.assertNotEqual(CGS_EMU_CURRENT, CGS_ESU_CURRENT)
+
+    def test_emu_charge_is_not_esu_charge(self):
+        self.assertNotEqual(CGS_EMU_CHARGE, CGS_ESU_CHARGE)
+
+
+class TestCGSEMUConversions(unittest.TestCase):
+    """Cross-basis CGS-EMU ↔ SI electromagnetic conversions."""
+
+    def setUp(self):
+        self.graph = get_default_graph()
+
+    def test_biot_to_ampere(self):
+        m = self.graph.convert(src=units.biot, dst=units.ampere)
+        self.assertAlmostEqual(m(1), 10, places=5)
+
+    def test_abcoulomb_to_coulomb(self):
+        m = self.graph.convert(src=units.abcoulomb, dst=units.coulomb)
+        self.assertAlmostEqual(m(1), 10, places=5)
+
+    def test_abvolt_to_volt(self):
+        m = self.graph.convert(src=units.abvolt, dst=units.volt)
+        self.assertAlmostEqual(m(1), 1e-8, places=13)
+
+    def test_abohm_to_ohm(self):
+        m = self.graph.convert(src=units.abohm, dst=units.ohm)
+        self.assertAlmostEqual(m(1), 1e-9, places=14)
+
+    def test_abfarad_to_farad(self):
+        m = self.graph.convert(src=units.abfarad, dst=units.farad)
+        self.assertAlmostEqual(m(1), 1e9, places=0)
+
+    def test_abhenry_to_henry(self):
+        m = self.graph.convert(src=units.abhenry, dst=units.henry)
+        self.assertAlmostEqual(m(1), 1e-9, places=14)
+
+    def test_biot_roundtrip(self):
+        """1 A → Bi → A round-trip preserves value."""
+        fwd = self.graph.convert(src=units.ampere, dst=units.biot)
+        rev = self.graph.convert(src=units.biot, dst=units.ampere)
+        self.assertAlmostEqual(rev(fwd(1)), 1.0, places=10)
+
+
+class TestESUtoEMUConversions(unittest.TestCase):
+    """Direct ESU ↔ EMU conversions via the speed-of-light bridge."""
+
+    c_cgs = 29979245800  # speed of light in cm/s
+
+    def setUp(self):
+        self.graph = get_default_graph()
+
+    def test_statcoulomb_to_abcoulomb(self):
+        m = self.graph.convert(src=units.statcoulomb, dst=units.abcoulomb)
+        expected = 1 / self.c_cgs
+        self.assertAlmostEqual(m(1) / expected, 1.0, places=5)
+
+    def test_statampere_to_biot(self):
+        m = self.graph.convert(src=units.statampere, dst=units.biot)
+        expected = 1 / self.c_cgs
+        self.assertAlmostEqual(m(1) / expected, 1.0, places=5)
+
+    def test_statvolt_to_abvolt(self):
+        m = self.graph.convert(src=units.statvolt, dst=units.abvolt)
+        expected = self.c_cgs
+        self.assertAlmostEqual(m(1) / expected, 1.0, places=5)
+
+    def test_statohm_to_abohm(self):
+        m = self.graph.convert(src=units.statohm, dst=units.abohm)
+        expected = self.c_cgs ** 2
+        self.assertAlmostEqual(m(1) / expected, 1.0, places=5)
+
+    def test_statfarad_to_abfarad(self):
+        m = self.graph.convert(src=units.statfarad, dst=units.abfarad)
+        expected = 1 / self.c_cgs ** 2
+        self.assertAlmostEqual(m(1) / expected, 1.0, places=5)
+
+
+class TestESUEMURoundtrip(unittest.TestCase):
+    """SI → ESU → EMU → SI round-trips preserve values."""
+
+    def setUp(self):
+        self.graph = get_default_graph()
+
+    def test_ampere_via_statampere_and_biot(self):
+        """1 A → statA → Bi → A round-trip."""
+        a_to_stat = self.graph.convert(src=units.ampere, dst=units.statampere)
+        stat_to_bi = self.graph.convert(src=units.statampere, dst=units.biot)
+        bi_to_a = self.graph.convert(src=units.biot, dst=units.ampere)
+        result = bi_to_a(stat_to_bi(a_to_stat(1)))
+        self.assertAlmostEqual(result, 1.0, places=5)
+
+    def test_volt_via_statvolt_and_abvolt(self):
+        """1 V → statV → abV → V round-trip."""
+        v_to_stat = self.graph.convert(src=units.volt, dst=units.statvolt)
+        stat_to_ab = self.graph.convert(src=units.statvolt, dst=units.abvolt)
+        ab_to_v = self.graph.convert(src=units.abvolt, dst=units.volt)
+        result = ab_to_v(stat_to_ab(v_to_stat(1)))
+        self.assertAlmostEqual(result, 1.0, places=5)
 
 
 if __name__ == '__main__':

@@ -410,6 +410,15 @@ def to_toml(graph, path: Union[str, Path]) -> None:
         if dim.name and dim.name not in dimensions:
             dimensions[dim.name] = dim
 
+    # Also collect bases from transforms (ensures bases like CGS_EMU that
+    # are only referenced by transforms are included in the serialized output)
+    _transforms_for_bases = _collect_transforms(graph)
+    for _bt in _transforms_for_bases.values():
+        if _bt.source.name not in bases:
+            bases[_bt.source.name] = _bt.source
+        if _bt.target.name not in bases:
+            bases[_bt.target.name] = _bt.target
+
     # [bases.*]
     if bases:
         doc["bases"] = {

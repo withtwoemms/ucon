@@ -613,7 +613,7 @@ class ConstantBoundBasisTransform:
 # Standard Transforms
 # -----------------------------------------------------------------------------
 
-from ucon.basis.builtin import SI, CGS, CGS_ESU, NATURAL  # noqa: E402
+from ucon.basis.builtin import SI, CGS, CGS_ESU, CGS_EMU, NATURAL  # noqa: E402
 
 SI_TO_CGS = BasisTransform(
     SI,
@@ -648,23 +648,22 @@ SI_TO_CGS_ESU = BasisTransform(
     (
         # SI order: T, L, M, I, Θ, J, N, B
         # CGS_ESU order: L, M, T, Q
-        (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),  # T -> T (column 2 in CGS_ESU)
-        (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),  # L -> L (column 0 in CGS_ESU)
-        (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),  # M -> M (column 1 in CGS_ESU)
-        # I -> L^(3/2) M^(1/2) T^(-2) (current as derived dimension)
-        # In ESU: 1 statampere = 1 statcoulomb/s = 1 g^(1/2) cm^(3/2) s^(-2)
-        (Fraction(3, 2), Fraction(1, 2), Fraction(-2), Fraction(0)),
-        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # Θ -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # J -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # N -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),  # B -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),   # T -> T
+        (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),   # L -> L
+        (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),   # M -> M
+        # I -> T^(-1)·Q  (current = charge / time)
+        (Fraction(0), Fraction(0), Fraction(-1), Fraction(1)),
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),   # Θ -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),   # J -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),   # N -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),   # B -> (not representable)
     ),
 )
 """Transform from SI to CGS-ESU.
 
-Maps SI dimensions to CGS-ESU. Current (I) becomes a derived dimension
-expressed as L^(3/2) M^(1/2) T^(-2), which is the dimensional formula
-for charge/time in the ESU system.
+Maps SI dimensions to CGS-ESU. Current (I) maps to T^(-1)·Q, reflecting
+that in CGS-ESU charge Q is the fundamental electromagnetic quantity
+and current is derived as charge per unit time.
 
 Temperature, luminous_intensity, amount_of_substance, and information
 are not representable in CGS-ESU and will raise LossyProjection if non-zero.
@@ -677,31 +676,68 @@ are not representable in CGS-ESU and will raise LossyProjection if non-zero.
 
 SI_TO_CGS_EMU = BasisTransform(
     SI,
-    CGS,
+    CGS_EMU,
     (
         # SI order: T, L, M, I, Θ, J, N, B
-        # CGS order: L, M, T
-        (Fraction(0), Fraction(0), Fraction(1)),          # T -> T
-        (Fraction(1), Fraction(0), Fraction(0)),          # L -> L
-        (Fraction(0), Fraction(1), Fraction(0)),          # M -> M
-        # I -> L^(1/2) M^(1/2) T^(-1) (EMU current definition)
-        # In EMU: 1 biot = 1 g^(1/2) cm^(1/2) s^(-1)
-        (Fraction(1, 2), Fraction(1, 2), Fraction(-1)),
-        (Fraction(0), Fraction(0), Fraction(0)),          # Θ -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0)),          # J -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0)),          # N -> (not representable)
-        (Fraction(0), Fraction(0), Fraction(0)),          # B -> (not representable)
+        # CGS_EMU order: L, M, T, Φ
+        (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),   # T -> T
+        (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),   # L -> L
+        (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),   # M -> M
+        # I -> Φ  (current is the fundamental EMU electromagnetic quantity)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(1)),
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),   # Θ -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),   # J -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),   # N -> (not representable)
+        (Fraction(0), Fraction(0), Fraction(0), Fraction(0)),   # B -> (not representable)
     ),
 )
 """Transform from SI to CGS-EMU.
 
-Maps SI dimensions to CGS-EMU. Current (I) becomes a derived dimension
-expressed as L^(1/2) M^(1/2) T^(-1), which is the dimensional formula
-for current in the electromagnetic CGS system.
+Maps SI dimensions to CGS-EMU (4-component basis: L, M, T, Φ). Current (I)
+maps directly to the magnetic pole strength component Φ, which is the
+fundamental electromagnetic quantity in the EMU system.
 
-Note: This differs from SI_TO_CGS_ESU where I -> L^(3/2) M^(1/2) T^(-2).
-The EMU system uses the permeability of free space = 1, while ESU uses
-the permittivity of free space = 1.
+Note: This differs from SI_TO_CGS_ESU where I -> T^(-1)·Q. The EMU system
+uses the permeability of free space = 1, while ESU uses the permittivity
+of free space = 1.
+"""
+
+
+CGS_ESU_TO_CGS_EMU = BasisTransform(
+    CGS_ESU,
+    CGS_EMU,
+    (
+        # CGS_ESU order: L, M, T, Q
+        # CGS_EMU order: L, M, T, Φ
+        (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),   # L -> L
+        (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),   # M -> M
+        (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),   # T -> T
+        (Fraction(0), Fraction(0), Fraction(1), Fraction(1)),   # Q -> T + Φ  (charge = current × time)
+    ),
+)
+"""Transform from CGS-ESU to CGS-EMU.
+
+Maps ESU charge Q to EMU as T + Φ, reflecting that charge = current × time.
+Mechanical components (L, M, T) are preserved identically.
+"""
+
+
+CGS_EMU_TO_CGS_ESU = BasisTransform(
+    CGS_EMU,
+    CGS_ESU,
+    (
+        # CGS_EMU order: L, M, T, Φ
+        # CGS_ESU order: L, M, T, Q
+        (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),   # L -> L
+        (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),   # M -> M
+        (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),   # T -> T
+        (Fraction(0), Fraction(0), Fraction(-1), Fraction(1)),  # Φ -> -T + Q  (current = charge / time)
+    ),
+)
+"""Transform from CGS-EMU to CGS-ESU.
+
+Maps EMU current Φ to ESU as -T + Q, reflecting that current = charge / time.
+Mechanical components (L, M, T) are preserved identically.
 """
 
 

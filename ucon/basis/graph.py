@@ -24,6 +24,8 @@ from ucon.basis.transforms import (
     SI_TO_CGS_ESU,
     SI_TO_CGS_EMU,
     CGS_TO_SI,
+    CGS_ESU_TO_CGS_EMU,
+    CGS_EMU_TO_CGS_ESU,
     SI_TO_NATURAL,
 )
 
@@ -210,6 +212,8 @@ def _build_standard_basis_graph() -> BasisGraph:
     graph.add_transform(SI_TO_CGS_ESU)
     graph.add_transform(SI_TO_CGS_EMU)
     graph.add_transform(CGS_TO_SI)
+    graph.add_transform(CGS_ESU_TO_CGS_EMU)
+    graph.add_transform(CGS_EMU_TO_CGS_ESU)
     graph.add_transform(SI_TO_NATURAL)
     return graph
 

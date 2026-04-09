@@ -718,92 +718,95 @@ def _cgs_esu_dim(name: str, *components: int | Fraction, symbol: str | None = No
 
 
 # CGS-ESU electromagnetic dimensions
-# In CGS-ESU, charge is derived: [q] = M^(1/2)·L^(3/2)·T^(-1) (from Coulomb's law with k=1)
+# In CGS-ESU, charge Q is the fundamental electromagnetic component.
+# Current is derived as Q·T^(-1). All vectors use the 4-component (L, M, T, Q) basis.
 CGS_ESU_CHARGE = _cgs_esu_dim(
     "cgs_esu_charge",
-    Fraction(3, 2), Fraction(1, 2), Fraction(-1), Fraction(0),
-)  # statcoulomb
+    0, 0, 0, 1,
+)  # statcoulomb: pure Q
 CGS_ESU_CURRENT = _cgs_esu_dim(
     "cgs_esu_current",
-    Fraction(3, 2), Fraction(1, 2), Fraction(-2), Fraction(0),
-)  # statampere = charge/time
+    0, 0, -1, 1,
+)  # statampere: Q·T^(-1)
 CGS_ESU_VOLTAGE = _cgs_esu_dim(
     "cgs_esu_voltage",
-    Fraction(1, 2), Fraction(1, 2), Fraction(-1), Fraction(0),
-)  # statvolt = erg/statcoulomb
+    2, 1, -2, -1,
+)  # statvolt: L²·M·T^(-2)·Q^(-1) = energy / charge
 CGS_ESU_RESISTANCE = _cgs_esu_dim(
     "cgs_esu_resistance",
-    Fraction(-1), Fraction(0), Fraction(1), Fraction(0),
-)  # statohm = s/cm
+    2, 1, -1, -2,
+)  # statohm: L²·M·T^(-1)·Q^(-2) = voltage / current
 CGS_ESU_CAPACITANCE = _cgs_esu_dim(
     "cgs_esu_capacitance",
-    Fraction(1), Fraction(0), Fraction(0), Fraction(0),
-)  # statfarad = cm
+    -2, -1, 2, 2,
+)  # statfarad: L^(-2)·M^(-1)·T²·Q² = charge / voltage
 CGS_ESU_MAGNETIC_FLUX_DENSITY = _cgs_esu_dim(
     "cgs_esu_magnetic_flux_density",
-    Fraction(-3, 2), Fraction(1, 2), Fraction(0), Fraction(0),
-)  # gauss: L^(-3/2)·M^(1/2) (from SI_TO_CGS_ESU applied to M/(T²·I))
+    0, 1, -1, -1,
+)  # gauss: M·T^(-1)·Q^(-1) (from SI M·T^(-2)·I^(-1))
 CGS_ESU_MAGNETIC_FLUX = _cgs_esu_dim(
     "cgs_esu_magnetic_flux",
-    Fraction(1, 2), Fraction(1, 2), Fraction(0), Fraction(0),
-)  # maxwell: L^(1/2)·M^(1/2) (from SI_TO_CGS_ESU applied to M·L²/(T²·I))
+    2, 1, -1, -1,
+)  # maxwell: L²·M·T^(-1)·Q^(-1) (from SI M·L²·T^(-2)·I^(-1))
 CGS_ESU_MAGNETIC_FIELD_STRENGTH = _cgs_esu_dim(
     "cgs_esu_magnetic_field_strength",
-    Fraction(1, 2), Fraction(1, 2), Fraction(-2), Fraction(0),
-)  # oersted: L^(1/2)·M^(1/2)·T^(-2) (from SI_TO_CGS_ESU applied to I/L)
+    -1, 0, -1, 1,
+)  # oersted: L^(-1)·T^(-1)·Q (from SI I·L^(-1))
 CGS_ESU_ELECTRIC_DIPOLE_MOMENT = _cgs_esu_dim(
     "cgs_esu_electric_dipole_moment",
-    Fraction(5, 2), Fraction(1, 2), Fraction(-1), Fraction(0),
-)  # debye: charge·length = L^(5/2)·M^(1/2)·T^(-1)
+    1, 0, 0, 1,
+)  # debye: L·Q = charge × length
 
 
 # -----------------------------------------------------------------------------
-# CGS-EMU Dimensions (Electromagnetic Units, using CGS basis with fractional exponents)
+# CGS-EMU Dimensions (Electromagnetic Units, 4-component basis: L, M, T, Φ)
 # -----------------------------------------------------------------------------
-# CGS-EMU differs from CGS-ESU in how current maps from SI:
-#   CGS-ESU: I → L^(3/2)·M^(1/2)·T^(-2)
-#   CGS-EMU: I → L^(1/2)·M^(1/2)·T^(-1)
-# CGS-EMU dimensions share the CGS basis (L, M, T) but with fractional exponents
-# for electromagnetic quantities. Some vectors collide with CGS mechanical dims
-# (e.g., CGS_EMU_RESISTANCE = L·T^(-1) = CGS_VELOCITY), so we skip _register()
-# to avoid overwriting the vector registry.
+# CGS-EMU uses a proper 4-component basis where current (Φ) is the fundamental
+# electromagnetic quantity. This eliminates KOQ collisions that occurred with the
+# old 3-component CGS basis (e.g., EMU_RESISTANCE = L·T^(-1) = CGS_VELOCITY).
+
+from ucon.basis.builtin import CGS_EMU  # noqa: E402
+
+
+def _cgs_emu_vec(*components: int | Fraction) -> Vector:
+    """Shorthand for creating a CGS-EMU vector with 4 components (L, M, T, Φ)."""
+    padded = list(components) + [0] * (4 - len(components))
+    return Vector(CGS_EMU, tuple(padded))
 
 
 def _cgs_emu_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
-    """Create a CGS-EMU dimension. Skips _register() to avoid vector collisions
-    with CGS mechanical dimensions that share the same vector (KOQ collision)."""
-    vec = _cgs_vec(*components)
+    """Create and register a standard CGS-EMU dimension."""
+    vec = _cgs_emu_vec(*components)
     dim = Dimension(vector=vec, name=name, symbol=symbol)
-    # Skip _register(dim) — CGS-EMU electromagnetic dims share vectors
-    # with CGS mechanical dims. Only register for attribute access.
+    _register(dim)
     _register_attr(dim)
     return dim
 
 
 CGS_EMU_CURRENT = _cgs_emu_dim(
     "cgs_emu_current",
-    Fraction(1, 2), Fraction(1, 2), Fraction(-1),
-)  # biot/abampere: L^(1/2)·M^(1/2)·T^(-1)
+    0, 0, 0, 1,
+)  # biot/abampere: pure Φ
 CGS_EMU_CHARGE = _cgs_emu_dim(
     "cgs_emu_charge",
-    Fraction(1, 2), Fraction(1, 2), Fraction(0),
-)  # abcoulomb: L^(1/2)·M^(1/2)
+    0, 0, 1, 1,
+)  # abcoulomb: T·Φ (charge = current × time)
 CGS_EMU_VOLTAGE = _cgs_emu_dim(
     "cgs_emu_voltage",
-    Fraction(3, 2), Fraction(1, 2), Fraction(-2),
-)  # abvolt: L^(3/2)·M^(1/2)·T^(-2)
+    2, 1, -3, -1,
+)  # abvolt: L²·M·T^(-3)·Φ^(-1) = energy / charge
 CGS_EMU_RESISTANCE = _cgs_emu_dim(
     "cgs_emu_resistance",
-    Fraction(1), Fraction(0), Fraction(-1),
-)  # abohm: L·T^(-1)
+    2, 1, -3, -2,
+)  # abohm: L²·M·T^(-3)·Φ^(-2) = voltage / current
 CGS_EMU_CAPACITANCE = _cgs_emu_dim(
     "cgs_emu_capacitance",
-    Fraction(-1), Fraction(0), Fraction(2),
-)  # abfarad: T^2/L
+    -2, -1, 4, 2,
+)  # abfarad: L^(-2)·M^(-1)·T⁴·Φ² = charge / voltage
 CGS_EMU_INDUCTANCE = _cgs_emu_dim(
     "cgs_emu_inductance",
-    Fraction(1), Fraction(0), Fraction(0),
-)  # abhenry: L
+    2, 1, -2, -2,
+)  # abhenry: L²·M·T^(-2)·Φ^(-2)
 
 
 # -----------------------------------------------------------------------------

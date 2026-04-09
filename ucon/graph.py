@@ -38,6 +38,7 @@ from ucon.basis.transforms import (
     CGS_TO_SI,
     SI_TO_CGS_ESU,
     SI_TO_CGS_EMU,
+    CGS_ESU_TO_CGS_EMU,
     SI_TO_NATURAL,
 )
 from ucon.core import (
@@ -1780,9 +1781,20 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     )
     # Gilbert: 1 Gb = 1/(4π) biot (magnetomotive force)
     graph.add_edge(src=units.gilbert, dst=units.biot, map=LinearMap(1 / (4 * math.pi)))
-    # NOTE: ESU↔EMU cross-family conversion is deferred to v1.4.0.
-    # Requires promoting CGS_EMU to a 4-component basis and redefining
-    # ~15 dimension vectors. See docs/internal/IMPLEMENTATION_basis_isomorphisms.md.
+
+    # CGS-ESU ↔ CGS-EMU (ESU↔EMU bridge via speed of light c)
+    # c_cgs = 29979245800 cm/s (exact)
+    c_cgs = 29979245800
+    graph.connect_systems(
+        basis_transform=CGS_ESU_TO_CGS_EMU,
+        edges={
+            (units.statampere, units.biot): LinearMap(1 / c_cgs),
+            (units.statcoulomb, units.abcoulomb): LinearMap(1 / c_cgs),
+            (units.statvolt, units.abvolt): LinearMap(c_cgs),
+            (units.statohm, units.abohm): LinearMap(c_cgs ** 2),
+            (units.statfarad, units.abfarad): LinearMap(1 / c_cgs ** 2),
+        },
+    )
 
     # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
     # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)

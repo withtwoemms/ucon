@@ -9,6 +9,7 @@ Bases
 - SI: The International System of Units (8 components)
 - CGS: Centimetre-gram-second system (3 components)
 - CGS_ESU: CGS electrostatic units (4 components, charge is fundamental)
+- CGS_EMU: CGS electromagnetic units (4 components, magnetic pole strength is fundamental)
 - NATURAL: Natural units (1 component, energy)
 """
 
@@ -65,6 +66,22 @@ CGS_ESU = Basis(
 4 base dimensions: length, mass, time, charge. In CGS-ESU, charge is
 a fundamental dimension (unlike SI where current is fundamental and
 charge is derived as current * time).
+"""
+
+CGS_EMU = Basis(
+    "CGS-EMU",
+    [
+        BasisComponent("length", "L"),
+        BasisComponent("mass", "M"),
+        BasisComponent("time", "T"),
+        BasisComponent("magnetic_pole_strength", "Φ"),
+    ],
+)
+"""CGS electromagnetic units.
+
+4 base dimensions: length, mass, time, magnetic pole strength. In CGS-EMU,
+current (Φ) is a fundamental dimension. Charge is derived as Φ·T.
+This differs from CGS-ESU where charge Q is fundamental and current is Q/T.
 """
 
 NATURAL = Basis(
