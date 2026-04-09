@@ -613,7 +613,7 @@ class ConstantBoundBasisTransform:
 # Standard Transforms
 # -----------------------------------------------------------------------------
 
-from ucon.basis.builtin import SI, CGS, CGS_ESU, CGS_EMU, NATURAL  # noqa: E402
+from ucon.basis.builtin import SI, CGS, CGS_ESU, CGS_EMU, NATURAL, PLANCK, ATOMIC  # noqa: E402
 
 SI_TO_CGS = BasisTransform(
     SI,
@@ -836,3 +836,154 @@ E dimension originated from is tracked via the constant bindings. However,
 the numeric conversion factors require the actual constant values from
 ucon.constants.
 """
+
+
+# -----------------------------------------------------------------------------
+# Planck Units Transforms
+# -----------------------------------------------------------------------------
+
+# Bindings for SI → PLANCK (ℏ = c = G = k_B = 1)
+_PLANCK_BINDINGS = (
+    # Length: L = √(ℏG/c³) → L ~ E⁻¹ via ℏc
+    ConstantBinding(
+        source_component=SI[1],  # length
+        target_expression=Vector(PLANCK, (Fraction(-1),)),
+        constant_symbol="ℏc",
+        exponent=Fraction(1),
+    ),
+    # Time: T = √(ℏG/c⁵) → T ~ E⁻¹ via ℏ
+    ConstantBinding(
+        source_component=SI[0],  # time
+        target_expression=Vector(PLANCK, (Fraction(-1),)),
+        constant_symbol="ℏ",
+        exponent=Fraction(1),
+    ),
+    # Mass: M = √(ℏc/G) → M ~ E via c⁻²
+    ConstantBinding(
+        source_component=SI[2],  # mass
+        target_expression=Vector(PLANCK, (Fraction(1),)),
+        constant_symbol="c",
+        exponent=Fraction(-2),
+    ),
+    # Temperature: Θ = √(ℏc⁵/G)/k_B → Θ ~ E via k_B⁻¹
+    ConstantBinding(
+        source_component=SI[4],  # temperature
+        target_expression=Vector(PLANCK, (Fraction(1),)),
+        constant_symbol="k_B",
+        exponent=Fraction(-1),
+    ),
+)
+
+SI_TO_PLANCK = ConstantBoundBasisTransform(
+    source=SI,
+    target=PLANCK,
+    matrix=(
+        # SI order: T, L, M, I, Θ, J, N, B
+        # PLANCK order: E
+        (Fraction(-1),),  # T → E⁻¹
+        (Fraction(-1),),  # L → E⁻¹
+        (Fraction(1),),   # M → E
+        (Fraction(0),),   # I → 0 (not representable)
+        (Fraction(1),),   # Θ → E
+        (Fraction(0),),   # J → 0 (not representable)
+        (Fraction(0),),   # N → 0 (not representable)
+        (Fraction(0),),   # B → 0 (not representable)
+    ),
+    bindings=_PLANCK_BINDINGS,
+)
+"""Transform from SI to Planck units.
+
+Same dimensional mapping as natural units (T→E⁻¹, L→E⁻¹, M→E, Θ→E) since
+the projection matrices are identical. The difference from natural units is
+that Planck also sets G=1, fixing the energy scale to the Planck energy.
+"""
+
+PLANCK_TO_SI = SI_TO_PLANCK.inverse()
+"""Transform from Planck units back to SI."""
+
+
+# -----------------------------------------------------------------------------
+# Atomic Units Transforms
+# -----------------------------------------------------------------------------
+
+# Bindings for SI → ATOMIC (ℏ = e = mₑ = 4πε₀ = 1)
+_ATOMIC_BINDINGS = (
+    # Length: L = a₀ = ℏ²/(mₑe²·4πε₀) → L ~ E⁻¹ via a₀
+    ConstantBinding(
+        source_component=SI[1],  # length
+        target_expression=Vector(ATOMIC, (Fraction(-1),)),
+        constant_symbol="a₀",
+        exponent=Fraction(1),
+    ),
+    # Time: T = ℏ/Eₕ → T ~ E⁻¹ via ℏ
+    ConstantBinding(
+        source_component=SI[0],  # time
+        target_expression=Vector(ATOMIC, (Fraction(-1),)),
+        constant_symbol="ℏ",
+        exponent=Fraction(1),
+    ),
+    # Mass: M = mₑ → M ~ E via mₑc²
+    ConstantBinding(
+        source_component=SI[2],  # mass
+        target_expression=Vector(ATOMIC, (Fraction(1),)),
+        constant_symbol="mₑc²",
+        exponent=Fraction(-1),
+    ),
+    # Current: I = e/ℏ → I ~ E via e/ℏ
+    ConstantBinding(
+        source_component=SI[3],  # current
+        target_expression=Vector(ATOMIC, (Fraction(1),)),
+        constant_symbol="e/ℏ",
+        exponent=Fraction(1),
+    ),
+)
+
+SI_TO_ATOMIC = ConstantBoundBasisTransform(
+    source=SI,
+    target=ATOMIC,
+    matrix=(
+        # SI order: T, L, M, I, Θ, J, N, B
+        # ATOMIC order: E
+        (Fraction(-1),),  # T → E⁻¹
+        (Fraction(-1),),  # L → E⁻¹
+        (Fraction(1),),   # M → E
+        (Fraction(1),),   # I → E    (differs from Natural/Planck: charge is dimensionless)
+        (Fraction(0),),   # Θ → 0    (differs from Natural/Planck: k_B ≠ 1)
+        (Fraction(0),),   # J → 0 (not representable)
+        (Fraction(0),),   # N → 0 (not representable)
+        (Fraction(0),),   # B → 0 (not representable)
+    ),
+    bindings=_ATOMIC_BINDINGS,
+)
+"""Transform from SI to atomic units.
+
+Differs from natural/Planck in two key ways:
+- Current (I) → E (representable, since e=1 makes charge dimensionless)
+- Temperature (Θ) → 0 (not representable, k_B ≠ 1)
+"""
+
+ATOMIC_TO_SI = SI_TO_ATOMIC.inverse()
+"""Transform from atomic units back to SI."""
+
+
+# -----------------------------------------------------------------------------
+# Inter-basis Isomorphisms (1×1 identity matrices)
+# -----------------------------------------------------------------------------
+
+NATURAL_TO_PLANCK = BasisTransform(NATURAL, PLANCK, ((Fraction(1),),))
+"""Natural → Planck isomorphism. Mediated by G (energy scale)."""
+
+PLANCK_TO_NATURAL = BasisTransform(PLANCK, NATURAL, ((Fraction(1),),))
+"""Planck → Natural isomorphism. Mediated by G (energy scale)."""
+
+NATURAL_TO_ATOMIC = BasisTransform(NATURAL, ATOMIC, ((Fraction(1),),))
+"""Natural → Atomic isomorphism. Mediated by e, mₑ, 4πε₀."""
+
+ATOMIC_TO_NATURAL = BasisTransform(ATOMIC, NATURAL, ((Fraction(1),),))
+"""Atomic → Natural isomorphism. Mediated by e, mₑ, 4πε₀."""
+
+PLANCK_TO_ATOMIC = BasisTransform(PLANCK, ATOMIC, ((Fraction(1),),))
+"""Planck → Atomic isomorphism. Mediated by G, e, mₑ, 4πε₀."""
+
+ATOMIC_TO_PLANCK = BasisTransform(ATOMIC, PLANCK, ((Fraction(1),),))
+"""Atomic → Planck isomorphism. Mediated by G, e, mₑ, 4πε₀."""

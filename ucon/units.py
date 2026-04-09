@@ -57,6 +57,10 @@ from ucon.dimension import (
     CGS_EMU_RESISTANCE, CGS_EMU_CAPACITANCE, CGS_EMU_INDUCTANCE,
     # Natural-unit dimensions
     NATURAL_ENERGY,
+    # Planck-unit dimensions
+    PLANCK_ENERGY, PLANCK_LENGTH,
+    # Atomic-unit dimensions
+    ATOMIC_ENERGY, ATOMIC_LENGTH,
 )
 from ucon.resolver import register_unit, register_priority_scaled_alias, get_unit_by_name
 
@@ -371,8 +375,26 @@ gilbert = Unit(name='gilbert', dimension=CGS_EMU_CURRENT, aliases=('Gb', 'Gi'))
 
 # -- Natural Units (native natural basis) ------------------------------
 electron_volt = Unit(name='electron_volt', dimension=NATURAL_ENERGY, aliases=('eV',))
-hartree = Unit(name='hartree', dimension=NATURAL_ENERGY, aliases=('Eh', 'Ha'))
-rydberg = Unit(name='rydberg', dimension=NATURAL_ENERGY, aliases=('Ry',))
+# ----------------------------------------------------------------------
+
+
+# -- Planck Units (native planck basis) --------------------------------
+# Energy and mass share PLANCK_ENERGY (E¹); length and time share PLANCK_LENGTH (E⁻¹)
+planck_energy      = Unit(name='planck_energy',      dimension=PLANCK_ENERGY, aliases=('E_P',))
+planck_mass        = Unit(name='planck_mass',        dimension=PLANCK_ENERGY, aliases=('m_P',))
+planck_length      = Unit(name='planck_length',      dimension=PLANCK_LENGTH, aliases=('l_P',))
+planck_time        = Unit(name='planck_time',        dimension=PLANCK_LENGTH, aliases=('t_P',))
+planck_temperature = Unit(name='planck_temperature', dimension=PLANCK_ENERGY, aliases=('T_P',))
+# ----------------------------------------------------------------------
+
+
+# -- Atomic Units (native atomic basis) --------------------------------
+# Energy and mass share ATOMIC_ENERGY (E¹); length and time share ATOMIC_LENGTH (E⁻¹)
+hartree       = Unit(name='hartree',       dimension=ATOMIC_ENERGY, aliases=('Eh', 'Ha'))
+rydberg       = Unit(name='rydberg',       dimension=ATOMIC_ENERGY, aliases=('Ry',))
+bohr_radius   = Unit(name='bohr_radius',   dimension=ATOMIC_LENGTH, aliases=('a_0', 'a0'))
+atomic_time   = Unit(name='atomic_time',   dimension=ATOMIC_LENGTH, aliases=('t_au',))
+electron_mass = Unit(name='electron_mass', dimension=ATOMIC_ENERGY, aliases=('m_e',))
 # ----------------------------------------------------------------------
 
 

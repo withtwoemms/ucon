@@ -40,6 +40,11 @@ from ucon.basis.transforms import (
     SI_TO_CGS_EMU,
     CGS_ESU_TO_CGS_EMU,
     SI_TO_NATURAL,
+    SI_TO_PLANCK,
+    SI_TO_ATOMIC,
+    NATURAL_TO_PLANCK,
+    NATURAL_TO_ATOMIC,
+    PLANCK_TO_ATOMIC,
 )
 from ucon.core import (
     Dimension,
@@ -1798,14 +1803,66 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
 
     # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
     # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)
-    # 1 Eh = 4.3597447222071e-18 J (CODATA 2018 hartree energy)
-    # 1 Ry = 2.1798723611035e-18 J (= 0.5 Eh, by definition)
     graph.connect_systems(
         basis_transform=SI_TO_NATURAL,
         edges={
             (units.joule, units.electron_volt): LinearMap(1 / 1.602176634e-19),
+        },
+    )
+
+    # Atomic units ↔ SI (SI_TO_ATOMIC: src=SI unit, dst=atomic unit)
+    # 1 Eh = 4.3597447222071e-18 J (CODATA 2018 hartree energy)
+    # 1 Ry = 2.1798723611035e-18 J (= 0.5 Eh, by definition)
+    # 1 a₀ = 5.29177210903e-11 m (CODATA 2018 Bohr radius)
+    # 1 atomic time unit = 2.4188843265857e-17 s (ℏ/Eh)
+    # 1 mₑ = 9.1093837015e-31 kg (CODATA 2018 electron mass)
+    graph.connect_systems(
+        basis_transform=SI_TO_ATOMIC,
+        edges={
             (units.joule, units.hartree): LinearMap(1 / 4.3597447222071e-18),
             (units.joule, units.rydberg): LinearMap(1 / 2.1798723611035e-18),
+            (units.meter, units.bohr_radius): LinearMap(1 / 5.29177210903e-11),
+            (units.second, units.atomic_time): LinearMap(1 / 2.4188843265857e-17),
+            (units.kilogram, units.electron_mass): LinearMap(1 / 9.1093837015e-31),
+        },
+    )
+
+    # Planck units ↔ SI (SI_TO_PLANCK: src=SI unit, dst=Planck unit)
+    # CODATA 2018 Planck units
+    graph.connect_systems(
+        basis_transform=SI_TO_PLANCK,
+        edges={
+            (units.joule, units.planck_energy): LinearMap(1 / 1.9561e9),
+            (units.kilogram, units.planck_mass): LinearMap(1 / 2.17643e-8),
+            (units.meter, units.planck_length): LinearMap(1 / 1.61626e-35),
+            (units.second, units.planck_time): LinearMap(1 / 5.39124e-44),
+            (units.kelvin, units.planck_temperature): LinearMap(1 / 1.41678e32),
+        },
+    )
+
+    # Inter-basis isomorphisms
+    # Natural ↔ Planck (mediated by G)
+    graph.connect_systems(
+        basis_transform=NATURAL_TO_PLANCK,
+        edges={
+            (units.electron_volt, units.planck_energy): LinearMap(1 / 1.22089e28),
+        },
+    )
+
+    # Natural ↔ Atomic (mediated by e, mₑ, 4πε₀)
+    graph.connect_systems(
+        basis_transform=NATURAL_TO_ATOMIC,
+        edges={
+            (units.electron_volt, units.hartree): LinearMap(1 / 27.211386245988),
+        },
+    )
+
+    # Planck ↔ Atomic (mediated by G, e, mₑ, 4πε₀)
+    # 1 E_P = E_P/Eh hartrees, E_P/Eh = 1.9561e9 / 4.3597447222071e-18 ≈ 4.4867e26
+    graph.connect_systems(
+        basis_transform=PLANCK_TO_ATOMIC,
+        edges={
+            (units.planck_energy, units.hartree): LinearMap(1.9561e9 / 4.3597447222071e-18),
         },
     )
 

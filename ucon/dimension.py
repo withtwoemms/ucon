@@ -832,6 +832,54 @@ def _natural_dim(name: str, *components: int | Fraction, symbol: str | None = No
 NATURAL_ENERGY = _natural_dim("natural_energy", 1)
 
 
+# -----------------------------------------------------------------------------
+# Planck-unit dimensions (1D basis: energy)
+# -----------------------------------------------------------------------------
+
+from ucon.basis.builtin import PLANCK  # noqa: E402
+
+
+def _planck_vec(*components: int | Fraction) -> Vector:
+    padded = list(components) + [0] * (1 - len(components))
+    return Vector(PLANCK, tuple(padded))
+
+
+def _planck_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    vec = _planck_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    _register(dim)
+    _register_attr(dim)
+    return dim
+
+
+PLANCK_ENERGY = _planck_dim("planck_energy", 1)   # E¹ (energy ≡ mass ≡ temperature)
+PLANCK_LENGTH = _planck_dim("planck_length", -1)   # E⁻¹ (length ≡ time)
+
+
+# -----------------------------------------------------------------------------
+# Atomic-unit dimensions (1D basis: energy)
+# -----------------------------------------------------------------------------
+
+from ucon.basis.builtin import ATOMIC  # noqa: E402
+
+
+def _atomic_vec(*components: int | Fraction) -> Vector:
+    padded = list(components) + [0] * (1 - len(components))
+    return Vector(ATOMIC, tuple(padded))
+
+
+def _atomic_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
+    vec = _atomic_vec(*components)
+    dim = Dimension(vector=vec, name=name, symbol=symbol)
+    _register(dim)
+    _register_attr(dim)
+    return dim
+
+
+ATOMIC_ENERGY = _atomic_dim("atomic_energy", 1)   # E¹ (energy ≡ mass)
+ATOMIC_LENGTH = _atomic_dim("atomic_length", -1)   # E⁻¹ (length ≡ time)
+
+
 def basis() -> tuple[Dimension, ...]:
     """Return the 8 SI base dimensions in canonical order."""
     return (
@@ -950,6 +998,12 @@ def all_dimensions() -> tuple[Dimension, ...]:
         CGS_EMU_INDUCTANCE,
         # Natural-unit dimensions
         NATURAL_ENERGY,
+        # Planck-unit dimensions
+        PLANCK_ENERGY,
+        PLANCK_LENGTH,
+        # Atomic-unit dimensions
+        ATOMIC_ENERGY,
+        ATOMIC_LENGTH,
     )
 
 
@@ -1064,4 +1118,10 @@ __all__ = [
     "CGS_EMU_INDUCTANCE",
     # Natural-unit dimensions
     "NATURAL_ENERGY",
+    # Planck-unit dimensions
+    "PLANCK_ENERGY",
+    "PLANCK_LENGTH",
+    # Atomic-unit dimensions
+    "ATOMIC_ENERGY",
+    "ATOMIC_LENGTH",
 ]

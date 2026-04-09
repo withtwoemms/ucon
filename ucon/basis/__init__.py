@@ -10,7 +10,7 @@ to a specific set of components.
 
 Submodules
 ----------
-- ``builtin``: Standard bases (SI, CGS, CGS-ESU, CGS-EMU, NATURAL)
+- ``builtin``: Standard bases (SI, CGS, CGS-ESU, CGS-EMU, NATURAL, PLANCK, ATOMIC)
 - ``transforms``: Transform types and standard transform instances
 - ``graph``: BasisGraph registry and context scoping
 """
