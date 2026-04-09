@@ -839,13 +839,18 @@ class TestInterBasisIsomorphisms(unittest.TestCase):
         self.assertAlmostEqual(m(1) / expected, 1.0, places=3)
 
     def test_full_roundtrip_joule_planck_ev_hartree_joule(self):
-        """Full round-trip: J → E_P → eV → Eh → J → 1.0."""
+        """Full round-trip: J → E_P → eV → Eh → J → 1.0.
+
+        Inter-basis factors are derived from the same SI bridge constants,
+        so intermediate values cancel algebraically and the round-trip is
+        exact to floating-point precision.
+        """
         j_to_ep = self.graph.convert(src=units.joule, dst=units.planck_energy)
         ep_to_ev = self.graph.convert(src=units.planck_energy, dst=units.electron_volt)
         ev_to_eh = self.graph.convert(src=units.electron_volt, dst=units.hartree)
         eh_to_j = self.graph.convert(src=units.hartree, dst=units.joule)
         result = eh_to_j(ev_to_eh(ep_to_ev(j_to_ep(1))))
-        self.assertAlmostEqual(result, 1.0, places=3)
+        self.assertAlmostEqual(result, 1.0, places=10)
 
 
 if __name__ == '__main__':
