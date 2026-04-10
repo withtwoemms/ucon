@@ -841,7 +841,7 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 | ConversionGraph Serialization | v1.2.0 | `[bases.*]`, `[dimensions.*]`, `[transforms.*]`, `[contexts.*]`, `graph.to_toml()` / `from_toml()` round-trip |
 | Cache Warming | — | `warm_cache()` API for precomputing common conversion paths |
 | Decompose Tool | — | SLM enablement: deterministic `decompose` → `compute` pipeline |
-| Uncertainty correlation | — | Full covariance tracking |
+| Uncertainty correlation | — | Full covariance tracking (factor uncertainty propagation landed; next: correlated inputs) |
 | Cython optimization | — | Performance parity with unyt |
 | Additional integrations | — | SQLAlchemy, msgpack, protobuf |
 | Localization | — | Unit names in multiple languages |
