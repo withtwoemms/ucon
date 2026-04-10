@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-04-09
+
+### Added
+
+- **Planck basis** — 1-component energy basis (`E`) where ℏ = c = G = k_B = 1.
+  - `PLANCK` basis in `ucon.basis.builtin`
+  - `SI_TO_PLANCK` / `PLANCK_TO_SI` transforms via `ConstantBoundBasisTransform`
+    with constant bindings for ℏ, c, G, k_B
+  - `PLANCK_ENERGY` (E¹) and `PLANCK_LENGTH` (E⁻¹) dimensions
+  - 5 Planck units: `planck_energy` (`E_P`), `planck_mass` (`m_P`),
+    `planck_length` (`l_P`), `planck_time` (`t_P`),
+    `planck_temperature` (`T_P`) — all with CODATA 2018 values
+  - Mass and energy share `PLANCK_ENERGY` (E¹); length and time share
+    `PLANCK_LENGTH` (E⁻¹). This is physically correct: when c = 1,
+    mass ≡ energy and length ≡ time.
+
+- **Atomic basis** — 1-component energy basis (`E`) where ℏ = e = mₑ = 4πε₀ = 1.
+  - `ATOMIC` basis in `ucon.basis.builtin`
+  - `SI_TO_ATOMIC` / `ATOMIC_TO_SI` transforms with constant bindings
+    for a₀, ℏ, mₑc², e/ℏ
+  - `ATOMIC_ENERGY` (E¹) and `ATOMIC_LENGTH` (E⁻¹) dimensions
+  - 3 new atomic units: `bohr_radius` (`a_0`, `a0`), `atomic_time` (`t_au`),
+    `electron_mass` (`m_e`)
+  - Differs from Natural/Planck in that electric current is representable
+    (I → E¹) but temperature is not (k_B ≠ 1)
+
+- **Inter-basis isomorphisms** — 6 bidirectional 1×1 identity transforms
+  connecting NATURAL, PLANCK, and ATOMIC bases:
+  - `NATURAL_TO_PLANCK` / `PLANCK_TO_NATURAL` (mediated by G)
+  - `NATURAL_TO_ATOMIC` / `ATOMIC_TO_NATURAL` (mediated by e, mₑ, 4πε₀)
+  - `PLANCK_TO_ATOMIC` / `ATOMIC_TO_PLANCK` (mediated by G, e, mₑ, 4πε₀)
+  - Cross-basis conversion edges: `eV ↔ planck_energy`,
+    `eV ↔ hartree`, `planck_energy ↔ hartree`
+  - Inter-basis edge factors are computed from shared SI bridge constants
+    (e.g., `_eV_J / _EP_J`) rather than independently rounded, ensuring
+    exact algebraic cancellation on round-trips.
+
+- **CGS-EMU basis promotion** — `CGS_EMU` promoted from 3-component
+  (`L, M, T`) to 4-component (`L, M, T, Φ`) basis to support the
+  ESU↔EMU bridge:
+  - `SI_TO_CGS_EMU` is now an 8×4 transform with `I → Φ¹` mapping
+  - `CGS_ESU_TO_CGS_EMU` and `CGS_EMU_TO_CGS_ESU` bridge transforms
+    (4×4) connecting the two electromagnetic subsystems
+  - 15 ESU/EMU dimension vectors redefined with integer exponents on
+    the expanded bases
+  - ESU↔EMU conversion edges via the speed of light c:
+    `statcoulomb ↔ abcoulomb`, `statvolt ↔ abvolt`,
+    `statampere ↔ biot`, `statohm ↔ abohm`,
+    `statfarad ↔ abfarad`, `stathenry ↔ abhenry`
+  - Fulfills the v1.3.1 deferral: "ESU↔EMU cross-family conversion
+    deferred to v1.4.0"
+
+- 33+ new tests across `test_cross_basis.py`:
+  `TestPlanckDimensionIsolation` (5), `TestPlanckConversions` (6),
+  `TestAtomicDimensionIsolation` (7), `TestAtomicConversions` (6),
+  `TestInterBasisIsomorphisms` (6 including full J→E_P→eV→Eₕ→J
+  round-trip at `places=10`), plus ESU↔EMU bridge tests.
+
+### Changed
+
+- **`hartree` and `rydberg` moved from NATURAL to ATOMIC basis.**
+  These units physically belong to the atomic system (ℏ = e = mₑ =
+  4πε₀ = 1), not the particle-physics natural system. Their dimension
+  changes from `NATURAL_ENERGY` to `ATOMIC_ENERGY`; numeric conversion
+  values to SI are unchanged. Cross-basis edges from SI
+  (`joule → hartree`, `joule → rydberg`) now route through
+  `SI_TO_ATOMIC` instead of `SI_TO_NATURAL`.
+
+- BasisGraph standard graph now registers 15 transforms (was 6):
+  SI↔CGS, SI↔CGS_ESU, SI↔CGS_EMU, CGS_ESU↔CGS_EMU, SI↔NATURAL,
+  SI↔PLANCK, SI↔ATOMIC, NATURAL↔PLANCK, NATURAL↔ATOMIC, PLANCK↔ATOMIC.
+
+### Notes
+
+- **Round-trip precision.** The full cross-basis round-trip
+  `joule → planck_energy → electron_volt → hartree → joule` returns
+  exactly 1.0 (verified at `places=10`). This is achieved by defining
+  physical constants once and computing inter-basis factors from those
+  shared values, avoiding independently-rounded intermediate constants.
+
+- **Dimension sharing on reduced bases.** On any 1-component energy
+  basis, units mapping to E¹ (energy, mass, temperature) share one
+  `Dimension` object, and units mapping to E⁻¹ (length, time) share
+  another. This is not a collision — it encodes the physics of
+  c = ℏ = 1. Consequently, `planck_mass(1).to(planck_energy)` → 1
+  and `planck_length(1).to(planck_time)` → 1 are both valid
+  conversions.
+
 ## [1.3.1] - 2026-04-09
 
 ### Added
@@ -932,7 +1020,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.3.1...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.4.0...HEAD
+[1.4.0]: https://github.com/withtwoemms/ucon/compare/1.3.1...1.4.0
 [1.3.1]: https://github.com/withtwoemms/ucon/compare/1.3.0...1.3.1
 [1.3.0]: https://github.com/withtwoemms/ucon/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/withtwoemms/ucon/compare/1.1.2...1.2.0

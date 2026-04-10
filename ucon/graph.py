@@ -38,7 +38,13 @@ from ucon.basis.transforms import (
     CGS_TO_SI,
     SI_TO_CGS_ESU,
     SI_TO_CGS_EMU,
+    CGS_ESU_TO_CGS_EMU,
     SI_TO_NATURAL,
+    SI_TO_PLANCK,
+    SI_TO_ATOMIC,
+    NATURAL_TO_PLANCK,
+    NATURAL_TO_ATOMIC,
+    PLANCK_TO_ATOMIC,
 )
 from ucon.core import (
     Dimension,
@@ -1780,20 +1786,94 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     )
     # Gilbert: 1 Gb = 1/(4π) biot (magnetomotive force)
     graph.add_edge(src=units.gilbert, dst=units.biot, map=LinearMap(1 / (4 * math.pi)))
-    # NOTE: ESU↔EMU cross-family conversion is deferred to v1.4.0.
-    # Requires promoting CGS_EMU to a 4-component basis and redefining
-    # ~15 dimension vectors. See docs/internal/IMPLEMENTATION_basis_isomorphisms.md.
+
+    # CGS-ESU ↔ CGS-EMU (ESU↔EMU bridge via speed of light c)
+    # c_cgs = 29979245800 cm/s (exact)
+    c_cgs = 29979245800
+    graph.connect_systems(
+        basis_transform=CGS_ESU_TO_CGS_EMU,
+        edges={
+            (units.statampere, units.biot): LinearMap(1 / c_cgs),
+            (units.statcoulomb, units.abcoulomb): LinearMap(1 / c_cgs),
+            (units.statvolt, units.abvolt): LinearMap(c_cgs),
+            (units.statohm, units.abohm): LinearMap(c_cgs ** 2),
+            (units.statfarad, units.abfarad): LinearMap(1 / c_cgs ** 2),
+        },
+    )
+
+    # ---- Physical constants (defined once, derived factors computed below) ----
+    # Exact (2019 SI redefinition)
+    _eV_J = 1.602176634e-19             # electronvolt in joules (exact)
+    # CODATA 2018 recommended values
+    _Eh_J = 4.3597447222071e-18         # hartree energy in joules
+    _Ry_J = 2.1798723611035e-18         # rydberg energy in joules (= 0.5 Eh)
+    _a0_m = 5.29177210903e-11           # Bohr radius in metres
+    _tau_s = 2.4188843265857e-17        # atomic time unit in seconds (ℏ/Eh)
+    _me_kg = 9.1093837015e-31           # electron mass in kilograms
+    _EP_J = 1.9560813e9                 # Planck energy in joules (m_P c², CODATA 2018)
+    _mP_kg = 2.176434e-8               # Planck mass in kilograms
+    _lP_m = 1.616255e-35               # Planck length in metres
+    _tP_s = 5.391247e-44               # Planck time in seconds
+    _TP_K = 1.416784e32                # Planck temperature in kelvin
 
     # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
-    # 1 eV = 1.602176634e-19 J (exact, by 2019 SI definition)
-    # 1 Eh = 4.3597447222071e-18 J (CODATA 2018 hartree energy)
-    # 1 Ry = 2.1798723611035e-18 J (= 0.5 Eh, by definition)
     graph.connect_systems(
         basis_transform=SI_TO_NATURAL,
         edges={
-            (units.joule, units.electron_volt): LinearMap(1 / 1.602176634e-19),
-            (units.joule, units.hartree): LinearMap(1 / 4.3597447222071e-18),
-            (units.joule, units.rydberg): LinearMap(1 / 2.1798723611035e-18),
+            (units.joule, units.electron_volt): LinearMap(1 / _eV_J),
+        },
+    )
+
+    # Atomic units ↔ SI (SI_TO_ATOMIC: src=SI unit, dst=atomic unit)
+    graph.connect_systems(
+        basis_transform=SI_TO_ATOMIC,
+        edges={
+            (units.joule, units.hartree): LinearMap(1 / _Eh_J),
+            (units.joule, units.rydberg): LinearMap(1 / _Ry_J),
+            (units.meter, units.bohr_radius): LinearMap(1 / _a0_m),
+            (units.second, units.atomic_time): LinearMap(1 / _tau_s),
+            (units.kilogram, units.electron_mass): LinearMap(1 / _me_kg),
+        },
+    )
+
+    # Planck units ↔ SI (SI_TO_PLANCK: src=SI unit, dst=Planck unit)
+    graph.connect_systems(
+        basis_transform=SI_TO_PLANCK,
+        edges={
+            (units.joule, units.planck_energy): LinearMap(1 / _EP_J),
+            (units.kilogram, units.planck_mass): LinearMap(1 / _mP_kg),
+            (units.meter, units.planck_length): LinearMap(1 / _lP_m),
+            (units.second, units.planck_time): LinearMap(1 / _tP_s),
+            (units.kelvin, units.planck_temperature): LinearMap(1 / _TP_K),
+        },
+    )
+
+    # Inter-basis isomorphisms
+    # Factors are computed from the SI bridge constants above so that
+    # round-trips like J → E_P → eV → Eh → J cancel algebraically,
+    # independent of the absolute precision of any single constant.
+
+    # Natural ↔ Planck (mediated by G)
+    graph.connect_systems(
+        basis_transform=NATURAL_TO_PLANCK,
+        edges={
+            (units.electron_volt, units.planck_energy): LinearMap(_eV_J / _EP_J),
+        },
+    )
+
+    # Natural ↔ Atomic (mediated by e, mₑ, 4πε₀)
+    graph.connect_systems(
+        basis_transform=NATURAL_TO_ATOMIC,
+        edges={
+            (units.electron_volt, units.hartree): LinearMap(_eV_J / _Eh_J),
+        },
+    )
+
+    # Planck ↔ Atomic (mediated by G, e, mₑ, 4πε₀)
+    graph.connect_systems(
+        basis_transform=PLANCK_TO_ATOMIC,
+        edges={
+            (units.planck_energy, units.hartree): LinearMap(_EP_J / _Eh_J),
         },
     )
 

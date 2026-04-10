@@ -24,7 +24,17 @@ from ucon.basis.transforms import (
     SI_TO_CGS_ESU,
     SI_TO_CGS_EMU,
     CGS_TO_SI,
+    CGS_ESU_TO_CGS_EMU,
+    CGS_EMU_TO_CGS_ESU,
     SI_TO_NATURAL,
+    SI_TO_PLANCK,
+    SI_TO_ATOMIC,
+    NATURAL_TO_PLANCK,
+    PLANCK_TO_NATURAL,
+    NATURAL_TO_ATOMIC,
+    ATOMIC_TO_NATURAL,
+    PLANCK_TO_ATOMIC,
+    ATOMIC_TO_PLANCK,
 )
 
 _Transform = Union[BasisTransform, ConstantBoundBasisTransform]
@@ -204,13 +214,23 @@ _default_basis_graph: BasisGraph | None = None
 
 
 def _build_standard_basis_graph() -> BasisGraph:
-    """Build standard basis graph with SI/CGS/CGS-ESU/CGS-EMU/natural transforms."""
+    """Build standard basis graph with SI/CGS/CGS-ESU/CGS-EMU/natural/planck/atomic transforms."""
     graph = BasisGraph()
     graph.add_transform(SI_TO_CGS)
     graph.add_transform(SI_TO_CGS_ESU)
     graph.add_transform(SI_TO_CGS_EMU)
     graph.add_transform(CGS_TO_SI)
+    graph.add_transform(CGS_ESU_TO_CGS_EMU)
+    graph.add_transform(CGS_EMU_TO_CGS_ESU)
     graph.add_transform(SI_TO_NATURAL)
+    graph.add_transform(SI_TO_PLANCK)
+    graph.add_transform(SI_TO_ATOMIC)
+    graph.add_transform(NATURAL_TO_PLANCK)
+    graph.add_transform(PLANCK_TO_NATURAL)
+    graph.add_transform(NATURAL_TO_ATOMIC)
+    graph.add_transform(ATOMIC_TO_NATURAL)
+    graph.add_transform(PLANCK_TO_ATOMIC)
+    graph.add_transform(ATOMIC_TO_PLANCK)
     return graph
 
 

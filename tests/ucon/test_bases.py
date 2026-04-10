@@ -171,7 +171,7 @@ class TestSIToCGSESU:
     """Tests for SI -> CGS-ESU transform."""
 
     def test_transform_current_to_derived(self):
-        """GIVEN SI current, THEN it transforms to derived dimension L^(3/2) M^(1/2) T^(-2)."""
+        """GIVEN SI current, THEN it transforms to T^(-1)·Q in CGS-ESU."""
         # SI order: T, L, M, I, Θ, J, N, B
         si_current = Vector(
             SI,
@@ -189,10 +189,10 @@ class TestSIToCGSESU:
         esu_current = SI_TO_CGS_ESU(si_current)
 
         assert esu_current.basis == CGS_ESU
-        assert esu_current["L"] == Fraction(3, 2)
-        assert esu_current["M"] == Fraction(1, 2)
-        assert esu_current["T"] == Fraction(-2)
-        assert esu_current["Q"] == Fraction(0)
+        assert esu_current["L"] == Fraction(0)
+        assert esu_current["M"] == Fraction(0)
+        assert esu_current["T"] == Fraction(-1)
+        assert esu_current["Q"] == Fraction(1)
 
     def test_transform_voltage(self):
         """GIVEN SI voltage (M L^2 T^-3 I^-1), THEN it transforms correctly."""
@@ -213,11 +213,12 @@ class TestSIToCGSESU:
         )
         esu_voltage = SI_TO_CGS_ESU(si_voltage)
 
-        # I^-1 contributes: -1 * (3/2, 1/2, -2, 0) = (-3/2, -1/2, 2, 0)
-        # Total: L^2 + (-3/2) = 1/2, M + (-1/2) = 1/2, T^-3 + 2 = -1
-        assert esu_voltage["L"] == Fraction(1, 2)
-        assert esu_voltage["M"] == Fraction(1, 2)
-        assert esu_voltage["T"] == Fraction(-1)
+        # I^-1 contributes: -1 * (0, 0, -1, 1) = (0, 0, 1, -1)
+        # Total: L=2, M=1, T=(-3+1)=-2, Q=-1
+        assert esu_voltage["L"] == Fraction(2)
+        assert esu_voltage["M"] == Fraction(1)
+        assert esu_voltage["T"] == Fraction(-2)
+        assert esu_voltage["Q"] == Fraction(-1)
 
 
 # -----------------------------------------------------------------------------
