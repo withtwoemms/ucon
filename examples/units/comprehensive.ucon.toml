@@ -16,18 +16,48 @@ components = [{ name = "time", symbol = "T" }, { name = "length", symbol = "L" }
 [bases.natural]
 components = [{ name = "energy", symbol = "E" }]
 
+[bases.planck]
+components = [{ name = "energy", symbol = "E" }]
+
+[bases.atomic]
+components = [{ name = "energy", symbol = "E" }]
+
 [dimensions.acceleration]
 basis = "SI"
 vector = [-2, 1, 0, 0, 0, 0, 0, 0]
+
+[dimensions.amount_of_substance]
+basis = "SI"
+vector = [0, 0, 0, 0, 0, 0, 1, 0]
 
 [dimensions.angle]
 basis = "SI"
 vector = [0, 0, 0, 0, 0, 0, 0, 0]
 tag = "angle"
 
+[dimensions.area]
+basis = "SI"
+vector = [0, 2, 0, 0, 0, 0, 0, 0]
+
+[dimensions.capacitance]
+basis = "SI"
+vector = [4, -2, -1, 2, 0, 0, 0, 0]
+
 [dimensions.catalytic_activity]
 basis = "SI"
 vector = [-1, 0, 0, 0, 0, 0, 1, 0]
+
+[dimensions.cgs_acceleration]
+basis = "CGS"
+vector = [1, 0, -2]
+
+[dimensions.cgs_dynamic_viscosity]
+basis = "CGS"
+vector = [-1, 1, -1]
+
+[dimensions.cgs_energy]
+basis = "CGS"
+vector = [2, 1, -2]
 
 [dimensions.cgs_emu_capacitance]
 basis = "CGS"
@@ -52,6 +82,26 @@ vector = [1, 0, -1]
 [dimensions.cgs_emu_voltage]
 basis = "CGS"
 vector = ["3/2", "1/2", -2]
+
+[dimensions.cgs_force]
+basis = "CGS"
+vector = [1, 1, -2]
+
+[dimensions.cgs_kinematic_viscosity]
+basis = "CGS"
+vector = [2, 0, -1]
+
+[dimensions.cgs_pressure]
+basis = "CGS"
+vector = [-1, 1, -2]
+
+[dimensions.cgs_radiant_exposure]
+basis = "CGS"
+vector = [0, 1, -2]
+
+[dimensions.cgs_wavenumber]
+basis = "CGS"
+vector = [-1, 0, 0]
 
 [dimensions.cgs_esu_capacitance]
 basis = "CGS-ESU"
@@ -93,6 +143,19 @@ vector = ["1/2", "1/2", -1, 0]
 basis = "SI"
 vector = [1, 0, 0, 1, 0, 0, 0, 0]
 
+[dimensions.concentration]
+basis = "SI"
+vector = [0, -3, 0, 0, 0, 0, 1, 0]
+
+[dimensions.conductance]
+basis = "SI"
+vector = [3, -2, -1, 2, 0, 0, 0, 0]
+
+[dimensions.count]
+basis = "SI"
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
+tag = "count"
+
 [dimensions.current]
 basis = "SI"
 vector = [0, 0, 0, 1, 0, 0, 0, 0]
@@ -101,9 +164,17 @@ vector = [0, 0, 0, 1, 0, 0, 0, 0]
 basis = "SI"
 vector = [-1, -1, 1, 0, 0, 0, 0, 0]
 
+[dimensions.electric_dipole_moment]
+basis = "SI"
+vector = [1, 1, 0, 1, 0, 0, 0, 0]
+
 [dimensions.energy]
 basis = "SI"
 vector = [-2, 2, 1, 0, 0, 0, 0, 0]
+
+[dimensions.entropy]
+basis = "SI"
+vector = [-2, 2, 1, 0, -1, 0, 0, 0]
 
 [dimensions.exposure]
 basis = "SI"
@@ -116,6 +187,10 @@ vector = [-2, 1, 1, 0, 0, 0, 0, 0]
 [dimensions.frequency]
 basis = "SI"
 vector = [-1, 0, 0, 0, 0, 0, 0, 0]
+
+[dimensions.inductance]
+basis = "SI"
+vector = [-2, 2, 1, -2, 0, 0, 0, 0]
 
 [dimensions.illuminance]
 basis = "SI"
@@ -133,9 +208,29 @@ vector = [-1, 2, 0, 0, 0, 0, 0, 0]
 basis = "SI"
 vector = [0, 1, 0, 0, 0, 0, 0, 0]
 
+[dimensions.luminous_intensity]
+basis = "SI"
+vector = [0, 0, 0, 0, 0, 1, 0, 0]
+
 [dimensions.linear_density]
 basis = "SI"
 vector = [0, -1, 1, 0, 0, 0, 0, 0]
+
+[dimensions.magnetic_field_strength]
+basis = "SI"
+vector = [0, -1, 0, 1, 0, 0, 0, 0]
+
+[dimensions.magnetic_flux]
+basis = "SI"
+vector = [-2, 2, 1, -1, 0, 0, 0, 0]
+
+[dimensions.magnetic_flux_density]
+basis = "SI"
+vector = [-2, 0, 1, -1, 0, 0, 0, 0]
+
+[dimensions.magnetic_permeability]
+basis = "SI"
+vector = [-2, 1, 1, -2, 0, 0, 0, 0]
 
 [dimensions.mass]
 basis = "SI"
@@ -144,6 +239,22 @@ vector = [0, 0, 1, 0, 0, 0, 0, 0]
 [dimensions.natural_energy]
 basis = "natural"
 vector = [1]
+
+[dimensions.planck_energy]
+basis = "planck"
+vector = [1]
+
+[dimensions.planck_length]
+basis = "planck"
+vector = [-1]
+
+[dimensions.atomic_energy]
+basis = "atomic"
+vector = [1]
+
+[dimensions.atomic_length]
+basis = "atomic"
+vector = [-1]
 
 [dimensions.power]
 basis = "SI"
@@ -178,6 +289,10 @@ vector = [0, 0, 0, 0, 1, 0, 0, 0]
 [dimensions.time]
 basis = "SI"
 vector = [1, 0, 0, 0, 0, 0, 0, 0]
+
+[dimensions.velocity]
+basis = "SI"
+vector = [-1, 1, 0, 0, 0, 0, 0, 0]
 
 [dimensions.voltage]
 basis = "SI"
@@ -263,6 +378,92 @@ source_component = "temperature"
 constant_symbol = "k_B"
 exponent = "-1"
 target_expression = [1]
+
+[transforms.SI_TO_planck]
+source = "SI"
+target = "planck"
+matrix = [
+    [-1],
+    [-1],
+    [1],
+    [0],
+    [1],
+    [0],
+    [0],
+    [0],
+]
+
+[[transforms.SI_TO_planck.bindings]]
+source_component = "length"
+constant_symbol = "ℏc"
+target_expression = [-1]
+
+[[transforms.SI_TO_planck.bindings]]
+source_component = "time"
+constant_symbol = "ℏ"
+target_expression = [-1]
+
+[[transforms.SI_TO_planck.bindings]]
+source_component = "mass"
+constant_symbol = "c"
+exponent = "-2"
+target_expression = [1]
+
+[[transforms.SI_TO_planck.bindings]]
+source_component = "temperature"
+constant_symbol = "k_B"
+exponent = "-1"
+target_expression = [1]
+
+[transforms.SI_TO_atomic]
+source = "SI"
+target = "atomic"
+matrix = [
+    [-1],
+    [-1],
+    [1],
+    [1],
+    [0],
+    [0],
+    [0],
+    [0],
+]
+
+[[transforms.SI_TO_atomic.bindings]]
+source_component = "length"
+constant_symbol = "a₀"
+target_expression = [-1]
+
+[[transforms.SI_TO_atomic.bindings]]
+source_component = "time"
+constant_symbol = "ℏ"
+target_expression = [-1]
+
+[[transforms.SI_TO_atomic.bindings]]
+source_component = "mass"
+constant_symbol = "mₑc²"
+exponent = "-1"
+target_expression = [1]
+
+[[transforms.SI_TO_atomic.bindings]]
+source_component = "current"
+constant_symbol = "e/ℏ"
+target_expression = [1]
+
+[transforms.natural_TO_planck]
+source = "natural"
+target = "planck"
+matrix = [[1]]
+
+[transforms.natural_TO_atomic]
+source = "natural"
+target = "atomic"
+matrix = [[1]]
+
+[transforms.planck_TO_atomic]
+source = "planck"
+target = "atomic"
+matrix = [[1]]
 
 [[units]]
 name = "arcsecond"
@@ -392,7 +593,7 @@ base_form = { prefactor = 1.6605390666e-27, factors = [ [ "kilogram", 1.0 ] ] }
 
 [[units]]
 name = "hartree"
-dimension = "natural_energy"
+dimension = "atomic_energy"
 aliases = ["Eh", "Ha"]
 
 [[units]]
@@ -549,7 +750,7 @@ base_form = { prefactor = 0.000258, factors = [ [ "ampere", 1.0 ], [ "kilogram",
 
 [[units]]
 name = "rydberg"
-dimension = "natural_energy"
+dimension = "atomic_energy"
 aliases = ["Ry"]
 
 [[units]]
@@ -881,6 +1082,48 @@ aliases = ["dyn"]
 name = "electron_volt"
 dimension = "natural_energy"
 aliases = ["eV"]
+
+# -- Planck units --
+[[units]]
+name = "planck_energy"
+dimension = "planck_energy"
+aliases = ["E_P"]
+
+[[units]]
+name = "planck_mass"
+dimension = "planck_energy"
+aliases = ["m_P"]
+
+[[units]]
+name = "planck_length"
+dimension = "planck_length"
+aliases = ["l_P"]
+
+[[units]]
+name = "planck_time"
+dimension = "planck_length"
+aliases = ["t_P"]
+
+[[units]]
+name = "planck_temperature"
+dimension = "planck_energy"
+aliases = ["T_P"]
+
+# -- Atomic units --
+[[units]]
+name = "bohr_radius"
+dimension = "atomic_length"
+aliases = ["a_0", "a0"]
+
+[[units]]
+name = "atomic_time"
+dimension = "atomic_length"
+aliases = ["t_au"]
+
+[[units]]
+name = "electron_mass"
+dimension = "atomic_energy"
+aliases = ["m_e"]
 
 [[units]]
 name = "electrical_horsepower"
@@ -2419,23 +2662,137 @@ dst = "maxwell"
 factor = 100000000
 transform = "SI_TO_CGS-ESU"
 
+# -- SI ↔ Natural (exact: elementary charge e is exact in SI 2019) --
 [[cross_basis_edges]]
 src = "joule"
 dst = "electron_volt"
 factor = 6.241509074460763e+18
 transform = "SI_TO_natural"
 
+# -- SI ↔ Atomic (measured constants: Eₕ, Ry, a₀, ℏ/Eₕ, mₑ) --
 [[cross_basis_edges]]
 src = "joule"
 dst = "hartree"
 factor = 2.2937122783963248e+17
-transform = "SI_TO_natural"
+transform = "SI_TO_atomic"
+rel_uncertainty = 1.100982e-12
 
 [[cross_basis_edges]]
 src = "joule"
 dst = "rydberg"
 factor = 4.587424556792755e+17
-transform = "SI_TO_natural"
+transform = "SI_TO_atomic"
+rel_uncertainty = 1.100982e-12
+
+[[cross_basis_edges]]
+src = "meter"
+dst = "bohr_radius"
+factor = 1.8897261259077822e+10
+transform = "SI_TO_atomic"
+rel_uncertainty = 1.549575e-10
+
+[[cross_basis_edges]]
+src = "second"
+dst = "atomic_time"
+factor = 4.134137333517015e+16
+transform = "SI_TO_atomic"
+rel_uncertainty = 1.074876e-12
+
+[[cross_basis_edges]]
+src = "kilogram"
+dst = "electron_mass"
+factor = 1.0977691057577628e+30
+transform = "SI_TO_atomic"
+rel_uncertainty = 3.073753e-10
+
+# -- SI ↔ Planck (measured constants: mP, lP, tP, TP) --
+[[cross_basis_edges]]
+src = "joule"
+dst = "planck_energy"
+factor = 5.112261874486515e-10
+transform = "SI_TO_planck"
+rel_uncertainty = 1.102721e-05
+
+[[cross_basis_edges]]
+src = "kilogram"
+dst = "planck_mass"
+factor = 4.594671834753546e+07
+transform = "SI_TO_planck"
+rel_uncertainty = 1.102721e-05
+
+[[cross_basis_edges]]
+src = "meter"
+dst = "planck_length"
+factor = 6.18714249917247e+34
+transform = "SI_TO_planck"
+rel_uncertainty = 1.113686e-05
+
+[[cross_basis_edges]]
+src = "second"
+dst = "planck_time"
+factor = 1.854858439986148e+43
+transform = "SI_TO_planck"
+rel_uncertainty = 1.112915e-05
+
+[[cross_basis_edges]]
+src = "kelvin"
+dst = "planck_temperature"
+factor = 7.058238941151226e-33
+transform = "SI_TO_planck"
+rel_uncertainty = 1.129318e-05
+
+# -- Natural ↔ Planck (mediated by G) --
+[[cross_basis_edges]]
+src = "electron_volt"
+dst = "planck_energy"
+factor = 8.190746522191335e-29
+transform = "natural_TO_planck"
+rel_uncertainty = 1.102721e-05
+
+# -- Natural ↔ Atomic (mediated by e, mₑ, 4πε₀) --
+[[cross_basis_edges]]
+src = "electron_volt"
+dst = "hartree"
+factor = 3.674932217566422e-02
+transform = "natural_TO_atomic"
+rel_uncertainty = 1.100982e-12
+
+# -- Planck ↔ Atomic (mediated by G, e, mₑ, 4πε₀) --
+[[cross_basis_edges]]
+src = "planck_energy"
+dst = "hartree"
+factor = 4.486687761133692e+26
+transform = "planck_TO_atomic"
+rel_uncertainty = 1.102721e-05
+
+# -- Atomic intra-basis edges (derived from SI bridge constants) --
+[[edges]]
+src = "electron_mass"
+dst = "hartree"
+factor = 1.8778865044835172e+04
+rel_uncertainty = 3.073773e-10
+
+[[edges]]
+src = "bohr_radius"
+dst = "atomic_time"
+factor = 2.1876912621563436e+06
+rel_uncertainty = 1.549613e-10
+
+# -- Planck intra-basis edges (c = ℏ = k_B = 1) --
+[[edges]]
+src = "planck_mass"
+dst = "planck_energy"
+factor = 1
+
+[[edges]]
+src = "planck_temperature"
+dst = "planck_energy"
+factor = 1
+
+[[edges]]
+src = "planck_length"
+dst = "planck_time"
+factor = 1
 
 [contexts.spectroscopy]
 description = "Spectroscopy: wavelength/frequency/energy via c and h."
