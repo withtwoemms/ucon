@@ -1,26 +1,56 @@
 [package]
 name = "comprehensive"
-version = "1.3.0"
-description = "Complete ucon default conversion graph — all bases, dimensions, units, and edges."
 format_version = "1.3"
 
 [bases.CGS]
-components = [{ name = "length", symbol = "L" }, { name = "mass", symbol = "M" }, { name = "time", symbol = "T" }]
+components = [
+    { name = "length", symbol = "L" },
+    { name = "mass", symbol = "M" },
+    { name = "time", symbol = "T" },
+]
+
+[bases.CGS-EMU]
+components = [
+    { name = "length", symbol = "L" },
+    { name = "mass", symbol = "M" },
+    { name = "time", symbol = "T" },
+    { name = "magnetic_pole_strength", symbol = "Φ" },
+]
 
 [bases.CGS-ESU]
-components = [{ name = "length", symbol = "L" }, { name = "mass", symbol = "M" }, { name = "time", symbol = "T" }, { name = "charge", symbol = "Q" }]
+components = [
+    { name = "length", symbol = "L" },
+    { name = "mass", symbol = "M" },
+    { name = "time", symbol = "T" },
+    { name = "charge", symbol = "Q" },
+]
 
 [bases.SI]
-components = [{ name = "time", symbol = "T" }, { name = "length", symbol = "L" }, { name = "mass", symbol = "M" }, { name = "current", symbol = "I" }, { name = "temperature", symbol = "Θ" }, { name = "luminous_intensity", symbol = "J" }, { name = "amount_of_substance", symbol = "N" }, { name = "information", symbol = "B" }]
-
-[bases.natural]
-components = [{ name = "energy", symbol = "E" }]
-
-[bases.planck]
-components = [{ name = "energy", symbol = "E" }]
+components = [
+    { name = "time", symbol = "T" },
+    { name = "length", symbol = "L" },
+    { name = "mass", symbol = "M" },
+    { name = "current", symbol = "I" },
+    { name = "temperature", symbol = "Θ" },
+    { name = "luminous_intensity", symbol = "J" },
+    { name = "amount_of_substance", symbol = "N" },
+    { name = "information", symbol = "B" },
+]
 
 [bases.atomic]
-components = [{ name = "energy", symbol = "E" }]
+components = [
+    { name = "energy", symbol = "E" },
+]
+
+[bases.natural]
+components = [
+    { name = "energy", symbol = "E" },
+]
+
+[bases.planck]
+components = [
+    { name = "energy", symbol = "E" },
+]
 
 [dimensions.acceleration]
 basis = "SI"
@@ -39,6 +69,14 @@ tag = "angle"
 basis = "SI"
 vector = [0, 2, 0, 0, 0, 0, 0, 0]
 
+[dimensions.atomic_energy]
+basis = "atomic"
+vector = [1]
+
+[dimensions.atomic_length]
+basis = "atomic"
+vector = [-1]
+
 [dimensions.capacitance]
 basis = "SI"
 vector = [4, -2, -1, 2, 0, 0, 0, 0]
@@ -55,33 +93,69 @@ vector = [1, 0, -2]
 basis = "CGS"
 vector = [-1, 1, -1]
 
+[dimensions.cgs_emu_capacitance]
+basis = "CGS-EMU"
+vector = [-2, -1, 4, 2]
+
+[dimensions.cgs_emu_charge]
+basis = "CGS-EMU"
+vector = [0, 0, 1, 1]
+
+[dimensions.cgs_emu_current]
+basis = "CGS-EMU"
+vector = [0, 0, 0, 1]
+
+[dimensions.cgs_emu_inductance]
+basis = "CGS-EMU"
+vector = [2, 1, -2, -2]
+
+[dimensions.cgs_emu_resistance]
+basis = "CGS-EMU"
+vector = [2, 1, -3, -2]
+
+[dimensions.cgs_emu_voltage]
+basis = "CGS-EMU"
+vector = [2, 1, -3, -1]
+
 [dimensions.cgs_energy]
 basis = "CGS"
 vector = [2, 1, -2]
 
-[dimensions.cgs_emu_capacitance]
-basis = "CGS"
-vector = [-1, 0, 2]
+[dimensions.cgs_esu_capacitance]
+basis = "CGS-ESU"
+vector = [-2, -1, 2, 2]
 
-[dimensions.cgs_emu_charge]
-basis = "CGS"
-vector = ["1/2", "1/2", 0]
+[dimensions.cgs_esu_charge]
+basis = "CGS-ESU"
+vector = [0, 0, 0, 1]
 
-[dimensions.cgs_emu_current]
-basis = "CGS"
-vector = ["1/2", "1/2", -1]
+[dimensions.cgs_esu_current]
+basis = "CGS-ESU"
+vector = [0, 0, -1, 1]
 
-[dimensions.cgs_emu_inductance]
-basis = "CGS"
-vector = [1, 0, 0]
+[dimensions.cgs_esu_electric_dipole_moment]
+basis = "CGS-ESU"
+vector = [1, 0, 0, 1]
 
-[dimensions.cgs_emu_resistance]
-basis = "CGS"
-vector = [1, 0, -1]
+[dimensions.cgs_esu_magnetic_field_strength]
+basis = "CGS-ESU"
+vector = [-1, 0, -1, 1]
 
-[dimensions.cgs_emu_voltage]
-basis = "CGS"
-vector = ["3/2", "1/2", -2]
+[dimensions.cgs_esu_magnetic_flux]
+basis = "CGS-ESU"
+vector = [2, 1, -1, -1]
+
+[dimensions.cgs_esu_magnetic_flux_density]
+basis = "CGS-ESU"
+vector = [0, 1, -1, -1]
+
+[dimensions.cgs_esu_resistance]
+basis = "CGS-ESU"
+vector = [2, 1, -1, -2]
+
+[dimensions.cgs_esu_voltage]
+basis = "CGS-ESU"
+vector = [2, 1, -2, -1]
 
 [dimensions.cgs_force]
 basis = "CGS"
@@ -102,42 +176,6 @@ vector = [0, 1, -2]
 [dimensions.cgs_wavenumber]
 basis = "CGS"
 vector = [-1, 0, 0]
-
-[dimensions.cgs_esu_capacitance]
-basis = "CGS-ESU"
-vector = [1, 0, 0, 0]
-
-[dimensions.cgs_esu_charge]
-basis = "CGS-ESU"
-vector = ["3/2", "1/2", -1, 0]
-
-[dimensions.cgs_esu_current]
-basis = "CGS-ESU"
-vector = ["3/2", "1/2", -2, 0]
-
-[dimensions.cgs_esu_electric_dipole_moment]
-basis = "CGS-ESU"
-vector = ["5/2", "1/2", -1, 0]
-
-[dimensions.cgs_esu_magnetic_field_strength]
-basis = "CGS-ESU"
-vector = ["1/2", "1/2", -2, 0]
-
-[dimensions.cgs_esu_magnetic_flux]
-basis = "CGS-ESU"
-vector = ["1/2", "1/2", 0, 0]
-
-[dimensions.cgs_esu_magnetic_flux_density]
-basis = "CGS-ESU"
-vector = ["-3/2", "1/2", 0, 0]
-
-[dimensions.cgs_esu_resistance]
-basis = "CGS-ESU"
-vector = [-1, 0, 1, 0]
-
-[dimensions.cgs_esu_voltage]
-basis = "CGS-ESU"
-vector = ["1/2", "1/2", -1, 0]
 
 [dimensions.charge]
 basis = "SI"
@@ -188,13 +226,13 @@ vector = [-2, 1, 1, 0, 0, 0, 0, 0]
 basis = "SI"
 vector = [-1, 0, 0, 0, 0, 0, 0, 0]
 
-[dimensions.inductance]
-basis = "SI"
-vector = [-2, 2, 1, -2, 0, 0, 0, 0]
-
 [dimensions.illuminance]
 basis = "SI"
 vector = [0, -2, 0, 0, 0, 1, 0, 0]
+
+[dimensions.inductance]
+basis = "SI"
+vector = [-2, 2, 1, -2, 0, 0, 0, 0]
 
 [dimensions.information]
 basis = "SI"
@@ -208,13 +246,13 @@ vector = [-1, 2, 0, 0, 0, 0, 0, 0]
 basis = "SI"
 vector = [0, 1, 0, 0, 0, 0, 0, 0]
 
-[dimensions.luminous_intensity]
-basis = "SI"
-vector = [0, 0, 0, 0, 0, 1, 0, 0]
-
 [dimensions.linear_density]
 basis = "SI"
 vector = [0, -1, 1, 0, 0, 0, 0, 0]
+
+[dimensions.luminous_intensity]
+basis = "SI"
+vector = [0, 0, 0, 0, 0, 1, 0, 0]
 
 [dimensions.magnetic_field_strength]
 basis = "SI"
@@ -240,20 +278,16 @@ vector = [0, 0, 1, 0, 0, 0, 0, 0]
 basis = "natural"
 vector = [1]
 
+[dimensions.none]
+basis = "SI"
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
+
 [dimensions.planck_energy]
 basis = "planck"
 vector = [1]
 
 [dimensions.planck_length]
 basis = "planck"
-vector = [-1]
-
-[dimensions.atomic_energy]
-basis = "atomic"
-vector = [1]
-
-[dimensions.atomic_length]
-basis = "atomic"
 vector = [-1]
 
 [dimensions.power]
@@ -306,6 +340,26 @@ vector = [0, 3, 0, 0, 0, 0, 0, 0]
 basis = "SI"
 vector = [0, -1, 0, 0, 0, 0, 0, 0]
 
+[transforms.CGS-EMU_TO_CGS-ESU]
+source = "CGS-EMU"
+target = "CGS-ESU"
+matrix = [
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, -1, 1],
+]
+
+[transforms.CGS-ESU_TO_CGS-EMU]
+source = "CGS-ESU"
+target = "CGS-EMU"
+matrix = [
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 1, 1],
+]
+
 [transforms.CGS_TO_SI]
 source = "CGS"
 target = "SI"
@@ -322,11 +376,25 @@ matrix = [
     [0, 0, 1],
     [1, 0, 0],
     [0, 1, 0],
-    ["1/2", "1/2", -1],
     [0, 0, 0],
     [0, 0, 0],
     [0, 0, 0],
     [0, 0, 0],
+    [0, 0, 0],
+]
+
+[transforms.SI_TO_CGS-EMU]
+source = "SI"
+target = "CGS-EMU"
+matrix = [
+    [0, 0, 1, 0],
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 0, 1],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
 ]
 
 [transforms.SI_TO_CGS-ESU]
@@ -336,12 +404,47 @@ matrix = [
     [0, 0, 1, 0],
     [1, 0, 0, 0],
     [0, 1, 0, 0],
-    ["3/2", "1/2", -2, 0],
+    [0, 0, -1, 1],
     [0, 0, 0, 0],
     [0, 0, 0, 0],
     [0, 0, 0, 0],
     [0, 0, 0, 0],
 ]
+
+[transforms.SI_TO_atomic]
+source = "SI"
+target = "atomic"
+matrix = [
+    [-1],
+    [-1],
+    [1],
+    [1],
+    [0],
+    [0],
+    [0],
+    [0],
+]
+
+[[transforms.SI_TO_atomic.bindings]]
+source_component = "length"
+constant_symbol = "a₀"
+target_expression = [-1]
+
+[[transforms.SI_TO_atomic.bindings]]
+source_component = "time"
+constant_symbol = "ℏ"
+target_expression = [-1]
+
+[[transforms.SI_TO_atomic.bindings]]
+source_component = "mass"
+constant_symbol = "mₑc²"
+exponent = "-1"
+target_expression = [1]
+
+[[transforms.SI_TO_atomic.bindings]]
+source_component = "current"
+constant_symbol = "e/ℏ"
+target_expression = [1]
 
 [transforms.SI_TO_natural]
 source = "SI"
@@ -415,60 +518,56 @@ constant_symbol = "k_B"
 exponent = "-1"
 target_expression = [1]
 
-[transforms.SI_TO_atomic]
-source = "SI"
-target = "atomic"
+[transforms.atomic_TO_natural]
+source = "atomic"
+target = "natural"
 matrix = [
-    [-1],
-    [-1],
     [1],
-    [1],
-    [0],
-    [0],
-    [0],
-    [0],
 ]
 
-[[transforms.SI_TO_atomic.bindings]]
-source_component = "length"
-constant_symbol = "a₀"
-target_expression = [-1]
-
-[[transforms.SI_TO_atomic.bindings]]
-source_component = "time"
-constant_symbol = "ℏ"
-target_expression = [-1]
-
-[[transforms.SI_TO_atomic.bindings]]
-source_component = "mass"
-constant_symbol = "mₑc²"
-exponent = "-1"
-target_expression = [1]
-
-[[transforms.SI_TO_atomic.bindings]]
-source_component = "current"
-constant_symbol = "e/ℏ"
-target_expression = [1]
-
-[transforms.natural_TO_planck]
-source = "natural"
+[transforms.atomic_TO_planck]
+source = "atomic"
 target = "planck"
-matrix = [[1]]
+matrix = [
+    [1],
+]
 
 [transforms.natural_TO_atomic]
 source = "natural"
 target = "atomic"
-matrix = [[1]]
+matrix = [
+    [1],
+]
+
+[transforms.natural_TO_planck]
+source = "natural"
+target = "planck"
+matrix = [
+    [1],
+]
 
 [transforms.planck_TO_atomic]
 source = "planck"
 target = "atomic"
-matrix = [[1]]
+matrix = [
+    [1],
+]
+
+[transforms.planck_TO_natural]
+source = "planck"
+target = "natural"
+matrix = [
+    [1],
+]
+
+[[units]]
+name = ""
+dimension = "none"
 
 [[units]]
 name = "arcsecond"
 dimension = "angle"
-aliases = ["arcsec", '"']
+aliases = ["arcsec", "\""]
 
 [[units]]
 name = "percent"
@@ -489,7 +588,12 @@ aliases = ["frac", "1"]
 name = "reciprocal_meter"
 dimension = "wavenumber"
 aliases = ["m⁻¹", "1/m"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", -1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", -1.0],
+]
 
 [[units]]
 name = "nines"
@@ -500,7 +604,12 @@ aliases = ["9s"]
 name = "ampere"
 dimension = "current"
 aliases = ["A", "I", "amp"]
-base_form = { prefactor = 1.0, factors = [ [ "ampere", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", 1.0],
+]
 
 [[units]]
 name = "ampere_per_meter"
@@ -511,31 +620,59 @@ aliases = ["A/m"]
 name = "astronomical_unit"
 dimension = "length"
 aliases = ["au", "AU"]
-base_form = { prefactor = 149597870700.0, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 149597870700.0
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "international_ampere"
 dimension = "current"
 aliases = ["A_int"]
-base_form = { prefactor = 1.000022, factors = [ [ "ampere", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.000022
+factors = [
+    ["ampere", 1.0],
+]
 
 [[units]]
 name = "ampere_hour"
 dimension = "charge"
 aliases = ["Ah"]
-base_form = { prefactor = 3600.0, factors = [ [ "ampere", 1.0 ], [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 3600.0
+factors = [
+    ["ampere", 1.0],
+    ["second", 1.0],
+]
 
 [[units]]
 name = "byte"
 dimension = "information"
 aliases = ["B", "bytes"]
-base_form = { prefactor = 8.0, factors = [ [ "bit", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 8.0
+factors = [
+    ["bit", 1.0],
+]
 
 [[units]]
 name = "btu"
 dimension = "energy"
 aliases = ["BTU"]
-base_form = { prefactor = 1055.06, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 1055.06
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "barye"
@@ -556,7 +693,13 @@ aliases = ["Bq"]
 name = "coulomb"
 dimension = "charge"
 aliases = ["C"]
-base_form = { prefactor = 1.0, factors = [ [ "ampere", 1.0 ], [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", 1.0],
+    ["second", 1.0],
+]
 
 [[units]]
 name = "coulomb_meter"
@@ -567,7 +710,14 @@ aliases = ["C·m", "C*m"]
 name = "coulomb_per_kilogram"
 dimension = "exposure"
 aliases = ["C/kg"]
-base_form = { prefactor = 1.0, factors = [ [ "ampere", 1.0 ], [ "kilogram", -1.0 ], [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", 1.0],
+    ["kilogram", -1.0],
+    ["second", 1.0],
+]
 
 [[units]]
 name = "curie"
@@ -583,13 +733,29 @@ aliases = ["D_dipole"]
 name = "denier"
 dimension = "linear_density"
 aliases = ["den", "D_tex"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "dalton"
 dimension = "mass"
 aliases = ["Da", "u", "amu"]
-base_form = { prefactor = 1.6605390666e-27, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.6605390666e-27
+factors = [
+    ["kilogram", 1.0],
+]
+
+[[units]]
+name = "planck_energy"
+dimension = "planck_energy"
+aliases = ["E_P"]
 
 [[units]]
 name = "hartree"
@@ -636,17 +802,36 @@ name = "hertz"
 dimension = "frequency"
 aliases = ["Hz"]
 
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["second", -1.0],
+]
+
 [[units]]
 name = "enzyme_unit"
 dimension = "catalytic_activity"
 aliases = ["U", "IU"]
-base_form = { prefactor = 1.6666666666666667e-08, factors = [ [ "mole", 1.0 ], [ "second", -1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.6666666666666667e-08
+factors = [
+    ["mole", 1.0],
+    ["second", -1.0],
+]
 
 [[units]]
 name = "joule"
 dimension = "energy"
 aliases = ["J"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "joule_per_kelvin"
@@ -657,19 +842,36 @@ aliases = ["J/K"]
 name = "joule_per_square_meter"
 dimension = "radiant_exposure"
 aliases = ["J/m²", "J/m2"]
-base_form = { prefactor = 1.0, factors = [ [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "jansky"
 dimension = "radiant_exposure"
 aliases = ["Jy"]
-base_form = { prefactor = 1.0000000000000002e-26, factors = [ [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0000000000000002e-26
+factors = [
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "kelvin"
 dimension = "temperature"
 aliases = ["K"]
-base_form = { prefactor = 1.0, factors = [ [ "kelvin", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["kelvin", 1.0],
+]
 
 [[units]]
 name = "kayser"
@@ -680,7 +882,24 @@ aliases = ["K_wave"]
 name = "liter"
 dimension = "volume"
 aliases = ["L", "l"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 3.0],
+]
+
+[[units]]
+name = "lambert"
+dimension = "illuminance"
+aliases = ["La"]
+
+[units.base_form]
+prefactor = 3183.0988618379065
+factors = [
+    ["meter", -2.0],
+    ["candela", 1.0],
+]
 
 [[units]]
 name = "langley"
@@ -696,13 +915,25 @@ aliases = ["Mx"]
 name = "newton"
 dimension = "force"
 aliases = ["N"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "nautical_mile"
 dimension = "length"
 aliases = ["nmi", "NM"]
-base_form = { prefactor = 1852.0, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1852.0
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "neper"
@@ -723,19 +954,40 @@ aliases = ["P"]
 name = "metric_horsepower"
 dimension = "power"
 aliases = ["PS"]
-base_form = { prefactor = 735.4987500000001, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 735.4987500000001
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "pascal"
 dimension = "pressure"
 aliases = ["Pa"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "pascal_second"
 dimension = "dynamic_viscosity"
 aliases = ["Pa·s", "Pa*s"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -1.0],
+]
 
 [[units]]
 name = "rankine"
@@ -746,7 +998,14 @@ aliases = ["°R", "degR", "R"]
 name = "roentgen"
 dimension = "exposure"
 aliases = ["R_exp"]
-base_form = { prefactor = 0.000258, factors = [ [ "ampere", 1.0 ], [ "kilogram", -1.0 ], [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.000258
+factors = [
+    ["ampere", 1.0],
+    ["kilogram", -1.0],
+    ["second", 1.0],
+]
 
 [[units]]
 name = "rydberg"
@@ -777,43 +1036,97 @@ aliases = ["T"]
 name = "refrigeration_ton"
 dimension = "power"
 aliases = ["TR", "ton_ref"]
-base_form = { prefactor = 3516.8525, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 3516.8525
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
+
+[[units]]
+name = "planck_temperature"
+dimension = "planck_energy"
+aliases = ["T_P"]
 
 [[units]]
 name = "torr"
 dimension = "pressure"
 aliases = ["Torr"]
-base_form = { prefactor = 133.322368, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 133.322368
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "short_ton"
 dimension = "mass"
 aliases = ["short_tons", "US_ton"]
-base_form = { prefactor = 907.1858188712795, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 907.1858188712795
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "volt"
 dimension = "voltage"
 aliases = ["V"]
-base_form = { prefactor = 1.0, factors = [ [ "ampere", -1.0 ], [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", -1.0],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "volt_ampere"
 dimension = "power"
 aliases = ["VA"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "international_volt"
 dimension = "voltage"
 aliases = ["V_int"]
-base_form = { prefactor = 1.00034, factors = [ [ "ampere", -1.0 ], [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 1.00034
+factors = [
+    ["ampere", -1.0],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "watt"
 dimension = "power"
 aliases = ["W"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "weber"
@@ -829,7 +1142,19 @@ aliases = ["Wb/m"]
 name = "watt_hour"
 dimension = "energy"
 aliases = ["Wh"]
-base_form = { prefactor = 3600.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 3600.0
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
+
+[[units]]
+name = "bohr_radius"
+dimension = "atomic_length"
+aliases = ["a_0", "a0"]
 
 [[units]]
 name = "abcoulomb"
@@ -865,31 +1190,77 @@ aliases = ["ac", "acres"]
 name = "acre_foot"
 dimension = "volume"
 aliases = ["ac_ft", "acre_feet"]
-base_form = { prefactor = 1233481.83754752, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 1233481.83754752
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "angstrom"
 dimension = "length"
 aliases = ["Å", "angstroms"]
-base_form = { prefactor = 1e-10, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1e-10
+factors = [
+    ["meter", 1.0],
+]
+
+[[units]]
+name = "apostilb"
+dimension = "illuminance"
+aliases = ["asb"]
+
+[units.base_form]
+prefactor = 0.3183098861837907
+factors = [
+    ["meter", -2.0],
+    ["candela", 1.0],
+]
 
 [[units]]
 name = "technical_atmosphere"
 dimension = "pressure"
 aliases = ["at"]
-base_form = { prefactor = 98066.5, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 98066.5
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "atmosphere"
 dimension = "pressure"
 aliases = ["atm"]
-base_form = { prefactor = 101325.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 101325.0
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
+
+[[units]]
+name = "atomic_time"
+dimension = "atomic_length"
+aliases = ["t_au"]
 
 [[units]]
 name = "bit"
 dimension = "information"
 aliases = ["b", "bits"]
-base_form = { prefactor = 1.0, factors = [ [ "bit", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["bit", 1.0],
+]
 
 [[units]]
 name = "barn"
@@ -900,13 +1271,25 @@ aliases = ["b_area"]
 name = "bar"
 dimension = "pressure"
 aliases = ["bar"]
-base_form = { prefactor = 99999.99999999999, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 99999.99999999999
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "barrel"
 dimension = "volume"
 aliases = ["bbl", "barrels"]
-base_form = { prefactor = 158.9873264388353, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 158.9873264388353
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "basis_point"
@@ -921,42 +1304,84 @@ dimension = "ratio"
 name = "boiler_horsepower"
 dimension = "power"
 aliases = ["hp_boiler"]
-base_form = { prefactor = 9809.5, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 9809.5
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "bushel"
 dimension = "volume"
 aliases = ["bu", "bushels"]
-base_form = { prefactor = 35.23907016688, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 35.23907016688
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "cable"
 dimension = "length"
 aliases = ["cables"]
-base_form = { prefactor = 185.2, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 185.2
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "calorie"
 dimension = "energy"
 aliases = ["cal", "calories"]
-base_form = { prefactor = 4.184, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 4.184
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "thermochemical_calorie"
 dimension = "energy"
 aliases = ["cal_th"]
-base_form = { prefactor = 4.184, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 4.184
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "candela"
 dimension = "luminous_intensity"
 aliases = ["cd"]
 
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["candela", 1.0],
+]
+
 [[units]]
 name = "carat"
 dimension = "mass"
 aliases = ["ct_mass", "carats"]
-base_form = { prefactor = 0.0002, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.0002
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "celsius"
@@ -967,25 +1392,49 @@ aliases = ["°C", "degC"]
 name = "centimeter_mercury"
 dimension = "pressure"
 aliases = ["cmHg"]
-base_form = { prefactor = 1333.22, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 1333.22
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "centimeter_water"
 dimension = "pressure"
 aliases = ["cmH2O", "cmAq"]
-base_form = { prefactor = 98.0665, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 98.0665
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "chain"
 dimension = "length"
 aliases = ["ch", "chains"]
-base_form = { prefactor = 20.1168, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 20.1168
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "cup"
 dimension = "volume"
 aliases = ["cp", "cups"]
-base_form = { prefactor = 0.23658828339112395, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.23658828339112395
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "each"
@@ -996,25 +1445,45 @@ aliases = ["ea", "item", "ct"]
 name = "cubic_foot"
 dimension = "volume"
 aliases = ["ft³", "cu_ft"]
-base_form = { prefactor = 28.316846592000005, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 28.316846592000005
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "cubic_inch"
 dimension = "volume"
 aliases = ["in³", "cu_in"]
-base_form = { prefactor = 0.016387064, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.016387064
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "cubic_yard"
 dimension = "volume"
 aliases = ["yd³", "cu_yd"]
-base_form = { prefactor = 764.5548579840001, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 764.5548579840001
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "day"
 dimension = "time"
 aliases = ["d"]
-base_form = { prefactor = 86400.0, factors = [ [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 86400.0
+factors = [
+    ["second", 1.0],
+]
 
 [[units]]
 name = "decibel"
@@ -1065,13 +1534,23 @@ aliases = ["deg²", "sq_deg"]
 name = "dram"
 dimension = "mass"
 aliases = ["dr", "drams"]
-base_form = { prefactor = 0.0017718473024829677, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.0017718473024829677
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "pennyweight"
 dimension = "mass"
 aliases = ["dwt", "pennyweights"]
-base_form = { prefactor = 0.0015551756894936224, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.0015551756894936224
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "dyne"
@@ -1083,53 +1562,23 @@ name = "electron_volt"
 dimension = "natural_energy"
 aliases = ["eV"]
 
-# -- Planck units --
 [[units]]
-name = "planck_energy"
-dimension = "planck_energy"
-aliases = ["E_P"]
+name = "electrical_horsepower"
+dimension = "power"
+aliases = ["hp_e"]
 
-[[units]]
-name = "planck_mass"
-dimension = "planck_energy"
-aliases = ["m_P"]
-
-[[units]]
-name = "planck_length"
-dimension = "planck_length"
-aliases = ["l_P"]
-
-[[units]]
-name = "planck_time"
-dimension = "planck_length"
-aliases = ["t_P"]
-
-[[units]]
-name = "planck_temperature"
-dimension = "planck_energy"
-aliases = ["T_P"]
-
-# -- Atomic units --
-[[units]]
-name = "bohr_radius"
-dimension = "atomic_length"
-aliases = ["a_0", "a0"]
-
-[[units]]
-name = "atomic_time"
-dimension = "atomic_length"
-aliases = ["t_au"]
+[units.base_form]
+prefactor = 746.0
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "electron_mass"
 dimension = "atomic_energy"
 aliases = ["m_e"]
-
-[[units]]
-name = "electrical_horsepower"
-dimension = "power"
-aliases = ["hp_e"]
-base_form = { prefactor = 746.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
 
 [[units]]
 name = "erg"
@@ -1140,73 +1589,139 @@ aliases = ["erg"]
 name = "fathom"
 dimension = "length"
 aliases = ["ftm", "fathoms"]
-base_form = { prefactor = 1.828799941478402, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.828799941478402
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "foot_candle"
 dimension = "illuminance"
 aliases = ["fc", "ftc"]
-base_form = { prefactor = 10.763910417, factors = [ [ "meter", -2.0 ], [ "candela", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 10.763910417
+factors = [
+    ["meter", -2.0],
+    ["candela", 1.0],
+]
 
 [[units]]
 name = "foot"
 dimension = "length"
 aliases = ["ft", "feet"]
-base_form = { prefactor = 0.3047999902464003, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.3047999902464003
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "fluid_ounce"
 dimension = "volume"
 aliases = ["floz", "fl_oz"]
-base_form = { prefactor = 0.029573535423890494, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.029573535423890494
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "fortnight"
 dimension = "time"
 aliases = ["fn", "fortnights"]
-base_form = { prefactor = 1209600.0, factors = [ [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1209600.0
+factors = [
+    ["second", 1.0],
+]
 
 [[units]]
 name = "foot_pound"
 dimension = "energy"
 aliases = ["ft_lb", "ft_lbf"]
-base_form = { prefactor = 1.3558179483314, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 1.3558179483314
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "furlong"
 dimension = "length"
 aliases = ["fur", "furlongs"]
-base_form = { prefactor = 201.168, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 201.168
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "gram"
 dimension = "mass"
 aliases = ["g"]
-base_form = { prefactor = 0.001, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.001
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "standard_gravity"
 dimension = "acceleration"
 aliases = ["g0", "gn"]
-base_form = { prefactor = 9.80665, factors = [ [ "meter", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 9.80665
+factors = [
+    ["meter", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "gallon"
 dimension = "volume"
 aliases = ["gal", "gallons"]
-base_form = { prefactor = 3.785412534257983, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 3.785412534257983
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "gram_force"
 dimension = "force"
 aliases = ["gf"]
-base_form = { prefactor = 0.00980665, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 0.00980665
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "gill"
 dimension = "volume"
 aliases = ["gi", "gills"]
-base_form = { prefactor = 0.11829414169556197, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.11829414169556197
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "gradian"
@@ -1217,13 +1732,23 @@ aliases = ["grad", "gon"]
 name = "grain"
 dimension = "mass"
 aliases = ["gr", "grains"]
-base_form = { prefactor = 6.479898706223426e-05, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 6.479898706223426e-05
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "hour"
 dimension = "time"
 aliases = ["h", "hr"]
-base_form = { prefactor = 3600.0, factors = [ [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 3600.0
+factors = [
+    ["second", 1.0],
+]
 
 [[units]]
 name = "hectare"
@@ -1234,103 +1759,202 @@ aliases = ["ha"]
 name = "hand"
 dimension = "length"
 aliases = ["hh", "hands"]
-base_form = { prefactor = 0.1015999967488001, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.1015999967488001
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "horsepower"
 dimension = "power"
 aliases = ["hp"]
-base_form = { prefactor = 745.7, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 745.7
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "imperial_cup"
 dimension = "volume"
 aliases = ["imp_cup"]
-base_form = { prefactor = 0.284130625, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.284130625
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "imperial_fluid_ounce"
 dimension = "volume"
 aliases = ["imp_floz"]
-base_form = { prefactor = 0.028413062499999996, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.028413062499999996
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "imperial_gallon"
 dimension = "volume"
 aliases = ["imp_gal"]
-base_form = { prefactor = 4.54609, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 4.54609
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "imperial_gill"
 dimension = "volume"
 aliases = ["imp_gi"]
-base_form = { prefactor = 0.1420653125, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.1420653125
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "imperial_pint"
 dimension = "volume"
 aliases = ["imp_pt"]
-base_form = { prefactor = 0.56826125, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.56826125
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "imperial_quart"
 dimension = "volume"
 aliases = ["imp_qt"]
-base_form = { prefactor = 1.1365225, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 1.1365225
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "long_ton"
 dimension = "mass"
 aliases = ["long_tons", "imperial_ton"]
-base_form = { prefactor = 1016.0481171358331, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1016.0481171358331
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "inch"
 dimension = "length"
 aliases = ["in", "inches"]
-base_form = { prefactor = 0.025399999187200026, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.025399999187200026
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "inch_water"
 dimension = "pressure"
 aliases = ["inH2O", "inAq"]
-base_form = { prefactor = 249.08891, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 249.08891
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "inch_mercury"
 dimension = "pressure"
 aliases = ["inHg"]
-base_form = { prefactor = 3386.3890000000006, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 3386.3890000000006
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "international_ohm"
 dimension = "resistance"
 aliases = ["ohm_int"]
-base_form = { prefactor = 1.00049, factors = [ [ "ampere", -2.0 ], [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 1.00049
+factors = [
+    ["ampere", -2.0],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "katal"
 dimension = "catalytic_activity"
 aliases = ["kat"]
-base_form = { prefactor = 1.0, factors = [ [ "mole", 1.0 ], [ "second", -1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["mole", 1.0],
+    ["second", -1.0],
+]
 
 [[units]]
 name = "kilogram"
 dimension = "mass"
 aliases = ["kg"]
-base_form = { prefactor = 1.0, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "kilogram_force"
 dimension = "force"
 aliases = ["kgf"]
-base_form = { prefactor = 9.80665, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 9.80665
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "kip"
 dimension = "force"
 aliases = ["klbf"]
-base_form = { prefactor = 4448.2216152605, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 4448.2216152605
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "knot"
@@ -1341,37 +1965,78 @@ aliases = ["kn", "kt", "knots"]
 name = "ksi"
 dimension = "pressure"
 aliases = ["ksi"]
-base_form = { prefactor = 6894744.825494008, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 6894744.825494008
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
+
+[[units]]
+name = "planck_length"
+dimension = "planck_length"
+aliases = ["l_P"]
 
 [[units]]
 name = "pound"
 dimension = "mass"
 aliases = ["lb", "lbs"]
-base_form = { prefactor = 0.45359290943563974, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.45359290943563974
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "pound_force"
 dimension = "force"
 aliases = ["lbf"]
-base_form = { prefactor = 4.4482216152605, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 4.4482216152605
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "psi"
 dimension = "pressure"
 aliases = ["psi", "lbf/in²"]
-base_form = { prefactor = 6894.744825494008, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 6894.744825494008
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "league"
 dimension = "length"
 aliases = ["lea", "leagues"]
-base_form = { prefactor = 4828.031845502982, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 4828.031845502982
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "light_year"
 dimension = "length"
 aliases = ["ly", "light_years"]
-base_form = { prefactor = 9460730472580800.0, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 9460730472580800.0
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "lumen"
@@ -1382,49 +2047,99 @@ aliases = ["lm"]
 name = "lux"
 dimension = "illuminance"
 aliases = ["lx"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", -2.0 ], [ "candela", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", -2.0],
+    ["candela", 1.0],
+]
 
 [[units]]
 name = "meter"
 dimension = "length"
 aliases = ["m"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "meter_per_second_squared"
 dimension = "acceleration"
 aliases = ["m/s²", "m/s2"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "square_meter_per_second"
 dimension = "kinematic_viscosity"
 aliases = ["m²/s", "m2/s"]
-base_form = { prefactor = 1.0, factors = [ [ "meter", 2.0 ], [ "second", -1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 2.0],
+    ["second", -1.0],
+]
+
+[[units]]
+name = "planck_mass"
+dimension = "planck_energy"
+aliases = ["m_P"]
 
 [[units]]
 name = "metric_ton"
 dimension = "mass"
 aliases = ["t", "tonne", "tonnes"]
-base_form = { prefactor = 1000.0, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1000.0
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "metric_ton_force"
 dimension = "force"
 aliases = ["tf", "tonne_force"]
-base_form = { prefactor = 9806.65, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 9806.65
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "mile"
 dimension = "length"
 aliases = ["mi", "miles"]
-base_form = { prefactor = 1609.3439485009937, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1609.3439485009937
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "mil"
 dimension = "length"
 aliases = ["thou"]
-base_form = { prefactor = 2.5399999187200026e-05, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 2.5399999187200026e-05
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "mile_per_hour"
@@ -1435,36 +2150,71 @@ aliases = ["mph"]
 name = "millimeter_mercury"
 dimension = "pressure"
 aliases = ["mmHg"]
-base_form = { prefactor = 133.322368, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 133.322368
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "millimeter_water"
 dimension = "pressure"
 aliases = ["mmH2O", "mmAq"]
-base_form = { prefactor = 9.80665, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 9.80665
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "minute"
 dimension = "time"
 aliases = ["min"]
-base_form = { prefactor = 60.0, factors = [ [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 60.0
+factors = [
+    ["second", 1.0],
+]
 
 [[units]]
 name = "minim"
 dimension = "volume"
 aliases = ["min_vol", "minims"]
-base_form = { prefactor = 6.161153213310519e-05, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 6.161153213310519e-05
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "month"
 dimension = "time"
 aliases = ["mo", "months"]
-base_form = { prefactor = 2629800.0, factors = [ [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 2629800.0
+factors = [
+    ["second", 1.0],
+]
 
 [[units]]
 name = "mole"
 dimension = "amount_of_substance"
 aliases = ["mol", "n"]
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["mole", 1.0],
+]
 
 [[units]]
 name = "molar"
@@ -1472,28 +2222,65 @@ dimension = "concentration"
 aliases = ["mol/L"]
 
 [[units]]
+name = "nit"
+dimension = "illuminance"
+aliases = ["nt"]
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", -2.0],
+    ["candela", 1.0],
+]
+
+[[units]]
 name = "ohm"
 dimension = "resistance"
 aliases = ["Ω"]
-base_form = { prefactor = 1.0, factors = [ [ "ampere", -2.0 ], [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -3.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", -2.0],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
 
 [[units]]
 name = "ounce"
 dimension = "mass"
 aliases = ["oz", "ounces"]
-base_form = { prefactor = 0.028349556839727483, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.028349556839727483
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "ounce_force"
 dimension = "force"
 aliases = ["ozf"]
-base_form = { prefactor = 0.2780138509537812, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 0.2780138509537812
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "troy_ounce"
 dimension = "mass"
 aliases = ["ozt", "troy_oz"]
-base_form = { prefactor = 0.031103500000000003, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.031103500000000003
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "pH"
@@ -1503,25 +2290,47 @@ dimension = "concentration"
 name = "parsec"
 dimension = "length"
 aliases = ["pc", "parsecs"]
-base_form = { prefactor = 3.085677581491367e+16, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 3.085677581491367e+16
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "poundal"
 dimension = "force"
 aliases = ["pdl"]
-base_form = { prefactor = 0.138255, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 0.138255
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "peck"
 dimension = "volume"
 aliases = ["pk", "pecks"]
-base_form = { prefactor = 8.80976754172, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 8.80976754172
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "rod"
 dimension = "length"
 aliases = ["rd", "rods", "perch", "pole"]
-base_form = { prefactor = 5.0292, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 5.0292
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "permille"
@@ -1532,25 +2341,51 @@ aliases = ["‰"]
 name = "phot"
 dimension = "illuminance"
 aliases = ["ph"]
-base_form = { prefactor = 10000.0, factors = [ [ "meter", -2.0 ], [ "candela", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 10000.0
+factors = [
+    ["meter", -2.0],
+    ["candela", 1.0],
+]
 
 [[units]]
 name = "pica"
 dimension = "length"
 aliases = ["pica"]
-base_form = { prefactor = 0.0042333331978666715, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.0042333331978666715
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "pint"
 dimension = "volume"
 aliases = ["pt", "pints"]
-base_form = { prefactor = 0.4731765667822479, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.4731765667822479
+factors = [
+    ["meter", 3.0],
+]
+
+[[units]]
+name = "planck_time"
+dimension = "planck_length"
+aliases = ["t_P"]
 
 [[units]]
 name = "point"
 dimension = "length"
 aliases = ["pt_typo"]
-base_form = { prefactor = 0.00035277776648888926, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.00035277776648888926
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "ppb"
@@ -1564,7 +2399,12 @@ dimension = "ratio"
 name = "quart"
 dimension = "volume"
 aliases = ["qt", "quarts"]
-base_form = { prefactor = 0.9463531335644958, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.9463531335644958
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "radian"
@@ -1590,31 +2430,72 @@ aliases = ["rev", "revolution"]
 name = "reyn"
 dimension = "dynamic_viscosity"
 aliases = ["reyn"]
-base_form = { prefactor = 6894.757, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ], [ "second", -1.0 ] ] }
+
+[units.base_form]
+prefactor = 6894.757
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -1.0],
+]
 
 [[units]]
 name = "second"
 dimension = "time"
 aliases = ["s", "sec"]
-base_form = { prefactor = 1.0, factors = [ [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["second", 1.0],
+]
+
+[[units]]
+name = "stilb"
+dimension = "illuminance"
+aliases = ["sb"]
+
+[units.base_form]
+prefactor = 10000.0
+factors = [
+    ["meter", -2.0],
+    ["candela", 1.0],
+]
 
 [[units]]
 name = "shake"
 dimension = "time"
 aliases = ["shakes"]
-base_form = { prefactor = 1e-08, factors = [ [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 1e-08
+factors = [
+    ["second", 1.0],
+]
 
 [[units]]
 name = "ton_force"
 dimension = "force"
 aliases = ["tnf", "short_ton_force"]
-base_form = { prefactor = 8896.443230521, factors = [ [ "meter", 1.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 8896.443230521
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "slug"
 dimension = "mass"
 aliases = ["slug"]
-base_form = { prefactor = 14.5939, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 14.5939
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "steradian"
@@ -1625,13 +2506,23 @@ aliases = ["sr"]
 name = "stone"
 dimension = "mass"
 aliases = ["st"]
-base_form = { prefactor = 6.350300732098956, factors = [ [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 6.350300732098956
+factors = [
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "stere"
 dimension = "volume"
 aliases = ["st_vol"]
-base_form = { prefactor = 1000.0, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 1000.0
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "statampere"
@@ -1657,55 +2548,107 @@ aliases = ["statΩ"]
 name = "ton_tnt"
 dimension = "energy"
 aliases = ["tTNT"]
-base_form = { prefactor = 4184000000.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 4184000000.0
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "tablespoon"
 dimension = "volume"
 aliases = ["tbsp"]
-base_form = { prefactor = 0.014786767711945247, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.014786767711945247
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "teaspoon"
 dimension = "volume"
 aliases = ["tsp"]
-base_form = { prefactor = 0.004928922570648415, factors = [ [ "meter", 3.0 ] ] }
+
+[units.base_form]
+prefactor = 0.004928922570648415
+factors = [
+    ["meter", 3.0],
+]
 
 [[units]]
 name = "tex"
 dimension = "linear_density"
 aliases = ["tex"]
-base_form = { prefactor = 9.0, factors = [ [ "meter", -1.0 ], [ "kilogram", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 9.0
+factors = [
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+]
 
 [[units]]
 name = "therm"
 dimension = "energy"
 aliases = ["thm", "therms"]
-base_form = { prefactor = 105506000.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 105506000.0
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "tonne_oil_equivalent"
 dimension = "energy"
 aliases = ["toe"]
-base_form = { prefactor = 41868000000.0, factors = [ [ "meter", 2.0 ], [ "kilogram", 1.0 ], [ "second", -2.0 ] ] }
+
+[units.base_form]
+prefactor = 41868000000.0
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
 
 [[units]]
 name = "week"
 dimension = "time"
 aliases = ["wk", "weeks"]
-base_form = { prefactor = 604800.0, factors = [ [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 604800.0
+factors = [
+    ["second", 1.0],
+]
 
 [[units]]
 name = "yard"
 dimension = "length"
 aliases = ["yd", "yards"]
-base_form = { prefactor = 0.914399970739201, factors = [ [ "meter", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 0.914399970739201
+factors = [
+    ["meter", 1.0],
+]
 
 [[units]]
 name = "year"
 dimension = "time"
 aliases = ["yr", "years"]
-base_form = { prefactor = 31557600.0, factors = [ [ "second", 1.0 ] ] }
+
+[units.base_form]
+prefactor = 31557600.0
+factors = [
+    ["second", 1.0],
+]
 
 [[edges]]
 src = "acre_foot"
@@ -1728,6 +2671,11 @@ dst = "meter"
 factor = 1e-10
 
 [[edges]]
+src = "apostilb"
+dst = "nit"
+factor = 0.3183098861837907
+
+[[edges]]
 src = "arcminute"
 dst = "arcsecond"
 factor = 60
@@ -1735,17 +2683,23 @@ factor = 60
 [[edges]]
 src = "arcminute"
 dst = "degree"
-factor = "1/60"
+factor = 0.016666666666666666
 
 [[edges]]
 src = "astronomical_unit"
 dst = "meter"
-factor = 149597870700
+factor = 149597870700.0
 
 [[edges]]
 src = "atmosphere"
 dst = "pascal"
 factor = 101325
+
+[[edges]]
+src = "atomic_time"
+dst = "bohr_radius"
+factor = 4.571028907499173e-07
+rel_uncertainty = 1.5496127026136216e-10
 
 [[edges]]
 src = "bar"
@@ -1775,7 +2729,11 @@ factor = 10
 [[edges]]
 src = "bel"
 dst = "fraction"
-map = { type = "exp", scale = 1.0, base = 10 }
+
+[edges.map]
+type = "exp"
+scale = 1.0
+base = 10
 
 [[edges]]
 src = "biot"
@@ -1826,7 +2784,7 @@ factor = 0.2
 src = "celsius"
 dst = "fahrenheit"
 factor = 1.7999999999999998
-offset = 32
+offset = 32.0
 
 [[edges]]
 src = "celsius"
@@ -1892,47 +2850,69 @@ factor = 1.6605390666e-27
 [[edges]]
 src = "day"
 dst = "fortnight"
-factor = "1/14"
+factor = 0.07142857142857142
 
 [[edges]]
 src = "day"
 dst = "hour"
-factor = 24
+factor = 24.0
 
 [[edges]]
 src = "day"
 dst = "week"
-factor = "1/7"
+factor = 0.14285714285714285
 
 [[edges]]
 src = "day"
 dst = "year"
-factor = "1/365.25"
+factor = 0.0027378507871321013
 
 [[edges]]
 src = "decibel"
 dst = "fraction"
-map = { type = "exp", scale = 0.1, base = 10 }
+
+[edges.map]
+type = "exp"
+scale = 0.1
+base = 10
 
 [[edges]]
 src = "decibel_milliwatt"
 dst = "watt"
-map = { type = "exp", scale = 0.1, base = 10, reference = 0.001 }
+
+[edges.map]
+type = "exp"
+scale = 0.1
+base = 10
+reference = 0.001
 
 [[edges]]
 src = "decibel_spl"
 dst = "pascal"
-map = { type = "exp", scale = 0.05, base = 10, reference = 2e-05 }
+
+[edges.map]
+type = "exp"
+scale = 0.05
+base = 10
+reference = 2e-05
 
 [[edges]]
 src = "decibel_volt"
 dst = "volt"
-map = { type = "exp", scale = 0.05, base = 10 }
+
+[edges.map]
+type = "exp"
+scale = 0.05
+base = 10
 
 [[edges]]
 src = "decibel_watt"
 dst = "watt"
-map = { type = "exp", scale = 0.1, base = 10 }
+
+[edges.map]
+type = "exp"
+scale = 0.1
+base = 10
 
 [[edges]]
 src = "degree"
@@ -1942,7 +2922,7 @@ factor = 0.017453292519943295
 [[edges]]
 src = "denier"
 dst = "tex"
-factor = "1/9"
+factor = 0.1111111111111111
 
 [[edges]]
 src = "dram"
@@ -1953,6 +2933,12 @@ factor = 0.0625
 src = "electrical_horsepower"
 dst = "watt"
 factor = 746
+
+[[edges]]
+src = "electron_mass"
+dst = "hartree"
+factor = 18778.86504483517
+rel_uncertainty = 3.0737732139885685e-10
 
 [[edges]]
 src = "enzyme_unit"
@@ -1987,12 +2973,12 @@ factor = 0.3047999902464003
 [[edges]]
 src = "foot"
 dst = "mile"
-factor = "1/5280"
+factor = 0.0001893939393939394
 
 [[edges]]
 src = "foot"
 dst = "yard"
-factor = "1/3"
+factor = 0.3333333333333333
 
 [[edges]]
 src = "foot_candle"
@@ -2007,7 +2993,11 @@ factor = 1.3558179483314
 [[edges]]
 src = "fraction"
 dst = "neper"
-map = { type = "log", scale = 1, base = 2.718281828459045 }
+
+[edges.map]
+type = "log"
+scale = 1
+base = 2.718281828459045
 
 [[edges]]
 src = "fraction"
@@ -2039,12 +3029,12 @@ factor = 1000
 [[edges]]
 src = "fraction"
 dst = "ppb"
-factor = 1000000000
+factor = 1000000000.0
 
 [[edges]]
 src = "fraction"
 dst = "ppm"
-factor = 1000000
+factor = 1000000.0
 
 [[edges]]
 src = "furlong"
@@ -2074,12 +3064,12 @@ factor = 0.0025
 [[edges]]
 src = "grain"
 dst = "pennyweight"
-factor = "1/24"
+factor = 0.041666666666666664
 
 [[edges]]
 src = "grain"
 dst = "pound"
-factor = "1/7000"
+factor = 0.00014285714285714287
 
 [[edges]]
 src = "gram"
@@ -2099,7 +3089,7 @@ factor = 0.00980665
 [[edges]]
 src = "gray"
 dst = "rad_dose"
-factor = 100
+factor = 100.0
 
 [[edges]]
 src = "hand"
@@ -2114,7 +3104,7 @@ factor = 745.7
 [[edges]]
 src = "hour"
 dst = "minute"
-factor = 60
+factor = 60.0
 
 [[edges]]
 src = "imperial_cup"
@@ -2149,12 +3139,12 @@ factor = 1.1365225
 [[edges]]
 src = "inch"
 dst = "mil"
-factor = 1000
+factor = 1000.0
 
 [[edges]]
 src = "inch"
 dst = "point"
-factor = 72
+factor = 72.0
 
 [[edges]]
 src = "inch_mercury"
@@ -2164,7 +3154,7 @@ factor = 3386.389
 [[edges]]
 src = "inch_water"
 dst = "pascal"
-factor = 249.08891
+factor = 249.08890999999997
 
 [[edges]]
 src = "international_ohm"
@@ -2204,7 +3194,7 @@ factor = 2.3884589662749594e-11
 [[edges]]
 src = "joule"
 dst = "watt_hour"
-factor = "1/3600"
+factor = 0.0002777777777777778
 
 [[edges]]
 src = "kelvin"
@@ -2242,6 +3232,11 @@ dst = "psi"
 factor = 1000
 
 [[edges]]
+src = "lambert"
+dst = "nit"
+factor = 3183.098861837907
+
+[[edges]]
 src = "league"
 dst = "mile"
 factor = 3
@@ -2263,13 +3258,18 @@ factor = 2240
 
 [[edges]]
 src = "lux"
+dst = "nit"
+factor = 1.0
+
+[[edges]]
+src = "lux"
 dst = "phot"
 factor = 0.0001
 
 [[edges]]
 src = "meter"
 dst = "nautical_mile"
-factor = "1/1852"
+factor = 0.0005399568034557236
 
 [[edges]]
 src = "meter"
@@ -2299,7 +3299,7 @@ factor = 9806.65
 [[edges]]
 src = "millimeter_mercury"
 dst = "torr"
-factor = 1
+factor = 1.0
 
 [[edges]]
 src = "millimeter_water"
@@ -2309,12 +3309,12 @@ factor = 9.80665
 [[edges]]
 src = "minute"
 dst = "second"
-factor = 60
+factor = 60.0
 
 [[edges]]
 src = "month"
 dst = "year"
-factor = "1/12"
+factor = 0.08333333333333333
 
 [[edges]]
 src = "newton"
@@ -2335,6 +3335,11 @@ factor = 7.233011464323171
 src = "newton"
 dst = "ton_force"
 factor = 0.00011240447154985525
+
+[[edges]]
+src = "nit"
+dst = "stilb"
+factor = 0.0001
 
 [[edges]]
 src = "ounce"
@@ -2372,6 +3377,21 @@ dst = "quart"
 factor = 0.5
 
 [[edges]]
+src = "planck_energy"
+dst = "planck_mass"
+factor = 1.0
+
+[[edges]]
+src = "planck_energy"
+dst = "planck_temperature"
+factor = 1.0
+
+[[edges]]
+src = "planck_length"
+dst = "planck_time"
+factor = 1
+
+[[edges]]
 src = "pound"
 dst = "short_ton"
 factor = 0.0005
@@ -2379,7 +3399,7 @@ factor = 0.0005
 [[edges]]
 src = "pound"
 dst = "stone"
-factor = "1/14"
+factor = 0.07142857142857142
 
 [[edges]]
 src = "radian"
@@ -2399,7 +3419,7 @@ factor = 0.01
 [[edges]]
 src = "second"
 dst = "shake"
-factor = 100000000
+factor = 100000000.0
 
 [[edges]]
 src = "square_degree"
@@ -2441,12 +3461,6 @@ factor = 1
 product = true
 
 [[product_edges]]
-src = "hour*kwatt"
-dst = "joule"
-factor = 3600000
-product = true
-
-[[product_edges]]
 src = "joule_per_square_meter"
 dst = "joule/meter^2.0"
 factor = 1
@@ -2455,19 +3469,13 @@ product = true
 [[product_edges]]
 src = "knot"
 dst = "meter/second"
-factor = "1852/3600"
+factor = 0.5144444444444445
 product = true
 
 [[product_edges]]
 src = "liter"
 dst = "meter^3"
 factor = 0.001
-product = true
-
-[[product_edges]]
-src = "mole/liter"
-dst = "pH"
-map = { type = "log", scale = -1, base = 10 }
 product = true
 
 [[product_edges]]
@@ -2501,6 +3509,16 @@ factor = 1
 product = true
 
 [[product_edges]]
+src = "mole/liter"
+dst = "pH"
+product = true
+
+[product_edges.map]
+type = "log"
+scale = -1
+base = 10
+
+[[product_edges]]
 src = "pascal_second"
 dst = "pascal*second"
 factor = 1
@@ -2523,6 +3541,36 @@ src = "tex"
 dst = "gram/meter"
 factor = 0.001
 product = true
+
+[[cross_basis_edges]]
+src = "statampere"
+dst = "biot"
+factor = 3.33564095198152e-11
+transform = "CGS-ESU_TO_CGS-EMU"
+
+[[cross_basis_edges]]
+src = "statcoulomb"
+dst = "abcoulomb"
+factor = 3.33564095198152e-11
+transform = "CGS-ESU_TO_CGS-EMU"
+
+[[cross_basis_edges]]
+src = "statfarad"
+dst = "abfarad"
+factor = 1.1126500560536184e-21
+transform = "CGS-ESU_TO_CGS-EMU"
+
+[[cross_basis_edges]]
+src = "statohm"
+dst = "abohm"
+factor = 898755178736817640000
+transform = "CGS-ESU_TO_CGS-EMU"
+
+[[cross_basis_edges]]
+src = "statvolt"
+dst = "abvolt"
+factor = 29979245800
+transform = "CGS-ESU_TO_CGS-EMU"
 
 [[cross_basis_edges]]
 src = "barye"
@@ -2576,37 +3624,37 @@ transform = "CGS_TO_SI"
 src = "ampere"
 dst = "biot"
 factor = 0.1
-transform = "SI_TO_CGS"
+transform = "SI_TO_CGS-EMU"
 
 [[cross_basis_edges]]
 src = "coulomb"
 dst = "abcoulomb"
 factor = 0.1
-transform = "SI_TO_CGS"
+transform = "SI_TO_CGS-EMU"
 
 [[cross_basis_edges]]
 src = "farad"
 dst = "abfarad"
 factor = 1e-09
-transform = "SI_TO_CGS"
+transform = "SI_TO_CGS-EMU"
 
 [[cross_basis_edges]]
 src = "henry"
 dst = "abhenry"
-factor = 1000000000
-transform = "SI_TO_CGS"
+factor = 1000000000.0
+transform = "SI_TO_CGS-EMU"
 
 [[cross_basis_edges]]
 src = "ohm"
 dst = "abohm"
-factor = 1000000000
-transform = "SI_TO_CGS"
+factor = 1000000000.0
+transform = "SI_TO_CGS-EMU"
 
 [[cross_basis_edges]]
 src = "volt"
 dst = "abvolt"
-factor = 100000000
-transform = "SI_TO_CGS"
+factor = 100000000.0
+transform = "SI_TO_CGS-EMU"
 
 [[cross_basis_edges]]
 src = "ampere"
@@ -2647,7 +3695,7 @@ transform = "SI_TO_CGS-ESU"
 [[cross_basis_edges]]
 src = "tesla"
 dst = "gauss"
-factor = 10000
+factor = 10000.0
 transform = "SI_TO_CGS-ESU"
 
 [[cross_basis_edges]]
@@ -2659,144 +3707,102 @@ transform = "SI_TO_CGS-ESU"
 [[cross_basis_edges]]
 src = "weber"
 dst = "maxwell"
-factor = 100000000
+factor = 100000000.0
 transform = "SI_TO_CGS-ESU"
 
-# -- SI ↔ Natural (exact: elementary charge e is exact in SI 2019) --
+[[cross_basis_edges]]
+src = "joule"
+dst = "hartree"
+factor = 2.2937122783969037e+17
+rel_uncertainty = 1.1009818936305137e-12
+transform = "SI_TO_atomic"
+
+[[cross_basis_edges]]
+src = "joule"
+dst = "rydberg"
+factor = 4.5874245567938074e+17
+rel_uncertainty = 1.1009818936305137e-12
+transform = "SI_TO_atomic"
+
+[[cross_basis_edges]]
+src = "kilogram"
+dst = "electron_mass"
+factor = 1.0977691057577633e+30
+rel_uncertainty = 3.0737534961217373e-10
+transform = "SI_TO_atomic"
+
+[[cross_basis_edges]]
+src = "meter"
+dst = "bohr_radius"
+factor = 18897261259.077824
+rel_uncertainty = 1.5495754232443817e-10
+transform = "SI_TO_atomic"
+
+[[cross_basis_edges]]
+src = "second"
+dst = "atomic_time"
+factor = 4.134137333517015e+16
+rel_uncertainty = 1.074875706714424e-12
+transform = "SI_TO_atomic"
+
 [[cross_basis_edges]]
 src = "joule"
 dst = "electron_volt"
 factor = 6.241509074460763e+18
 transform = "SI_TO_natural"
 
-# -- SI ↔ Atomic (measured constants: Eₕ, Ry, a₀, ℏ/Eₕ, mₑ) --
-[[cross_basis_edges]]
-src = "joule"
-dst = "hartree"
-factor = 2.2937122783963248e+17
-transform = "SI_TO_atomic"
-rel_uncertainty = 1.100982e-12
-
-[[cross_basis_edges]]
-src = "joule"
-dst = "rydberg"
-factor = 4.587424556792755e+17
-transform = "SI_TO_atomic"
-rel_uncertainty = 1.100982e-12
-
-[[cross_basis_edges]]
-src = "meter"
-dst = "bohr_radius"
-factor = 1.8897261259077822e+10
-transform = "SI_TO_atomic"
-rel_uncertainty = 1.549575e-10
-
-[[cross_basis_edges]]
-src = "second"
-dst = "atomic_time"
-factor = 4.134137333517015e+16
-transform = "SI_TO_atomic"
-rel_uncertainty = 1.074876e-12
-
-[[cross_basis_edges]]
-src = "kilogram"
-dst = "electron_mass"
-factor = 1.0977691057577628e+30
-transform = "SI_TO_atomic"
-rel_uncertainty = 3.073753e-10
-
-# -- SI ↔ Planck (measured constants: mP, lP, tP, TP) --
 [[cross_basis_edges]]
 src = "joule"
 dst = "planck_energy"
 factor = 5.112261874486515e-10
+rel_uncertainty = 1.102721240340851e-05
 transform = "SI_TO_planck"
-rel_uncertainty = 1.102721e-05
-
-[[cross_basis_edges]]
-src = "kilogram"
-dst = "planck_mass"
-factor = 4.594671834753546e+07
-transform = "SI_TO_planck"
-rel_uncertainty = 1.102721e-05
-
-[[cross_basis_edges]]
-src = "meter"
-dst = "planck_length"
-factor = 6.18714249917247e+34
-transform = "SI_TO_planck"
-rel_uncertainty = 1.113686e-05
-
-[[cross_basis_edges]]
-src = "second"
-dst = "planck_time"
-factor = 1.854858439986148e+43
-transform = "SI_TO_planck"
-rel_uncertainty = 1.112915e-05
 
 [[cross_basis_edges]]
 src = "kelvin"
 dst = "planck_temperature"
 factor = 7.058238941151226e-33
+rel_uncertainty = 1.1293182305841964e-05
 transform = "SI_TO_planck"
-rel_uncertainty = 1.129318e-05
 
-# -- Natural ↔ Planck (mediated by G) --
+[[cross_basis_edges]]
+src = "kilogram"
+dst = "planck_mass"
+factor = 45946718.34753546
+rel_uncertainty = 1.102721240340851e-05
+transform = "SI_TO_planck"
+
+[[cross_basis_edges]]
+src = "meter"
+dst = "planck_length"
+factor = 6.18714249917247e+34
+rel_uncertainty = 1.1136856498510445e-05
+transform = "SI_TO_planck"
+
+[[cross_basis_edges]]
+src = "second"
+dst = "planck_time"
+factor = 1.854858439986148e+43
+rel_uncertainty = 1.1129150639916886e-05
+transform = "SI_TO_planck"
+
+[[cross_basis_edges]]
+src = "electron_volt"
+dst = "hartree"
+factor = 0.03674932217566422
+rel_uncertainty = 1.1009818936305137e-12
+transform = "natural_TO_atomic"
+
 [[cross_basis_edges]]
 src = "electron_volt"
 dst = "planck_energy"
 factor = 8.190746522191335e-29
+rel_uncertainty = 1.102721240340851e-05
 transform = "natural_TO_planck"
-rel_uncertainty = 1.102721e-05
 
-# -- Natural ↔ Atomic (mediated by e, mₑ, 4πε₀) --
-[[cross_basis_edges]]
-src = "electron_volt"
-dst = "hartree"
-factor = 3.674932217566422e-02
-transform = "natural_TO_atomic"
-rel_uncertainty = 1.100982e-12
-
-# -- Planck ↔ Atomic (mediated by G, e, mₑ, 4πε₀) --
 [[cross_basis_edges]]
 src = "planck_energy"
 dst = "hartree"
 factor = 4.486687761133692e+26
+rel_uncertainty = 1.1027212403408567e-05
 transform = "planck_TO_atomic"
-rel_uncertainty = 1.102721e-05
-
-# -- Atomic intra-basis edges (derived from SI bridge constants) --
-[[edges]]
-src = "electron_mass"
-dst = "hartree"
-factor = 1.8778865044835172e+04
-rel_uncertainty = 3.073773e-10
-
-[[edges]]
-src = "bohr_radius"
-dst = "atomic_time"
-factor = 2.1876912621563436e+06
-rel_uncertainty = 1.549613e-10
-
-# -- Planck intra-basis edges (c = ℏ = k_B = 1) --
-[[edges]]
-src = "planck_mass"
-dst = "planck_energy"
-factor = 1
-
-[[edges]]
-src = "planck_temperature"
-dst = "planck_energy"
-factor = 1
-
-[[edges]]
-src = "planck_length"
-dst = "planck_time"
-factor = 1
-
-[contexts.spectroscopy]
-description = "Spectroscopy: wavelength/frequency/energy via c and h."
-edges = [
-    { src = "meter", dst = "hertz", map = { type = "reciprocal", a = 299792458.0 } },
-    { src = "hertz", dst = "joule", factor = 6.62607015e-34 },
-]
