@@ -19,6 +19,7 @@ from ucon import (
     using_graph,
 )
 from ucon.basis.builtin import CGS, CGS_ESU, CGS_EMU, NATURAL, PLANCK, ATOMIC, SI
+from ucon.constants import get_constant_by_symbol
 from ucon.core import RebasedUnit
 from ucon.dimension import (
     CGS_FORCE,
@@ -628,7 +629,7 @@ class TestCGSEMUConversions(unittest.TestCase):
 class TestESUtoEMUConversions(unittest.TestCase):
     """Direct ESU ↔ EMU conversions via the speed-of-light bridge."""
 
-    c_cgs = 29979245800  # speed of light in cm/s
+    c_cgs = get_constant_by_symbol("c").value * 100  # speed of light in cm/s
 
     def setUp(self):
         self.graph = get_default_graph()
@@ -822,7 +823,8 @@ class TestAtomicConversions(unittest.TestCase):
 
     def test_electron_mass_to_kilogram(self):
         m = self.graph.convert(src=units.electron_mass, dst=units.kilogram)
-        self.assertAlmostEqual(m(1) / 9.1093837015e-31, 1.0, places=5)
+        me = get_constant_by_symbol("mₑ").value
+        self.assertAlmostEqual(m(1) / me, 1.0, places=5)
 
     def test_hartree_rydberg_ratio(self):
         """1 Eh = 2 Ry by definition."""
@@ -835,29 +837,29 @@ class TestAtomicConversions(unittest.TestCase):
     def test_electron_mass_to_hartree(self):
         """mₑ → Eₕ: mₑc²/Eₕ = 1/α² ≈ 18778.9."""
         result = units.electron_mass(1).to(units.hartree)
-        alpha = 7.2973525693e-3  # fine-structure constant
+        alpha = get_constant_by_symbol("α").value
         expected = 1 / alpha ** 2
         self.assertAlmostEqual(result.quantity / expected, 1.0, places=5)
 
     def test_hartree_to_electron_mass(self):
         """Eₕ → mₑ: Eₕ/(mₑc²) = α² ≈ 5.325e-5."""
         result = units.hartree(1).to(units.electron_mass)
-        alpha = 7.2973525693e-3
+        alpha = get_constant_by_symbol("α").value
         self.assertAlmostEqual(result.quantity / alpha ** 2, 1.0, places=5)
 
     def test_bohr_radius_to_atomic_time(self):
         """a₀ → τ_au: a₀/τ = αc ≈ 2.188e6."""
         result = units.bohr_radius(1).to(units.atomic_time)
-        alpha = 7.2973525693e-3
-        c = 299792458
+        alpha = get_constant_by_symbol("α").value
+        c = get_constant_by_symbol("c").value
         expected = alpha * c
         self.assertAlmostEqual(result.quantity / expected, 1.0, places=5)
 
     def test_atomic_time_to_bohr_radius(self):
         """τ_au → a₀: τ/a₀ = 1/(αc)."""
         result = units.atomic_time(1).to(units.bohr_radius)
-        alpha = 7.2973525693e-3
-        c = 299792458
+        alpha = get_constant_by_symbol("α").value
+        c = get_constant_by_symbol("c").value
         expected = 1 / (alpha * c)
         self.assertAlmostEqual(result.quantity / expected, 1.0, places=5)
 

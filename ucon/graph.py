@@ -1376,6 +1376,7 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     # Import units module — safe because this function is only called after
     # all modules are fully loaded via the hook wiring in ucon.__init__.
     from ucon import units
+    from ucon.constants import get_constant_by_symbol
 
     # Register all standard units for graph-local name resolution
     for name in dir(units):
@@ -1788,8 +1789,8 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     graph.add_edge(src=units.gilbert, dst=units.biot, map=LinearMap(1 / (4 * math.pi)))
 
     # CGS-ESU ↔ CGS-EMU (ESU↔EMU bridge via speed of light c)
-    # c_cgs = 29979245800 cm/s (exact)
-    c_cgs = 29979245800
+    _c = get_constant_by_symbol("c").value          # 299792458 m/s (exact)
+    c_cgs = _c * 100                                # cm/s
     graph.connect_systems(
         basis_transform=CGS_ESU_TO_CGS_EMU,
         edges={
@@ -1801,15 +1802,15 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
         },
     )
 
-    # ---- Physical constants (defined once, derived factors computed below) ----
-    # Exact (2019 SI redefinition)
-    _eV_J = 1.602176634e-19             # electronvolt in joules (exact)
-    # CODATA 2018 recommended values
+    # ---- Physical constants (sourced from ucon.constants, derived factors below) ----
+    _eV_J = get_constant_by_symbol("e").value       # elementary charge = eV in joules (exact)
+    _me_kg = get_constant_by_symbol("mₑ").value     # electron mass in kg
+    _kB = get_constant_by_symbol("k_B").value       # Boltzmann constant in J/K (exact)
+    # CODATA 2018 recommended values (not yet in ucon.constants as named constants)
     _Eh_J = 4.3597447222071e-18         # hartree energy in joules
     _Ry_J = 2.1798723611035e-18         # rydberg energy in joules (= 0.5 Eh)
     _a0_m = 5.29177210903e-11           # Bohr radius in metres
     _tau_s = 2.4188843265857e-17        # atomic time unit in seconds (ℏ/Eh)
-    _me_kg = 9.1093837015e-31           # electron mass in kilograms
     _EP_J = 1.9560813e9                 # Planck energy in joules (m_P c², CODATA 2018)
     _mP_kg = 2.176434e-8               # Planck mass in kilograms
     _lP_m = 1.616255e-35               # Planck length in metres
@@ -1838,13 +1839,8 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
 
     # Atomic intra-basis edges (factors derived from SI bridge constants)
     # electron_mass ↔ hartree: mₑc²/Eₕ = 1/α² ≈ 18778.9
-    _c = 299792458  # speed of light (exact)
     graph.add_edge(src=units.electron_mass, dst=units.hartree, map=LinearMap(_me_kg * _c ** 2 / _Eh_J))
-    # bohr_radius ↔ atomic_time: a₀/τ = αc ≈ 2.188e6 m/s... but both in E⁻¹,
-    # so factor = (1/a₀ in SI) / (1/τ in SI) = τ/a₀  →  a₀ → τ: multiply by a₀/τ...
-    # Actually: 1 bohr_radius = a₀ metres, 1 atomic_time = τ seconds.
-    # Both map to E⁻¹. Converting bohr_radius → atomic_time means:
-    # a₀ m → ? atomic_time. Via SI: a₀ m × (1/τ atomic_time/s) = a₀/τ atomic_time.
+    # bohr_radius ↔ atomic_time: a₀/τ = αc ≈ 2.188e6
     graph.add_edge(src=units.bohr_radius, dst=units.atomic_time, map=LinearMap(_a0_m / _tau_s))
 
     # Planck units ↔ SI (SI_TO_PLANCK: src=SI unit, dst=Planck unit)
