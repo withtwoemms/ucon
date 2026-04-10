@@ -86,6 +86,12 @@ class Map(ABC):
     Subclasses must implement ``__call__``, ``inverse``, ``__pow__``, and ``derivative``.
     Composition via ``@`` defaults to :class:`ComposedMap`; subclasses may
     override for closed composition within their own type.
+
+    All concrete maps carry a ``rel_uncertainty`` property (default ``0.0``)
+    representing the relative standard uncertainty of the conversion factor.
+    This is nonzero for edges derived from measured physical constants (e.g.,
+    Hartree energy, Planck mass). Uncertainty composes through ``@`` via
+    quadrature and is preserved through ``inverse()``.
     """
 
     @abstractmethod
@@ -154,7 +160,16 @@ class Map(ABC):
 
 @dataclass(frozen=True)
 class LinearMap(Map):
-    """A linear conversion: ``y = a * x``."""
+    """A linear conversion: ``y = a * x``.
+
+    Parameters
+    ----------
+    a : float
+        Scale factor.
+    rel_uncertainty : float
+        Relative standard uncertainty of ``a``. Default ``0.0`` (exact).
+        Nonzero for factors derived from measured constants (e.g., CODATA).
+    """
 
     _map_type = "linear"
 
@@ -203,7 +218,18 @@ class LinearMap(Map):
 
 @dataclass(frozen=True)
 class AffineMap(Map):
-    """An affine conversion: ``y = a * x + b``."""
+    """An affine conversion: ``y = a * x + b``.
+
+    Parameters
+    ----------
+    a : float
+        Slope (scale factor).
+    b : float
+        Offset.
+    rel_uncertainty : float
+        Relative standard uncertainty of the slope ``a``. Default ``0.0``
+        (exact). The offset ``b`` is always treated as exact.
+    """
 
     _map_type = "affine"
 
@@ -473,7 +499,11 @@ class ReciprocalMap(Map):
 
 @dataclass(frozen=True)
 class ComposedMap(Map):
-    """Generic composition fallback: ``(outer ∘ inner)(x) = outer(inner(x))``."""
+    """Generic composition fallback: ``(outer ∘ inner)(x) = outer(inner(x))``.
+
+    ``rel_uncertainty`` is computed as a property:
+    ``sqrt(outer.rel_uncertainty**2 + inner.rel_uncertainty**2)``.
+    """
 
     _map_type = "composed"
 
