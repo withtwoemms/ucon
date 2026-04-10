@@ -255,9 +255,13 @@ def _edge_dict(src: str, dst: str, m: Map) -> dict:
     d: dict = {"src": src, "dst": dst}
     if isinstance(m, LinearMap):
         d["factor"] = m.a
+        if m.rel_uncertainty > 0:
+            d["rel_uncertainty"] = m.rel_uncertainty
     elif isinstance(m, AffineMap):
         d["factor"] = m.a
         d["offset"] = m.b
+        if m.rel_uncertainty > 0:
+            d["rel_uncertainty"] = m.rel_uncertainty
     else:
         d["map"] = _serialize_map(m)
     return d
@@ -409,6 +413,18 @@ def to_toml(graph, path: Union[str, Path]) -> None:
             bases[dim.vector.basis.name] = dim.vector.basis
         if dim.name and dim.name not in dimensions:
             dimensions[dim.name] = dim
+
+    # Also collect dimensions from registered units (covers derived dimensions
+    # like area, velocity, etc. that may not have their own edge partitions).
+    # Required for self-contained TOML files that don't rely on a runtime
+    # dimension registry.
+    for unit in graph._name_registry_cs.values():
+        if hasattr(unit, 'dimension') and unit.dimension is not None:
+            dim = unit.dimension
+            if hasattr(dim, 'vector') and dim.vector.basis.name not in bases:
+                bases[dim.vector.basis.name] = dim.vector.basis
+            if dim.name and dim.name not in dimensions:
+                dimensions[dim.name] = dim
 
     # Also collect bases from transforms (ensures bases like CGS_EMU that
     # are only referenced by transforms are included in the serialized output)
@@ -964,10 +980,11 @@ def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:
         return build_map_fn(edge_spec["map"])
     from ucon.packages import _parse_factor
     factor = _parse_factor(edge_spec.get("factor", 1.0))
+    rel_unc = edge_spec.get("rel_uncertainty", 0.0)
     offset = edge_spec.get("offset")
     if offset is not None:
-        return AffineMap(a=factor, b=_parse_factor(offset))
-    return LinearMap(a=factor)
+        return AffineMap(a=factor, b=_parse_factor(offset), rel_uncertainty=rel_unc)
+    return LinearMap(a=factor, rel_uncertainty=rel_unc)
 
 
 def _resolve_single_factor(

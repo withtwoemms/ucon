@@ -39,8 +39,14 @@ jobs:
       - name: Verify tag is on mainline
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          git fetch origin main --unshallow 2>/dev/null || git fetch origin main
           TAG=${GITHUB_REF#refs/tags/}
+          # Alpha and beta tags may come from feature branches;
+          # only RC and final releases require mainline ancestry.
+          if echo "$TAG" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+(a|b)[0-9]+$'; then
+            echo "Pre-release tag $TAG — skipping mainline ancestry check."
+            exit 0
+          fi
+          git fetch origin main --unshallow 2>/dev/null || git fetch origin main
           TAG_COMMIT=$(git rev-list -n 1 "$TAG")
           if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
             echo "::error::Tag $TAG is not based on main; skipping publish."
@@ -85,7 +91,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG=${GITHUB_REF#refs/tags/}
+          PRERELEASE_FLAG=""
+          if echo "$TAG" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)[0-9]+$'; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
           gh release create "$TAG" \
             --title "v$TAG" \
             --notes-file release_notes.md \
+            $PRERELEASE_FLAG \
             dist/*

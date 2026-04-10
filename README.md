@@ -157,7 +157,7 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 - **String parsing** — `parse("9.81 m/s^2")` with uncertainty support (`1.234 ± 0.005 m`)
 - **Dimensional algebra** — Units combine through multiplication/division with automatic dimension tracking
 - **Scale prefixes** — Full SI (kilo, milli, micro, etc.) and binary (kibi, mebi) prefix support
-- **Uncertainty propagation** — Errors propagate through arithmetic and conversions
+- **Uncertainty propagation** — Measurement errors propagate through arithmetic and conversions; conversion factor uncertainty from measured constants (Planck, atomic) propagates on opt-in
 - **Pseudo-dimensions** — Semantically isolated handling of angles, ratios, and counts
 - **Natural units** — Custom dimensional bases where c=ℏ=k_B=1 for particle physics
 - **Logarithmic units** — dB, pH, and neper conversions with uncertainty propagation

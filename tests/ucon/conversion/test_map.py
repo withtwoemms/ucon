@@ -407,3 +407,49 @@ class TestMapEdgeCases(unittest.TestCase):
         double_inv = m2.inverse().inverse()
         self.assertAlmostEqual(double_inv.a, m2.a)
         self.assertAlmostEqual(double_inv.b, m2.b)
+
+
+class TestRelUncertaintyComposition(unittest.TestCase):
+    """Tests that rel_uncertainty propagates correctly through all composition paths."""
+
+    def test_linear_compose_propagates(self):
+        import math
+        m1 = LinearMap(2.0, rel_uncertainty=3e-5)
+        m2 = LinearMap(3.0, rel_uncertainty=4e-5)
+        composed = m1 @ m2
+        expected = math.sqrt(3e-5**2 + 4e-5**2)
+        self.assertAlmostEqual(composed.rel_uncertainty, expected, places=15)
+
+    def test_linear_inverse_preserves(self):
+        m = LinearMap(5.0, rel_uncertainty=1.5e-10)
+        self.assertEqual(m.inverse().rel_uncertainty, 1.5e-10)
+
+    def test_linear_pow_scales(self):
+        m = LinearMap(3.0, rel_uncertainty=1e-5)
+        self.assertAlmostEqual((m ** 2).rel_uncertainty, 2e-5, places=15)
+        self.assertAlmostEqual((m ** 3).rel_uncertainty, 3e-5, places=15)
+
+    def test_affine_inverse_preserves(self):
+        m = AffineMap(1.8, 32.0, rel_uncertainty=2e-8)
+        self.assertEqual(m.inverse().rel_uncertainty, 2e-8)
+
+    def test_affine_at_linear_propagates(self):
+        import math
+        aff = AffineMap(2.0, 3.0, rel_uncertainty=1e-5)
+        lin = LinearMap(4.0, rel_uncertainty=2e-5)
+        composed = aff @ lin
+        expected = math.sqrt(1e-5**2 + 2e-5**2)
+        self.assertAlmostEqual(composed.rel_uncertainty, expected, places=15)
+
+    def test_composed_map_property(self):
+        import math
+        inner = LinearMap(2.0, rel_uncertainty=3e-5)
+        outer = AffineMap(1.0, 5.0, rel_uncertainty=4e-5)
+        composed = ComposedMap(outer, inner)
+        expected = math.sqrt(3e-5**2 + 4e-5**2)
+        self.assertAlmostEqual(composed.rel_uncertainty, expected, places=15)
+
+    def test_exact_maps_have_zero(self):
+        self.assertEqual(LinearMap(2.0).rel_uncertainty, 0.0)
+        self.assertEqual(AffineMap(1.8, 32.0).rel_uncertainty, 0.0)
+        self.assertEqual(ComposedMap(LinearMap(2.0), LinearMap(3.0)).rel_uncertainty, 0.0)

@@ -19,6 +19,7 @@ from ucon import (
     using_graph,
 )
 from ucon.basis.builtin import CGS, CGS_ESU, CGS_EMU, NATURAL, PLANCK, ATOMIC, SI
+from ucon.constants import get_constant_by_symbol
 from ucon.core import RebasedUnit
 from ucon.dimension import (
     CGS_FORCE,
@@ -367,11 +368,13 @@ class TestNaturalUnitConversions(unittest.TestCase):
 
     def test_hartree_to_joule(self):
         m = self.graph.convert(src=units.hartree, dst=units.joule)
-        self.assertAlmostEqual(m(1), 4.3597447222071e-18, places=30)
+        Eh = get_constant_by_symbol("Eₕ").value
+        self.assertAlmostEqual(m(1), Eh, places=30)
 
     def test_rydberg_to_joule(self):
         m = self.graph.convert(src=units.rydberg, dst=units.joule)
-        self.assertAlmostEqual(m(1), 2.1798723611035e-18, places=30)
+        Ry = get_constant_by_symbol("Ry").value
+        self.assertAlmostEqual(m(1), Ry, places=30)
 
     def test_hartree_to_ev(self):
         m = self.graph.convert(src=units.hartree, dst=units.electron_volt)
@@ -628,7 +631,7 @@ class TestCGSEMUConversions(unittest.TestCase):
 class TestESUtoEMUConversions(unittest.TestCase):
     """Direct ESU ↔ EMU conversions via the speed-of-light bridge."""
 
-    c_cgs = 29979245800  # speed of light in cm/s
+    c_cgs = get_constant_by_symbol("c").value * 100  # speed of light in cm/s
 
     def setUp(self):
         self.graph = get_default_graph()
@@ -745,6 +748,33 @@ class TestPlanckConversions(unittest.TestCase):
         rev = self.graph.convert(src=units.planck_energy, dst=units.joule)
         self.assertAlmostEqual(rev(fwd(1)), 1.0, places=5)
 
+    # -- intra-basis (c = ℏ = k_B = 1  ⇒  mass ≡ energy, length ≡ time) --
+
+    def test_planck_mass_to_planck_energy(self):
+        """m_P → E_P is identity when c = 1."""
+        result = units.planck_mass(1).to(units.planck_energy)
+        self.assertAlmostEqual(result.quantity, 1.0, places=10)
+
+    def test_planck_energy_to_planck_mass(self):
+        """E_P → m_P is identity when c = 1."""
+        result = units.planck_energy(1).to(units.planck_mass)
+        self.assertAlmostEqual(result.quantity, 1.0, places=10)
+
+    def test_planck_length_to_planck_time(self):
+        """l_P → t_P is identity when c = 1."""
+        result = units.planck_length(1).to(units.planck_time)
+        self.assertAlmostEqual(result.quantity, 1.0, places=10)
+
+    def test_planck_time_to_planck_length(self):
+        """t_P → l_P is identity when c = 1."""
+        result = units.planck_time(1).to(units.planck_length)
+        self.assertAlmostEqual(result.quantity, 1.0, places=10)
+
+    def test_planck_temperature_to_planck_energy(self):
+        """T_P → E_P is identity when k_B = 1."""
+        result = units.planck_temperature(1).to(units.planck_energy)
+        self.assertAlmostEqual(result.quantity, 1.0, places=10)
+
 
 class TestAtomicDimensionIsolation(unittest.TestCase):
     """Atomic dimensions are distinct from SI counterparts."""
@@ -779,29 +809,71 @@ class TestAtomicConversions(unittest.TestCase):
 
     def test_hartree_to_joule(self):
         m = self.graph.convert(src=units.hartree, dst=units.joule)
-        self.assertAlmostEqual(m(1), 4.3597447222071e-18, places=30)
+        Eh = get_constant_by_symbol("Eₕ").value
+        self.assertAlmostEqual(m(1), Eh, places=30)
 
     def test_rydberg_to_joule(self):
         m = self.graph.convert(src=units.rydberg, dst=units.joule)
-        self.assertAlmostEqual(m(1), 2.1798723611035e-18, places=30)
+        Ry = get_constant_by_symbol("Ry").value
+        self.assertAlmostEqual(m(1), Ry, places=30)
 
     def test_bohr_radius_to_meter(self):
         m = self.graph.convert(src=units.bohr_radius, dst=units.meter)
-        self.assertAlmostEqual(m(1) / 5.29177210903e-11, 1.0, places=5)
+        a0 = get_constant_by_symbol("a₀").value
+        self.assertAlmostEqual(m(1) / a0, 1.0, places=5)
 
     def test_atomic_time_to_second(self):
         m = self.graph.convert(src=units.atomic_time, dst=units.second)
-        self.assertAlmostEqual(m(1) / 2.4188843265857e-17, 1.0, places=5)
+        tau = get_constant_by_symbol("ℏ/Eₕ").value
+        self.assertAlmostEqual(m(1) / tau, 1.0, places=5)
 
     def test_electron_mass_to_kilogram(self):
         m = self.graph.convert(src=units.electron_mass, dst=units.kilogram)
-        self.assertAlmostEqual(m(1) / 9.1093837015e-31, 1.0, places=5)
+        me = get_constant_by_symbol("mₑ").value
+        self.assertAlmostEqual(m(1) / me, 1.0, places=5)
 
     def test_hartree_rydberg_ratio(self):
         """1 Eh = 2 Ry by definition."""
         eh_to_j = self.graph.convert(src=units.hartree, dst=units.joule)
         ry_to_j = self.graph.convert(src=units.rydberg, dst=units.joule)
         self.assertAlmostEqual(eh_to_j(1) / ry_to_j(1), 2.0, places=10)
+
+    # -- intra-basis (energy ≡ mass on 1-component E basis) --
+
+    def test_electron_mass_to_hartree(self):
+        """mₑ → Eₕ: mₑc²/Eₕ = 1/α² ≈ 18778.9."""
+        result = units.electron_mass(1).to(units.hartree)
+        alpha = get_constant_by_symbol("α").value
+        expected = 1 / alpha ** 2
+        self.assertAlmostEqual(result.quantity / expected, 1.0, places=5)
+
+    def test_hartree_to_electron_mass(self):
+        """Eₕ → mₑ: Eₕ/(mₑc²) = α² ≈ 5.325e-5."""
+        result = units.hartree(1).to(units.electron_mass)
+        alpha = get_constant_by_symbol("α").value
+        self.assertAlmostEqual(result.quantity / alpha ** 2, 1.0, places=5)
+
+    def test_bohr_radius_to_atomic_time(self):
+        """a₀ → τ_au: a₀/τ = αc ≈ 2.188e6."""
+        result = units.bohr_radius(1).to(units.atomic_time)
+        alpha = get_constant_by_symbol("α").value
+        c = get_constant_by_symbol("c").value
+        expected = alpha * c
+        self.assertAlmostEqual(result.quantity / expected, 1.0, places=5)
+
+    def test_atomic_time_to_bohr_radius(self):
+        """τ_au → a₀: τ/a₀ = 1/(αc)."""
+        result = units.atomic_time(1).to(units.bohr_radius)
+        alpha = get_constant_by_symbol("α").value
+        c = get_constant_by_symbol("c").value
+        expected = 1 / (alpha * c)
+        self.assertAlmostEqual(result.quantity / expected, 1.0, places=5)
+
+    def test_electron_mass_hartree_roundtrip(self):
+        """mₑ → Eₕ → mₑ round-trip."""
+        fwd = units.electron_mass(1).to(units.hartree)
+        result = fwd.to(units.electron_mass)
+        self.assertAlmostEqual(result.quantity, 1.0, places=10)
 
 
 class TestInterBasisIsomorphisms(unittest.TestCase):
@@ -835,7 +907,10 @@ class TestInterBasisIsomorphisms(unittest.TestCase):
     def test_planck_energy_to_hartree(self):
         """Planck → Atomic: E_P → Eh."""
         m = self.graph.convert(src=units.planck_energy, dst=units.hartree)
-        expected = 1.9561e9 / 4.3597447222071e-18  # E_P / Eh ≈ 4.4867e26
+        mP = get_constant_by_symbol("mP").value
+        c = get_constant_by_symbol("c").value
+        Eh = get_constant_by_symbol("Eₕ").value
+        expected = mP * c ** 2 / Eh  # E_P / Eh
         self.assertAlmostEqual(m(1) / expected, 1.0, places=3)
 
     def test_full_roundtrip_joule_planck_ev_hartree_joule(self):

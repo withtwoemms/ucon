@@ -86,6 +86,12 @@ class Map(ABC):
     Subclasses must implement ``__call__``, ``inverse``, ``__pow__``, and ``derivative``.
     Composition via ``@`` defaults to :class:`ComposedMap`; subclasses may
     override for closed composition within their own type.
+
+    All concrete maps carry a ``rel_uncertainty`` property (default ``0.0``)
+    representing the relative standard uncertainty of the conversion factor.
+    This is nonzero for edges derived from measured physical constants (e.g.,
+    Hartree energy, Planck mass). Uncertainty composes through ``@`` via
+    quadrature and is preserved through ``inverse()``.
     """
 
     @abstractmethod
@@ -116,6 +122,11 @@ class Map(ABC):
         """
         ...
 
+    @property
+    def rel_uncertainty(self) -> float:
+        """Relative uncertainty of the conversion factor. Default: 0 (exact)."""
+        return 0.0
+
     def is_identity(self, tol: float = 1e-9) -> bool:
         """Check if this map is approximately the identity."""
         return abs(self(1.0) - 1.0) < tol and abs(self(0.0) - 0.0) < tol
@@ -137,6 +148,8 @@ class Map(ABC):
             if f.name.startswith('_'):
                 continue
             val = getattr(self, f.name)
+            if f.name == 'rel_uncertainty' and val == 0.0:
+                continue  # omit exact (default)
             if isinstance(val, Map):
                 val = val.to_dict()
             elif isinstance(val, list):
@@ -147,11 +160,21 @@ class Map(ABC):
 
 @dataclass(frozen=True)
 class LinearMap(Map):
-    """A linear conversion: ``y = a * x``."""
+    """A linear conversion: ``y = a * x``.
+
+    Parameters
+    ----------
+    a : float
+        Scale factor.
+    rel_uncertainty : float
+        Relative standard uncertainty of ``a``. Default ``0.0`` (exact).
+        Nonzero for factors derived from measured constants (e.g., CODATA).
+    """
 
     _map_type = "linear"
 
     a: float
+    rel_uncertainty: float = 0.0
 
     def __call__(self, x: float) -> float:
         return self.a * x
@@ -163,20 +186,22 @@ class LinearMap(Map):
     def inverse(self) -> LinearMap:
         if not self.invertible:
             raise ZeroDivisionError("LinearMap with a=0 is not invertible.")
-        return LinearMap(1.0 / self.a)
+        return LinearMap(1.0 / self.a, rel_uncertainty=self.rel_uncertainty)
 
     def __matmul__(self, other: Map) -> Map:
         if isinstance(other, LinearMap):
-            return LinearMap(self.a * other.a)
+            combined_ru = math.sqrt(self.rel_uncertainty**2 + other.rel_uncertainty**2)
+            return LinearMap(self.a * other.a, rel_uncertainty=combined_ru)
         if isinstance(other, AffineMap):
             # a1 * (a2*x + b2) = (a1*a2)*x + (a1*b2)
-            return AffineMap(self.a * other.a, self.a * other.b)
+            combined_ru = math.sqrt(self.rel_uncertainty**2 + other.rel_uncertainty**2)
+            return AffineMap(self.a * other.a, self.a * other.b, rel_uncertainty=combined_ru)
         if not isinstance(other, Map):
             return NotImplemented
         return ComposedMap(self, other)
 
     def __pow__(self, exp: float) -> LinearMap:
-        return LinearMap(self.a ** exp)
+        return LinearMap(self.a ** exp, rel_uncertainty=abs(exp) * self.rel_uncertainty)
 
     def derivative(self, x: float) -> float:
         """Derivative of y = a*x is a (constant)."""
@@ -193,12 +218,24 @@ class LinearMap(Map):
 
 @dataclass(frozen=True)
 class AffineMap(Map):
-    """An affine conversion: ``y = a * x + b``."""
+    """An affine conversion: ``y = a * x + b``.
+
+    Parameters
+    ----------
+    a : float
+        Slope (scale factor).
+    b : float
+        Offset.
+    rel_uncertainty : float
+        Relative standard uncertainty of the slope ``a``. Default ``0.0``
+        (exact). The offset ``b`` is always treated as exact.
+    """
 
     _map_type = "affine"
 
     a: float
     b: float
+    rel_uncertainty: float = 0.0
 
     def __call__(self, x: float) -> float:
         return self.a * x + self.b
@@ -210,15 +247,17 @@ class AffineMap(Map):
     def inverse(self) -> AffineMap:
         if not self.invertible:
             raise ZeroDivisionError("AffineMap with a=0 is not invertible.")
-        return AffineMap(1.0 / self.a, -self.b / self.a)
+        return AffineMap(1.0 / self.a, -self.b / self.a, rel_uncertainty=self.rel_uncertainty)
 
     def __matmul__(self, other: Map) -> Map:
         if isinstance(other, LinearMap):
             # a1 * (a2*x) + b1 = (a1*a2)*x + b1
-            return AffineMap(self.a * other.a, self.b)
+            combined_ru = math.sqrt(self.rel_uncertainty**2 + other.rel_uncertainty**2)
+            return AffineMap(self.a * other.a, self.b, rel_uncertainty=combined_ru)
         if isinstance(other, AffineMap):
             # a1 * (a2*x + b2) + b1 = (a1*a2)*x + (a1*b2 + b1)
-            return AffineMap(self.a * other.a, self.a * other.b + self.b)
+            combined_ru = math.sqrt(self.rel_uncertainty**2 + other.rel_uncertainty**2)
+            return AffineMap(self.a * other.a, self.a * other.b + self.b, rel_uncertainty=combined_ru)
         if not isinstance(other, Map):
             return NotImplemented
         return ComposedMap(self, other)
@@ -413,11 +452,14 @@ class ReciprocalMap(Map):
     ----------
     a : float
         The constant of proportionality.
+    rel_uncertainty : float
+        Relative uncertainty of the constant ``a``. Default: 0.0 (exact).
     """
 
     _map_type = "reciprocal"
 
     a: float
+    rel_uncertainty: float = 0.0
 
     def __call__(self, x):
         """Apply the inverse map. Works with scalars and numpy arrays."""
@@ -431,7 +473,7 @@ class ReciprocalMap(Map):
 
     def inverse(self) -> 'ReciprocalMap':
         """ReciprocalMap is self-inverse: if y = a/x, then x = a/y."""
-        return ReciprocalMap(self.a)
+        return ReciprocalMap(self.a, rel_uncertainty=self.rel_uncertainty)
 
     def __matmul__(self, other: Map) -> Map:
         if not isinstance(other, Map):
@@ -457,7 +499,11 @@ class ReciprocalMap(Map):
 
 @dataclass(frozen=True)
 class ComposedMap(Map):
-    """Generic composition fallback: ``(outer ∘ inner)(x) = outer(inner(x))``."""
+    """Generic composition fallback: ``(outer ∘ inner)(x) = outer(inner(x))``.
+
+    ``rel_uncertainty`` is computed as a property:
+    ``sqrt(outer.rel_uncertainty**2 + inner.rel_uncertainty**2)``.
+    """
 
     _map_type = "composed"
 
@@ -466,6 +512,12 @@ class ComposedMap(Map):
 
     def __call__(self, x: float) -> float:
         return self.outer(self.inner(x))
+
+    @property
+    def rel_uncertainty(self) -> float:
+        outer_ru = self.outer.rel_uncertainty
+        inner_ru = self.inner.rel_uncertainty
+        return math.sqrt(outer_ru**2 + inner_ru**2)
 
     @property
     def invertible(self) -> bool:

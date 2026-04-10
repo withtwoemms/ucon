@@ -1376,6 +1376,16 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     # Import units module — safe because this function is only called after
     # all modules are fully loaded via the hook wiring in ucon.__init__.
     from ucon import units
+    from ucon.constants import get_constant_by_symbol
+
+    # ---- Physical constants (sourced once from ucon.constants, CODATA 2022) ----
+    def _rel_unc(constant):
+        """Compute relative uncertainty from a Constant object."""
+        if constant.uncertainty is None or constant.value == 0:
+            return 0.0
+        return constant.uncertainty / abs(constant.value)
+
+    _g_n = get_constant_by_symbol("gₙ").value       # standard gravity in m/s² (exact)
 
     # Register all standard units for graph-local name resolution
     for name in dir(units):
@@ -1490,30 +1500,30 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     graph.add_edge(src=units.centimeter_mercury, dst=units.pascal, map=LinearMap(1333.22))
     # 1 ksi = 1000 psi = 6.894757e6 Pa
     graph.add_edge(src=units.ksi, dst=units.psi, map=LinearMap(1000))
-    # 1 technical atmosphere (at) = 98066.5 Pa (exact, 1 kgf/cm²)
-    graph.add_edge(src=units.technical_atmosphere, dst=units.pascal, map=LinearMap(98066.5))
-    # 1 mmH₂O = 9.80665 Pa (conventional, at 4°C)
-    graph.add_edge(src=units.millimeter_water, dst=units.pascal, map=LinearMap(9.80665))
-    # 1 inH₂O = 249.08891 Pa (conventional, at 4°C, 25.4 mm × 9.80665)
-    graph.add_edge(src=units.inch_water, dst=units.pascal, map=LinearMap(249.08891))
+    # 1 technical atmosphere (at) = g_n × 1e4 Pa (exact, 1 kgf/cm²)
+    graph.add_edge(src=units.technical_atmosphere, dst=units.pascal, map=LinearMap(_g_n * 1e4))
+    # 1 mmH₂O = g_n Pa (conventional, at 4°C)
+    graph.add_edge(src=units.millimeter_water, dst=units.pascal, map=LinearMap(_g_n))
+    # 1 inH₂O = 25.4 × g_n Pa (conventional, at 4°C)
+    graph.add_edge(src=units.inch_water, dst=units.pascal, map=LinearMap(25.4 * _g_n))
 
     # --- Force ---
     # 1 lbf = 4.4482216152605 N (exact, from lb_m × g_n)
     graph.add_edge(src=units.pound_force, dst=units.newton, map=LinearMap(4.4482216152605))
-    # 1 kgf = 9.80665 N (exact, by definition)
-    graph.add_edge(src=units.kilogram_force, dst=units.newton, map=LinearMap(9.80665))
+    # 1 kgf = g_n N (exact, by definition)
+    graph.add_edge(src=units.kilogram_force, dst=units.newton, map=LinearMap(_g_n))
     # 1 kip = 1000 lbf (kilo-pound force)
     graph.add_edge(src=units.kip, dst=units.pound_force, map=LinearMap(1000))
     # 1 poundal = 0.138255 N (ft·lb/s², British absolute unit of force)
     graph.add_edge(src=units.poundal, dst=units.newton, map=LinearMap(0.138255))
-    # 1 gram-force = 9.80665e-3 N (exact, by definition of standard gravity)
-    graph.add_edge(src=units.gram_force, dst=units.newton, map=LinearMap(9.80665e-3))
+    # 1 gram-force = g_n × 10⁻³ N (exact, by definition of standard gravity)
+    graph.add_edge(src=units.gram_force, dst=units.newton, map=LinearMap(_g_n * 1e-3))
     # 1 ounce-force = 0.27801385095378125 N (exact, 1/16 lbf)
     graph.add_edge(src=units.ounce_force, dst=units.newton, map=LinearMap(0.27801385095378125))
     # 1 short ton-force = 8896.443230521 N (exact, 2000 lbf)
     graph.add_edge(src=units.ton_force, dst=units.newton, map=LinearMap(8896.443230521))
-    # 1 metric ton-force = 9806.65 N (exact, 1000 kgf)
-    graph.add_edge(src=units.metric_ton_force, dst=units.newton, map=LinearMap(9806.65))
+    # 1 metric ton-force = g_n × 1000 N (exact, 1000 kgf)
+    graph.add_edge(src=units.metric_ton_force, dst=units.newton, map=LinearMap(_g_n * 1e3))
 
     # --- Dynamic Viscosity ---
     # SI equivalence: pascal_second ↔ Pa·s (identity)
@@ -1678,8 +1688,8 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     # --- Acceleration ---
     # SI bridge: meter_per_second_squared ↔ m/s² (identity)
     graph.add_edge(src=units.meter_per_second_squared, dst=units.meter / units.second ** 2, map=LinearMap(1))
-    # 1 standard gravity (g₀) = 9.80665 m/s² (exact, by definition)
-    graph.add_edge(src=units.standard_gravity, dst=units.meter_per_second_squared, map=LinearMap(9.80665))
+    # 1 standard gravity (g₀) = g_n m/s² (exact, by definition)
+    graph.add_edge(src=units.standard_gravity, dst=units.meter_per_second_squared, map=LinearMap(_g_n))
 
     # --- Wavenumber ---
     # SI bridge: reciprocal_meter ↔ m⁻¹ (identity)
@@ -1757,14 +1767,19 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     )
 
     # CGS-ESU electromagnetic ↔ SI (SI_TO_CGS_ESU: src=SI unit, dst=CGS-ESU unit)
+    # All ESU conversion factors derive from the speed of light c.
+    _c = get_constant_by_symbol("c").value          # 299792458 m/s (exact)
+    _c_q = _c * 10                                  # charge/current factor
+    _c_v = _c / 1e6                                 # voltage factor
+    _c_sq = _c ** 2 / 1e5                           # impedance/capacitance factor (c²/10⁵)
     graph.connect_systems(
         basis_transform=SI_TO_CGS_ESU,
         edges={
-            (units.ampere, units.statampere): LinearMap(2.99792458e9),
-            (units.coulomb, units.statcoulomb): LinearMap(2.99792458e9),
-            (units.volt, units.statvolt): LinearMap(1 / 2.99792458e2),
-            (units.ohm, units.statohm): LinearMap(1 / 8.9875517873681764e11),
-            (units.farad, units.statfarad): LinearMap(8.9875517873681764e11),
+            (units.ampere, units.statampere): LinearMap(_c_q),
+            (units.coulomb, units.statcoulomb): LinearMap(_c_q),
+            (units.volt, units.statvolt): LinearMap(1 / _c_v),
+            (units.ohm, units.statohm): LinearMap(1 / _c_sq),
+            (units.farad, units.statfarad): LinearMap(_c_sq),
             (units.tesla, units.gauss): LinearMap(1e4),
             (units.weber, units.maxwell): LinearMap(1e8),
             (units.ampere_per_meter, units.oersted): LinearMap(4 * math.pi * 1e-3),
@@ -1788,8 +1803,7 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     graph.add_edge(src=units.gilbert, dst=units.biot, map=LinearMap(1 / (4 * math.pi)))
 
     # CGS-ESU ↔ CGS-EMU (ESU↔EMU bridge via speed of light c)
-    # c_cgs = 29979245800 cm/s (exact)
-    c_cgs = 29979245800
+    c_cgs = _c * 100                                # cm/s
     graph.connect_systems(
         basis_transform=CGS_ESU_TO_CGS_EMU,
         edges={
@@ -1801,20 +1815,38 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
         },
     )
 
-    # ---- Physical constants (defined once, derived factors computed below) ----
-    # Exact (2019 SI redefinition)
-    _eV_J = 1.602176634e-19             # electronvolt in joules (exact)
-    # CODATA 2018 recommended values
-    _Eh_J = 4.3597447222071e-18         # hartree energy in joules
-    _Ry_J = 2.1798723611035e-18         # rydberg energy in joules (= 0.5 Eh)
-    _a0_m = 5.29177210903e-11           # Bohr radius in metres
-    _tau_s = 2.4188843265857e-17        # atomic time unit in seconds (ℏ/Eh)
-    _me_kg = 9.1093837015e-31           # electron mass in kilograms
-    _EP_J = 1.9560813e9                 # Planck energy in joules (m_P c², CODATA 2018)
-    _mP_kg = 2.176434e-8               # Planck mass in kilograms
-    _lP_m = 1.616255e-35               # Planck length in metres
-    _tP_s = 5.391247e-44               # Planck time in seconds
-    _TP_K = 1.416784e32                # Planck temperature in kelvin
+    # ---- Physical constants (all sourced from ucon.constants, CODATA 2022) ----
+    _eV_const = get_constant_by_symbol("e")          # elementary charge (exact)
+    _eV_J = _eV_const.value
+    _me_const = get_constant_by_symbol("mₑ")         # electron mass (measured)
+    _me_kg = _me_const.value
+    _me_rel = _rel_unc(_me_const)
+    _Eh_const = get_constant_by_symbol("Eₕ")         # Hartree energy (measured)
+    _Eh_J = _Eh_const.value
+    _Eh_rel = _rel_unc(_Eh_const)
+    _Ry_const = get_constant_by_symbol("Ry")          # Rydberg energy (measured)
+    _Ry_J = _Ry_const.value
+    _Ry_rel = _rel_unc(_Ry_const)
+    _a0_const = get_constant_by_symbol("a₀")          # Bohr radius (measured)
+    _a0_m = _a0_const.value
+    _a0_rel = _rel_unc(_a0_const)
+    _tau_const = get_constant_by_symbol("ℏ/Eₕ")       # atomic unit of time (measured)
+    _tau_s = _tau_const.value
+    _tau_rel = _rel_unc(_tau_const)
+    _mP_const = get_constant_by_symbol("mP")           # Planck mass (measured)
+    _mP_kg = _mP_const.value
+    _mP_rel = _rel_unc(_mP_const)
+    _EP_J = _mP_kg * _c ** 2                          # Planck energy in joules (= m_P c²)
+    _EP_rel = _mP_rel                                  # c is exact, so rel_unc = mP_rel
+    _lP_const = get_constant_by_symbol("lP")           # Planck length (measured)
+    _lP_m = _lP_const.value
+    _lP_rel = _rel_unc(_lP_const)
+    _tP_const = get_constant_by_symbol("tP")           # Planck time (measured)
+    _tP_s = _tP_const.value
+    _tP_rel = _rel_unc(_tP_const)
+    _TP_const = get_constant_by_symbol("TP")           # Planck temperature (measured)
+    _TP_K = _TP_const.value
+    _TP_rel = _rel_unc(_TP_const)
 
     # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
     graph.connect_systems(
@@ -1828,25 +1860,39 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     graph.connect_systems(
         basis_transform=SI_TO_ATOMIC,
         edges={
-            (units.joule, units.hartree): LinearMap(1 / _Eh_J),
-            (units.joule, units.rydberg): LinearMap(1 / _Ry_J),
-            (units.meter, units.bohr_radius): LinearMap(1 / _a0_m),
-            (units.second, units.atomic_time): LinearMap(1 / _tau_s),
-            (units.kilogram, units.electron_mass): LinearMap(1 / _me_kg),
+            (units.joule, units.hartree): LinearMap(1 / _Eh_J, rel_uncertainty=_Eh_rel),
+            (units.joule, units.rydberg): LinearMap(1 / _Ry_J, rel_uncertainty=_Ry_rel),
+            (units.meter, units.bohr_radius): LinearMap(1 / _a0_m, rel_uncertainty=_a0_rel),
+            (units.second, units.atomic_time): LinearMap(1 / _tau_s, rel_uncertainty=_tau_rel),
+            (units.kilogram, units.electron_mass): LinearMap(1 / _me_kg, rel_uncertainty=_me_rel),
         },
     )
+
+    # Atomic intra-basis edges (factors derived from SI bridge constants)
+    # electron_mass ↔ hartree: mₑc²/Eₕ = 1/α² ≈ 18778.9
+    # rel_unc: sqrt(me_rel² + Eh_rel²) since c is exact
+    _me_Eh_rel = math.sqrt(_me_rel**2 + _Eh_rel**2)
+    graph.add_edge(src=units.electron_mass, dst=units.hartree, map=LinearMap(_me_kg * _c ** 2 / _Eh_J, rel_uncertainty=_me_Eh_rel))
+    # bohr_radius ↔ atomic_time: a₀/τ = αc ≈ 2.188e6
+    _a0_tau_rel = math.sqrt(_a0_rel**2 + _tau_rel**2)
+    graph.add_edge(src=units.bohr_radius, dst=units.atomic_time, map=LinearMap(_a0_m / _tau_s, rel_uncertainty=_a0_tau_rel))
 
     # Planck units ↔ SI (SI_TO_PLANCK: src=SI unit, dst=Planck unit)
     graph.connect_systems(
         basis_transform=SI_TO_PLANCK,
         edges={
-            (units.joule, units.planck_energy): LinearMap(1 / _EP_J),
-            (units.kilogram, units.planck_mass): LinearMap(1 / _mP_kg),
-            (units.meter, units.planck_length): LinearMap(1 / _lP_m),
-            (units.second, units.planck_time): LinearMap(1 / _tP_s),
-            (units.kelvin, units.planck_temperature): LinearMap(1 / _TP_K),
+            (units.joule, units.planck_energy): LinearMap(1 / _EP_J, rel_uncertainty=_EP_rel),
+            (units.kilogram, units.planck_mass): LinearMap(1 / _mP_kg, rel_uncertainty=_mP_rel),
+            (units.meter, units.planck_length): LinearMap(1 / _lP_m, rel_uncertainty=_lP_rel),
+            (units.second, units.planck_time): LinearMap(1 / _tP_s, rel_uncertainty=_tP_rel),
+            (units.kelvin, units.planck_temperature): LinearMap(1 / _TP_K, rel_uncertainty=_TP_rel),
         },
     )
+
+    # Planck intra-basis edges (c = ℏ = k_B = 1 ⇒ mass ≡ energy, length ≡ time)
+    graph.add_edge(src=units.planck_mass, dst=units.planck_energy, map=LinearMap(1))
+    graph.add_edge(src=units.planck_temperature, dst=units.planck_energy, map=LinearMap(1))
+    graph.add_edge(src=units.planck_length, dst=units.planck_time, map=LinearMap(1))
 
     # Inter-basis isomorphisms
     # Factors are computed from the SI bridge constants above so that
@@ -1854,26 +1900,30 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     # independent of the absolute precision of any single constant.
 
     # Natural ↔ Planck (mediated by G)
+    # eV is exact, EP has _EP_rel
     graph.connect_systems(
         basis_transform=NATURAL_TO_PLANCK,
         edges={
-            (units.electron_volt, units.planck_energy): LinearMap(_eV_J / _EP_J),
+            (units.electron_volt, units.planck_energy): LinearMap(_eV_J / _EP_J, rel_uncertainty=_EP_rel),
         },
     )
 
     # Natural ↔ Atomic (mediated by e, mₑ, 4πε₀)
+    # eV is exact, Eh has _Eh_rel
     graph.connect_systems(
         basis_transform=NATURAL_TO_ATOMIC,
         edges={
-            (units.electron_volt, units.hartree): LinearMap(_eV_J / _Eh_J),
+            (units.electron_volt, units.hartree): LinearMap(_eV_J / _Eh_J, rel_uncertainty=_Eh_rel),
         },
     )
 
     # Planck ↔ Atomic (mediated by G, e, mₑ, 4πε₀)
+    # Both EP and Eh have uncertainties: sqrt(EP_rel² + Eh_rel²)
+    _EP_Eh_rel = math.sqrt(_EP_rel**2 + _Eh_rel**2)
     graph.connect_systems(
         basis_transform=PLANCK_TO_ATOMIC,
         edges={
-            (units.planck_energy, units.hartree): LinearMap(_EP_J / _Eh_J),
+            (units.planck_energy, units.hartree): LinearMap(_EP_J / _Eh_J, rel_uncertainty=_EP_Eh_rel),
         },
     )
 

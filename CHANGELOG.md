@@ -7,6 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-04-10
+
+### Added
+
+- **Conversion factor uncertainty propagation.** When a conversion factor
+  derives from a measured physical constant (e.g., Hartree energy, Planck
+  mass), its CODATA 2022 relative uncertainty can now propagate into the
+  converted result via GUM quadrature:
+  `(δy/y)² = (δx/x)² + (δa/a)²`.
+
+- **`rel_uncertainty` field on `Map` subclasses** — optional
+  `rel_uncertainty: float = 0.0` on `LinearMap`, `AffineMap`, and
+  `ReciprocalMap`. Composition rules:
+  - `@` (composition): quadrature `sqrt(r₁² + r₂²)`
+  - `inverse()`: preserved unchanged
+  - `**n` (power): `|n| * r`
+  - `ComposedMap`: computed property via quadrature of `outer` and `inner`
+  - Default `0.0` means exact conversions carry zero overhead.
+
+- **`Number.to(target, propagate_factor_uncertainty=False)`** — opt-in
+  parameter. When `True`, combines measurement uncertainty and conversion
+  factor uncertainty via GUM quadrature. When `False` (default), behavior
+  is unchanged from prior versions.
+
+- **8 new physical constants** in `ucon.constants` with CODATA 2022
+  uncertainties:
+  - Atomic-scale: `hartree_energy` (Eₕ), `rydberg_energy` (Ry),
+    `bohr_radius` (a₀), `atomic_unit_of_time` (ℏ/Eₕ)
+  - Planck-scale: `planck_mass` (m_P), `planck_length` (l_P),
+    `planck_time` (t_P), `planck_temperature` (T_P)
+  - All carry `category="measured"` and are accessible via
+    `get_constant_by_symbol()` with both Unicode and ASCII aliases.
+
+- **15 default graph edges with `rel_uncertainty`** from measured constants:
+  - Atomic: kg↔electron_mass, J↔hartree, eV↔hartree, J↔rydberg,
+    m↔bohr_radius, s↔atomic_time, electron_mass→hartree,
+    bohr_radius→atomic_time
+  - Planck: kg↔planck_mass, J↔planck_energy, eV↔planck_energy,
+    m↔planck_length, s↔planck_time, K↔planck_temperature,
+    planck_energy↔hartree
+
+- **`EdgeDef.rel_uncertainty`** field in `ucon.packages` — `.ucon.toml`
+  packages can now declare conversion factor uncertainty on `[[edges]]`
+  entries.
+
+- **TOML serialization of `rel_uncertainty`.** `_edge_dict()` emits
+  `rel_uncertainty` when non-zero; `_build_edge_map()` reads it back.
+  Backward-compatible: existing TOML files without the field deserialize
+  with `rel_uncertainty=0.0`.
+
+- **`to_toml()` dimension collection from unit registry.** Dimensions
+  referenced by registered units (e.g., area, velocity, force) are now
+  included in the output even when they have no dedicated edge partition.
+  Required for self-contained TOML files that don't rely on a runtime
+  dimension registry — preparatory for the TOML-as-source-of-truth
+  transition.
+
+- **`scripts/generate_comprehensive_toml.py`** — generation script that
+  produces `examples/units/comprehensive.ucon.toml` from the default graph
+  via `to_toml()`, with cosmetic array collapsing for readability.
+
+- **`make toml`** — Makefile target that runs the TOML generation script.
+
+- `tests/ucon/test_factor_uncertainty.py` — 32 new tests across 8 classes
+  covering map construction, composition rules (quadrature, inverse,
+  power), `Number.to()` backward compatibility, factor uncertainty
+  propagation, multi-hop accumulation, and serialization round-trips.
+
+- `tests/ucon/conversion/test_map.py::TestRelUncertaintyComposition` —
+  6 new tests for `rel_uncertainty` composition, inverse, and power on
+  `LinearMap` and `AffineMap`.
+
+### Changed
+
+- **`comprehensive.ucon.toml` is now machine-generated** from the default
+  graph rather than hand-maintained. Contains 7 bases, 71 dimensions,
+  15 transforms, 227 units, 148 edges, 17 product edges, and 42
+  cross-basis edges (15 with `rel_uncertainty`).
+
+- **`ucon.constants` used as single source for conversion factors in
+  `ucon.graph`.** The default graph's `_build_standard_edges()` now loads
+  full `Constant` objects and extracts both `.value` and `.uncertainty`,
+  rather than using hard-coded numeric literals. This ensures conversion
+  factor values and their uncertainties stay in sync with the constants
+  module.
+
+### Notes
+
+- **Backward compatibility.** `propagate_factor_uncertainty` defaults to
+  `False`. All existing code produces identical results. The
+  `rel_uncertainty` field defaults to `0.0` and is omitted from TOML
+  output when exact, so serialized files remain unchanged for exact
+  conversions.
+
+- **GUM model.** The implementation uses relative uncertainty because it
+  composes cleanly under multiplication and is preserved under inversion.
+  For affine maps (temperature), `rel_uncertainty` refers to the slope
+  `a` only; the offset `b` is exact by definition.
+
 ## [1.4.0] - 2026-04-09
 
 ### Added
@@ -1020,7 +1119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.4.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.5.0...HEAD
+[1.5.0]: https://github.com/withtwoemms/ucon/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/withtwoemms/ucon/compare/1.3.1...1.4.0
 [1.3.1]: https://github.com/withtwoemms/ucon/compare/1.3.0...1.3.1
 [1.3.0]: https://github.com/withtwoemms/ucon/compare/1.2.0...1.3.0
