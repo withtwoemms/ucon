@@ -1758,14 +1758,19 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     )
 
     # CGS-ESU electromagnetic ↔ SI (SI_TO_CGS_ESU: src=SI unit, dst=CGS-ESU unit)
+    # All ESU conversion factors derive from the speed of light c.
+    _c = get_constant_by_symbol("c").value          # 299792458 m/s (exact)
+    _c_q = _c * 10                                  # charge/current factor
+    _c_v = _c / 1e6                                 # voltage factor
+    _c_sq = _c ** 2 / 1e5                           # impedance/capacitance factor (c²/10⁵)
     graph.connect_systems(
         basis_transform=SI_TO_CGS_ESU,
         edges={
-            (units.ampere, units.statampere): LinearMap(2.99792458e9),
-            (units.coulomb, units.statcoulomb): LinearMap(2.99792458e9),
-            (units.volt, units.statvolt): LinearMap(1 / 2.99792458e2),
-            (units.ohm, units.statohm): LinearMap(1 / 8.9875517873681764e11),
-            (units.farad, units.statfarad): LinearMap(8.9875517873681764e11),
+            (units.ampere, units.statampere): LinearMap(_c_q),
+            (units.coulomb, units.statcoulomb): LinearMap(_c_q),
+            (units.volt, units.statvolt): LinearMap(1 / _c_v),
+            (units.ohm, units.statohm): LinearMap(1 / _c_sq),
+            (units.farad, units.statfarad): LinearMap(_c_sq),
             (units.tesla, units.gauss): LinearMap(1e4),
             (units.weber, units.maxwell): LinearMap(1e8),
             (units.ampere_per_meter, units.oersted): LinearMap(4 * math.pi * 1e-3),
@@ -1789,7 +1794,6 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     graph.add_edge(src=units.gilbert, dst=units.biot, map=LinearMap(1 / (4 * math.pi)))
 
     # CGS-ESU ↔ CGS-EMU (ESU↔EMU bridge via speed of light c)
-    _c = get_constant_by_symbol("c").value          # 299792458 m/s (exact)
     c_cgs = _c * 100                                # cm/s
     graph.connect_systems(
         basis_transform=CGS_ESU_TO_CGS_EMU,
