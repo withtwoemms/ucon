@@ -320,6 +320,99 @@ def _build_constants():
         category="measured",
     )
 
+    # -------------------------------------------------------------------------
+    # Exact Definitional Constants
+    # -------------------------------------------------------------------------
+
+    standard_gravity = Constant(
+        symbol="gₙ",
+        name="standard acceleration of gravity",
+        value=9.80665,
+        unit=units.meter / units.second ** 2,
+        uncertainty=None,
+        category="exact",
+    )
+
+    # -------------------------------------------------------------------------
+    # Atomic-Scale Constants (Measured)
+    # -------------------------------------------------------------------------
+
+    hartree_energy = Constant(
+        symbol="Eₕ",
+        name="Hartree energy",
+        value=4.3597447222060e-18,
+        unit=units.joule,
+        uncertainty=0.0000000000048e-18,
+        category="measured",
+    )
+
+    rydberg_energy = Constant(
+        symbol="Ry",
+        name="Rydberg energy",
+        value=2.1798723611030e-18,
+        unit=units.joule,
+        uncertainty=0.0000000000024e-18,
+        category="measured",
+    )
+
+    bohr_radius = Constant(
+        symbol="a₀",
+        name="Bohr radius",
+        value=5.29177210544e-11,
+        unit=units.meter,
+        uncertainty=0.00000000082e-11,
+        category="measured",
+    )
+
+    atomic_unit_of_time = Constant(
+        symbol="ℏ/Eₕ",
+        name="atomic unit of time",
+        value=2.4188843265864e-17,
+        unit=units.second,
+        uncertainty=0.0000000000026e-17,
+        category="measured",
+    )
+
+    # -------------------------------------------------------------------------
+    # Planck-Scale Constants (Measured, limited by G uncertainty)
+    # -------------------------------------------------------------------------
+
+    planck_mass = Constant(
+        symbol="mP",
+        name="Planck mass",
+        value=2.176434e-8,
+        unit=units.kilogram,
+        uncertainty=0.000024e-8,
+        category="measured",
+    )
+
+    planck_length = Constant(
+        symbol="lP",
+        name="Planck length",
+        value=1.616255e-35,
+        unit=units.meter,
+        uncertainty=0.000018e-35,
+        category="measured",
+    )
+
+    planck_time = Constant(
+        symbol="tP",
+        name="Planck time",
+        value=5.391247e-44,
+        unit=units.second,
+        uncertainty=0.000060e-44,
+        category="measured",
+    )
+
+    planck_temperature = Constant(
+        symbol="TP",
+        name="Planck temperature",
+        value=1.416784e32,
+        unit=units.kelvin,
+        uncertainty=0.000016e32,
+        category="measured",
+    )
+
     return {
         # SI defining (exact)
         'hyperfine_transition_frequency': hyperfine_transition_frequency,
@@ -341,6 +434,18 @@ def _build_constants():
         'neutron_mass': neutron_mass,
         'vacuum_permittivity': vacuum_permittivity,
         'vacuum_permeability': vacuum_permeability,
+        # Exact definitional
+        'standard_gravity': standard_gravity,
+        # Atomic-scale measured
+        'hartree_energy': hartree_energy,
+        'rydberg_energy': rydberg_energy,
+        'bohr_radius': bohr_radius,
+        'atomic_unit_of_time': atomic_unit_of_time,
+        # Planck-scale measured
+        'planck_mass': planck_mass,
+        'planck_length': planck_length,
+        'planck_time': planck_time,
+        'planck_temperature': planck_temperature,
     }
 
 
@@ -362,7 +467,7 @@ def all_constants() -> list[Constant]:
     Returns
     -------
     list[Constant]
-        All 17 CODATA physical constants.
+        All built-in CODATA physical constants.
 
     Examples
     --------
@@ -426,6 +531,9 @@ def get_constant_by_symbol(symbol: str) -> Constant | None:
         'R': 'molar_gas_constant',
         'Kcd': 'luminous_efficacy',
         'ΔνCs': 'hyperfine_transition_frequency',
+        'gₙ': 'standard_gravity',
+        'Eₕ': 'hartree_energy',
+        'a₀': 'bohr_radius',
     }
 
     # ASCII aliases
@@ -437,6 +545,14 @@ def get_constant_by_symbol(symbol: str) -> Constant | None:
         'm_e': 'electron_mass',
         'm_p': 'proton_mass',
         'm_n': 'neutron_mass',
+        'g_n': 'standard_gravity',
+        'g_0': 'standard_gravity',
+        'E_h': 'hartree_energy',
+        'a_0': 'bohr_radius',
+        'm_P': 'planck_mass',
+        'l_P': 'planck_length',
+        't_P': 'planck_time',
+        'T_P': 'planck_temperature',
     }
 
     if symbol in _unicode_aliases:
@@ -476,6 +592,9 @@ def __getattr__(name: str):
         'mₙ': 'neutron_mass',
         'σ': 'stefan_boltzmann_constant',
         'R': 'molar_gas_constant',
+        'gₙ': 'standard_gravity',
+        'Eₕ': 'hartree_energy',
+        'a₀': 'bohr_radius',
     }
 
     # ASCII aliases
@@ -487,6 +606,14 @@ def __getattr__(name: str):
         'm_e': 'electron_mass',
         'm_p': 'proton_mass',
         'm_n': 'neutron_mass',
+        'g_n': 'standard_gravity',
+        'g_0': 'standard_gravity',
+        'E_h': 'hartree_energy',
+        'a_0': 'bohr_radius',
+        'm_P': 'planck_mass',
+        'l_P': 'planck_length',
+        't_P': 'planck_time',
+        'T_P': 'planck_temperature',
     }
 
     if name in _unicode_aliases:
@@ -514,6 +641,8 @@ __all__ = [
     'reduced_planck_constant',
     'molar_gas_constant',
     'stefan_boltzmann_constant',
+    # Exact definitional
+    'standard_gravity',
     # Measured constants
     'gravitational_constant',
     'fine_structure_constant',
@@ -522,8 +651,20 @@ __all__ = [
     'neutron_mass',
     'vacuum_permittivity',
     'vacuum_permeability',
+    # Atomic-scale measured
+    'hartree_energy',
+    'rydberg_energy',
+    'bohr_radius',
+    'atomic_unit_of_time',
+    # Planck-scale measured
+    'planck_mass',
+    'planck_length',
+    'planck_time',
+    'planck_temperature',
     # Unicode aliases
     'c', 'h', 'ℏ', 'e', 'k_B', 'N_A', 'G', 'α', 'ε₀', 'μ₀', 'mₑ', 'mₚ', 'mₙ', 'σ', 'R',
+    'gₙ', 'Eₕ', 'a₀',
     # ASCII aliases
     'hbar', 'alpha', 'epsilon_0', 'mu_0', 'm_e', 'm_p', 'm_n',
+    'g_n', 'g_0', 'E_h', 'a_0', 'm_P', 'l_P', 't_P', 'T_P',
 ]

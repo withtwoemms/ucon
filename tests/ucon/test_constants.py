@@ -390,11 +390,11 @@ class TestConstantReverseArithmetic:
 class TestConstantEnumeration:
     """Tests for all_constants() and get_constant_by_symbol()."""
 
-    def test_all_constants_returns_17(self):
-        """all_constants() returns list of 17 constants."""
+    def test_all_constants_returns_26(self):
+        """all_constants() returns list of 26 constants."""
         from ucon.constants import all_constants
         result = all_constants()
-        assert len(result) == 17
+        assert len(result) == 26
         assert all(isinstance(c, Constant) for c in result)
 
     def test_all_constants_categories(self):
