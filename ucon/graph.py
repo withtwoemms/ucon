@@ -1836,6 +1836,17 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
         },
     )
 
+    # Atomic intra-basis edges (factors derived from SI bridge constants)
+    # electron_mass ↔ hartree: mₑc²/Eₕ = 1/α² ≈ 18778.9
+    _c = 299792458  # speed of light (exact)
+    graph.add_edge(src=units.electron_mass, dst=units.hartree, map=LinearMap(_me_kg * _c ** 2 / _Eh_J))
+    # bohr_radius ↔ atomic_time: a₀/τ = αc ≈ 2.188e6 m/s... but both in E⁻¹,
+    # so factor = (1/a₀ in SI) / (1/τ in SI) = τ/a₀  →  a₀ → τ: multiply by a₀/τ...
+    # Actually: 1 bohr_radius = a₀ metres, 1 atomic_time = τ seconds.
+    # Both map to E⁻¹. Converting bohr_radius → atomic_time means:
+    # a₀ m → ? atomic_time. Via SI: a₀ m × (1/τ atomic_time/s) = a₀/τ atomic_time.
+    graph.add_edge(src=units.bohr_radius, dst=units.atomic_time, map=LinearMap(_a0_m / _tau_s))
+
     # Planck units ↔ SI (SI_TO_PLANCK: src=SI unit, dst=Planck unit)
     graph.connect_systems(
         basis_transform=SI_TO_PLANCK,
@@ -1847,6 +1858,11 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
             (units.kelvin, units.planck_temperature): LinearMap(1 / _TP_K),
         },
     )
+
+    # Planck intra-basis edges (c = ℏ = k_B = 1 ⇒ mass ≡ energy, length ≡ time)
+    graph.add_edge(src=units.planck_mass, dst=units.planck_energy, map=LinearMap(1))
+    graph.add_edge(src=units.planck_temperature, dst=units.planck_energy, map=LinearMap(1))
+    graph.add_edge(src=units.planck_length, dst=units.planck_time, map=LinearMap(1))
 
     # Inter-basis isomorphisms
     # Factors are computed from the SI bridge constants above so that
