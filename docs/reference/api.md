@@ -113,7 +113,7 @@ n = Number(quantity=9.8, unit=units.meter / units.second ** 2)
 
 ### Methods
 
-#### `to(target, graph=None)`
+#### `to(target, graph=None, propagate_factor_uncertainty=False)`
 
 Convert to a different unit.
 
@@ -124,6 +124,28 @@ d.to(Scale.kilo * units.meter)  # <1.0 km>
 weight = units.pound(154)
 weight.to(Scale.kilo * units.gram)  # <69.85... kg>
 ```
+
+When `propagate_factor_uncertainty=True`, the uncertainty of the conversion
+factor itself (from measured physical constants like Eₕ, mₚ, a₀) is
+included in the result via GUM quadrature:
+
+```python
+# Exact conversion — no uncertainty even with flag
+units.meter(1).to(units.foot, propagate_factor_uncertainty=True)
+# <3.28084 ft>  (meter→foot is exact by definition)
+
+# Measured conversion — factor uncertainty propagated
+units.joule(1).to(units.hartree, propagate_factor_uncertainty=True)
+# <2.2937e17 ± ~2.5e5 Eh>  (reflects Hartree energy uncertainty)
+
+# Combined with measurement uncertainty
+n = Number(quantity=1.0, unit=units.joule, uncertainty=1e-10)
+n.to(units.hartree, propagate_factor_uncertainty=True)
+# Both measurement and factor uncertainties combined in quadrature
+```
+
+The default `False` preserves backward compatibility — only measurement
+uncertainty (from `Number.uncertainty`) is propagated through `Map.derivative()`.
 
 #### `simplify()`
 
@@ -628,14 +650,41 @@ from ucon.maps import Map, LinearMap, AffineMap, LogMap, ExpMap, ReciprocalMap, 
 
 | Class | Formula | Use Case |
 |-------|---------|----------|
-| `LinearMap(a)` | y = a * x | Most unit conversions (m -> ft, kg -> lb) |
-| `AffineMap(a, b)` | y = a * x + b | Temperature conversions (C -> F) |
-| `ReciprocalMap(a)` | y = a / x | Inversely proportional (wavelength -> frequency) |
+| `LinearMap(a, rel_uncertainty=0.0)` | y = a * x | Most unit conversions (m -> ft, kg -> lb) |
+| `AffineMap(a, b, rel_uncertainty=0.0)` | y = a * x + b | Temperature conversions (C -> F) |
+| `ReciprocalMap(a, rel_uncertainty=0.0)` | y = a / x | Inversely proportional (wavelength -> frequency) |
 | `LogMap(scale, base, reference)` | y = scale * log(x/ref) + offset | Decibels, pH |
 | `ExpMap(scale, base, reference)` | y = ref * base^(scale*x + offset) | Inverse of LogMap |
 | `ComposedMap(outer, inner)` | y = outer(inner(x)) | Heterogeneous composition fallback |
 
 All maps are `@dataclass(frozen=True)` --- immutable and hashable.
+
+### Factor Uncertainty
+
+Maps carry an optional `rel_uncertainty` field (relative uncertainty of the
+conversion factor). This is `0.0` for exact conversions and nonzero for
+edges derived from measured physical constants (e.g., Hartree energy,
+Planck mass).
+
+```python
+# Exact conversion factor
+m_to_ft = LinearMap(3.28084)
+m_to_ft.rel_uncertainty  # 0.0
+
+# Factor from a measured constant
+j_to_hartree = LinearMap(2.2937e17, rel_uncertainty=1.1e-12)
+j_to_hartree.rel_uncertainty  # 1.1e-12
+```
+
+Uncertainty composes through the standard operations:
+
+- **Composition** (`f @ g`): `sqrt(f.rel_uncertainty**2 + g.rel_uncertainty**2)`
+- **Inverse**: preserved (inversion doesn't change relative uncertainty)
+- **Power** (`f ** n`): `abs(n) * f.rel_uncertainty`
+
+`ComposedMap` computes `rel_uncertainty` as a property from its inner and
+outer maps. `LogMap` and `ExpMap` inherit the default `0.0` from the ABC
+(they represent definitional transforms, not measured factors).
 
 ### Creating Maps
 
@@ -804,6 +853,16 @@ factor = 1.8
 offset = 32
 ```
 
+Edges derived from measured constants can carry a relative uncertainty:
+
+```toml
+[[edges]]
+src = "joule"
+dst = "hartree"
+factor = 2.2937e17
+rel_uncertainty = 1.1e-12
+```
+
 For non-linear conversions, use the explicit `map` inline table with a
 `type` key. Supported types: `linear`, `affine`, `log`, `reciprocal`.
 
@@ -865,10 +924,11 @@ for unit_def in package.units:
 
 # EdgeDef holds the conversion specification
 for edge_def in package.edges:
-    print(edge_def.src)     # "slug"
-    print(edge_def.dst)     # "kilogram"
-    print(edge_def.factor)  # 14.5939
-    print(edge_def.offset)  # 0.0 (non-zero for affine)
+    print(edge_def.src)               # "slug"
+    print(edge_def.dst)               # "kilogram"
+    print(edge_def.factor)            # 14.5939
+    print(edge_def.offset)            # 0.0 (non-zero for affine)
+    print(edge_def.rel_uncertainty)   # 0.0 (nonzero for measured factors)
 
 # ConstantDef holds the constant specification
 for const_def in package.constants:

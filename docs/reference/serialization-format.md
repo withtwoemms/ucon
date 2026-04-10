@@ -2,7 +2,7 @@
 
 TOML schema for persisting a `ConversionGraph` to disk.
 
-Format version: **1.2**
+Format version: **1.3**
 
 ---
 
@@ -49,7 +49,7 @@ File metadata.
 ```toml
 [package]
 name = "my-graph"
-format_version = "1.2"
+format_version = "1.3"
 loaded_packages = ["si", "cgs"]   # optional
 ```
 
@@ -270,6 +270,22 @@ offset = 32.0
 
 `dst_value = src_value * factor + offset`
 
+### Edge with factor uncertainty
+
+For factors derived from measured constants, `rel_uncertainty` records the
+relative standard uncertainty:
+
+```toml
+[[edges]]
+src = "joule"
+dst = "hartree"
+factor = 2.2937122783963248e+17
+rel_uncertainty = 1.1e-12
+```
+
+This is used by `Number.to(target, propagate_factor_uncertainty=True)` to
+include factor uncertainty in the converted result.
+
 ### Map edge (non-linear)
 
 For conversions that aren't linear or affine, a `map` table replaces
@@ -288,9 +304,14 @@ map = { type = "exp", scale = 1.0, base = 10 }
 | `dst` | string | yes | Destination unit name |
 | `factor` | float | no | Linear scale factor (shorthand for `LinearMap`) |
 | `offset` | float | no | Additive offset (with `factor`, shorthand for `AffineMap`) |
+| `rel_uncertainty` | float | no | Relative uncertainty of `factor` (default `0.0`, omitted when exact) |
 | `map` | table | no | Explicit map specification (see [Map Types](#map-types)) |
 
 Exactly one of `factor` or `map` should be present.
+
+`rel_uncertainty` is used for edges derived from measured physical constants
+(e.g., Hartree energy, Planck mass). It is omitted on export when `0.0` for
+backward compatibility with format version 1.2 readers.
 
 ---
 
@@ -342,6 +363,13 @@ src = "joule"
 dst = "electron_volt"
 factor = 6.241509074460763e+18
 transform = "SI_TO_natural"
+
+[[cross_basis_edges]]
+src = "joule"
+dst = "hartree"
+factor = 2.2937122783963248e+17
+rel_uncertainty = 1.1e-12
+transform = "SI_TO_atomic"
 ```
 
 | Key | Type | Required | Description |
@@ -349,6 +377,7 @@ transform = "SI_TO_natural"
 | `src` | string | yes | Source unit name (in source basis) |
 | `dst` | string | yes | Destination unit name (in target basis) |
 | `factor` | float | no | Linear scale factor |
+| `rel_uncertainty` | float | no | Relative uncertainty of `factor` (default `0.0`) |
 | `map` | table | no | Explicit map specification |
 | `transform` | string | yes | Transform name (must exist in `[transforms.*]`) |
 
@@ -427,7 +456,10 @@ support lossless round-trip serialization.
 
 ```toml
 map = { type = "linear", a = 0.3048 }
+map = { type = "linear", a = 2.2937e17, rel_uncertainty = 1.1e-12 }
 ```
+
+`rel_uncertainty` is omitted when `0.0` (exact).
 
 !!! note
     Linear maps are normally written with the `factor` shorthand
@@ -439,7 +471,10 @@ map = { type = "linear", a = 0.3048 }
 
 ```toml
 map = { type = "affine", a = 1.8, b = 32.0 }
+map = { type = "affine", a = 1.8, b = 32.0, rel_uncertainty = 1e-6 }
 ```
+
+`rel_uncertainty` refers to the slope `a` only (offsets are exact).
 
 !!! note
     Affine maps are normally written with `factor` + `offset` shorthand.
@@ -450,7 +485,10 @@ map = { type = "affine", a = 1.8, b = 32.0 }
 
 ```toml
 map = { type = "reciprocal", a = 299792458.0 }
+map = { type = "reciprocal", a = 1.5e-10, rel_uncertainty = 3e-5 }
 ```
+
+`rel_uncertainty` is omitted when `0.0` (exact).
 
 ### `log`
 
@@ -520,7 +558,7 @@ A small self-contained graph with two units and one edge:
 ```toml
 [package]
 name = "minimal"
-format_version = "1.2"
+format_version = "1.3"
 
 [bases.SI]
 components = [

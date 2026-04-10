@@ -184,6 +184,32 @@ def test_slug_conversion():
         assert abs(mass_slug.quantity - 1.0) < 0.001
 ```
 
+## Edges with Factor Uncertainty
+
+When a conversion factor comes from a measured physical constant, you can
+record its relative uncertainty on the edge:
+
+```python
+from ucon.maps import LinearMap
+
+# Factor from a measured constant (e.g., Hartree energy)
+graph.add_edge(
+    src=my_unit,
+    dst=units.joule,
+    map=LinearMap(4.3597447222e-18, rel_uncertainty=1.1e-12),
+)
+```
+
+Users can then opt in to factor uncertainty propagation:
+
+```python
+result = my_unit(1).to(units.joule, propagate_factor_uncertainty=True)
+result.uncertainty  # reflects factor uncertainty
+```
+
+Exact factors (the default) have `rel_uncertainty=0.0` and produce no
+uncertainty even when the flag is enabled.
+
 ## Design Considerations
 
 **Dimension must be correct:** The unit's dimension determines what it can convert to. A unit with `Dimension.mass` can convert to other mass units, not length units.
@@ -324,6 +350,13 @@ factor = 14.5939
 src = "knot"
 dst = "meter/second"
 factor = 0.514444
+
+# Edges from measured constants can include relative uncertainty
+# [[edges]]
+# src = "hartree"
+# dst = "joule"
+# factor = 4.3597447222e-18
+# rel_uncertainty = 1.1e-12
 ```
 
 Load and apply:
