@@ -414,6 +414,18 @@ def to_toml(graph, path: Union[str, Path]) -> None:
         if dim.name and dim.name not in dimensions:
             dimensions[dim.name] = dim
 
+    # Also collect dimensions from registered units (covers derived dimensions
+    # like area, velocity, etc. that may not have their own edge partitions).
+    # Required for self-contained TOML files that don't rely on a runtime
+    # dimension registry.
+    for unit in graph._name_registry_cs.values():
+        if hasattr(unit, 'dimension') and unit.dimension is not None:
+            dim = unit.dimension
+            if hasattr(dim, 'vector') and dim.vector.basis.name not in bases:
+                bases[dim.vector.basis.name] = dim.vector.basis
+            if dim.name and dim.name not in dimensions:
+                dimensions[dim.name] = dim
+
     # Also collect bases from transforms (ensures bases like CGS_EMU that
     # are only referenced by transforms are included in the serialized output)
     _transforms_for_bases = _collect_transforms(graph)
