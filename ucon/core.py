@@ -1833,7 +1833,7 @@ class Number:
             uncertainty=new_uncertainty,
         )
 
-    def to(self, target, graph=None):
+    def to(self, target, graph=None, propagate_factor_uncertainty=False):
         """Convert this Number to a different unit expression.
 
         Parameters
@@ -1845,6 +1845,11 @@ class Number:
             and composite expressions (``"m/s²"``).
         graph : ConversionGraph, optional
             The conversion graph to use. If not provided, uses the default graph.
+        propagate_factor_uncertainty : bool, optional
+            When ``True``, include the relative uncertainty of the conversion
+            factor (from measured physical constants) in the result uncertainty
+            via GUM quadrature.  Default ``False`` preserves backward
+            compatibility — only measurement uncertainty is propagated.
 
         Returns
         -------
@@ -1893,8 +1898,16 @@ class Number:
             conversion_map = graph.convert(src=src_unit, dst=dst_unit)
             converted = conversion_map(self.quantity)
             new_unc = None
-            if self.uncertainty is not None:
-                new_unc = abs(conversion_map.derivative(self.quantity)) * self.uncertainty
+            if self.uncertainty is not None or (
+                propagate_factor_uncertainty and conversion_map.rel_uncertainty > 0
+            ):
+                dy_meas = abs(conversion_map.derivative(self.quantity)) * self.uncertainty \
+                          if self.uncertainty is not None else 0.0
+                dy_factor = abs(converted) * conversion_map.rel_uncertainty \
+                            if propagate_factor_uncertainty else 0.0
+                new_unc = math.sqrt(dy_meas**2 + dy_factor**2)
+                if new_unc == 0.0:
+                    new_unc = None
             return Number(quantity=converted, unit=target, uncertainty=new_unc)
 
         # --- General path: wrap into UnitProducts ---
@@ -1943,12 +1956,19 @@ class Number:
 
         # Propagate uncertainty through conversion using derivative
         new_uncertainty = None
-        if self.uncertainty is not None:
+        if self.uncertainty is not None or (
+            propagate_factor_uncertainty and conversion_map.rel_uncertainty > 0
+        ):
             derivative = abs(conversion_map.derivative(self.quantity))
             # Also apply residual scale to uncertainty
             if src_residual != 1.0 or dst_residual != 1.0:
                 derivative *= abs(src_residual / dst_residual)
-            new_uncertainty = derivative * self.uncertainty
+            dy_meas = derivative * self.uncertainty if self.uncertainty is not None else 0.0
+            dy_factor = abs(converted_quantity) * conversion_map.rel_uncertainty \
+                        if propagate_factor_uncertainty else 0.0
+            new_uncertainty = math.sqrt(dy_meas**2 + dy_factor**2)
+            if new_uncertainty == 0.0:
+                new_uncertainty = None
 
         return Number(quantity=converted_quantity, unit=target, uncertainty=new_uncertainty)
 

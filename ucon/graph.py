@@ -1379,6 +1379,12 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     from ucon.constants import get_constant_by_symbol
 
     # ---- Physical constants (sourced once from ucon.constants, CODATA 2022) ----
+    def _rel_unc(constant):
+        """Compute relative uncertainty from a Constant object."""
+        if constant.uncertainty is None or constant.value == 0:
+            return 0.0
+        return constant.uncertainty / abs(constant.value)
+
     _g_n = get_constant_by_symbol("gₙ").value       # standard gravity in m/s² (exact)
 
     # Register all standard units for graph-local name resolution
@@ -1810,17 +1816,37 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     )
 
     # ---- Physical constants (all sourced from ucon.constants, CODATA 2022) ----
-    _eV_J = get_constant_by_symbol("e").value       # elementary charge = eV in joules (exact)
-    _me_kg = get_constant_by_symbol("mₑ").value     # electron mass in kg
-    _Eh_J = get_constant_by_symbol("Eₕ").value      # Hartree energy in joules
-    _Ry_J = get_constant_by_symbol("Ry").value       # Rydberg energy in joules (= 0.5 Eh)
-    _a0_m = get_constant_by_symbol("a₀").value       # Bohr radius in metres
-    _tau_s = get_constant_by_symbol("ℏ/Eₕ").value    # atomic unit of time in seconds
-    _mP_kg = get_constant_by_symbol("mP").value      # Planck mass in kg
-    _EP_J = _mP_kg * _c ** 2                         # Planck energy in joules (= m_P c²)
-    _lP_m = get_constant_by_symbol("lP").value       # Planck length in metres
-    _tP_s = get_constant_by_symbol("tP").value       # Planck time in seconds
-    _TP_K = get_constant_by_symbol("TP").value       # Planck temperature in kelvin
+    _eV_const = get_constant_by_symbol("e")          # elementary charge (exact)
+    _eV_J = _eV_const.value
+    _me_const = get_constant_by_symbol("mₑ")         # electron mass (measured)
+    _me_kg = _me_const.value
+    _me_rel = _rel_unc(_me_const)
+    _Eh_const = get_constant_by_symbol("Eₕ")         # Hartree energy (measured)
+    _Eh_J = _Eh_const.value
+    _Eh_rel = _rel_unc(_Eh_const)
+    _Ry_const = get_constant_by_symbol("Ry")          # Rydberg energy (measured)
+    _Ry_J = _Ry_const.value
+    _Ry_rel = _rel_unc(_Ry_const)
+    _a0_const = get_constant_by_symbol("a₀")          # Bohr radius (measured)
+    _a0_m = _a0_const.value
+    _a0_rel = _rel_unc(_a0_const)
+    _tau_const = get_constant_by_symbol("ℏ/Eₕ")       # atomic unit of time (measured)
+    _tau_s = _tau_const.value
+    _tau_rel = _rel_unc(_tau_const)
+    _mP_const = get_constant_by_symbol("mP")           # Planck mass (measured)
+    _mP_kg = _mP_const.value
+    _mP_rel = _rel_unc(_mP_const)
+    _EP_J = _mP_kg * _c ** 2                          # Planck energy in joules (= m_P c²)
+    _EP_rel = _mP_rel                                  # c is exact, so rel_unc = mP_rel
+    _lP_const = get_constant_by_symbol("lP")           # Planck length (measured)
+    _lP_m = _lP_const.value
+    _lP_rel = _rel_unc(_lP_const)
+    _tP_const = get_constant_by_symbol("tP")           # Planck time (measured)
+    _tP_s = _tP_const.value
+    _tP_rel = _rel_unc(_tP_const)
+    _TP_const = get_constant_by_symbol("TP")           # Planck temperature (measured)
+    _TP_K = _TP_const.value
+    _TP_rel = _rel_unc(_TP_const)
 
     # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
     graph.connect_systems(
@@ -1834,29 +1860,32 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     graph.connect_systems(
         basis_transform=SI_TO_ATOMIC,
         edges={
-            (units.joule, units.hartree): LinearMap(1 / _Eh_J),
-            (units.joule, units.rydberg): LinearMap(1 / _Ry_J),
-            (units.meter, units.bohr_radius): LinearMap(1 / _a0_m),
-            (units.second, units.atomic_time): LinearMap(1 / _tau_s),
-            (units.kilogram, units.electron_mass): LinearMap(1 / _me_kg),
+            (units.joule, units.hartree): LinearMap(1 / _Eh_J, rel_uncertainty=_Eh_rel),
+            (units.joule, units.rydberg): LinearMap(1 / _Ry_J, rel_uncertainty=_Ry_rel),
+            (units.meter, units.bohr_radius): LinearMap(1 / _a0_m, rel_uncertainty=_a0_rel),
+            (units.second, units.atomic_time): LinearMap(1 / _tau_s, rel_uncertainty=_tau_rel),
+            (units.kilogram, units.electron_mass): LinearMap(1 / _me_kg, rel_uncertainty=_me_rel),
         },
     )
 
     # Atomic intra-basis edges (factors derived from SI bridge constants)
     # electron_mass ↔ hartree: mₑc²/Eₕ = 1/α² ≈ 18778.9
-    graph.add_edge(src=units.electron_mass, dst=units.hartree, map=LinearMap(_me_kg * _c ** 2 / _Eh_J))
+    # rel_unc: sqrt(me_rel² + Eh_rel²) since c is exact
+    _me_Eh_rel = math.sqrt(_me_rel**2 + _Eh_rel**2)
+    graph.add_edge(src=units.electron_mass, dst=units.hartree, map=LinearMap(_me_kg * _c ** 2 / _Eh_J, rel_uncertainty=_me_Eh_rel))
     # bohr_radius ↔ atomic_time: a₀/τ = αc ≈ 2.188e6
-    graph.add_edge(src=units.bohr_radius, dst=units.atomic_time, map=LinearMap(_a0_m / _tau_s))
+    _a0_tau_rel = math.sqrt(_a0_rel**2 + _tau_rel**2)
+    graph.add_edge(src=units.bohr_radius, dst=units.atomic_time, map=LinearMap(_a0_m / _tau_s, rel_uncertainty=_a0_tau_rel))
 
     # Planck units ↔ SI (SI_TO_PLANCK: src=SI unit, dst=Planck unit)
     graph.connect_systems(
         basis_transform=SI_TO_PLANCK,
         edges={
-            (units.joule, units.planck_energy): LinearMap(1 / _EP_J),
-            (units.kilogram, units.planck_mass): LinearMap(1 / _mP_kg),
-            (units.meter, units.planck_length): LinearMap(1 / _lP_m),
-            (units.second, units.planck_time): LinearMap(1 / _tP_s),
-            (units.kelvin, units.planck_temperature): LinearMap(1 / _TP_K),
+            (units.joule, units.planck_energy): LinearMap(1 / _EP_J, rel_uncertainty=_EP_rel),
+            (units.kilogram, units.planck_mass): LinearMap(1 / _mP_kg, rel_uncertainty=_mP_rel),
+            (units.meter, units.planck_length): LinearMap(1 / _lP_m, rel_uncertainty=_lP_rel),
+            (units.second, units.planck_time): LinearMap(1 / _tP_s, rel_uncertainty=_tP_rel),
+            (units.kelvin, units.planck_temperature): LinearMap(1 / _TP_K, rel_uncertainty=_TP_rel),
         },
     )
 
@@ -1871,26 +1900,30 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     # independent of the absolute precision of any single constant.
 
     # Natural ↔ Planck (mediated by G)
+    # eV is exact, EP has _EP_rel
     graph.connect_systems(
         basis_transform=NATURAL_TO_PLANCK,
         edges={
-            (units.electron_volt, units.planck_energy): LinearMap(_eV_J / _EP_J),
+            (units.electron_volt, units.planck_energy): LinearMap(_eV_J / _EP_J, rel_uncertainty=_EP_rel),
         },
     )
 
     # Natural ↔ Atomic (mediated by e, mₑ, 4πε₀)
+    # eV is exact, Eh has _Eh_rel
     graph.connect_systems(
         basis_transform=NATURAL_TO_ATOMIC,
         edges={
-            (units.electron_volt, units.hartree): LinearMap(_eV_J / _Eh_J),
+            (units.electron_volt, units.hartree): LinearMap(_eV_J / _Eh_J, rel_uncertainty=_Eh_rel),
         },
     )
 
     # Planck ↔ Atomic (mediated by G, e, mₑ, 4πε₀)
+    # Both EP and Eh have uncertainties: sqrt(EP_rel² + Eh_rel²)
+    _EP_Eh_rel = math.sqrt(_EP_rel**2 + _Eh_rel**2)
     graph.connect_systems(
         basis_transform=PLANCK_TO_ATOMIC,
         edges={
-            (units.planck_energy, units.hartree): LinearMap(_EP_J / _Eh_J),
+            (units.planck_energy, units.hartree): LinearMap(_EP_J / _Eh_J, rel_uncertainty=_EP_Eh_rel),
         },
     )
 

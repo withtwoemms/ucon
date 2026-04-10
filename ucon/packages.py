@@ -299,6 +299,9 @@ class EdgeDef:
     offset : float
         Additive offset for affine conversions (default 0.0).
         Ignored when ``map_spec`` is provided.
+    rel_uncertainty : float
+        Relative uncertainty of the conversion factor. Default 0.0 (exact).
+        Ignored when ``map_spec`` is provided.
     map_spec : dict | None
         Explicit map specification. When provided, must contain a
         ``type`` key (``"linear"``, ``"affine"``, ``"log"``,
@@ -308,6 +311,7 @@ class EdgeDef:
     dst: str
     factor: float = 1.0
     offset: float = 0.0
+    rel_uncertainty: float = 0.0
     map_spec: dict | None = None
 
     def _build_edge_map(self) -> Map:
@@ -322,8 +326,8 @@ class EdgeDef:
             return _build_map(self.map_spec)
 
         if self.offset != 0.0:
-            return AffineMap(self.factor, self.offset)
-        return LinearMap(self.factor)
+            return AffineMap(self.factor, self.offset, rel_uncertainty=self.rel_uncertainty)
+        return LinearMap(self.factor, rel_uncertainty=self.rel_uncertainty)
 
     def materialize(self, graph: 'ConversionGraph'):
         """Resolve units and add edge to graph.
@@ -532,6 +536,7 @@ def load_package(path: str | Path) -> UnitPackage:
             dst=e["dst"],
             factor=_parse_factor(e["factor"]),
             offset=_parse_factor(e.get("offset", 0.0)),
+            rel_uncertainty=float(e.get("rel_uncertainty", 0.0)),
         )
 
     edges = tuple(_parse_edge(e) for e in data.get("edges", []))

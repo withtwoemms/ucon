@@ -255,9 +255,13 @@ def _edge_dict(src: str, dst: str, m: Map) -> dict:
     d: dict = {"src": src, "dst": dst}
     if isinstance(m, LinearMap):
         d["factor"] = m.a
+        if m.rel_uncertainty > 0:
+            d["rel_uncertainty"] = m.rel_uncertainty
     elif isinstance(m, AffineMap):
         d["factor"] = m.a
         d["offset"] = m.b
+        if m.rel_uncertainty > 0:
+            d["rel_uncertainty"] = m.rel_uncertainty
     else:
         d["map"] = _serialize_map(m)
     return d
@@ -964,10 +968,11 @@ def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:
         return build_map_fn(edge_spec["map"])
     from ucon.packages import _parse_factor
     factor = _parse_factor(edge_spec.get("factor", 1.0))
+    rel_unc = edge_spec.get("rel_uncertainty", 0.0)
     offset = edge_spec.get("offset")
     if offset is not None:
-        return AffineMap(a=factor, b=_parse_factor(offset))
-    return LinearMap(a=factor)
+        return AffineMap(a=factor, b=_parse_factor(offset), rel_uncertainty=rel_unc)
+    return LinearMap(a=factor, rel_uncertainty=rel_unc)
 
 
 def _resolve_single_factor(
