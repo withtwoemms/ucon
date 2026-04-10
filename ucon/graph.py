@@ -1378,6 +1378,9 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     from ucon import units
     from ucon.constants import get_constant_by_symbol
 
+    # ---- Physical constants (sourced once from ucon.constants, CODATA 2022) ----
+    _g_n = get_constant_by_symbol("gₙ").value       # standard gravity in m/s² (exact)
+
     # Register all standard units for graph-local name resolution
     for name in dir(units):
         obj = getattr(units, name)
@@ -1491,30 +1494,30 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     graph.add_edge(src=units.centimeter_mercury, dst=units.pascal, map=LinearMap(1333.22))
     # 1 ksi = 1000 psi = 6.894757e6 Pa
     graph.add_edge(src=units.ksi, dst=units.psi, map=LinearMap(1000))
-    # 1 technical atmosphere (at) = 98066.5 Pa (exact, 1 kgf/cm²)
-    graph.add_edge(src=units.technical_atmosphere, dst=units.pascal, map=LinearMap(98066.5))
-    # 1 mmH₂O = 9.80665 Pa (conventional, at 4°C)
-    graph.add_edge(src=units.millimeter_water, dst=units.pascal, map=LinearMap(9.80665))
-    # 1 inH₂O = 249.08891 Pa (conventional, at 4°C, 25.4 mm × 9.80665)
-    graph.add_edge(src=units.inch_water, dst=units.pascal, map=LinearMap(249.08891))
+    # 1 technical atmosphere (at) = g_n × 1e4 Pa (exact, 1 kgf/cm²)
+    graph.add_edge(src=units.technical_atmosphere, dst=units.pascal, map=LinearMap(_g_n * 1e4))
+    # 1 mmH₂O = g_n Pa (conventional, at 4°C)
+    graph.add_edge(src=units.millimeter_water, dst=units.pascal, map=LinearMap(_g_n))
+    # 1 inH₂O = 25.4 × g_n Pa (conventional, at 4°C)
+    graph.add_edge(src=units.inch_water, dst=units.pascal, map=LinearMap(25.4 * _g_n))
 
     # --- Force ---
     # 1 lbf = 4.4482216152605 N (exact, from lb_m × g_n)
     graph.add_edge(src=units.pound_force, dst=units.newton, map=LinearMap(4.4482216152605))
-    # 1 kgf = 9.80665 N (exact, by definition)
-    graph.add_edge(src=units.kilogram_force, dst=units.newton, map=LinearMap(9.80665))
+    # 1 kgf = g_n N (exact, by definition)
+    graph.add_edge(src=units.kilogram_force, dst=units.newton, map=LinearMap(_g_n))
     # 1 kip = 1000 lbf (kilo-pound force)
     graph.add_edge(src=units.kip, dst=units.pound_force, map=LinearMap(1000))
     # 1 poundal = 0.138255 N (ft·lb/s², British absolute unit of force)
     graph.add_edge(src=units.poundal, dst=units.newton, map=LinearMap(0.138255))
-    # 1 gram-force = 9.80665e-3 N (exact, by definition of standard gravity)
-    graph.add_edge(src=units.gram_force, dst=units.newton, map=LinearMap(9.80665e-3))
+    # 1 gram-force = g_n × 10⁻³ N (exact, by definition of standard gravity)
+    graph.add_edge(src=units.gram_force, dst=units.newton, map=LinearMap(_g_n * 1e-3))
     # 1 ounce-force = 0.27801385095378125 N (exact, 1/16 lbf)
     graph.add_edge(src=units.ounce_force, dst=units.newton, map=LinearMap(0.27801385095378125))
     # 1 short ton-force = 8896.443230521 N (exact, 2000 lbf)
     graph.add_edge(src=units.ton_force, dst=units.newton, map=LinearMap(8896.443230521))
-    # 1 metric ton-force = 9806.65 N (exact, 1000 kgf)
-    graph.add_edge(src=units.metric_ton_force, dst=units.newton, map=LinearMap(9806.65))
+    # 1 metric ton-force = g_n × 1000 N (exact, 1000 kgf)
+    graph.add_edge(src=units.metric_ton_force, dst=units.newton, map=LinearMap(_g_n * 1e3))
 
     # --- Dynamic Viscosity ---
     # SI equivalence: pascal_second ↔ Pa·s (identity)
@@ -1679,8 +1682,8 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
     # --- Acceleration ---
     # SI bridge: meter_per_second_squared ↔ m/s² (identity)
     graph.add_edge(src=units.meter_per_second_squared, dst=units.meter / units.second ** 2, map=LinearMap(1))
-    # 1 standard gravity (g₀) = 9.80665 m/s² (exact, by definition)
-    graph.add_edge(src=units.standard_gravity, dst=units.meter_per_second_squared, map=LinearMap(9.80665))
+    # 1 standard gravity (g₀) = g_n m/s² (exact, by definition)
+    graph.add_edge(src=units.standard_gravity, dst=units.meter_per_second_squared, map=LinearMap(_g_n))
 
     # --- Wavenumber ---
     # SI bridge: reciprocal_meter ↔ m⁻¹ (identity)
@@ -1806,20 +1809,18 @@ def _build_standard_edges(graph: ConversionGraph) -> None:
         },
     )
 
-    # ---- Physical constants (sourced from ucon.constants, derived factors below) ----
+    # ---- Physical constants (all sourced from ucon.constants, CODATA 2022) ----
     _eV_J = get_constant_by_symbol("e").value       # elementary charge = eV in joules (exact)
     _me_kg = get_constant_by_symbol("mₑ").value     # electron mass in kg
-    _kB = get_constant_by_symbol("k_B").value       # Boltzmann constant in J/K (exact)
-    # CODATA 2018 recommended values (not yet in ucon.constants as named constants)
-    _Eh_J = 4.3597447222071e-18         # hartree energy in joules
-    _Ry_J = 2.1798723611035e-18         # rydberg energy in joules (= 0.5 Eh)
-    _a0_m = 5.29177210903e-11           # Bohr radius in metres
-    _tau_s = 2.4188843265857e-17        # atomic time unit in seconds (ℏ/Eh)
-    _EP_J = 1.9560813e9                 # Planck energy in joules (m_P c², CODATA 2018)
-    _mP_kg = 2.176434e-8               # Planck mass in kilograms
-    _lP_m = 1.616255e-35               # Planck length in metres
-    _tP_s = 5.391247e-44               # Planck time in seconds
-    _TP_K = 1.416784e32                # Planck temperature in kelvin
+    _Eh_J = get_constant_by_symbol("Eₕ").value      # Hartree energy in joules
+    _Ry_J = get_constant_by_symbol("Ry").value       # Rydberg energy in joules (= 0.5 Eh)
+    _a0_m = get_constant_by_symbol("a₀").value       # Bohr radius in metres
+    _tau_s = get_constant_by_symbol("ℏ/Eₕ").value    # atomic unit of time in seconds
+    _mP_kg = get_constant_by_symbol("mP").value      # Planck mass in kg
+    _EP_J = _mP_kg * _c ** 2                         # Planck energy in joules (= m_P c²)
+    _lP_m = get_constant_by_symbol("lP").value       # Planck length in metres
+    _tP_s = get_constant_by_symbol("tP").value       # Planck time in seconds
+    _TP_K = get_constant_by_symbol("TP").value       # Planck temperature in kelvin
 
     # Natural units ↔ SI (SI_TO_NATURAL: src=SI unit, dst=natural unit)
     graph.connect_systems(
