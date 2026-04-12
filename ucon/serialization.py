@@ -831,6 +831,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     # 8. Build constant lookup table (symbol → ExprResult) for expression
     #    factors in edges.
     from ucon.expressions import ExprResult
+    import unicodedata
     constant_table: dict[str, ExprResult] = {}
     for const in constants:
         rel_unc = (
@@ -840,6 +841,12 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
         )
         er = ExprResult(const.value, rel_unc)
         constant_table[const.symbol] = er
+        # Python's ast.parse() applies NFKC normalization to identifiers
+        # (PEP 3131), so "gₙ" becomes "gn" in ast.Name.id.  Register
+        # the NFKC form so expression evaluation can resolve it.
+        nfkc = unicodedata.normalize("NFKC", const.symbol)
+        if nfkc != const.symbol:
+            constant_table[nfkc] = er
         # Also register aliases (e.g., "Eh" for "Eₕ")
         for alias in const.aliases:
             constant_table[alias] = er

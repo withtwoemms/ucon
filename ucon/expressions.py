@@ -39,6 +39,29 @@ class ExprResult:
     rel_uncertainty: float = 0.0
 
 
+def _normalize_symbols(
+    expr: str, constants: dict[str, ExprResult]
+) -> tuple[str, dict[str, ExprResult]]:
+    """Replace Unicode constant symbols that aren't valid Python identifiers.
+
+    Python's ``ast.parse`` applies NFKC normalization (PEP 3131), which
+    can mangle subscripted symbols (e.g. ``a₀`` → ``a0``, invalid because
+    it starts with a letter then a digit from NFKC of ``₀``).  We replace
+    such symbols in *expr* with safe placeholders and update the lookup
+    table accordingly.
+    """
+    new_constants = dict(constants)
+    for sym in constants:
+        if not sym.isidentifier():
+            # Build a safe ASCII placeholder: _sym_<index>
+            safe = f"_sym_{id(constants[sym])}"
+            # Only replace if the symbol actually appears in the expression
+            if sym in expr:
+                expr = expr.replace(sym, safe)
+                new_constants[safe] = constants[sym]
+    return expr, new_constants
+
+
 def evaluate(expr: str, constants: dict[str, ExprResult]) -> ExprResult:
     """Evaluate a safe arithmetic expression with constant references.
 
@@ -60,6 +83,7 @@ def evaluate(expr: str, constants: dict[str, ExprResult]) -> ExprResult:
     ValueError
         On unknown symbols, unsupported syntax, or parse errors.
     """
+    expr, constants = _normalize_symbols(expr, constants)
     try:
         tree = ast.parse(expr, mode='eval')
     except SyntaxError as e:
