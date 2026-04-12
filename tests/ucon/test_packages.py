@@ -734,10 +734,12 @@ category = "exact"
                 ),
             ),
         )
-        graph = get_default_graph().with_package(pkg)
-        self.assertEqual(len(graph.package_constants), 1)
-        self.assertIsInstance(graph.package_constants[0], Constant)
-        self.assertEqual(graph.package_constants[0].symbol, 'vs')
+        base_graph = get_default_graph()
+        base_count = len(base_graph.package_constants)
+        graph = base_graph.with_package(pkg)
+        self.assertEqual(len(graph.package_constants), base_count + 1)
+        self.assertIsInstance(graph.package_constants[-1], Constant)
+        self.assertEqual(graph.package_constants[-1].symbol, 'vs')
 
     def test_package_constants_accumulate(self):
         """Multiple with_package() calls accumulate constants."""
@@ -754,9 +756,12 @@ category = "exact"
                 ConstantDef(symbol='b', name='const b', value=2.0, unit='kg'),
             ),
         )
-        graph = get_default_graph().with_package(pkg1).with_package(pkg2)
-        self.assertEqual(len(graph.package_constants), 2)
-        symbols = [c.symbol for c in graph.package_constants]
+        base_graph = get_default_graph()
+        base_count = len(base_graph.package_constants)
+        graph = base_graph.with_package(pkg1).with_package(pkg2)
+        self.assertEqual(len(graph.package_constants), base_count + 2)
+        # Package constants are appended after base constants
+        symbols = [c.symbol for c in graph.package_constants[-2:]]
         self.assertEqual(symbols, ['a', 'b'])
 
 

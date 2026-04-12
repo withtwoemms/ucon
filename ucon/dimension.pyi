@@ -30,18 +30,51 @@ class Dimension:
     angle: ClassVar[Dimension]
     angular_momentum: ClassVar[Dimension]
     area: ClassVar[Dimension]
+    atomic_energy: ClassVar[Dimension]
+    atomic_length: ClassVar[Dimension]
     capacitance: ClassVar[Dimension]
     catalytic_activity: ClassVar[Dimension]
+    cgs_acceleration: ClassVar[Dimension]
+    cgs_dynamic_viscosity: ClassVar[Dimension]
+    cgs_emu_capacitance: ClassVar[Dimension]
+    cgs_emu_charge: ClassVar[Dimension]
+    cgs_emu_current: ClassVar[Dimension]
+    cgs_emu_inductance: ClassVar[Dimension]
+    cgs_emu_resistance: ClassVar[Dimension]
+    cgs_emu_voltage: ClassVar[Dimension]
+    cgs_energy: ClassVar[Dimension]
+    cgs_esu_capacitance: ClassVar[Dimension]
+    cgs_esu_charge: ClassVar[Dimension]
+    cgs_esu_current: ClassVar[Dimension]
+    cgs_esu_electric_dipole_moment: ClassVar[Dimension]
+    cgs_esu_magnetic_field_strength: ClassVar[Dimension]
+    cgs_esu_magnetic_flux: ClassVar[Dimension]
+    cgs_esu_magnetic_flux_density: ClassVar[Dimension]
+    cgs_esu_resistance: ClassVar[Dimension]
+    cgs_esu_voltage: ClassVar[Dimension]
+    cgs_force: ClassVar[Dimension]
+    cgs_kinematic_viscosity: ClassVar[Dimension]
+    cgs_length: ClassVar[Dimension]
+    cgs_mass: ClassVar[Dimension]
+    cgs_none: ClassVar[Dimension]
+    cgs_pressure: ClassVar[Dimension]
+    cgs_radiant_exposure: ClassVar[Dimension]
+    cgs_time: ClassVar[Dimension]
+    cgs_velocity: ClassVar[Dimension]
+    cgs_wavenumber: ClassVar[Dimension]
     charge: ClassVar[Dimension]
+    concentration: ClassVar[Dimension]
     conductance: ClassVar[Dimension]
     conductivity: ClassVar[Dimension]
     count: ClassVar[Dimension]
     current: ClassVar[Dimension]
     density: ClassVar[Dimension]
     dynamic_viscosity: ClassVar[Dimension]
+    electric_dipole_moment: ClassVar[Dimension]
     electric_field_strength: ClassVar[Dimension]
     energy: ClassVar[Dimension]
     entropy: ClassVar[Dimension]
+    exposure: ClassVar[Dimension]
     force: ClassVar[Dimension]
     frequency: ClassVar[Dimension]
     gravitation: ClassVar[Dimension]
@@ -50,7 +83,9 @@ class Dimension:
     information: ClassVar[Dimension]
     kinematic_viscosity: ClassVar[Dimension]
     length: ClassVar[Dimension]
+    linear_density: ClassVar[Dimension]
     luminous_intensity: ClassVar[Dimension]
+    magnetic_field_strength: ClassVar[Dimension]
     magnetic_flux: ClassVar[Dimension]
     magnetic_flux_density: ClassVar[Dimension]
     magnetic_permeability: ClassVar[Dimension]
@@ -58,10 +93,14 @@ class Dimension:
     molar_mass: ClassVar[Dimension]
     molar_volume: ClassVar[Dimension]
     momentum: ClassVar[Dimension]
+    natural_energy: ClassVar[Dimension]
     none: ClassVar[Dimension]
     permittivity: ClassVar[Dimension]
+    planck_energy: ClassVar[Dimension]
+    planck_length: ClassVar[Dimension]
     power: ClassVar[Dimension]
     pressure: ClassVar[Dimension]
+    radiant_exposure: ClassVar[Dimension]
     ratio: ClassVar[Dimension]
     resistance: ClassVar[Dimension]
     resistivity: ClassVar[Dimension]
@@ -73,6 +112,7 @@ class Dimension:
     velocity: ClassVar[Dimension]
     voltage: ClassVar[Dimension]
     volume: ClassVar[Dimension]
+    wavenumber: ClassVar[Dimension]
 
     @classmethod
     def from_components(
@@ -141,6 +181,7 @@ ANGULAR_MOMENTUM: Dimension
 AREA: Dimension
 VOLUME: Dimension
 DENSITY: Dimension
+LINEAR_DENSITY: Dimension
 PRESSURE: Dimension
 FREQUENCY: Dimension
 DYNAMIC_VISCOSITY: Dimension
@@ -159,6 +200,7 @@ MAGNETIC_FLUX_DENSITY: Dimension
 MAGNETIC_PERMEABILITY: Dimension
 PERMITTIVITY: Dimension
 ELECTRIC_FIELD_STRENGTH: Dimension
+MAGNETIC_FIELD_STRENGTH: Dimension
 ENTROPY: Dimension
 SPECIFIC_HEAT_CAPACITY: Dimension
 THERMAL_CONDUCTIVITY: Dimension
@@ -166,3 +208,41 @@ ILLUMINANCE: Dimension
 CATALYTIC_ACTIVITY: Dimension
 MOLAR_MASS: Dimension
 MOLAR_VOLUME: Dimension
+CONCENTRATION: Dimension
+WAVENUMBER: Dimension
+RADIANT_EXPOSURE: Dimension
+EXPOSURE: Dimension
+ELECTRIC_DIPOLE_MOMENT: Dimension
+CGS_NONE: Dimension
+CGS_LENGTH: Dimension
+CGS_MASS: Dimension
+CGS_TIME: Dimension
+CGS_VELOCITY: Dimension
+CGS_FORCE: Dimension
+CGS_ENERGY: Dimension
+CGS_PRESSURE: Dimension
+CGS_DYNAMIC_VISCOSITY: Dimension
+CGS_KINEMATIC_VISCOSITY: Dimension
+CGS_ACCELERATION: Dimension
+CGS_WAVENUMBER: Dimension
+CGS_RADIANT_EXPOSURE: Dimension
+CGS_ESU_CHARGE: Dimension
+CGS_ESU_CURRENT: Dimension
+CGS_ESU_VOLTAGE: Dimension
+CGS_ESU_RESISTANCE: Dimension
+CGS_ESU_CAPACITANCE: Dimension
+CGS_ESU_MAGNETIC_FLUX_DENSITY: Dimension
+CGS_ESU_MAGNETIC_FLUX: Dimension
+CGS_ESU_MAGNETIC_FIELD_STRENGTH: Dimension
+CGS_ESU_ELECTRIC_DIPOLE_MOMENT: Dimension
+CGS_EMU_CURRENT: Dimension
+CGS_EMU_CHARGE: Dimension
+CGS_EMU_VOLTAGE: Dimension
+CGS_EMU_RESISTANCE: Dimension
+CGS_EMU_CAPACITANCE: Dimension
+CGS_EMU_INDUCTANCE: Dimension
+NATURAL_ENERGY: Dimension
+PLANCK_ENERGY: Dimension
+PLANCK_LENGTH: Dimension
+ATOMIC_ENERGY: Dimension
+ATOMIC_LENGTH: Dimension
