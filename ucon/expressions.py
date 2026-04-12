@@ -97,7 +97,7 @@ def _eval_node(node: ast.AST, constants: dict[str, ExprResult]) -> ExprResult:
     # Numeric literal (ast.Constant on 3.8+, ast.Num on 3.7)
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return ExprResult(float(node.value))
-    if isinstance(node, ast.Num):  # pragma: no cover – Python 3.7 only
+    if hasattr(ast, 'Num') and isinstance(node, ast.Num):  # pragma: no cover – Python ≤3.7
         return ExprResult(float(node.n))
 
     # Constant symbol reference
