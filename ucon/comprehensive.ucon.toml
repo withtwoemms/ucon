@@ -54,1074 +54,375 @@ components = [
 
 [dimensions.acceleration]
 basis = "SI"
-vector = [
-    -2,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-2, 1, 0, 0, 0, 0, 0, 0]
 
 [dimensions.amount_of_substance]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-]
+vector = [0, 0, 0, 0, 0, 0, 1, 0]
 
 [dimensions.angle]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
 tag = "angle"
 
 [dimensions.area]
 basis = "SI"
-vector = [
-    0,
-    2,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 2, 0, 0, 0, 0, 0, 0]
 
 [dimensions.atomic_energy]
 basis = "atomic"
-vector = [
-    1,
-]
+vector = [1]
 
 [dimensions.atomic_length]
 basis = "atomic"
-vector = [
-    -1,
-]
+vector = [-1]
 
 [dimensions.capacitance]
 basis = "SI"
-vector = [
-    4,
-    -2,
-    -1,
-    2,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [4, -2, -1, 2, 0, 0, 0, 0]
 
 [dimensions.catalytic_activity]
 basis = "SI"
-vector = [
-    -1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-]
+vector = [-1, 0, 0, 0, 0, 0, 1, 0]
 
 [dimensions.cgs_acceleration]
 basis = "CGS"
-vector = [
-    1,
-    0,
-    -2,
-]
+vector = [1, 0, -2]
 
 [dimensions.cgs_dynamic_viscosity]
 basis = "CGS"
-vector = [
-    -1,
-    1,
-    -1,
-]
+vector = [-1, 1, -1]
 
 [dimensions.cgs_emu_capacitance]
 basis = "CGS-EMU"
-vector = [
-    -2,
-    -1,
-    4,
-    2,
-]
+vector = [-2, -1, 4, 2]
 
 [dimensions.cgs_emu_charge]
 basis = "CGS-EMU"
-vector = [
-    0,
-    0,
-    1,
-    1,
-]
+vector = [0, 0, 1, 1]
 
 [dimensions.cgs_emu_current]
 basis = "CGS-EMU"
-vector = [
-    0,
-    0,
-    0,
-    1,
-]
+vector = [0, 0, 0, 1]
 
 [dimensions.cgs_emu_inductance]
 basis = "CGS-EMU"
-vector = [
-    2,
-    1,
-    -2,
-    -2,
-]
+vector = [2, 1, -2, -2]
 
 [dimensions.cgs_emu_resistance]
 basis = "CGS-EMU"
-vector = [
-    2,
-    1,
-    -3,
-    -2,
-]
+vector = [2, 1, -3, -2]
 
 [dimensions.cgs_emu_voltage]
 basis = "CGS-EMU"
-vector = [
-    2,
-    1,
-    -3,
-    -1,
-]
+vector = [2, 1, -3, -1]
 
 [dimensions.cgs_energy]
 basis = "CGS"
-vector = [
-    2,
-    1,
-    -2,
-]
+vector = [2, 1, -2]
 
 [dimensions.cgs_esu_capacitance]
 basis = "CGS-ESU"
-vector = [
-    -2,
-    -1,
-    2,
-    2,
-]
+vector = [-2, -1, 2, 2]
 
 [dimensions.cgs_esu_charge]
 basis = "CGS-ESU"
-vector = [
-    0,
-    0,
-    0,
-    1,
-]
+vector = [0, 0, 0, 1]
 
 [dimensions.cgs_esu_current]
 basis = "CGS-ESU"
-vector = [
-    0,
-    0,
-    -1,
-    1,
-]
+vector = [0, 0, -1, 1]
 
 [dimensions.cgs_esu_electric_dipole_moment]
 basis = "CGS-ESU"
-vector = [
-    1,
-    0,
-    0,
-    1,
-]
+vector = [1, 0, 0, 1]
 
 [dimensions.cgs_esu_magnetic_field_strength]
 basis = "CGS-ESU"
-vector = [
-    -1,
-    0,
-    -1,
-    1,
-]
+vector = [-1, 0, -1, 1]
 
 [dimensions.cgs_esu_magnetic_flux]
 basis = "CGS-ESU"
-vector = [
-    2,
-    1,
-    -1,
-    -1,
-]
+vector = [2, 1, -1, -1]
 
 [dimensions.cgs_esu_magnetic_flux_density]
 basis = "CGS-ESU"
-vector = [
-    0,
-    1,
-    -1,
-    -1,
-]
+vector = [0, 1, -1, -1]
 
 [dimensions.cgs_esu_resistance]
 basis = "CGS-ESU"
-vector = [
-    2,
-    1,
-    -1,
-    -2,
-]
+vector = [2, 1, -1, -2]
 
 [dimensions.cgs_esu_voltage]
 basis = "CGS-ESU"
-vector = [
-    2,
-    1,
-    -2,
-    -1,
-]
+vector = [2, 1, -2, -1]
 
 [dimensions.cgs_force]
 basis = "CGS"
-vector = [
-    1,
-    1,
-    -2,
-]
+vector = [1, 1, -2]
 
 [dimensions.cgs_kinematic_viscosity]
 basis = "CGS"
-vector = [
-    2,
-    0,
-    -1,
-]
+vector = [2, 0, -1]
 
 [dimensions.cgs_pressure]
 basis = "CGS"
-vector = [
-    -1,
-    1,
-    -2,
-]
+vector = [-1, 1, -2]
 
 [dimensions.cgs_radiant_exposure]
 basis = "CGS"
-vector = [
-    0,
-    1,
-    -2,
-]
+vector = [0, 1, -2]
 
 [dimensions.cgs_wavenumber]
 basis = "CGS"
-vector = [
-    -1,
-    0,
-    0,
-]
+vector = [-1, 0, 0]
 
 [dimensions.charge]
 basis = "SI"
-vector = [
-    1,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [1, 0, 0, 1, 0, 0, 0, 0]
 
 [dimensions.concentration]
 basis = "SI"
-vector = [
-    0,
-    -3,
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-]
+vector = [0, -3, 0, 0, 0, 0, 1, 0]
 
 [dimensions.conductance]
 basis = "SI"
-vector = [
-    3,
-    -2,
-    -1,
-    2,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [3, -2, -1, 2, 0, 0, 0, 0]
 
 [dimensions.count]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
 tag = "count"
 
 [dimensions.current]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 0, 0, 1, 0, 0, 0, 0]
 
 [dimensions.dynamic_viscosity]
 basis = "SI"
-vector = [
-    -1,
-    -1,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-1, -1, 1, 0, 0, 0, 0, 0]
 
 [dimensions.electric_dipole_moment]
 basis = "SI"
-vector = [
-    1,
-    1,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [1, 1, 0, 1, 0, 0, 0, 0]
 
 [dimensions.energy]
 basis = "SI"
-vector = [
-    -2,
-    2,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-2, 2, 1, 0, 0, 0, 0, 0]
 
 [dimensions.entropy]
 basis = "SI"
-vector = [
-    -2,
-    2,
-    1,
-    0,
-    -1,
-    0,
-    0,
-    0,
-]
+vector = [-2, 2, 1, 0, -1, 0, 0, 0]
 
 [dimensions.exposure]
 basis = "SI"
-vector = [
-    1,
-    0,
-    -1,
-    1,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [1, 0, -1, 1, 0, 0, 0, 0]
 
 [dimensions.force]
 basis = "SI"
-vector = [
-    -2,
-    1,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-2, 1, 1, 0, 0, 0, 0, 0]
 
 [dimensions.frequency]
 basis = "SI"
-vector = [
-    -1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-1, 0, 0, 0, 0, 0, 0, 0]
 
 [dimensions.illuminance]
 basis = "SI"
-vector = [
-    0,
-    -2,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-]
+vector = [0, -2, 0, 0, 0, 1, 0, 0]
 
 [dimensions.inductance]
 basis = "SI"
-vector = [
-    -2,
-    2,
-    1,
-    -2,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-2, 2, 1, -2, 0, 0, 0, 0]
 
 [dimensions.information]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-]
+vector = [0, 0, 0, 0, 0, 0, 0, 1]
 
 [dimensions.kinematic_viscosity]
 basis = "SI"
-vector = [
-    -1,
-    2,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-1, 2, 0, 0, 0, 0, 0, 0]
 
 [dimensions.length]
 basis = "SI"
-vector = [
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 1, 0, 0, 0, 0, 0, 0]
 
 [dimensions.linear_density]
 basis = "SI"
-vector = [
-    0,
-    -1,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, -1, 1, 0, 0, 0, 0, 0]
 
 [dimensions.luminous_intensity]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-]
+vector = [0, 0, 0, 0, 0, 1, 0, 0]
 
 [dimensions.magnetic_field_strength]
 basis = "SI"
-vector = [
-    0,
-    -1,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, -1, 0, 1, 0, 0, 0, 0]
 
 [dimensions.magnetic_flux]
 basis = "SI"
-vector = [
-    -2,
-    2,
-    1,
-    -1,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-2, 2, 1, -1, 0, 0, 0, 0]
 
 [dimensions.magnetic_flux_density]
 basis = "SI"
-vector = [
-    -2,
-    0,
-    1,
-    -1,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-2, 0, 1, -1, 0, 0, 0, 0]
 
 [dimensions.magnetic_permeability]
 basis = "SI"
-vector = [
-    -2,
-    1,
-    1,
-    -2,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-2, 1, 1, -2, 0, 0, 0, 0]
 
 [dimensions.mass]
 basis = "SI"
-vector = [
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 0, 1, 0, 0, 0, 0, 0]
 
 [dimensions.natural_energy]
 basis = "natural"
-vector = [
-    1,
-]
+vector = [1]
 
 [dimensions.none]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
 
 [dimensions.planck_energy]
 basis = "planck"
-vector = [
-    1,
-]
+vector = [1]
 
 [dimensions.planck_length]
 basis = "planck"
-vector = [
-    -1,
-]
+vector = [-1]
 
 [dimensions.power]
 basis = "SI"
-vector = [
-    -3,
-    2,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-3, 2, 1, 0, 0, 0, 0, 0]
 
 [dimensions.pressure]
 basis = "SI"
-vector = [
-    -2,
-    -1,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-2, -1, 1, 0, 0, 0, 0, 0]
 
 [dimensions.radiant_exposure]
 basis = "SI"
-vector = [
-    -2,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-2, 0, 1, 0, 0, 0, 0, 0]
 
 [dimensions.ratio]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
 tag = "ratio"
 
 [dimensions.resistance]
 basis = "SI"
-vector = [
-    -3,
-    2,
-    1,
-    -2,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-3, 2, 1, -2, 0, 0, 0, 0]
 
 [dimensions.solid_angle]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 0, 0, 0, 0, 0, 0, 0]
 tag = "solid_angle"
 
 [dimensions.temperature]
 basis = "SI"
-vector = [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-]
+vector = [0, 0, 0, 0, 1, 0, 0, 0]
 
 [dimensions.time]
 basis = "SI"
-vector = [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [1, 0, 0, 0, 0, 0, 0, 0]
 
 [dimensions.velocity]
 basis = "SI"
-vector = [
-    -1,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-1, 1, 0, 0, 0, 0, 0, 0]
 
 [dimensions.voltage]
 basis = "SI"
-vector = [
-    -3,
-    2,
-    1,
-    -1,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [-3, 2, 1, -1, 0, 0, 0, 0]
 
 [dimensions.volume]
 basis = "SI"
-vector = [
-    0,
-    3,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, 3, 0, 0, 0, 0, 0, 0]
 
 [dimensions.wavenumber]
 basis = "SI"
-vector = [
-    0,
-    -1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+vector = [0, -1, 0, 0, 0, 0, 0, 0]
 
 [transforms.CGS-EMU_TO_CGS-ESU]
 source = "CGS-EMU"
 target = "CGS-ESU"
 matrix = [
-    [
-        1,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        1,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        1,
-        0,
-    ],
-    [
-        0,
-        0,
-        -1,
-        1,
-    ],
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, -1, 1],
 ]
 
 [transforms.CGS-ESU_TO_CGS-EMU]
 source = "CGS-ESU"
 target = "CGS-EMU"
 matrix = [
-    [
-        1,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        1,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        1,
-        0,
-    ],
-    [
-        0,
-        0,
-        1,
-        1,
-    ],
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 1, 1],
 ]
 
 [transforms.CGS_TO_SI]
 source = "CGS"
 target = "SI"
 matrix = [
-    [
-        0,
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ],
-    [
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ],
+    [0, 1, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0, 0, 0, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0],
 ]
 
 [transforms.SI_TO_CGS]
 source = "SI"
 target = "CGS"
 matrix = [
-    [
-        0,
-        0,
-        1,
-    ],
-    [
-        1,
-        0,
-        0,
-    ],
-    [
-        0,
-        1,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-    ],
+    [0, 0, 1],
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
 ]
 
 [transforms.SI_TO_CGS-EMU]
 source = "SI"
 target = "CGS-EMU"
 matrix = [
-    [
-        0,
-        0,
-        1,
-        0,
-    ],
-    [
-        1,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        1,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-        1,
-    ],
-    [
-        0,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-        0,
-    ],
+    [0, 0, 1, 0],
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 0, 1],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
 ]
 
 [transforms.SI_TO_CGS-ESU]
 source = "SI"
 target = "CGS-ESU"
 matrix = [
-    [
-        0,
-        0,
-        1,
-        0,
-    ],
-    [
-        1,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        1,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        -1,
-        1,
-    ],
-    [
-        0,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-        0,
-    ],
-    [
-        0,
-        0,
-        0,
-        0,
-    ],
+    [0, 0, 1, 0],
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, -1, 1],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
 ]
 
 [transforms.SI_TO_atomic]
 source = "SI"
 target = "atomic"
 matrix = [
-    [
-        -1,
-    ],
-    [
-        -1,
-    ],
-    [
-        1,
-    ],
-    [
-        1,
-    ],
-    [
-        0,
-    ],
-    [
-        0,
-    ],
-    [
-        0,
-    ],
-    [
-        0,
-    ],
+    [-1],
+    [-1],
+    [1],
+    [1],
+    [0],
+    [0],
+    [0],
+    [0],
 ]
 
 [[transforms.SI_TO_atomic.bindings]]
@@ -1157,30 +458,14 @@ target_expression = [
 source = "SI"
 target = "natural"
 matrix = [
-    [
-        -1,
-    ],
-    [
-        -1,
-    ],
-    [
-        1,
-    ],
-    [
-        0,
-    ],
-    [
-        1,
-    ],
-    [
-        0,
-    ],
-    [
-        0,
-    ],
-    [
-        0,
-    ],
+    [-1],
+    [-1],
+    [1],
+    [0],
+    [1],
+    [0],
+    [0],
+    [0],
 ]
 
 [[transforms.SI_TO_natural.bindings]]
@@ -1217,30 +502,14 @@ target_expression = [
 source = "SI"
 target = "planck"
 matrix = [
-    [
-        -1,
-    ],
-    [
-        -1,
-    ],
-    [
-        1,
-    ],
-    [
-        0,
-    ],
-    [
-        1,
-    ],
-    [
-        0,
-    ],
-    [
-        0,
-    ],
-    [
-        0,
-    ],
+    [-1],
+    [-1],
+    [1],
+    [0],
+    [1],
+    [0],
+    [0],
+    [0],
 ]
 
 [[transforms.SI_TO_planck.bindings]]
@@ -1277,54 +546,42 @@ target_expression = [
 source = "atomic"
 target = "natural"
 matrix = [
-    [
-        1,
-    ],
+    [1],
 ]
 
 [transforms.atomic_TO_planck]
 source = "atomic"
 target = "planck"
 matrix = [
-    [
-        1,
-    ],
+    [1],
 ]
 
 [transforms.natural_TO_atomic]
 source = "natural"
 target = "atomic"
 matrix = [
-    [
-        1,
-    ],
+    [1],
 ]
 
 [transforms.natural_TO_planck]
 source = "natural"
 target = "planck"
 matrix = [
-    [
-        1,
-    ],
+    [1],
 ]
 
 [transforms.planck_TO_atomic]
 source = "planck"
 target = "atomic"
 matrix = [
-    [
-        1,
-    ],
+    [1],
 ]
 
 [transforms.planck_TO_natural]
 source = "planck"
 target = "natural"
 matrix = [
-    [
-        1,
-    ],
+    [1],
 ]
 
 [[units]]
@@ -1373,10 +630,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
+    ["meter", -1.0],
 ]
 
 [[units]]
@@ -1398,10 +652,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "ampere",
-        1.0,
-    ],
+    ["ampere", 1.0],
 ]
 
 [[units]]
@@ -1422,10 +673,7 @@ aliases = [
 [units.base_form]
 prefactor = 149597870700.0
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -1438,10 +686,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.000022
 factors = [
-    [
-        "ampere",
-        1.0,
-    ],
+    ["ampere", 1.0],
 ]
 
 [[units]]
@@ -1454,14 +699,8 @@ aliases = [
 [units.base_form]
 prefactor = 3600.0
 factors = [
-    [
-        "ampere",
-        1.0,
-    ],
-    [
-        "second",
-        1.0,
-    ],
+    ["ampere", 1.0],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -1475,10 +714,7 @@ aliases = [
 [units.base_form]
 prefactor = 8.0
 factors = [
-    [
-        "bit",
-        1.0,
-    ],
+    ["bit", 1.0],
 ]
 
 [[units]]
@@ -1491,18 +727,9 @@ aliases = [
 [units.base_form]
 prefactor = 1055.06
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -1538,14 +765,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "ampere",
-        1.0,
-    ],
-    [
-        "second",
-        1.0,
-    ],
+    ["ampere", 1.0],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -1566,18 +787,9 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "ampere",
-        1.0,
-    ],
-    [
-        "kilogram",
-        -1.0,
-    ],
-    [
-        "second",
-        1.0,
-    ],
+    ["ampere", 1.0],
+    ["kilogram", -1.0],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -1605,14 +817,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -1627,10 +833,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.6605390666e-27
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -1712,10 +915,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "second",
-        -1.0,
-    ],
+    ["second", -1.0],
 ]
 
 [[units]]
@@ -1729,14 +929,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.6666666666666667e-08
 factors = [
-    [
-        "mole",
-        1.0,
-    ],
-    [
-        "second",
-        -1.0,
-    ],
+    ["mole", 1.0],
+    ["second", -1.0],
 ]
 
 [[units]]
@@ -1749,18 +943,9 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -1781,14 +966,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -1801,14 +980,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.0000000000000002e-26
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -1821,10 +994,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "kelvin",
-        1.0,
-    ],
+    ["kelvin", 1.0],
 ]
 
 [[units]]
@@ -1845,10 +1015,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -1861,14 +1028,8 @@ aliases = [
 [units.base_form]
 prefactor = 3183.0988618379065
 factors = [
-    [
-        "meter",
-        -2.0,
-    ],
-    [
-        "candela",
-        1.0,
-    ],
+    ["meter", -2.0],
+    ["candela", 1.0],
 ]
 
 [[units]]
@@ -1895,18 +1056,9 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -1920,10 +1072,7 @@ aliases = [
 [units.base_form]
 prefactor = 1852.0
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -1957,18 +1106,9 @@ aliases = [
 [units.base_form]
 prefactor = 735.4987500000001
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -1981,18 +1121,9 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2006,18 +1137,9 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -1.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -1.0],
 ]
 
 [[units]]
@@ -2039,18 +1161,9 @@ aliases = [
 [units.base_form]
 prefactor = 0.000258
 factors = [
-    [
-        "ampere",
-        1.0,
-    ],
-    [
-        "kilogram",
-        -1.0,
-    ],
-    [
-        "second",
-        1.0,
-    ],
+    ["ampere", 1.0],
+    ["kilogram", -1.0],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -2099,18 +1212,9 @@ aliases = [
 [units.base_form]
 prefactor = 3516.8525
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -2130,18 +1234,9 @@ aliases = [
 [units.base_form]
 prefactor = 133.322368
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2155,10 +1250,7 @@ aliases = [
 [units.base_form]
 prefactor = 907.1858188712795
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -2171,22 +1263,10 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "ampere",
-        -1.0,
-    ],
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["ampere", -1.0],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -2199,18 +1279,9 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -2223,22 +1294,10 @@ aliases = [
 [units.base_form]
 prefactor = 1.00034
 factors = [
-    [
-        "ampere",
-        -1.0,
-    ],
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["ampere", -1.0],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -2251,18 +1310,9 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -2289,18 +1339,9 @@ aliases = [
 [units.base_form]
 prefactor = 3600.0
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2365,10 +1406,7 @@ aliases = [
 [units.base_form]
 prefactor = 1233481.83754752
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -2382,10 +1420,7 @@ aliases = [
 [units.base_form]
 prefactor = 1e-10
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -2398,14 +1433,8 @@ aliases = [
 [units.base_form]
 prefactor = 0.3183098861837907
 factors = [
-    [
-        "meter",
-        -2.0,
-    ],
-    [
-        "candela",
-        1.0,
-    ],
+    ["meter", -2.0],
+    ["candela", 1.0],
 ]
 
 [[units]]
@@ -2418,18 +1447,9 @@ aliases = [
 [units.base_form]
 prefactor = 98066.5
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2442,18 +1462,9 @@ aliases = [
 [units.base_form]
 prefactor = 101325.0
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2474,10 +1485,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "bit",
-        1.0,
-    ],
+    ["bit", 1.0],
 ]
 
 [[units]]
@@ -2497,18 +1505,9 @@ aliases = [
 [units.base_form]
 prefactor = 99999.99999999999
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2522,10 +1521,7 @@ aliases = [
 [units.base_form]
 prefactor = 158.9873264388353
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -2550,18 +1546,9 @@ aliases = [
 [units.base_form]
 prefactor = 9809.5
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -2575,10 +1562,7 @@ aliases = [
 [units.base_form]
 prefactor = 35.23907016688
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -2591,10 +1575,7 @@ aliases = [
 [units.base_form]
 prefactor = 185.2
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -2608,18 +1589,9 @@ aliases = [
 [units.base_form]
 prefactor = 4.184
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2632,18 +1604,9 @@ aliases = [
 [units.base_form]
 prefactor = 4.184
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2656,10 +1619,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "candela",
-        1.0,
-    ],
+    ["candela", 1.0],
 ]
 
 [[units]]
@@ -2673,10 +1633,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.0002
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -2697,18 +1654,9 @@ aliases = [
 [units.base_form]
 prefactor = 1333.22
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2722,18 +1670,9 @@ aliases = [
 [units.base_form]
 prefactor = 98.0665
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -2747,10 +1686,7 @@ aliases = [
 [units.base_form]
 prefactor = 20.1168
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -2764,10 +1700,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.23658828339112395
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -2790,10 +1723,7 @@ aliases = [
 [units.base_form]
 prefactor = 28.316846592000005
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -2807,10 +1737,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.016387064
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -2824,10 +1751,7 @@ aliases = [
 [units.base_form]
 prefactor = 764.5548579840001
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -2840,10 +1764,7 @@ aliases = [
 [units.base_form]
 prefactor = 86400.0
 factors = [
-    [
-        "second",
-        1.0,
-    ],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -2925,10 +1846,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.0017718473024829677
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -2942,10 +1860,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.0015551756894936224
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -2972,18 +1887,9 @@ aliases = [
 [units.base_form]
 prefactor = 746.0
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -3011,10 +1917,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.828799941478402
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3028,14 +1931,8 @@ aliases = [
 [units.base_form]
 prefactor = 10.763910417
 factors = [
-    [
-        "meter",
-        -2.0,
-    ],
-    [
-        "candela",
-        1.0,
-    ],
+    ["meter", -2.0],
+    ["candela", 1.0],
 ]
 
 [[units]]
@@ -3049,10 +1946,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.3047999902464003
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3066,10 +1960,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.029573535423890494
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -3083,10 +1974,7 @@ aliases = [
 [units.base_form]
 prefactor = 1209600.0
 factors = [
-    [
-        "second",
-        1.0,
-    ],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -3100,18 +1988,9 @@ aliases = [
 [units.base_form]
 prefactor = 1.3558179483314
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3125,10 +2004,7 @@ aliases = [
 [units.base_form]
 prefactor = 201.168
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3141,10 +2017,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.001
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -3158,14 +2031,8 @@ aliases = [
 [units.base_form]
 prefactor = 9.80665
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3179,10 +2046,7 @@ aliases = [
 [units.base_form]
 prefactor = 3.785412534257983
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -3195,18 +2059,9 @@ aliases = [
 [units.base_form]
 prefactor = 0.00980665
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3220,10 +2075,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.11829414169556197
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -3245,10 +2097,7 @@ aliases = [
 [units.base_form]
 prefactor = 6.479898706223426e-05
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -3262,10 +2111,7 @@ aliases = [
 [units.base_form]
 prefactor = 3600.0
 factors = [
-    [
-        "second",
-        1.0,
-    ],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -3286,10 +2132,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.1015999967488001
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3302,18 +2145,9 @@ aliases = [
 [units.base_form]
 prefactor = 745.7
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -3326,10 +2160,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.284130625
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -3342,10 +2173,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.028413062499999996
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -3358,10 +2186,7 @@ aliases = [
 [units.base_form]
 prefactor = 4.54609
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -3374,10 +2199,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.1420653125
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -3390,10 +2212,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.56826125
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -3406,10 +2225,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.1365225
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -3423,10 +2239,7 @@ aliases = [
 [units.base_form]
 prefactor = 1016.0481171358331
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -3440,10 +2253,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.025399999187200026
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3457,18 +2267,9 @@ aliases = [
 [units.base_form]
 prefactor = 249.08891
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3481,18 +2282,9 @@ aliases = [
 [units.base_form]
 prefactor = 3386.3890000000006
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3505,22 +2297,10 @@ aliases = [
 [units.base_form]
 prefactor = 1.00049
 factors = [
-    [
-        "ampere",
-        -2.0,
-    ],
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["ampere", -2.0],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -3533,14 +2313,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "mole",
-        1.0,
-    ],
-    [
-        "second",
-        -1.0,
-    ],
+    ["mole", 1.0],
+    ["second", -1.0],
 ]
 
 [[units]]
@@ -3553,10 +2327,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -3569,18 +2340,9 @@ aliases = [
 [units.base_form]
 prefactor = 9.80665
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3593,18 +2355,9 @@ aliases = [
 [units.base_form]
 prefactor = 4448.2216152605
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3626,18 +2379,9 @@ aliases = [
 [units.base_form]
 prefactor = 6894744.825494008
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3658,10 +2402,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.45359290943563974
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -3674,18 +2415,9 @@ aliases = [
 [units.base_form]
 prefactor = 4.4482216152605
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3699,18 +2431,9 @@ aliases = [
 [units.base_form]
 prefactor = 6894.744825494008
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3724,10 +2447,7 @@ aliases = [
 [units.base_form]
 prefactor = 4828.031845502982
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3741,10 +2461,7 @@ aliases = [
 [units.base_form]
 prefactor = 9460730472580800.0
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3764,14 +2481,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        -2.0,
-    ],
-    [
-        "candela",
-        1.0,
-    ],
+    ["meter", -2.0],
+    ["candela", 1.0],
 ]
 
 [[units]]
@@ -3784,10 +2495,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3801,14 +2509,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3822,14 +2524,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "second",
-        -1.0,
-    ],
+    ["meter", 2.0],
+    ["second", -1.0],
 ]
 
 [[units]]
@@ -3851,10 +2547,7 @@ aliases = [
 [units.base_form]
 prefactor = 1000.0
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -3868,18 +2561,9 @@ aliases = [
 [units.base_form]
 prefactor = 9806.65
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3893,10 +2577,7 @@ aliases = [
 [units.base_form]
 prefactor = 1609.3439485009937
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3909,10 +2590,7 @@ aliases = [
 [units.base_form]
 prefactor = 2.5399999187200026e-05
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -3932,18 +2610,9 @@ aliases = [
 [units.base_form]
 prefactor = 133.322368
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3957,18 +2626,9 @@ aliases = [
 [units.base_form]
 prefactor = 9.80665
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3981,10 +2641,7 @@ aliases = [
 [units.base_form]
 prefactor = 60.0
 factors = [
-    [
-        "second",
-        1.0,
-    ],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -3998,10 +2655,7 @@ aliases = [
 [units.base_form]
 prefactor = 6.161153213310519e-05
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -4015,10 +2669,7 @@ aliases = [
 [units.base_form]
 prefactor = 2629800.0
 factors = [
-    [
-        "second",
-        1.0,
-    ],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -4032,10 +2683,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "mole",
-        1.0,
-    ],
+    ["mole", 1.0],
 ]
 
 [[units]]
@@ -4055,14 +2703,8 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "meter",
-        -2.0,
-    ],
-    [
-        "candela",
-        1.0,
-    ],
+    ["meter", -2.0],
+    ["candela", 1.0],
 ]
 
 [[units]]
@@ -4075,22 +2717,10 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "ampere",
-        -2.0,
-    ],
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -3.0,
-    ],
+    ["ampere", -2.0],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
 ]
 
 [[units]]
@@ -4104,10 +2734,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.028349556839727483
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -4120,18 +2747,9 @@ aliases = [
 [units.base_form]
 prefactor = 0.2780138509537812
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -4145,10 +2763,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.031103500000000003
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -4166,10 +2781,7 @@ aliases = [
 [units.base_form]
 prefactor = 3.085677581491367e+16
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -4182,18 +2794,9 @@ aliases = [
 [units.base_form]
 prefactor = 0.138255
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -4207,10 +2810,7 @@ aliases = [
 [units.base_form]
 prefactor = 8.80976754172
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -4226,10 +2826,7 @@ aliases = [
 [units.base_form]
 prefactor = 5.0292
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -4249,14 +2846,8 @@ aliases = [
 [units.base_form]
 prefactor = 10000.0
 factors = [
-    [
-        "meter",
-        -2.0,
-    ],
-    [
-        "candela",
-        1.0,
-    ],
+    ["meter", -2.0],
+    ["candela", 1.0],
 ]
 
 [[units]]
@@ -4269,10 +2860,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.0042333331978666715
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -4286,10 +2874,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.4731765667822479
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -4309,10 +2894,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.00035277776648888926
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -4334,10 +2916,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.9463531335644958
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -4379,18 +2958,9 @@ aliases = [
 [units.base_form]
 prefactor = 6894.757
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -1.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
+    ["second", -1.0],
 ]
 
 [[units]]
@@ -4404,10 +2974,7 @@ aliases = [
 [units.base_form]
 prefactor = 1.0
 factors = [
-    [
-        "second",
-        1.0,
-    ],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -4420,14 +2987,8 @@ aliases = [
 [units.base_form]
 prefactor = 10000.0
 factors = [
-    [
-        "meter",
-        -2.0,
-    ],
-    [
-        "candela",
-        1.0,
-    ],
+    ["meter", -2.0],
+    ["candela", 1.0],
 ]
 
 [[units]]
@@ -4440,10 +3001,7 @@ aliases = [
 [units.base_form]
 prefactor = 1e-08
 factors = [
-    [
-        "second",
-        1.0,
-    ],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -4457,18 +3015,9 @@ aliases = [
 [units.base_form]
 prefactor = 8896.443230521
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -4481,10 +3030,7 @@ aliases = [
 [units.base_form]
 prefactor = 14.5939
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -4504,10 +3050,7 @@ aliases = [
 [units.base_form]
 prefactor = 6.350300732098956
 factors = [
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -4520,10 +3063,7 @@ aliases = [
 [units.base_form]
 prefactor = 1000.0
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -4564,18 +3104,9 @@ aliases = [
 [units.base_form]
 prefactor = 4184000000.0
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -4588,10 +3119,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.014786767711945247
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -4604,10 +3132,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.004928922570648415
 factors = [
-    [
-        "meter",
-        3.0,
-    ],
+    ["meter", 3.0],
 ]
 
 [[units]]
@@ -4620,14 +3145,8 @@ aliases = [
 [units.base_form]
 prefactor = 9.0
 factors = [
-    [
-        "meter",
-        -1.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
+    ["meter", -1.0],
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -4641,18 +3160,9 @@ aliases = [
 [units.base_form]
 prefactor = 105506000.0
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -4665,18 +3175,9 @@ aliases = [
 [units.base_form]
 prefactor = 41868000000.0
 factors = [
-    [
-        "meter",
-        2.0,
-    ],
-    [
-        "kilogram",
-        1.0,
-    ],
-    [
-        "second",
-        -2.0,
-    ],
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -4690,10 +3191,7 @@ aliases = [
 [units.base_form]
 prefactor = 604800.0
 factors = [
-    [
-        "second",
-        1.0,
-    ],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -4707,10 +3205,7 @@ aliases = [
 [units.base_form]
 prefactor = 0.914399970739201
 factors = [
-    [
-        "meter",
-        1.0,
-    ],
+    ["meter", 1.0],
 ]
 
 [[units]]
@@ -4724,10 +3219,7 @@ aliases = [
 [units.base_form]
 prefactor = 31557600.0
 factors = [
-    [
-        "second",
-        1.0,
-    ],
+    ["second", 1.0],
 ]
 
 [[edges]]
