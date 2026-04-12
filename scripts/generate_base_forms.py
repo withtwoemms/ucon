@@ -122,6 +122,8 @@ _COHERENT_SI_NAMES = {
     'radiant_exposure': 'joule_per_square_meter',
     'electric_dipole_moment': 'coulomb_meter',
     'exposure': 'coulomb_per_kilogram',
+    'volume': 'liter',
+    'linear_density': 'denier',
 }
 
 # Affine and logarithmic units MUST have base_form=None.  The drift script
