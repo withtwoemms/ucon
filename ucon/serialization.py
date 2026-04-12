@@ -15,7 +15,7 @@ Exports ``to_toml()`` and ``from_toml()`` which handle:
 - Physical constants
 - Fraction preservation for exact round-trip of basis matrices
 
-Format version: 1.2
+Format version: 1.4
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ from ucon.maps import (
     Map,
 )
 
-FORMAT_VERSION = "1.3"
+FORMAT_VERSION = "1.4"
 
 
 class GraphLoadError(Exception):
@@ -368,6 +368,8 @@ def _serialize_constant(const: Constant) -> dict:
         d["uncertainty"] = const.uncertainty
     if const.source != "CODATA 2022":
         d["source"] = const.source
+    if const.aliases:
+        d["aliases"] = list(const.aliases)
     return d
 
 
@@ -785,81 +787,8 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
             BaseForm(factors=tuple(resolved), prefactor=prefactor),
         )
 
-    # 7. Materialize edges
-    with using_graph(graph):
-        for i, edge_spec in enumerate(doc.get("edges", [])):
-            section = f"edges[{i}]"
-            src_name = _require(edge_spec, "src", section)
-            dst_name = _require(edge_spec, "dst", section)
-            src_unit = _resolve_unit(src_name, unit_map, graph)
-            dst_unit = _resolve_unit(dst_name, unit_map, graph)
-            if src_unit is None or dst_unit is None:
-                if strict:
-                    unresolvable = src_name if src_unit is None else dst_name
-                    raise GraphLoadError(
-                        f"[{section}]: cannot resolve unit '{unresolvable}'"
-                    )
-                continue
-            m = _build_edge_map(edge_spec, _build_map)
-            graph.add_edge(src=src_unit, dst=dst_unit, map=m)
-
-    # 8. Materialize product edges
-    with using_graph(graph):
-        for i, edge_spec in enumerate(doc.get("product_edges", [])):
-            section = f"product_edges[{i}]"
-            src_expr = _require(edge_spec, "src", section)
-            dst_expr = _require(edge_spec, "dst", section)
-            m = _build_edge_map(edge_spec, _build_map)
-            try:
-                src_prod = _parse_product_expression(src_expr, unit_map, graph)
-                dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
-            except GraphLoadError as exc:
-                if strict:
-                    raise
-                warnings.warn(
-                    f"[{section}]: skipping product edge — {exc}",
-                    stacklevel=2,
-                )
-                continue
-            if src_prod is None or dst_prod is None:
-                if strict:
-                    failed = src_expr if src_prod is None else dst_expr
-                    raise GraphLoadError(
-                        f"[{section}]: cannot resolve product expression '{failed}'"
-                    )
-                warnings.warn(
-                    f"[{section}]: skipping unresolvable product edge "
-                    f"'{src_expr}' -> '{dst_expr}'",
-                    stacklevel=2,
-                )
-                continue
-            graph.add_edge(src=src_prod, dst=dst_prod, map=m)
-
-    # 9. Materialize cross-basis edges
-    with using_graph(graph):
-        for i, edge_spec in enumerate(doc.get("cross_basis_edges", [])):
-            section = f"cross_basis_edges[{i}]"
-            src_name = _require(edge_spec, "src", section)
-            dst_name = _require(edge_spec, "dst", section)
-            src_unit = _resolve_unit(src_name, unit_map, graph)
-            dst_unit = _resolve_unit(dst_name, unit_map, graph)
-            if src_unit is None or dst_unit is None:
-                if strict:
-                    unresolvable = src_name if src_unit is None else dst_name
-                    raise GraphLoadError(
-                        f"[{section}]: cannot resolve unit '{unresolvable}'"
-                    )
-                continue
-            m = _build_edge_map(edge_spec, _build_map)
-            transform_name = edge_spec.get("transform")
-            bt = transform_map.get(transform_name) if transform_name else None
-            if bt is not None:
-                graph.add_edge(
-                    src=src_unit, dst=dst_unit, map=m,
-                    basis_transform=bt,
-                )
-
-    # 10. Materialize constants
+    # 7. Materialize constants (before edges so expression factors can
+    #    resolve constant symbols like "1 / Eh").
     from ucon.resolver import get_unit_by_name
 
     constants = []
@@ -893,14 +822,105 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                 uncertainty=const_spec.get("uncertainty"),
                 source=const_spec.get("source", "CODATA 2022"),
                 category=const_spec.get("category", "measured"),
+                aliases=tuple(const_spec.get("aliases", ())),
             )
             constants.append(const)
 
-    # 11. Restore loaded packages
+    graph._package_constants = tuple(constants)
+
+    # 8. Build constant lookup table (symbol → ExprResult) for expression
+    #    factors in edges.
+    from ucon.expressions import ExprResult
+    constant_table: dict[str, ExprResult] = {}
+    for const in constants:
+        rel_unc = (
+            abs(const.uncertainty / const.value)
+            if const.uncertainty is not None and const.value != 0
+            else 0.0
+        )
+        er = ExprResult(const.value, rel_unc)
+        constant_table[const.symbol] = er
+        # Also register aliases (e.g., "Eh" for "Eₕ")
+        for alias in const.aliases:
+            constant_table[alias] = er
+
+    # 9. Materialize unit edges (with expression resolution)
+    with using_graph(graph):
+        for i, edge_spec in enumerate(doc.get("edges", [])):
+            section = f"edges[{i}]"
+            src_name = _require(edge_spec, "src", section)
+            dst_name = _require(edge_spec, "dst", section)
+            src_unit = _resolve_unit(src_name, unit_map, graph)
+            dst_unit = _resolve_unit(dst_name, unit_map, graph)
+            if src_unit is None or dst_unit is None:
+                if strict:
+                    unresolvable = src_name if src_unit is None else dst_name
+                    raise GraphLoadError(
+                        f"[{section}]: cannot resolve unit '{unresolvable}'"
+                    )
+                continue
+            m = _build_edge_map(edge_spec, _build_map, constant_table)
+            graph.add_edge(src=src_unit, dst=dst_unit, map=m)
+
+    # 10. Materialize product edges
+    with using_graph(graph):
+        for i, edge_spec in enumerate(doc.get("product_edges", [])):
+            section = f"product_edges[{i}]"
+            src_expr = _require(edge_spec, "src", section)
+            dst_expr = _require(edge_spec, "dst", section)
+            m = _build_edge_map(edge_spec, _build_map, constant_table)
+            try:
+                src_prod = _parse_product_expression(src_expr, unit_map, graph)
+                dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
+            except GraphLoadError as exc:
+                if strict:
+                    raise
+                warnings.warn(
+                    f"[{section}]: skipping product edge — {exc}",
+                    stacklevel=2,
+                )
+                continue
+            if src_prod is None or dst_prod is None:
+                if strict:
+                    failed = src_expr if src_prod is None else dst_expr
+                    raise GraphLoadError(
+                        f"[{section}]: cannot resolve product expression '{failed}'"
+                    )
+                warnings.warn(
+                    f"[{section}]: skipping unresolvable product edge "
+                    f"'{src_expr}' -> '{dst_expr}'",
+                    stacklevel=2,
+                )
+                continue
+            graph.add_edge(src=src_prod, dst=dst_prod, map=m)
+
+    # 11. Materialize cross-basis edges
+    with using_graph(graph):
+        for i, edge_spec in enumerate(doc.get("cross_basis_edges", [])):
+            section = f"cross_basis_edges[{i}]"
+            src_name = _require(edge_spec, "src", section)
+            dst_name = _require(edge_spec, "dst", section)
+            src_unit = _resolve_unit(src_name, unit_map, graph)
+            dst_unit = _resolve_unit(dst_name, unit_map, graph)
+            if src_unit is None or dst_unit is None:
+                if strict:
+                    unresolvable = src_name if src_unit is None else dst_name
+                    raise GraphLoadError(
+                        f"[{section}]: cannot resolve unit '{unresolvable}'"
+                    )
+                continue
+            m = _build_edge_map(edge_spec, _build_map, constant_table)
+            transform_name = edge_spec.get("transform")
+            bt = transform_map.get(transform_name) if transform_name else None
+            if bt is not None:
+                graph.add_edge(
+                    src=src_unit, dst=dst_unit, map=m,
+                    basis_transform=bt,
+                )
+
+    # 12. Restore loaded packages
     loaded = doc.get("package", {}).get("loaded_packages", [])
     graph._loaded_packages = frozenset(loaded)
-
-    graph._package_constants = tuple(constants)
 
     # 12. Materialize contexts
     from ucon.contexts import ConversionContext, ContextEdge
@@ -974,17 +994,51 @@ def _resolve_context_unit(
     return resolved
 
 
-def _build_edge_map(edge_spec: dict, build_map_fn) -> Map:
-    """Build a Map from an edge specification dict."""
+def _build_edge_map(edge_spec: dict, build_map_fn, constant_table=None) -> Map:
+    """Build a Map from an edge specification dict.
+
+    Parameters
+    ----------
+    edge_spec : dict
+        Edge specification from the TOML file.
+    build_map_fn : callable
+        Factory for complex Map types (LogMap, etc.).
+    constant_table : dict[str, ExprResult] | None
+        Constant lookup table for resolving expression factors.
+        When provided, string factors containing alphabetic characters
+        are evaluated as symbolic expressions (e.g., ``"1 / Eh"``).
+    """
     if "map" in edge_spec:
         return build_map_fn(edge_spec["map"])
+
     from ucon.packages import _parse_factor
-    factor = _parse_factor(edge_spec.get("factor", 1.0))
-    rel_unc = edge_spec.get("rel_uncertainty", 0.0)
+
+    raw_factor = edge_spec.get("factor", 1.0)
+
+    if isinstance(raw_factor, str) and constant_table and _has_alpha(raw_factor):
+        # Expression with constant references
+        from ucon.expressions import evaluate
+        result = evaluate(raw_factor, constant_table)
+        factor = result.value
+        # Auto-derive rel_uncertainty unless explicitly overridden
+        rel_unc = edge_spec.get("rel_uncertainty", result.rel_uncertainty)
+    else:
+        factor = _parse_factor(raw_factor)
+        rel_unc = edge_spec.get("rel_uncertainty", 0.0)
+
     offset = edge_spec.get("offset")
     if offset is not None:
         return AffineMap(a=factor, b=_parse_factor(offset), rel_uncertainty=rel_unc)
     return LinearMap(a=factor, rel_uncertainty=rel_unc)
+
+
+def _has_alpha(s: str) -> bool:
+    """Check if a string contains alphabetic characters.
+
+    Used to distinguish numeric/fraction factor strings (``"1/2"``)
+    from expression strings (``"1 / Eh"``).
+    """
+    return any(c.isalpha() or c == '_' for c in s)
 
 
 def _resolve_single_factor(

@@ -32,11 +32,9 @@ True
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Union
 
-from ucon.core import Scale
 from ucon.core import Number
 
 if TYPE_CHECKING:
@@ -82,6 +80,7 @@ class Constant:
     uncertainty: Union[float, None]
     source: str = "CODATA 2022"
     category: str = "measured"
+    aliases: tuple = ()
 
     def as_number(self) -> 'Number':
         """Return as Number for calculations."""
@@ -146,307 +145,29 @@ class Constant:
             return f"<{self.symbol} = {self.value} ± {self.uncertainty} {unit_str}>"
 
 
-# =============================================================================
-# SI Defining Constants (Exact)
-# =============================================================================
-# The 2019 SI redefinition fixed these 7 constants exactly.
-
 def _build_constants():
-    """Build constants after units module is loaded."""
-    from ucon import units
+    """Load constants from the TOML via the central loader.
 
-    # -------------------------------------------------------------------------
-    # SI Defining Constants (Exact)
-    # -------------------------------------------------------------------------
+    Returns a dict keyed by descriptive name (e.g. 'speed_of_light'),
+    matching the contract expected by ``all_constants()`` and ``__getattr__``.
+    """
+    from ucon._loader import get_graph
 
-    hyperfine_transition_frequency = Constant(
-        symbol="ΔνCs",
-        name="hyperfine transition frequency of caesium-133",
-        value=9192631770,
-        unit=units.hertz,
-        uncertainty=None,
-        category="exact",
-    )
-
-    speed_of_light = Constant(
-        symbol="c",
-        name="speed of light in vacuum",
-        value=299792458,
-        unit=units.meter / units.second,
-        uncertainty=None,
-        category="exact",
-    )
-
-    planck_constant = Constant(
-        symbol="h",
-        name="Planck constant",
-        value=6.62607015e-34,
-        unit=units.joule * units.second,
-        uncertainty=None,
-        category="exact",
-    )
-
-    elementary_charge = Constant(
-        symbol="e",
-        name="elementary charge",
-        value=1.602176634e-19,
-        unit=units.coulomb,
-        uncertainty=None,
-        category="exact",
-    )
-
-    boltzmann_constant = Constant(
-        symbol="k",
-        name="Boltzmann constant",
-        value=1.380649e-23,
-        unit=units.joule / units.kelvin,
-        uncertainty=None,
-        category="exact",
-    )
-
-    avogadro_constant = Constant(
-        symbol="NA",
-        name="Avogadro constant",
-        value=6.02214076e23,
-        unit=units.none / units.mole,
-        uncertainty=None,
-        category="exact",
-    )
-
-    luminous_efficacy = Constant(
-        symbol="Kcd",
-        name="luminous efficacy of 540 THz radiation",
-        value=683,
-        unit=units.lumen / units.watt,
-        uncertainty=None,
-        category="exact",
-    )
-
-    # -------------------------------------------------------------------------
-    # Derived Constants (Exact, derived from exact constants)
-    # -------------------------------------------------------------------------
-
-    reduced_planck_constant = Constant(
-        symbol="ℏ",
-        name="reduced Planck constant",
-        value=6.62607015e-34 / (2 * math.pi),
-        unit=units.joule * units.second,
-        uncertainty=None,
-        category="derived",
-    )
-
-    molar_gas_constant = Constant(
-        symbol="R",
-        name="molar gas constant",
-        value=8.314462618,
-        unit=units.joule / (units.mole * units.kelvin),
-        uncertainty=None,
-        category="derived",
-    )
-
-    stefan_boltzmann_constant = Constant(
-        symbol="σ",
-        name="Stefan-Boltzmann constant",
-        value=5.670374419e-8,
-        unit=units.watt / (units.meter ** 2 * units.kelvin ** 4),
-        uncertainty=None,
-        category="derived",
-    )
-
-    # -------------------------------------------------------------------------
-    # Measured Constants (With Uncertainty)
-    # -------------------------------------------------------------------------
-
-    gravitational_constant = Constant(
-        symbol="G",
-        name="Newtonian constant of gravitation",
-        value=6.67430e-11,
-        unit=units.meter ** 3 / (units.kilogram * units.second ** 2),
-        uncertainty=0.00015e-11,
-        category="measured",
-    )
-
-    fine_structure_constant = Constant(
-        symbol="α",
-        name="fine-structure constant",
-        value=7.2973525693e-3,
-        unit=units.none,
-        uncertainty=0.0000000011e-3,
-        category="measured",
-    )
-
-    electron_mass = Constant(
-        symbol="mₑ",
-        name="electron mass",
-        value=9.1093837015e-31,
-        unit=units.kilogram,
-        uncertainty=0.0000000028e-31,
-        category="measured",
-    )
-
-    proton_mass = Constant(
-        symbol="mₚ",
-        name="proton mass",
-        value=1.67262192369e-27,
-        unit=units.kilogram,
-        uncertainty=0.00000000051e-27,
-        category="measured",
-    )
-
-    neutron_mass = Constant(
-        symbol="mₙ",
-        name="neutron mass",
-        value=1.67492749804e-27,
-        unit=units.kilogram,
-        uncertainty=0.00000000095e-27,
-        category="measured",
-    )
-
-    vacuum_permittivity = Constant(
-        symbol="ε₀",
-        name="vacuum electric permittivity",
-        value=8.8541878128e-12,
-        unit=units.farad / units.meter,
-        uncertainty=0.0000000013e-12,
-        category="measured",
-    )
-
-    vacuum_permeability = Constant(
-        symbol="μ₀",
-        name="vacuum magnetic permeability",
-        value=1.25663706212e-6,
-        unit=units.henry / units.meter,
-        uncertainty=0.00000000019e-6,
-        category="measured",
-    )
-
-    # -------------------------------------------------------------------------
-    # Exact Definitional Constants
-    # -------------------------------------------------------------------------
-
-    standard_gravity = Constant(
-        symbol="gₙ",
-        name="standard acceleration of gravity",
-        value=9.80665,
-        unit=units.meter / units.second ** 2,
-        uncertainty=None,
-        category="exact",
-    )
-
-    # -------------------------------------------------------------------------
-    # Atomic-Scale Constants (Measured)
-    # -------------------------------------------------------------------------
-
-    hartree_energy = Constant(
-        symbol="Eₕ",
-        name="Hartree energy",
-        value=4.3597447222060e-18,
-        unit=units.joule,
-        uncertainty=0.0000000000048e-18,
-        category="measured",
-    )
-
-    rydberg_energy = Constant(
-        symbol="Ry",
-        name="Rydberg energy",
-        value=2.1798723611030e-18,
-        unit=units.joule,
-        uncertainty=0.0000000000024e-18,
-        category="measured",
-    )
-
-    bohr_radius = Constant(
-        symbol="a₀",
-        name="Bohr radius",
-        value=5.29177210544e-11,
-        unit=units.meter,
-        uncertainty=0.00000000082e-11,
-        category="measured",
-    )
-
-    atomic_unit_of_time = Constant(
-        symbol="ℏ/Eₕ",
-        name="atomic unit of time",
-        value=2.4188843265864e-17,
-        unit=units.second,
-        uncertainty=0.0000000000026e-17,
-        category="measured",
-    )
-
-    # -------------------------------------------------------------------------
-    # Planck-Scale Constants (Measured, limited by G uncertainty)
-    # -------------------------------------------------------------------------
-
-    planck_mass = Constant(
-        symbol="mP",
-        name="Planck mass",
-        value=2.176434e-8,
-        unit=units.kilogram,
-        uncertainty=0.000024e-8,
-        category="measured",
-    )
-
-    planck_length = Constant(
-        symbol="lP",
-        name="Planck length",
-        value=1.616255e-35,
-        unit=units.meter,
-        uncertainty=0.000018e-35,
-        category="measured",
-    )
-
-    planck_time = Constant(
-        symbol="tP",
-        name="Planck time",
-        value=5.391247e-44,
-        unit=units.second,
-        uncertainty=0.000060e-44,
-        category="measured",
-    )
-
-    planck_temperature = Constant(
-        symbol="TP",
-        name="Planck temperature",
-        value=1.416784e32,
-        unit=units.kelvin,
-        uncertainty=0.000016e32,
-        category="measured",
-    )
-
-    return {
-        # SI defining (exact)
-        'hyperfine_transition_frequency': hyperfine_transition_frequency,
-        'speed_of_light': speed_of_light,
-        'planck_constant': planck_constant,
-        'elementary_charge': elementary_charge,
-        'boltzmann_constant': boltzmann_constant,
-        'avogadro_constant': avogadro_constant,
-        'luminous_efficacy': luminous_efficacy,
-        # Derived (exact)
-        'reduced_planck_constant': reduced_planck_constant,
-        'molar_gas_constant': molar_gas_constant,
-        'stefan_boltzmann_constant': stefan_boltzmann_constant,
-        # Measured
-        'gravitational_constant': gravitational_constant,
-        'fine_structure_constant': fine_structure_constant,
-        'electron_mass': electron_mass,
-        'proton_mass': proton_mass,
-        'neutron_mass': neutron_mass,
-        'vacuum_permittivity': vacuum_permittivity,
-        'vacuum_permeability': vacuum_permeability,
-        # Exact definitional
-        'standard_gravity': standard_gravity,
-        # Atomic-scale measured
-        'hartree_energy': hartree_energy,
-        'rydberg_energy': rydberg_energy,
-        'bohr_radius': bohr_radius,
-        'atomic_unit_of_time': atomic_unit_of_time,
-        # Planck-scale measured
-        'planck_mass': planck_mass,
-        'planck_length': planck_length,
-        'planck_time': planck_time,
-        'planck_temperature': planck_temperature,
-    }
+    graph = get_graph()
+    constants: dict[str, Constant] = {}
+    for const in graph._package_constants:
+        # Find the short descriptive alias (e.g. "speed_of_light") if available,
+        # otherwise derive from the full name.
+        descriptive = None
+        for alias in getattr(const, 'aliases', ()):
+            # Prefer the snake_case descriptive alias (not symbols like "Eh")
+            if '_' in alias or alias.replace('_', '').isalpha():
+                descriptive = alias
+                break
+        if descriptive is None:
+            descriptive = const.name.replace(" ", "_").replace("-", "_").lower()
+        constants[descriptive] = const
+    return constants
 
 
 # Lazy initialization to avoid circular imports
