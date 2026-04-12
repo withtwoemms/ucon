@@ -1,6 +1,6 @@
 [package]
 name = "comprehensive"
-format_version = "1.4"
+format_version = "1.5"
 
 [bases.CGS]
 components = [

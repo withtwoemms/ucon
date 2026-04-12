@@ -15,7 +15,7 @@ Exports ``to_toml()`` and ``from_toml()`` which handle:
 - Physical constants
 - Fraction preservation for exact round-trip of basis matrices
 
-Format version: 1.4
+Format version: 1.5
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ from ucon.maps import (
     Map,
 )
 
-FORMAT_VERSION = "1.4"
+FORMAT_VERSION = "1.5"
 
 
 class GraphLoadError(Exception):
