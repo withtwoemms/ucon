@@ -35,9 +35,11 @@ help:
 	@echo "  ${CYAN}docs-serve${RESET}    - Start documentation dev server"
 	@echo "  ${CYAN}venv${RESET}          - Create virtual environment"
 	@echo "  ${CYAN}clean${RESET}         - Remove build artifacts and caches"
-	@echo "  ${CYAN}stubs${RESET}         - Generate dimension.pyi type stubs"
-	@echo "  ${CYAN}stubs-check${RESET}   - Verify stubs are current (for CI)"
-	@echo "  ${CYAN}toml${RESET}          - Generate comprehensive.ucon.toml from default graph"
+	@echo "  ${CYAN}stubs${RESET}         - Generate all .pyi type stubs (units, constants, dimensions)"
+	@echo "  ${CYAN}stubs-check${RESET}   - Verify all stubs are current (for CI)"
+	@echo "  ${CYAN}unit-stubs${RESET}    - Generate ucon/units.pyi"
+	@echo "  ${CYAN}constant-stubs${RESET} - Generate ucon/constants.pyi"
+	@echo "  ${CYAN}dimension-stubs${RESET} - Generate ucon/dimension.pyi"
 	@echo "  ${CYAN}base-forms-check${RESET} - Verify base_form literals vs BFS oracle"
 	@echo "  ${CYAN}benchmark${RESET}     - Run array performance benchmarks"
 	@echo "  ${CYAN}benchmark-pint${RESET} - Run benchmarks with pint comparison"
@@ -160,24 +162,38 @@ clean-all: clean
 
 # --- Stubs ---
 .PHONY: stubs
-stubs: ${DEPS_INSTALLED}
+stubs: unit-stubs constant-stubs dimension-stubs
+
+.PHONY: unit-stubs
+unit-stubs: ${DEPS_INSTALLED}
+	@echo "${GREEN}Generating unit stubs...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
+		python scripts/generate_unit_stubs.py -o ucon/units.pyi
+	@echo "${CYAN}Wrote ucon/units.pyi${RESET}"
+
+.PHONY: constant-stubs
+constant-stubs: ${DEPS_INSTALLED}
+	@echo "${GREEN}Generating constant stubs...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
+		python scripts/generate_constant_stubs.py -o ucon/constants.pyi
+	@echo "${CYAN}Wrote ucon/constants.pyi${RESET}"
+
+.PHONY: dimension-stubs
+dimension-stubs: ${DEPS_INSTALLED}
 	@echo "${GREEN}Generating dimension stubs...${RESET}"
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
 		python scripts/generate_dimension_stubs.py -o ucon/dimension.pyi
 	@echo "${CYAN}Wrote ucon/dimension.pyi${RESET}"
 
-.PHONY: check-stubs
+.PHONY: stubs-check
 stubs-check: ${DEPS_INSTALLED}
-	@echo "${GREEN}Verifying dimension stubs are current...${RESET}"
+	@echo "${GREEN}Verifying stubs are current...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
+		python scripts/generate_unit_stubs.py --check
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
+		python scripts/generate_constant_stubs.py --check
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
 		python scripts/generate_dimension_stubs.py --check
-
-.PHONY: toml
-toml: ${DEPS_INSTALLED}
-	@echo "${GREEN}Generating comprehensive.ucon.toml...${RESET}"
-	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
-		python scripts/generate_comprehensive_toml.py
-	@echo "${CYAN}Wrote examples/units/comprehensive.ucon.toml${RESET}"
 
 .PHONY: base-forms-check
 base-forms-check: ${DEPS_INSTALLED}
