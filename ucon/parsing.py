@@ -263,19 +263,29 @@ class _UnitParser:
         """
         Parse: unit_expr := term (('*' | '·' | '/' | '⋅') term)*
 
-        Handles multiplication and division at the same precedence level,
-        left-to-right associativity.
+        Once a '/' is encountered, all subsequent terms are treated as
+        denominator (divided) regardless of whether they are joined by
+        '·' or '/'.  This matches the standard convention for unit
+        expressions: ``m/s·kg`` means ``m/(s·kg)``, not ``(m/s)·kg``.
+
+        Explicit parentheses override this: ``m/(s·kg)·A`` multiplies A
+        back into the numerator because the parenthesised group is a
+        single parsed term.
         """
         left = self._parse_term()
+        in_denominator = False
 
         while self.current_token.type in (_TokenType.MUL, _TokenType.DIV):
             op = self._advance()
             right = self._parse_term()
 
-            if op.type == _TokenType.MUL:
-                left = self._multiply(left, right)
-            else:  # DIV
+            if op.type == _TokenType.DIV:
+                in_denominator = True
+
+            if in_denominator:
                 left = self._divide(left, right)
+            else:
+                left = self._multiply(left, right)
 
         return left
 
