@@ -662,6 +662,13 @@ aliases = [
     "A/m",
 ]
 
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", 1.0],
+    ["meter", -1.0],
+]
+
 [[units]]
 name = "astronomical_unit"
 dimension = "length"
@@ -755,6 +762,12 @@ aliases = [
     "Bq",
 ]
 
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["second", -1.0],
+]
+
 [[units]]
 name = "coulomb"
 dimension = "charge"
@@ -775,6 +788,14 @@ dimension = "electric_dipole_moment"
 aliases = [
     "C·m",
     "C*m",
+]
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", 1.0],
+    ["meter", 1.0],
+    ["second", 1.0],
 ]
 
 [[units]]
@@ -799,6 +820,12 @@ aliases = [
     "Ci",
 ]
 
+[units.base_form]
+prefactor = 3.7e10
+factors = [
+    ["second", -1.0],
+]
+
 [[units]]
 name = "debye"
 dimension = "cgs_esu_electric_dipole_moment"
@@ -815,7 +842,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1.0
+prefactor = 1.1111111111111111e-07
 factors = [
     ["meter", -1.0],
     ["kilogram", 1.0],
@@ -858,6 +885,15 @@ aliases = [
     "F",
 ]
 
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", 2.0],
+    ["kilogram", -1.0],
+    ["meter", -2.0],
+    ["second", 4.0],
+]
+
 [[units]]
 name = "statcoulomb"
 dimension = "cgs_esu_charge"
@@ -898,11 +934,27 @@ aliases = [
     "Gy",
 ]
 
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 2.0],
+    ["second", -2.0],
+]
+
 [[units]]
 name = "henry"
 dimension = "inductance"
 aliases = [
     "H",
+]
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", -2.0],
+    ["kilogram", 1.0],
+    ["meter", 2.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -953,6 +1005,15 @@ name = "joule_per_kelvin"
 dimension = "entropy"
 aliases = [
     "J/K",
+]
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["kelvin", -1.0],
+    ["kilogram", 1.0],
+    ["meter", 2.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -1180,6 +1241,15 @@ aliases = [
     "S",
 ]
 
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", 2.0],
+    ["kilogram", -1.0],
+    ["meter", -2.0],
+    ["second", 3.0],
+]
+
 [[units]]
 name = "stokes"
 dimension = "cgs_kinematic_viscosity"
@@ -1194,11 +1264,26 @@ aliases = [
     "Sv",
 ]
 
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 2.0],
+    ["second", -2.0],
+]
+
 [[units]]
 name = "tesla"
 dimension = "magnetic_flux_density"
 aliases = [
     "T",
+]
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", -1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -1322,11 +1407,29 @@ aliases = [
     "Wb",
 ]
 
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", -1.0],
+    ["kilogram", 1.0],
+    ["meter", 2.0],
+    ["second", -2.0],
+]
+
 [[units]]
 name = "webers_per_meter"
 dimension = "magnetic_permeability"
 aliases = [
     "Wb/m",
+]
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["ampere", -2.0],
+    ["kilogram", 1.0],
+    ["meter", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -1395,6 +1498,12 @@ aliases = [
     "acres",
 ]
 
+[units.base_form]
+prefactor = 4046.8564224
+factors = [
+    ["meter", 2.0],
+]
+
 [[units]]
 name = "acre_foot"
 dimension = "volume"
@@ -1404,7 +1513,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1233481.83754752
+prefactor = 1233.48183754752
 factors = [
     ["meter", 3.0],
 ]
@@ -1495,6 +1604,12 @@ aliases = [
     "b_area",
 ]
 
+[units.base_form]
+prefactor = 1e-28
+factors = [
+    ["meter", 2.0],
+]
+
 [[units]]
 name = "bar"
 dimension = "pressure"
@@ -1519,7 +1634,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 158.9873264388353
+prefactor = 0.15898732643883529
 factors = [
     ["meter", 3.0],
 ]
@@ -1560,7 +1675,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 35.23907016688
+prefactor = 0.03523907016688
 factors = [
     ["meter", 3.0],
 ]
@@ -1698,7 +1813,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.23658828339112395
+prefactor = 0.00023658828339112394
 factors = [
     ["meter", 3.0],
 ]
@@ -1721,7 +1836,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 28.316846592000005
+prefactor = 0.028316846592
 factors = [
     ["meter", 3.0],
 ]
@@ -1735,7 +1850,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.016387064
+prefactor = 1.6387064e-05
 factors = [
     ["meter", 3.0],
 ]
@@ -1749,7 +1864,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 764.5548579840001
+prefactor = 0.764554857984
 factors = [
     ["meter", 3.0],
 ]
@@ -1958,7 +2073,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.029573535423890494
+prefactor = 2.9573535423890493e-05
 factors = [
     ["meter", 3.0],
 ]
@@ -2044,7 +2159,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 3.785412534257983
+prefactor = 0.003785412534257983
 factors = [
     ["meter", 3.0],
 ]
@@ -2073,7 +2188,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.11829414169556197
+prefactor = 0.00011829414169556197
 factors = [
     ["meter", 3.0],
 ]
@@ -2121,6 +2236,12 @@ aliases = [
     "ha",
 ]
 
+[units.base_form]
+prefactor = 10000.0
+factors = [
+    ["meter", 2.0],
+]
+
 [[units]]
 name = "hand"
 dimension = "length"
@@ -2158,7 +2279,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.284130625
+prefactor = 0.000284130625
 factors = [
     ["meter", 3.0],
 ]
@@ -2171,7 +2292,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.028413062499999996
+prefactor = 2.8413062499999998e-05
 factors = [
     ["meter", 3.0],
 ]
@@ -2184,7 +2305,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 4.54609
+prefactor = 0.00454609
 factors = [
     ["meter", 3.0],
 ]
@@ -2197,7 +2318,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.1420653125
+prefactor = 0.0001420653125
 factors = [
     ["meter", 3.0],
 ]
@@ -2210,7 +2331,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.56826125
+prefactor = 0.00056826125
 factors = [
     ["meter", 3.0],
 ]
@@ -2223,7 +2344,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1.1365225
+prefactor = 0.0011365225
 factors = [
     ["meter", 3.0],
 ]
@@ -2369,6 +2490,13 @@ aliases = [
     "knots",
 ]
 
+[units.base_form]
+prefactor = 0.5144444444444445
+factors = [
+    ["meter", 1.0],
+    ["second", -1.0],
+]
+
 [[units]]
 name = "ksi"
 dimension = "pressure"
@@ -2469,6 +2597,12 @@ name = "lumen"
 dimension = "luminous_intensity"
 aliases = [
     "lm",
+]
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["candela", 1.0],
 ]
 
 [[units]]
@@ -2600,6 +2734,13 @@ aliases = [
     "mph",
 ]
 
+[units.base_form]
+prefactor = 0.44704
+factors = [
+    ["meter", 1.0],
+    ["second", -1.0],
+]
+
 [[units]]
 name = "millimeter_mercury"
 dimension = "pressure"
@@ -2653,7 +2794,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 6.161153213310519e-05
+prefactor = 6.16115321331052e-08
 factors = [
     ["meter", 3.0],
 ]
@@ -2691,6 +2832,13 @@ name = "molar"
 dimension = "concentration"
 aliases = [
     "mol/L",
+]
+
+[units.base_form]
+prefactor = 1000.0
+factors = [
+    ["meter", -3.0],
+    ["mole", 1.0],
 ]
 
 [[units]]
@@ -2808,7 +2956,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 8.80976754172
+prefactor = 0.00880976754172
 factors = [
     ["meter", 3.0],
 ]
@@ -2872,7 +3020,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.4731765667822479
+prefactor = 0.0004731765667822479
 factors = [
     ["meter", 3.0],
 ]
@@ -2914,7 +3062,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.9463531335644958
+prefactor = 0.0009463531335644958
 factors = [
     ["meter", 3.0],
 ]
@@ -2933,11 +3081,25 @@ aliases = [
     "rad_absorbed",
 ]
 
+[units.base_form]
+prefactor = 0.01
+factors = [
+    ["meter", 2.0],
+    ["second", -2.0],
+]
+
 [[units]]
 name = "rem"
 dimension = "energy"
 aliases = [
     "rem",
+]
+
+[units.base_form]
+prefactor = 0.01
+factors = [
+    ["meter", 2.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -3061,7 +3223,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1000.0
+prefactor = 1.0
 factors = [
     ["meter", 3.0],
 ]
@@ -3117,7 +3279,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.014786767711945247
+prefactor = 1.4786767711945246e-05
 factors = [
     ["meter", 3.0],
 ]
@@ -3130,7 +3292,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.004928922570648415
+prefactor = 4.9289225706484154e-06
 factors = [
     ["meter", 3.0],
 ]
@@ -3143,7 +3305,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 9.0
+prefactor = 1e-6
 factors = [
     ["meter", -1.0],
     ["kilogram", 1.0],

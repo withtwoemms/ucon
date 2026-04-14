@@ -236,10 +236,20 @@ def _compute_expected_base_forms(graph: ConversionGraph) -> dict[Unit, BaseForm]
         if ref_unit is None:
             continue
 
-        # The reference unit's coherent base_form has prefactor 1.0.
+        # Seed the reference unit's prefactor.  If it already has a
+        # base_form from the TOML, use that value — this makes the oracle
+        # a consistency checker rather than an independent calculator.
+        # SI root units and true coherent units will have prefactor 1.0;
+        # non-coherent references (liter, denier, …) will have whatever
+        # the TOML declares, and all downstream units are checked for
+        # consistency against that seed.
         if ref_unit not in expected:
+            if ref_unit.base_form is not None:
+                seed_prefactor = ref_unit.base_form.prefactor
+            else:
+                seed_prefactor = 1.0
             expected[ref_unit] = BaseForm(
-                factors=base_factors_tuple, prefactor=1.0
+                factors=base_factors_tuple, prefactor=seed_prefactor,
             )
 
         # BFS outward, propagating prefactors via LinearMap/AffineMap slope.
