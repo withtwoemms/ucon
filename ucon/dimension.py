@@ -639,6 +639,7 @@ THERMAL_CONDUCTIVITY = _dim("thermal_conductivity", -3, 1, 1, 0, -1, 0, 0, 0)  #
 
 # Photometry
 ILLUMINANCE = _dim("illuminance", 0, -2, 0, 0, 0, 1, 0, 0)  # J/L²
+LUMINOUS_EFFICACY = _dim("luminous_efficacy", 3, -2, -1, 0, 0, 1, 0, 0)  # J·T³/(M·L²)
 
 # Chemistry
 CATALYTIC_ACTIVITY = _dim("catalytic_activity", -1, 0, 0, 0, 0, 0, 1, 0)  # N/T
@@ -954,6 +955,7 @@ def all_dimensions() -> tuple[Dimension, ...]:
         THERMAL_CONDUCTIVITY,
         # Derived - Photometry
         ILLUMINANCE,
+        LUMINOUS_EFFICACY,
         # Derived - Chemistry
         CATALYTIC_ACTIVITY,
         MOLAR_MASS,
@@ -1074,6 +1076,7 @@ __all__ = [
     "THERMAL_CONDUCTIVITY",
     # Derived dimensions - Photometry
     "ILLUMINANCE",
+    "LUMINOUS_EFFICACY",
     # Derived dimensions - Chemistry
     "CATALYTIC_ACTIVITY",
     "MOLAR_MASS",
