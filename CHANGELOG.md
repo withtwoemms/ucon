@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-04-13
+
+### Fixed
+
+- **Unit expression parser unified to standard left-to-right associativity.**
+  `_UnitParser` (the recursive-descent parser in `ucon/parsing.py`) was using a
+  non-standard "slash-opens-denominator" convention where `a/b*c` was parsed as
+  `a/(b·c)`. Reverted to standard order of operations: `*` and `/` have equal
+  precedence and associate left-to-right, so `a/b*c` = `(a/b)·c`. Multi-term
+  denominators require explicit parentheses: `m³/(kg·s²)`.
+
+- **Gravitational constant (G), molar gas constant (R), and Stefan-Boltzmann
+  constant (σ) unit strings** in `comprehensive.ucon.toml` restored to use
+  explicit parentheses: `m³/(kg·s²)`, `J/(mol·K)`, `W/(m²·K⁴)`. Without
+  parentheses, left-to-right parsing produced incorrect unit decompositions.
+
+- **TOML exponent formatting.** The serializer emitted `^2.0` for integral
+  exponents; now emits `^2`. The parser also now accepts float exponents
+  (`^2.0`) for backward compatibility with previously-emitted TOML files.
+
+### Removed
+
+- `_parse_product_expression()` and `_resolve_single_factor()` from
+  `ucon/serialization.py`. Product expression parsing is now handled
+  exclusively by `_UnitParser` via `get_unit_by_name()`, eliminating a
+  redundant regex-based parser that had diverged in associativity semantics.
+
 ## [1.6.0] - 2026-04-12
 
 ### Added
@@ -1238,7 +1265,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.6.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.6.1...HEAD
+[1.6.1]: https://github.com/withtwoemms/ucon/compare/1.6.0...1.6.1
 [1.6.0]: https://github.com/withtwoemms/ucon/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/withtwoemms/ucon/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/withtwoemms/ucon/compare/1.3.1...1.4.0
