@@ -1824,7 +1824,7 @@ class TestProductExpressionGrammar:
         assert found["second"] == -2.0
 
     def test_division_then_multiply(self):
-        """'meter/second*kilogram' → meter^1, second^-1, kg^1 (standard math)."""
+        """'meter/second*kilogram' → meter^1, second^-1, kg^1 (left-to-right: * resets to numerator)."""
         graph = get_default_graph()
         with using_graph(graph):
             result = _parse_product_expression("meter/second*kilogram", {}, graph)
@@ -1952,6 +1952,169 @@ class TestProductExpressionGrammar:
         expr = _product_key_to_expression(key)
         assert expr == "second^-1"
         assert "/" not in expr
+
+    # --- Left-to-right behaviour: _parse_product_expression (ASCII) --------
+
+    def test_left_to_right_star_after_slash(self):
+        """'meter^3/kilogram*second^2' → m^3, kg^-1, s^2 (left-to-right: * resets to numerator)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter^3/kilogram*second^2", {}, graph)
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["meter"] == 3.0
+        assert found["kilogram"] == -1.0
+        assert found["second"] == 2.0
+
+    def test_left_to_right_multiple_star_after_slash(self):
+        """'joule/mole*kelvin*second' → J^1, mol^-1, K^1, s^1 (left-to-right)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("joule/mole*kelvin*second", {}, graph)
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["joule"] == 1.0
+        assert found["mole"] == -1.0
+        assert found["kelvin"] == 1.0
+        assert found["second"] == 1.0
+
+    def test_left_to_right_star_after_slash_with_exponents(self):
+        """'watt/meter^2*kelvin^4' → W^1, m^-2, K^4 (left-to-right)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("watt/meter^2*kelvin^4", {}, graph)
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["watt"] == 1.0
+        assert found["meter"] == -2.0
+        assert found["kelvin"] == 4.0
+
+    def test_slash_single_denom_unchanged(self):
+        """'meter/second' still gives m^1, s^-1 (no regression)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter/second", {}, graph)
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["meter"] == 1.0
+        assert found["second"] == -1.0
+
+    def test_no_slash_multiply_unchanged(self):
+        """'kilogram*meter*second' → all positive (no slash means no denominator)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("kilogram*meter*second", {}, graph)
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["kilogram"] == 1.0
+        assert found["meter"] == 1.0
+        assert found["second"] == 1.0
+
+    def test_double_slash_all_denominator(self):
+        """'meter/second/kilogram' → m^1, s^-1, kg^-1 (each / puts next term in denom)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter/second/kilogram", {}, graph)
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["meter"] == 1.0
+        assert found["second"] == -1.0
+        assert found["kilogram"] == -1.0
+
+    def test_slash_with_explicit_negative_exponent(self):
+        """'meter/second^-1' → m^1, s^1 (explicit negative in denominator flips back)."""
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = _parse_product_expression("meter/second^-1", {}, graph)
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["meter"] == 1.0
+        assert found["second"] == 1.0
+
+    def test_shorthand_roundtrip_multi_denom(self):
+        """UnitProduct.shorthand (Unicode) round-trips through get_unit_by_name."""
+        from ucon import units
+        from ucon.core import UnitFactor, Scale, UnitProduct
+        from ucon.resolver import get_unit_by_name
+
+        prod = UnitProduct({
+            UnitFactor(units.meter, Scale.one): 3,
+            UnitFactor(units.kilogram, Scale.one): -1,
+            UnitFactor(units.second, Scale.one): -2,
+        })
+        shorthand = prod.shorthand
+        assert "(" in shorthand  # should have parens for multi-term denom
+
+        graph = get_default_graph()
+        with using_graph(graph):
+            reparsed = get_unit_by_name(shorthand)
+        found = {uf.unit.name: exp for uf, exp in reparsed.factors.items()}
+        assert found["meter"] == 3.0
+        assert found["kilogram"] == -1.0
+        assert found["second"] == -2.0
+
+    # --- Slash-opens-denominator: _UnitParser via get_unit_by_name (Unicode) --
+
+    def test_unicode_slash_denom_G_constant(self):
+        """'m³/kg·s²' → m^3, kg^-1, s^-2 (G constant pattern via full parser)."""
+        from ucon.resolver import get_unit_by_name
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = get_unit_by_name("m³/kg·s²")
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["meter"] == 3.0
+        assert found["kilogram"] == -1.0
+        assert found["second"] == -2.0
+
+    def test_unicode_slash_denom_stefan_boltzmann(self):
+        """'W/m²·K⁴' → W^1, m^-2, K^-4 (Stefan-Boltzmann via full parser)."""
+        from ucon.resolver import get_unit_by_name
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = get_unit_by_name("W/m²·K⁴")
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["watt"] == 1.0
+        assert found["meter"] == -2.0
+        assert found["kelvin"] == -4.0
+
+    def test_unicode_slash_denom_molar_gas(self):
+        """'J/mol·K' → J^1, mol^-1, K^-1 (molar gas constant via full parser)."""
+        from ucon.resolver import get_unit_by_name
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = get_unit_by_name("J/mol·K")
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["joule"] == 1.0
+        assert found["mole"] == -1.0
+        assert found["kelvin"] == -1.0
+
+    def test_unicode_slash_denom_persists_after_parens(self):
+        """'kg/(m·s²)·A' → kg^1, m^-1, s^-2, A^-1 (slash denom persists past parens group)."""
+        from ucon.resolver import get_unit_by_name
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = get_unit_by_name("kg/(m·s²)·A")
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["kilogram"] == 1.0
+        assert found["meter"] == -1.0
+        assert found["second"] == -2.0
+        assert found["ampere"] == -1.0
+
+    def test_unicode_no_slash_all_positive(self):
+        """'kg·m·s' → all positive (no slash means no denominator)."""
+        from ucon.resolver import get_unit_by_name
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = get_unit_by_name("kg·m·s")
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["kilogram"] == 1.0
+        assert found["meter"] == 1.0
+        assert found["second"] == 1.0
+
+    def test_unicode_middot_three_denom_terms(self):
+        """'J/mol·K·s' → J^1, mol^-1, K^-1, s^-1 via full parser."""
+        from ucon.resolver import get_unit_by_name
+        graph = get_default_graph()
+        with using_graph(graph):
+            result = get_unit_by_name("J/mol·K·s")
+        found = {uf.unit.name: exp for uf, exp in result.factors.items()}
+        assert found["joule"] == 1.0
+        assert found["mole"] == -1.0
+        assert found["kelvin"] == -1.0
+        assert found["second"] == -1.0
 
     def test_roundtrip_division(self, tmp_path):
         """Product edges with '/' notation survive export + reimport."""

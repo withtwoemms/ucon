@@ -268,9 +268,9 @@ class _UnitParser:
         '·' or '/'.  This matches the standard convention for unit
         expressions: ``m/s·kg`` means ``m/(s·kg)``, not ``(m/s)·kg``.
 
-        Explicit parentheses override this: ``m/(s·kg)·A`` multiplies A
-        back into the numerator because the parenthesised group is a
-        single parsed term.
+        Parentheses group their contents into a single parsed term but
+        do **not** reset the denominator flag: ``kg/(m·s²)·A`` yields
+        ``kg¹·m⁻¹·s⁻²·A⁻¹`` because ``A`` is still in the denominator.
         """
         left = self._parse_term()
         in_denominator = False
