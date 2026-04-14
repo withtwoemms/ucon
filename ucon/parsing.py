@@ -126,12 +126,19 @@ class _Tokenizer:
         return self.expression[start:self.pos]
 
     def _read_number(self) -> str:
-        """Read a numeric value (integer, possibly negative)."""
+        """Read a numeric value (integer or float, possibly negative)."""
         start = self.pos
         if self.pos < self.length and self.expression[self.pos] == '-':
             self.pos += 1
         while self.pos < self.length and self.expression[self.pos].isdigit():
             self.pos += 1
+        # Handle decimal point for float exponents (e.g., ^2.0)
+        if (self.pos < self.length and self.expression[self.pos] == '.'
+                and self.pos + 1 < self.length
+                and self.expression[self.pos + 1].isdigit()):
+            self.pos += 1  # consume '.'
+            while self.pos < self.length and self.expression[self.pos].isdigit():
+                self.pos += 1
         return self.expression[start:self.pos]
 
     def _read_superscript(self) -> str:
@@ -263,29 +270,20 @@ class _UnitParser:
         """
         Parse: unit_expr := term (('*' | '·' | '/' | '⋅') term)*
 
-        Once a '/' is encountered, all subsequent terms are treated as
-        denominator (divided) regardless of whether they are joined by
-        '·' or '/'.  This matches the standard convention for unit
-        expressions: ``m/s·kg`` means ``m/(s·kg)``, not ``(m/s)·kg``.
-
-        Parentheses group their contents into a single parsed term but
-        do **not** reset the denominator flag: ``kg/(m·s²)·A`` yields
-        ``kg¹·m⁻¹·s⁻²·A⁻¹`` because ``A`` is still in the denominator.
+        Multiplication and division have equal precedence and associate
+        left-to-right (standard order of operations).  Use parentheses
+        for multi-term denominators: ``m³/(kg·s²)``.
         """
         left = self._parse_term()
-        in_denominator = False
 
         while self.current_token.type in (_TokenType.MUL, _TokenType.DIV):
             op = self._advance()
             right = self._parse_term()
 
-            if op.type == _TokenType.DIV:
-                in_denominator = True
-
-            if in_denominator:
-                left = self._divide(left, right)
-            else:
+            if op.type == _TokenType.MUL:
                 left = self._multiply(left, right)
+            else:  # DIV
+                left = self._divide(left, right)
 
         return left
 
