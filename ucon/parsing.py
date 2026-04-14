@@ -314,7 +314,10 @@ class _UnitParser:
 
     def _parse_factor(self) -> 'UnitProduct':
         """
-        Parse: factor := '(' unit_expr ')' | scale_unit
+        Parse: factor := '(' unit_expr ')' | '1' | scale_unit
+
+        A bare ``1`` is accepted as the dimensionless identity so that
+        expressions like ``1/mol`` parse as ``mol⁻¹``.
         """
         if self.current_token.type == _TokenType.LPAREN:
             self._advance()
@@ -324,6 +327,12 @@ class _UnitParser:
 
         if self.current_token.type == _TokenType.IDENT:
             return self._parse_unit_atom()
+
+        # Bare '1' as dimensionless identity (e.g., "1/mol")
+        if (self.current_token.type == _TokenType.NUMBER
+                and self.current_token.value == '1'):
+            self._advance()
+            return self.unit_product_cls({})
 
         raise ParseError(
             f"Expected unit or '(', got {self.current_token.type.name}",
