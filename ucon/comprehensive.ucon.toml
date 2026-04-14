@@ -4454,7 +4454,7 @@ aliases = [
 symbol = "R"
 name = "molar gas constant"
 value = 8.314462618
-unit = "J/mol·K"
+unit = "J/(mol·K)"
 category = "derived"
 aliases = [
     "molar_gas_constant",
@@ -4464,7 +4464,7 @@ aliases = [
 symbol = "σ"
 name = "Stefan-Boltzmann constant"
 value = 5.670374419e-08
-unit = "W/m²·K⁴"
+unit = "W/(m²·K⁴)"
 category = "derived"
 aliases = [
     "stefan_boltzmann_constant",
@@ -4474,7 +4474,7 @@ aliases = [
 symbol = "G"
 name = "Newtonian constant of gravitation"
 value = 6.6743e-11
-unit = "m³/kg·s²"
+unit = "m³/(kg·s²)"
 category = "measured"
 uncertainty = 1.5e-15
 aliases = [
