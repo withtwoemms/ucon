@@ -834,7 +834,7 @@ class ConversionGraph:
                     queue.append(neighbor_key)
 
             # Try unit edges if current is a single-unit product
-            if len(current_product.factors) == 1:
+            if current_product is not None and len(current_product.factors) == 1:
                 factor, exp = next(iter(current_product.factors.items()))
                 if abs(exp - 1.0) < 1e-12:  # exponent is 1
                     unit = factor.unit
@@ -942,6 +942,26 @@ class ConversionGraph:
                 return self._convert_units(src=src_unit, dst=dst_unit)
             except (ConversionNotFound, DimensionMismatch):
                 pass  # Fall through to factorwise
+
+        # Try BFS product path on base-scale versions.
+        # This handles cases like kN/cm² → Pa where no direct edge exists
+        # but a multi-hop path through base-scale intermediates does:
+        # kN/cm² → (scale) → N/m² → (product edge) → Pa
+        src_base_factors = {
+            UnitFactor(f.unit, Scale.one): exp
+            for f, exp in src.factors.items()
+        }
+        src_base = UnitProduct(src_base_factors)
+        src_base_key = self._product_key(src_base)
+        # Reuse dst_base/dst_base_key from above
+        try:
+            base_map = self._bfs_product_path(src=src_base, dst=dst_base)
+            # Compose: src → src_base (fold scale) → dst_base (BFS) → dst (fold scale)
+            src_scale = src.fold_scale() / src_base.fold_scale()
+            dst_scale = dst_base.fold_scale() / dst.fold_scale()
+            return LinearMap(dst_scale) @ base_map @ LinearMap(src_scale)
+        except ConversionNotFound:
+            pass
 
         # Try factorwise decomposition
         return self._convert_factorwise(src=src, dst=dst)
