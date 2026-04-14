@@ -439,10 +439,10 @@ class TestGraphEquality:
         g2 = g1.copy()
         assert g1 == g2
 
-        # Add a product edge to g2 only
+        # Add a product edge to g2 only (use an edge not in the TOML)
         g2.add_edge(
-            src=units.watt,
-            dst=units.joule / units.second,
+            src=units.volt,
+            dst=units.watt / units.ampere,
             map=LinearMap(1.0),
         )
         assert g1 != g2
