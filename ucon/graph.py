@@ -943,28 +943,19 @@ class ConversionGraph:
             except (ConversionNotFound, DimensionMismatch):
                 pass  # Fall through to factorwise
 
-        # Try BFS product path on base-scale versions.
-        # This handles cases like kN/cm² → Pa where no direct edge exists
-        # but a multi-hop path through base-scale intermediates does:
-        # kN/cm² → (scale) → N/m² → (product edge) → Pa
-        src_base_factors = {
-            UnitFactor(f.unit, Scale.one): exp
-            for f, exp in src.factors.items()
-        }
-        src_base = UnitProduct(src_base_factors)
-        src_base_key = self._product_key(src_base)
-        # Reuse dst_base/dst_base_key from above
+        # Try factorwise decomposition
         try:
-            base_map = self._bfs_product_path(src=src_base, dst=dst_base)
-            # Compose: src → src_base (fold scale) → dst_base (BFS) → dst (fold scale)
-            src_scale = src.fold_scale() / src_base.fold_scale()
-            dst_scale = dst_base.fold_scale() / dst.fold_scale()
-            return LinearMap(dst_scale) @ base_map @ LinearMap(src_scale)
+            return self._convert_factorwise(src=src, dst=dst)
         except ConversionNotFound:
             pass
 
-        # Try factorwise decomposition
-        return self._convert_factorwise(src=src, dst=dst)
+        # Base-form fallback: decompose both products to SI base units and
+        # compare signatures.  If they match, the conversion factor is the
+        # ratio of prefactors.  This handles cases where factor structures
+        # don't align (e.g. kg·m/s² → N, J/L → Pa, W/m² → BTU/(h·ft²))
+        # without requiring explicit product edges — the definitional
+        # identity is already encoded in each unit's BaseForm.
+        return self._convert_via_base_form(src=src, dst=dst)
 
     def _convert_factorwise(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
         """
@@ -1066,6 +1057,37 @@ class ConversionGraph:
                 result = result @ factor_map
 
         return result
+
+    def _convert_via_base_form(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
+        """Convert by decomposing both products to SI base units.
+
+        Every unit with a ``base_form`` can be expressed as a prefactor
+        times a product of base units.  If src and dst decompose to the
+        same base-unit signature, the conversion factor is simply
+        ``src_prefactor / dst_prefactor``.
+
+        This is the most general fallback — it handles any pair of
+        unit expressions that are dimensionally equivalent, regardless
+        of how their factor structures are arranged (e.g. ``J/L → Pa``,
+        ``kg·m/s² → N``, ``W/m² → BTU/(h·ft²)``).
+        """
+        try:
+            src_base, src_pre = src.to_base_form()
+            dst_base, dst_pre = dst.to_base_form()
+        except (AttributeError, TypeError):
+            raise ConversionNotFound(
+                f"Cannot decompose to base form: {src} or {dst}"
+            )
+
+        src_sig = tuple(sorted((u.name, e) for u, e in src_base.items()))
+        dst_sig = tuple(sorted((u.name, e) for u, e in dst_base.items()))
+
+        if src_sig != dst_sig:
+            raise ConversionNotFound(
+                f"Base-form signatures differ: {src_sig} vs {dst_sig}"
+            )
+
+        return LinearMap(src_pre / dst_pre)
 
     # ------------- Serialization ----------------------------------------------
 

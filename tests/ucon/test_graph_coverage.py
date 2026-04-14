@@ -314,9 +314,10 @@ class TestFactorwiseDuplicateVectors(unittest.TestCase):
 
     def test_duplicate_src_effective_vector(self):
         # Two factors with different dimensions but same effective vector
-        # after raising to their exponents. This is hard to construct
-        # naturally; we need two dimensions with the same vector.
+        # after raising to their exponents.
         # Use volume^1 (L³) and length^3 — both produce L³.
+        # Factorwise decomposition can't handle this, but the base-form
+        # fallback resolves it: 1 L·m³ = 0.001 m⁶.
         graph = get_default_graph()
 
         src = UnitProduct({
@@ -327,10 +328,8 @@ class TestFactorwiseDuplicateVectors(unittest.TestCase):
             UnitFactor(units.meter, Scale.one): 6,
         })
 
-        # This should trigger "Factor structures don't align" or
-        # "Multiple source factors" since liter^1 and meter^3 both map to L³
-        with self.assertRaises((ConversionNotFound, DimensionMismatch)):
-            graph.convert(src=src, dst=dst)
+        m = graph.convert(src=src, dst=dst)
+        self.assertAlmostEqual(m(1.0), 0.001, places=10)
 
 
 # -----------------------------------------------------------------------

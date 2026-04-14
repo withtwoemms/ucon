@@ -1013,7 +1013,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1.0
+prefactor = 0.001
 factors = [
     ["meter", 3.0],
 ]
@@ -4112,53 +4112,6 @@ product = true
 src = "tex"
 dst = "gram/meter"
 factor = 0.001
-product = true
-
-# Derived-unit definitional equivalences
-# These bridge named derived units to their SI base decompositions,
-# enabling conversions like kg·m/s² → N, N/m² → Pa, etc.
-
-[[product_edges]]
-src = "newton"
-dst = "kilogram*meter/second^2"
-factor = 1
-product = true
-
-[[product_edges]]
-src = "pascal"
-dst = "newton/meter^2"
-factor = 1
-product = true
-
-[[product_edges]]
-src = "joule"
-dst = "newton*meter"
-factor = 1
-product = true
-
-[[product_edges]]
-src = "watt"
-dst = "joule/second"
-factor = 1
-product = true
-
-[[product_edges]]
-src = "pascal"
-dst = "joule/meter^3"
-factor = 1
-product = true
-
-[[product_edges]]
-src = "joule/liter"
-dst = "pascal"
-factor = 1000
-product = true
-
-# Cross-system heat flux
-[[product_edges]]
-src = "watt/meter^2"
-dst = "btu/(hour*foot^2)"
-factor = 0.3169983306281506
 product = true
 
 [[cross_basis_edges]]
