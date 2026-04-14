@@ -168,6 +168,11 @@ def _extract_product_edges(graph) -> list[dict]:
     return edges
 
 
+def _fmt_exp(v: float) -> str:
+    """Format an exponent, preferring integer form when integral."""
+    return str(int(v)) if v == int(v) else str(v)
+
+
 def _product_key_to_expression(key: tuple) -> str:
     """Convert a product key tuple back to a unit expression string.
 
@@ -194,13 +199,13 @@ def _product_key_to_expression(key: tuple) -> str:
             if abs(exp - 1.0) < 1e-12:
                 num_parts.append(unit_str)
             else:
-                num_parts.append(f"{unit_str}^{exp}")
+                num_parts.append(f"{unit_str}^{_fmt_exp(exp)}")
         else:
             abs_exp = abs(exp)
             if abs(abs_exp - 1.0) < 1e-12:
                 den_parts.append(unit_str)
             else:
-                den_parts.append(f"{unit_str}^{abs_exp}")
+                den_parts.append(f"{unit_str}^{_fmt_exp(abs_exp)}")
 
     if not num_parts and not den_parts:
         return "dimensionless"
@@ -217,7 +222,7 @@ def _product_key_to_expression(key: tuple) -> str:
             if abs(exp - (-1.0)) < 1e-12:
                 neg_parts.append(f"{unit_str}^-1")
             else:
-                neg_parts.append(f"{unit_str}^{exp}")
+                neg_parts.append(f"{unit_str}^{_fmt_exp(exp)}")
         return "*".join(neg_parts)
 
     num_expr = "*".join(num_parts)
@@ -876,17 +881,8 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
             src_expr = _require(edge_spec, "src", section)
             dst_expr = _require(edge_spec, "dst", section)
             m = _build_edge_map(edge_spec, _build_map, constant_table)
-            try:
-                src_prod = _parse_product_expression(src_expr, unit_map, graph)
-                dst_prod = _parse_product_expression(dst_expr, unit_map, graph)
-            except GraphLoadError as exc:
-                if strict:
-                    raise
-                warnings.warn(
-                    f"[{section}]: skipping product edge — {exc}",
-                    stacklevel=2,
-                )
-                continue
+            src_prod = _resolve_product_expression(src_expr, unit_map, graph)
+            dst_prod = _resolve_product_expression(dst_expr, unit_map, graph)
             if src_prod is None or dst_prod is None:
                 if strict:
                     failed = src_expr if src_prod is None else dst_expr
@@ -1048,110 +1044,36 @@ def _has_alpha(s: str) -> bool:
     return any(c.isalpha() or c == '_' for c in s)
 
 
-def _resolve_single_factor(
-    unit_name: str,
-    unit_map: dict[str, Unit],
-    graph,
-) -> Union[dict, None]:
-    """Resolve a single unit name to a ``{UnitFactor: exponent}`` dict.
-
-    Uses ``get_unit_by_name()`` first (handles scale prefixes like
-    ``"kwatt"`` → ``UnitFactor(watt, kilo)``), then falls back to local
-    resolution via *unit_map* / *graph*.
-
-    Returns ``None`` if the unit cannot be resolved.
-    """
-    from ucon.resolver import get_unit_by_name
-
-    unit_name = unit_name.strip()
-
-    try:
-        resolved = get_unit_by_name(unit_name)
-        if isinstance(resolved, UnitProduct):
-            return dict(resolved.factors)
-        return {UnitFactor(resolved, Scale.one): 1.0}
-    except Exception:
-        pass
-
-    unit = _resolve_unit(unit_name, unit_map, graph)
-    if unit is None:
-        return None
-    return {UnitFactor(unit, Scale.one): 1.0}
-
-
-def _parse_product_expression(
+def _resolve_product_expression(
     expr: str,
     unit_map: dict[str, Unit],
     graph,
 ) -> Union[UnitProduct, None]:
-    """Parse a product expression string into a UnitProduct.
+    """Resolve a product expression string via ``get_unit_by_name()``.
 
-    Grammar (left-to-right, standard arithmetic precedence)::
+    Falls back to local *unit_map* / *graph* resolution for units that
+    exist only in the graph being loaded (not yet in the global
+    registry).
 
-        expression := factor (('*' | '/') factor)*
-        factor     := unit_name ('^' exponent)?
-
-    ``*`` and ``/`` have equal precedence and are left-associative.
-    Each ``*`` keeps the following factor in the numerator; each ``/``
-    puts it in the denominator.  This matches standard mathematical
-    convention::
-
-        meter/second*kilogram   → m¹·s⁻¹·kg¹   (= m·kg/s)
-        mg/kg/day               → mg¹·kg⁻¹·day⁻¹
-
-    Uses ``get_unit_by_name()`` as the primary resolver so that
-    scale-prefixed names (e.g. ``"kwatt"``) are decomposed correctly into
-    a ``UnitFactor`` carrying the proper ``Scale``.
-
-    Raises
-    ------
-    GraphLoadError
-        If an exponent is not a valid number.
+    Always returns a ``UnitProduct`` (wrapping bare ``Unit`` results)
+    or ``None`` when resolution fails.
     """
+    from ucon.resolver import get_unit_by_name
+
     expr = expr.strip()
     if not expr:
         return None
 
-    # Tokenize on * and / while keeping delimiters
-    tokens = re.split(r'\s*([*/])\s*', expr)
+    try:
+        result = get_unit_by_name(expr)
+        if isinstance(result, UnitProduct):
+            return result
+        return UnitProduct.from_unit(result)
+    except Exception:
+        pass
 
-    factors: dict = {}
-    sign = 1.0  # first factor is always positive (numerator)
-
-    for token in tokens:
-        token = token.strip()
-        if not token:
-            continue
-        if token == '*':
-            sign = 1.0
-            continue
-        if token == '/':
-            sign = -1.0
-            continue
-
-        # Parse exponent
-        if '^' in token:
-            name_part, exp_str = token.rsplit('^', 1)
-            try:
-                base_exp = float(exp_str.strip())
-            except ValueError:
-                raise GraphLoadError(
-                    f"Invalid exponent '{exp_str.strip()}' in "
-                    f"product expression '{expr}'"
-                )
-        else:
-            name_part = token
-            base_exp = 1.0
-
-        effective_exp = sign * base_exp
-
-        resolved = _resolve_single_factor(name_part, unit_map, graph)
-        if resolved is None:
-            return None
-
-        for uf, uf_exp in resolved.items():
-            factors[uf] = factors.get(uf, 0.0) + effective_exp * uf_exp
-
-    if not factors:
-        return None
-    return UnitProduct(factors)
+    # Fallback: simple (non-composite) name in the local unit map
+    unit = _resolve_unit(expr, unit_map, graph)
+    if unit is not None:
+        return UnitProduct.from_unit(unit)
+    return None

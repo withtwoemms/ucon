@@ -1143,6 +1143,8 @@ class UnitProduct:
         denominator = "·".join(den)
         if not denominator:
             return numerator
+        if len(den) > 1:
+            return f"{numerator}/({denominator})"
         return f"{numerator}/{denominator}"
 
     def fold_scale(self) -> float:

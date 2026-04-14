@@ -126,12 +126,19 @@ class _Tokenizer:
         return self.expression[start:self.pos]
 
     def _read_number(self) -> str:
-        """Read a numeric value (integer, possibly negative)."""
+        """Read a numeric value (integer or float, possibly negative)."""
         start = self.pos
         if self.pos < self.length and self.expression[self.pos] == '-':
             self.pos += 1
         while self.pos < self.length and self.expression[self.pos].isdigit():
             self.pos += 1
+        # Handle decimal point for float exponents (e.g., ^2.0)
+        if (self.pos < self.length and self.expression[self.pos] == '.'
+                and self.pos + 1 < self.length
+                and self.expression[self.pos + 1].isdigit()):
+            self.pos += 1  # consume '.'
+            while self.pos < self.length and self.expression[self.pos].isdigit():
+                self.pos += 1
         return self.expression[start:self.pos]
 
     def _read_superscript(self) -> str:
@@ -263,8 +270,9 @@ class _UnitParser:
         """
         Parse: unit_expr := term (('*' | '·' | '/' | '⋅') term)*
 
-        Handles multiplication and division at the same precedence level,
-        left-to-right associativity.
+        Multiplication and division have equal precedence and associate
+        left-to-right (standard order of operations).  Use parentheses
+        for multi-term denominators: ``m³/(kg·s²)``.
         """
         left = self._parse_term()
 
