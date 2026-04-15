@@ -84,6 +84,7 @@ class Dimension:
     kinematic_viscosity: ClassVar[Dimension]
     length: ClassVar[Dimension]
     linear_density: ClassVar[Dimension]
+    luminous_efficacy: ClassVar[Dimension]
     luminous_intensity: ClassVar[Dimension]
     magnetic_field_strength: ClassVar[Dimension]
     magnetic_flux: ClassVar[Dimension]
@@ -205,6 +206,7 @@ ENTROPY: Dimension
 SPECIFIC_HEAT_CAPACITY: Dimension
 THERMAL_CONDUCTIVITY: Dimension
 ILLUMINANCE: Dimension
+LUMINOUS_EFFICACY: Dimension
 CATALYTIC_ACTIVITY: Dimension
 MOLAR_MASS: Dimension
 MOLAR_VOLUME: Dimension
