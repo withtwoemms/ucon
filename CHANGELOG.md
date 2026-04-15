@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-04-14
+
+### Added
+
+- **Base-form conversion fallback.** `ConversionGraph._convert_via_base_form()`
+  decomposes both source and destination `UnitProduct` expressions to their SI
+  base units and computes the conversion factor as the ratio of prefactors.
+  This handles conversions where factor structures don't align (e.g.,
+  `kg·m/s² → N`, `J/L → Pa`, `W/m² → BTU/(h·ft²)`) without requiring
+  explicit product edges — the definitional identity is already encoded in
+  each unit's `base_form`.
+
+- **Cross-basis dimensional compatibility for `@enforce_dimensions`.**
+  `_dimensions_compatible()` in `ucon/checking.py` normalizes both actual and
+  expected dimensions to SI via `BasisGraph` before comparing. CGS units like
+  poise (dimension `cgs_dynamic_viscosity`) now satisfy constraints expecting
+  the SI equivalent (`dynamic_viscosity`).
+
+- **22 new `base_form` entries** in `comprehensive.ucon.toml` for SI-basis
+  units that previously lacked decompositions: acre, ampere_per_meter, barn,
+  becquerel, coulomb_meter, curie, farad, gray, hectare, henry,
+  joule_per_kelvin, knot, lumen, mile_per_hour, molar, rad_dose, rem,
+  siemens, sievert, tesla, weber, webers_per_meter.
+
+### Fixed
+
+- **Liter `base_form` prefactor** corrected from `1.0` to `0.001`
+  (1 L = 0.001 m³).
+
+- **Tex `base_form` prefactor** corrected from `9.0` to `1e-6`
+  (1 tex = 1 g/km = 1e-6 kg/m).
+
+- **Denier `base_form` prefactor** corrected from `1.0` to
+  `1.1111111111111111e-07` (1 denier = 1 g/9000 m).
+
+- **23 volume unit `base_form` prefactors** corrected. All were calibrated
+  relative to liter = 1.0 (wrong) instead of m³. Affected units: acre_foot,
+  barrel, bushel, cubic_foot, cubic_inch, cubic_yard, cup, fluid_ounce,
+  gallon, gill, imperial_cup, imperial_fluid_ounce, imperial_gallon,
+  imperial_gill, imperial_pint, imperial_quart, minim, peck, pint, quart,
+  stere, tablespoon, teaspoon.
+
+- **`generate_base_forms.py` BFS oracle** no longer assumes all reference
+  units are SI-coherent (prefactor = 1.0). The BFS seed prefactor is now
+  read from the unit's own TOML `base_form`, making the oracle a consistency
+  checker across each dimension partition rather than relying on a hardcoded
+  override table.
+
 ## [1.6.1] - 2026-04-13
 
 ### Fixed
