@@ -208,14 +208,15 @@ class TestDimensionsCompatible(unittest.TestCase):
 class TestEnforceDimensionsCrossBasis(unittest.TestCase):
     """Tests for @enforce_dimensions with cross-basis units."""
 
-    def test_cgs_poise_accepted_for_si_dynamic_viscosity(self):
+    def test_cgs_poise_coerced_to_si(self):
         @enforce_dimensions
         def viscosity_fn(mu: Number[Dimension.dynamic_viscosity]) -> Number:
             return mu
 
-        # poise is CGS, constraint is SI dynamic_viscosity
+        # poise is CGS — coerced to 0.1 Pa·s
         result = viscosity_fn(units.poise(1.0))
-        self.assertEqual(result.quantity, 1.0)
+        self.assertAlmostEqual(result.quantity, 0.1)
+        self.assertEqual(result.unit.name, "pascal_second")
 
     def test_cgs_unit_rejected_for_wrong_si_dimension(self):
         @enforce_dimensions
@@ -224,6 +225,44 @@ class TestEnforceDimensionsCrossBasis(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             energy_fn(units.poise(1.0))
+
+    def test_cgs_dyne_coerced_enables_si_arithmetic(self):
+        """dyne (CGS) is coerced to newton (SI) so formula arithmetic works."""
+        @enforce_dimensions
+        def work(force: Number[Dimension.force], dist: Number[Dimension.length]) -> Number:
+            return force * dist
+
+        result = work(Number(1.0, units.dyne), Number(1.0, units.meter))
+        self.assertAlmostEqual(result.quantity, 1e-5)
+
+    def test_cgs_erg_coerced_to_joule(self):
+        @enforce_dimensions
+        def energy_fn(e: Number[Dimension.energy]) -> Number:
+            return e
+
+        result = energy_fn(Number(1.0, units.erg))
+        self.assertAlmostEqual(result.quantity, 1e-7)
+        self.assertEqual(result.unit.name, "joule")
+
+    def test_si_input_not_coerced(self):
+        """SI inputs pass through unchanged — no coercion overhead."""
+        @enforce_dimensions
+        def length_fn(d: Number[Dimension.length]) -> Number:
+            return d
+
+        n = Number(5.0, units.meter)
+        result = length_fn(n)
+        self.assertIs(result, n)
+
+    def test_uncertainty_scaled_during_coercion(self):
+        @enforce_dimensions
+        def force_fn(f: Number[Dimension.force]) -> Number:
+            return f
+
+        result = force_fn(Number(1.0, units.dyne, uncertainty=0.1))
+        self.assertAlmostEqual(result.quantity, 1e-5)
+        self.assertIsNotNone(result.uncertainty)
+        self.assertAlmostEqual(result.uncertainty, 1e-6)
 
 
 class TestDimensionConstraint(unittest.TestCase):
