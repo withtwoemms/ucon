@@ -24,6 +24,7 @@ else:
     # to ensure get_origin() correctly identifies typing_extensions.Annotated
     from typing_extensions import Annotated, get_type_hints, get_args, get_origin
 
+from ucon.basis import NoTransformPath
 from ucon.basis.builtin import SI
 from ucon.basis.graph import get_basis_graph
 from ucon.core import Dimension, Unit, UnitProduct
@@ -58,7 +59,7 @@ def _dimensions_compatible(actual: Dimension, expected: Dimension) -> bool:
             actual = actual.in_basis(bg.get_transform(actual.vector.basis, SI))
         if expected.vector.basis != SI:
             expected = expected.in_basis(bg.get_transform(expected.vector.basis, SI))
-    except (ValueError, KeyError):
+    except (ValueError, KeyError, NoTransformPath):
         return False  # no transform path → not compatible
 
     return actual == expected
