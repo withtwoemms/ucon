@@ -1,12 +1,13 @@
 # Copyright 2026 The Radiativity Company
 # Licensed under the Apache License, Version 2.0
 
-"""Tests for the parse() function (v0.8.5)."""
+"""Tests for the parse() function and parsing internals (v0.8.5+)."""
 
 import pytest
 
 from ucon import parse, Number, using_graph, CGS, using_basis
 from ucon.units import UnknownUnitError, meter, second, kilogram, hour, mile
+from ucon.parsing import _Tokenizer, _TokenType, ParseError
 
 
 class TestParseBasicQuantities:
@@ -216,3 +217,61 @@ class TestParseEdgeCases:
         """Parse '1.5E3 m' handles uppercase E in scientific notation."""
         result = parse("1.5E3 m")
         assert result.value == 1500
+
+
+class TestTokenizer:
+    """Tests for _Tokenizer internals."""
+
+    def test_peek_does_not_consume(self):
+        """peek() returns next token without advancing position."""
+        t = _Tokenizer("m*s")
+        peeked = t.peek()
+        assert peeked.type == _TokenType.IDENT
+        assert peeked.value == "m"
+        # Consuming should return the same token
+        consumed = t.next_token()
+        assert consumed.type == peeked.type
+        assert consumed.value == peeked.value
+
+    def test_unexpected_character_raises_parse_error(self):
+        """Unknown characters like '@' raise ParseError."""
+        t = _Tokenizer("@")
+        with pytest.raises(ParseError, match="Unexpected character '@'"):
+            t.next_token()
+
+    def test_read_superscript_empty_on_non_superscript(self):
+        """_read_superscript returns '' when position is not at a superscript."""
+        t = _Tokenizer("m")
+        assert t._read_superscript() == ""
+
+
+class TestParserErrors:
+    """Tests for parser error paths."""
+
+    def test_number_in_unit_position_raises(self):
+        """A bare number (other than 1) in unit position raises ParseError."""
+        from ucon.resolver import get_unit_by_name
+        with pytest.raises(ParseError, match="Expected unit"):
+            get_unit_by_name("5*m")
+
+    def test_operator_in_unit_position_raises(self):
+        """An operator at the start of an expression raises ParseError."""
+        from ucon.resolver import get_unit_by_name
+        with pytest.raises(ParseError, match="Expected unit"):
+            get_unit_by_name("*m")
+
+
+class TestParseIntegerParenthetical:
+    """Tests for integer parenthetical uncertainty in parse()."""
+
+    def test_integer_parenthetical_uncertainty(self):
+        """'100(5) m' parses as 100 ± 5 m (integer, no decimal scaling)."""
+        result = parse("100(5) m")
+        assert result.quantity == 100.0
+        assert result.uncertainty == 5.0
+
+    def test_float_parenthetical_uncertainty(self):
+        """'1.234(5) m' parses as 1.234 ± 0.005 m (decimal scaling)."""
+        result = parse("1.234(5) m")
+        assert result.quantity == pytest.approx(1.234)
+        assert result.uncertainty == pytest.approx(0.005)
