@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-04-15
+
+### Added
+
+- **Cross-basis coercion in `@enforce_dimensions`.** When a CGS-basis argument
+  (e.g. dyne, erg, poise) passes dimensional validation against an SI
+  constraint, the decorator now automatically coerces it to the coherent SI
+  equivalent before the function body runs. This eliminates "Cannot multiply
+  dimensions from different bases" errors inside decorated functions.
+
 ## [1.6.2] - 2026-04-14
 
 ### Added
