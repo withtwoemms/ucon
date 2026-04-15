@@ -4,9 +4,14 @@
 
 """Tests for ucon.checking module."""
 
+import sys
 import unittest
-from typing import Annotated
 from unittest.mock import patch, MagicMock
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:
+    from typing_extensions import Annotated
 
 from ucon import Dimension, Number, units, enforce_dimensions, DimensionConstraint
 from ucon.basis import Basis, Vector
