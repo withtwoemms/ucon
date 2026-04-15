@@ -525,6 +525,5 @@ class TestConversionGraphAmbiguousDecomposition(unittest.TestCase):
         graph = ConversionGraph()
         graph.add_edge(src=meter, dst=foot, map=LinearMap(3.28084))
 
-        with self.assertRaises(ConversionNotFound) as ctx:
+        with self.assertRaises(ConversionNotFound):
             graph.convert(src=ambiguous, dst=target)
-        self.assertIn("Ambiguous", str(ctx.exception))

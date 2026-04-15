@@ -24,6 +24,9 @@ else:
     # to ensure get_origin() correctly identifies typing_extensions.Annotated
     from typing_extensions import Annotated, get_type_hints, get_args, get_origin
 
+from ucon.basis import NoTransformPath
+from ucon.basis.builtin import SI
+from ucon.basis.graph import get_basis_graph
 from ucon.core import Dimension, Unit, UnitProduct
 from ucon.core import Number, DimensionConstraint
 
@@ -34,6 +37,32 @@ def _get_dimension(n: Number) -> Dimension:
     if isinstance(unit, (UnitProduct, Unit)):
         return unit.dimension
     raise TypeError(f"Cannot extract dimension from {type(unit).__name__}")
+
+
+def _dimensions_compatible(actual: Dimension, expected: Dimension) -> bool:
+    """Check dimensional compatibility across bases.
+
+    Two dimensions are compatible if they resolve to the same SI vector.
+    This allows e.g. CGS ``cgs_dynamic_viscosity`` to satisfy an
+    ``enforce_dimensions`` constraint expecting SI ``dynamic_viscosity``.
+    """
+    if actual == expected:
+        return True
+
+    # Different bases — normalize both to SI and compare
+    if actual.vector.basis == expected.vector.basis:
+        return False  # same basis, already failed __eq__
+
+    bg = get_basis_graph()
+    try:
+        if actual.vector.basis != SI:
+            actual = actual.in_basis(bg.get_transform(actual.vector.basis, SI))
+        if expected.vector.basis != SI:
+            expected = expected.in_basis(bg.get_transform(expected.vector.basis, SI))
+    except (ValueError, KeyError, NoTransformPath):
+        return False  # no transform path → not compatible
+
+    return actual == expected
 
 
 def enforce_dimensions(fn):
@@ -101,7 +130,7 @@ def enforce_dimensions(fn):
                     f"{name}: expected Number, got {type(value).__name__}"
                 )
             actual = _get_dimension(value)
-            if actual != constraint.dimension:
+            if not _dimensions_compatible(actual, constraint.dimension):
                 raise ValueError(
                     f"{name}: expected dimension '{constraint.dimension.name}', "
                     f"got '{actual.name}'"
