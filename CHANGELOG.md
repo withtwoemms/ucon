@@ -55,6 +55,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checker across each dimension partition rather than relying on a hardcoded
   override table.
 
+- **`_dimensions_compatible` crash on isolated bases.** The except clause
+  in `_dimensions_compatible()` did not catch `NoTransformPath` (raised by
+  `BasisGraph.get_transform()` for disconnected bases), causing an unhandled
+  exception instead of returning `False`.
+
 ## [1.6.1] - 2026-04-13
 
 ### Fixed
