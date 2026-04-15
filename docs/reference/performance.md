@@ -66,20 +66,20 @@ Measured on CPython 3.12, macOS (Apple Silicon), 50 iterations per scenario.
 
 | Scenario | ucon | pint 0.25 | Speedup |
 |----------|------|-----------|---------|
-| Array creation (n=10) | 1.2 us | 70.0 us | 60.0x |
-| Array conversion (n=10) | 11.7 us | 33.0 us | 2.8x |
-| Array creation (n=100) | 1.2 us | 68.9 us | 55.3x |
-| Array conversion (n=100) | 11.9 us | 33.3 us | 2.8x |
-| Array creation (n=1,000) | 1.3 us | 70.7 us | 56.4x |
-| Array conversion (n=1,000) | 12.9 us | 35.7 us | 2.8x |
-| Array creation (n=10,000) | 1.2 us | 79.2 us | 64.2x |
-| Array conversion (n=10,000) | 19.3 us | 43.0 us | 2.2x |
-| Array creation (n=100,000) | 1.3 us | 128.3 us | 99.1x |
-| Array conversion (n=100,000) | 68.6 us | 93.5 us | 1.4x |
-| Array creation (n=1,000,000) | 1.5 us | 1.5 ms | 1043.7x |
-| Array conversion (n=1,000,000) | 1.5 ms | 1.5 ms | 1.0x |
+| Array creation (n=10) | 1.1 us | 68.8 us | 62.0x |
+| Array conversion (n=10) | 11.8 us | 32.0 us | 2.7x |
+| Array creation (n=100) | 1.2 us | 67.2 us | 55.7x |
+| Array conversion (n=100) | 11.4 us | 32.7 us | 2.9x |
+| Array creation (n=1,000) | 1.2 us | 69.4 us | 55.9x |
+| Array conversion (n=1,000) | 12.8 us | 34.3 us | 2.7x |
+| Array creation (n=10,000) | 1.2 us | 77.8 us | 64.4x |
+| Array conversion (n=10,000) | 19.7 us | 42.8 us | 2.2x |
+| Array creation (n=100,000) | 1.2 us | 129.8 us | 105.1x |
+| Array conversion (n=100,000) | 71.0 us | 92.3 us | 1.3x |
+| Array creation (n=1,000,000) | 1.1 us | 1.3 ms | 1168.6x |
+| Array conversion (n=1,000,000) | 1.3 ms | 1.3 ms | 1.1x |
 
-Array creation maintains constant ~1.2 us regardless of size (zero-copy wrapping), while pint's cost grows with N — reaching 1000x slower at one million elements. Array conversion shows ucon's overhead is a fixed ~12 us of dispatch; as N grows, both libraries converge to the same NumPy-bound cost, reaching parity at n=1,000,000.
+Array creation maintains constant ~1.2 us regardless of size (zero-copy wrapping), while pint's cost grows with N — reaching 1168x slower at one million elements. Array conversion shows ucon's overhead is a fixed ~12 us of dispatch; as N grows, both libraries converge to the same NumPy-bound cost, reaching parity at n=1,000,000.
 
 ---
 
