@@ -756,5 +756,148 @@ class TestSpelledOutScaleAliases(unittest.TestCase):
         self.assertAlmostEqual(result.quantity, 1024.0, places=9)
 
 
+class TestPluralAliases(unittest.TestCase):
+    """Test that plural and long-form unit aliases resolve correctly.
+
+    These aliases were added to support scoring in the UnitSafe benchmark,
+    where models frequently output spelled-out unit names like "meters"
+    instead of "m".
+    """
+
+    # -- TOML plural aliases (base/unscaled units) ----------------------------
+
+    def test_meters(self):
+        self.assertEqual(get_unit_by_name("meters"), units.meter)
+
+    def test_metres(self):
+        self.assertEqual(get_unit_by_name("metres"), units.meter)
+
+    def test_metre(self):
+        self.assertEqual(get_unit_by_name("metre"), units.meter)
+
+    def test_seconds(self):
+        self.assertEqual(get_unit_by_name("seconds"), units.second)
+
+    def test_grams(self):
+        self.assertEqual(get_unit_by_name("grams"), units.gram)
+
+    def test_watts(self):
+        self.assertEqual(get_unit_by_name("watts"), units.watt)
+
+    def test_joules(self):
+        self.assertEqual(get_unit_by_name("joules"), units.joule)
+
+    def test_hours(self):
+        self.assertEqual(get_unit_by_name("hours"), units.hour)
+
+    def test_liters(self):
+        self.assertEqual(get_unit_by_name("liters"), units.liter)
+
+    def test_litres(self):
+        self.assertEqual(get_unit_by_name("litres"), units.liter)
+
+    def test_litre(self):
+        self.assertEqual(get_unit_by_name("litre"), units.liter)
+
+    def test_ohms(self):
+        self.assertEqual(get_unit_by_name("ohms"), units.ohm)
+
+    def test_newtons(self):
+        self.assertEqual(get_unit_by_name("newtons"), units.newton)
+
+    def test_pascals(self):
+        self.assertEqual(get_unit_by_name("pascals"), units.pascal)
+
+    def test_amps(self):
+        self.assertEqual(get_unit_by_name("amps"), units.ampere)
+
+    def test_amperes(self):
+        self.assertEqual(get_unit_by_name("amperes"), units.ampere)
+
+    def test_volts(self):
+        self.assertEqual(get_unit_by_name("volts"), units.volt)
+
+    def test_radians(self):
+        self.assertEqual(get_unit_by_name("radians"), units.radian)
+
+    def test_arcseconds(self):
+        self.assertEqual(get_unit_by_name("arcseconds"), units.arcsecond)
+
+    def test_arcminutes(self):
+        self.assertEqual(get_unit_by_name("arcminutes"), units.arcminute)
+
+    def test_lumens(self):
+        self.assertEqual(get_unit_by_name("lumens"), units.lumen)
+
+    # -- New unit: solar_mass -------------------------------------------------
+
+    def test_solar_mass_by_name(self):
+        result = get_unit_by_name("solar_mass")
+        self.assertIsInstance(result, Unit)
+        self.assertEqual(result.dimension, Dimension.mass)
+
+    def test_solar_mass_symbol(self):
+        result = get_unit_by_name("M☉")
+        self.assertIsInstance(result, Unit)
+        self.assertEqual(result.name, "solar_mass")
+
+    def test_solar_masses(self):
+        result = get_unit_by_name("solar_masses")
+        self.assertIsInstance(result, Unit)
+        self.assertEqual(result.name, "solar_mass")
+
+    # -- Scaled plural aliases (from units.py) --------------------------------
+
+    def test_kilometers(self):
+        result = get_unit_by_name("kilometers")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
+
+    def test_milligrams(self):
+        result = get_unit_by_name("milligrams")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
+
+    def test_milliseconds(self):
+        result = get_unit_by_name("milliseconds")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
+
+    def test_milliliters(self):
+        result = get_unit_by_name("milliliters")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
+
+    def test_kilowatts(self):
+        result = get_unit_by_name("kilowatts")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
+
+    def test_kilojoules(self):
+        result = get_unit_by_name("kilojoules")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
+
+    def test_microradians(self):
+        result = get_unit_by_name("microradians")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
+
+    def test_microradian_singular(self):
+        result = get_unit_by_name("microradian")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
+
+    def test_millilumens(self):
+        result = get_unit_by_name("millilumens")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
+
+    def test_millilumen_singular(self):
+        result = get_unit_by_name("millilumen")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
+
+
 if __name__ == '__main__':
     unittest.main()
