@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-05-04
+
+### Added
+
+- **`solar_mass` unit** (dimension `mass`) with aliases `M☉` and
+  `solar_masses`. Base-form prefactor `1.98892e+30` against `kilogram`,
+  enabling `convert(1, "solar_mass", "kg")` and astrophysics-domain
+  expressions of stellar and planetary masses.
+
+- **Plural aliases on common SI and derived units** in
+  `comprehensive.ucon.toml`: `amperes`/`amps`, `arcminutes`, `arcseconds`,
+  `grams`, `hours`, `joules`, `liters`/`litres` (and singular `litre`),
+  `lumens`, `meters`/`metres` (and singular `metre`), `newtons`, `ohms`,
+  `pascals`, `radians`, `seconds`, `volts`, `watts`. Inputs like `5 meters`
+  or `100 watts` now parse without requiring abbreviation.
+
+- **Spelled-out scaled aliases not covered by prefix decomposition** in
+  `ucon/units.py`. The prefix-decomposition machinery handles compact
+  forms like `km`, `µs`, `mW`; this release adds the spelled-out and
+  plural variants as priority-scaled aliases:
+  - Length: `kilometers`, `centimeters`, `millimeters`, `micrometers`,
+    `nanometers`, `picometers`.
+  - Mass: `milligrams`, `micrograms`.
+  - Time: `milliseconds`, `microseconds`, `nanoseconds`.
+  - Volume: `milliliters`, `microliters`.
+  - Power: `kilowatts`, `megawatts`, `milliwatts`.
+  - Energy: `kilojoules`, `megajoules`.
+  - Pressure: `kilopascals`, `megapascals`, `hectopascals`.
+  - Angle: `microradian`/`microradians`, `milliradian`/`milliradians`.
+  - Luminous intensity: `millilumen`/`millilumens`.
+
+- **Parser-coverage tests** in `tests/ucon/test_unit_parsing.py` exercising
+  the new plural and spelled-out scaled aliases against `Number(...)`
+  construction and base-form conversion.
+
+### Notes
+
+- These additions are surface-level (catalog and aliases only); no
+  `Unit`/`UnitFactor`/`ConversionGraph` semantics changed. Existing TOML
+  files and pickled units remain compatible.
+
+- Motivated by failure analysis on the UnitSafe benchmark, where natural
+  prompts ("convert 100 watts for 8 hours") and gold answers (`M☉`,
+  `solar_masses`) used spelled-out and plural forms the parser did not
+  yet recognize.
+
 ## [1.6.3] - 2026-04-15
 
 ### Added
