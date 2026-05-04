@@ -594,6 +594,7 @@ dimension = "angle"
 aliases = [
     "arcsec",
     "\"",
+    "arcseconds",
 ]
 
 [[units]]
@@ -609,6 +610,7 @@ dimension = "angle"
 aliases = [
     "arcmin",
     "'",
+    "arcminutes",
 ]
 
 [[units]]
@@ -617,6 +619,8 @@ dimension = "ratio"
 aliases = [
     "frac",
     "1",
+    "dimensionless",
+    "unitless",
 ]
 
 [[units]]
@@ -647,6 +651,8 @@ aliases = [
     "A",
     "I",
     "amp",
+    "amps",
+    "amperes",
 ]
 
 [units.base_form]
@@ -990,6 +996,7 @@ name = "joule"
 dimension = "energy"
 aliases = [
     "J",
+    "joules",
 ]
 
 [units.base_form]
@@ -1071,6 +1078,9 @@ dimension = "volume"
 aliases = [
     "L",
     "l",
+    "liters",
+    "litres",
+    "litre",
 ]
 
 [units.base_form]
@@ -1112,6 +1122,7 @@ name = "newton"
 dimension = "force"
 aliases = [
     "N",
+    "newtons",
 ]
 
 [units.base_form]
@@ -1177,6 +1188,7 @@ name = "pascal"
 dimension = "pressure"
 aliases = [
     "Pa",
+    "pascals",
 ]
 
 [units.base_form]
@@ -1343,6 +1355,7 @@ name = "volt"
 dimension = "voltage"
 aliases = [
     "V",
+    "volts",
 ]
 
 [units.base_form]
@@ -1390,6 +1403,7 @@ name = "watt"
 dimension = "power"
 aliases = [
     "W",
+    "watts",
 ]
 
 [units.base_form]
@@ -1874,6 +1888,7 @@ name = "day"
 dimension = "time"
 aliases = [
     "d",
+    "days",
 ]
 
 [units.base_form]
@@ -2127,6 +2142,7 @@ name = "gram"
 dimension = "mass"
 aliases = [
     "g",
+    "grams",
 ]
 
 [units.base_form]
@@ -2221,6 +2237,7 @@ dimension = "time"
 aliases = [
     "h",
     "hr",
+    "hours",
 ]
 
 [units.base_form]
@@ -2597,6 +2614,7 @@ name = "lumen"
 dimension = "luminous_intensity"
 aliases = [
     "lm",
+    "lumens",
 ]
 
 [units.base_form]
@@ -2624,6 +2642,9 @@ name = "meter"
 dimension = "length"
 aliases = [
     "m",
+    "meters",
+    "metres",
+    "metre",
 ]
 
 [units.base_form]
@@ -2777,6 +2798,7 @@ name = "minute"
 dimension = "time"
 aliases = [
     "min",
+    "minutes",
 ]
 
 [units.base_form]
@@ -2832,6 +2854,7 @@ name = "molar"
 dimension = "concentration"
 aliases = [
     "mol/L",
+    "M",
 ]
 
 [units.base_form]
@@ -2860,6 +2883,7 @@ name = "ohm"
 dimension = "resistance"
 aliases = [
     "Ω",
+    "ohms",
 ]
 
 [units.base_form]
@@ -2930,6 +2954,20 @@ aliases = [
 prefactor = 3.085677581491367e+16
 factors = [
     ["meter", 1.0],
+]
+
+[[units]]
+name = "solar_mass"
+dimension = "mass"
+aliases = [
+    "M☉",
+    "solar_masses",
+]
+
+[units.base_form]
+prefactor = 1.98892e+30
+factors = [
+    ["kilogram", 1.0],
 ]
 
 [[units]]
@@ -3072,6 +3110,7 @@ name = "radian"
 dimension = "angle"
 aliases = [
     "rad",
+    "radians",
 ]
 
 [[units]]
@@ -3131,6 +3170,7 @@ dimension = "time"
 aliases = [
     "s",
     "sec",
+    "seconds",
 ]
 
 [units.base_form]

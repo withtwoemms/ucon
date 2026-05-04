@@ -202,6 +202,67 @@ def _register_aliases() -> None:
     register_priority_scaled_alias('pebibyte', byte, Scale.pebi)
     register_priority_scaled_alias('exbibyte', byte, Scale.exbi)
 
+    # -- Scaled aliases not covered by prefix decomposition -------------------
+    # Angle
+    radian = _units['radian']
+    register_priority_scaled_alias('microradian', radian, Scale.micro)
+    register_priority_scaled_alias('milliradian', radian, Scale.milli)
+
+    # Luminous intensity
+    lumen = _units['lumen']
+    register_priority_scaled_alias('millilumen', lumen, Scale.milli)
+
+    # Concentration (molar prefixed forms; unscaled "M" lives in TOML aliases)
+    molar = _units['molar']
+    register_priority_scaled_alias('mM', molar, Scale.milli)
+    register_priority_scaled_alias('µM', molar, Scale.micro)
+    register_priority_scaled_alias('uM', molar, Scale.micro)
+    register_priority_scaled_alias('nM', molar, Scale.nano)
+    register_priority_scaled_alias('pM', molar, Scale.pico)
+
+    # -- Plural forms of spelled-out scaled aliases ---------------------------
+    # Length
+    register_priority_scaled_alias('kilometers', meter, Scale.kilo)
+    register_priority_scaled_alias('centimeters', meter, Scale.centi)
+    register_priority_scaled_alias('millimeters', meter, Scale.milli)
+    register_priority_scaled_alias('micrometers', meter, Scale.micro)
+    register_priority_scaled_alias('nanometers', meter, Scale.nano)
+    register_priority_scaled_alias('picometers', meter, Scale.pico)
+
+    # Mass
+    register_priority_scaled_alias('milligrams', gram, Scale.milli)
+    register_priority_scaled_alias('micrograms', gram, Scale.micro)
+
+    # Time
+    register_priority_scaled_alias('milliseconds', second, Scale.milli)
+    register_priority_scaled_alias('microseconds', second, Scale.micro)
+    register_priority_scaled_alias('nanoseconds', second, Scale.nano)
+
+    # Volume
+    register_priority_scaled_alias('milliliters', liter, Scale.milli)
+    register_priority_scaled_alias('microliters', liter, Scale.micro)
+
+    # Power
+    register_priority_scaled_alias('kilowatts', watt, Scale.kilo)
+    register_priority_scaled_alias('megawatts', watt, Scale.mega)
+    register_priority_scaled_alias('milliwatts', watt, Scale.milli)
+
+    # Energy
+    register_priority_scaled_alias('kilojoules', joule, Scale.kilo)
+    register_priority_scaled_alias('megajoules', joule, Scale.mega)
+
+    # Pressure
+    register_priority_scaled_alias('kilopascals', pascal, Scale.kilo)
+    register_priority_scaled_alias('megapascals', pascal, Scale.mega)
+    register_priority_scaled_alias('hectopascals', pascal, Scale.hecto)
+
+    # Angle
+    register_priority_scaled_alias('microradians', radian, Scale.micro)
+    register_priority_scaled_alias('milliradians', radian, Scale.milli)
+
+    # Luminous intensity
+    register_priority_scaled_alias('millilumens', lumen, Scale.milli)
+
 
 _register_aliases()
 

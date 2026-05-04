@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-05-04
+
+### Added
+
+- **`solar_mass` unit** (dimension `mass`) with aliases `M☉` and
+  `solar_masses`. Base-form prefactor `1.98892e+30` against `kilogram`,
+  enabling `convert(1, "solar_mass", "kg")` and astrophysics-domain
+  expressions of stellar and planetary masses.
+
+- **Plural aliases on common SI and derived units** in
+  `comprehensive.ucon.toml`: `amperes`/`amps`, `arcminutes`, `arcseconds`,
+  `grams`, `hours`, `joules`, `liters`/`litres` (and singular `litre`),
+  `lumens`, `meters`/`metres` (and singular `metre`), `newtons`, `ohms`,
+  `pascals`, `radians`, `seconds`, `volts`, `watts`. Inputs like `5 meters`
+  or `100 watts` now parse without requiring abbreviation.
+
+- **Spelled-out scaled aliases not covered by prefix decomposition** in
+  `ucon/units.py`. The prefix-decomposition machinery handles compact
+  forms like `km`, `µs`, `mW`; this release adds the spelled-out and
+  plural variants as priority-scaled aliases:
+  - Length: `kilometers`, `centimeters`, `millimeters`, `micrometers`,
+    `nanometers`, `picometers`.
+  - Mass: `milligrams`, `micrograms`.
+  - Time: `milliseconds`, `microseconds`, `nanoseconds`.
+  - Volume: `milliliters`, `microliters`.
+  - Power: `kilowatts`, `megawatts`, `milliwatts`.
+  - Energy: `kilojoules`, `megajoules`.
+  - Pressure: `kilopascals`, `megapascals`, `hectopascals`.
+  - Angle: `microradian`/`microradians`, `milliradian`/`milliradians`.
+  - Luminous intensity: `millilumen`/`millilumens`.
+
+- **`dimensionless`/`unitless` aliases on `fraction`.** The existing
+  `fraction` unit (dimension `ratio`) now also resolves from the words
+  `dimensionless` and `unitless`, which models commonly emit for ratios
+  in benchmark prompts.
+
+- **`M` alias on `molar`** plus priority scaled aliases for `mM`, `µM`,
+  `uM`, `nM`, and `pM`. `M` is the canonical chemistry symbol for molar
+  concentration and now resolves to `units.molar` directly. Prefixed
+  forms used in lab/clinical contexts resolve via the priority-scaled
+  alias machinery and bypass ambiguous prefix decomposition.
+
+- **Plural aliases for `day` and `minute`** (`days`, `minutes`). Other
+  common time units (`hours`, `seconds`, `years`) already had plural
+  aliases.
+
+- **Parser-coverage tests** in `tests/ucon/test_unit_parsing.py`
+  exercising the new plural and spelled-out scaled aliases, the
+  dimensionless aliases, and the molar / prefixed-molar aliases against
+  `Number(...)` construction and base-form conversion.
+
+### Changed
+
+- **`get_unit_by_name("M")` now resolves to `units.molar` (was
+  `units.meter`).** Previously, lookup case-insensitively matched the
+  meter alias `m`. Capital `M` is the universal scientific symbol for
+  molar concentration (and also the SI mega prefix when used as a
+  prefix), so the new resolution reflects established convention.
+  Lowercase `m` continues to resolve to `meter` unchanged. Code that
+  intentionally relied on case-insensitive `M`→meter must use lowercase
+  `m`.
+
+### Notes
+
+- These additions are surface-level (catalog and aliases only); no
+  `Unit`/`UnitFactor`/`ConversionGraph` semantics changed. Existing TOML
+  files and pickled units remain compatible.
+
+- Motivated by failure analysis on the UnitSafe benchmark, where natural
+  prompts ("convert 100 watts for 8 hours") and gold answers (`M☉`,
+  `solar_masses`, `5 mM`, `dimensionless`) used spelled-out, plural, and
+  domain-symbol forms the parser did not yet recognize.
+
 ## [1.6.3] - 2026-04-15
 
 ### Added

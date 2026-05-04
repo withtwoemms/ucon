@@ -226,6 +226,7 @@ short_ton: Unit
 siemens: Unit
 sievert: Unit
 slug: Unit
+solar_mass: Unit
 square_degree: Unit
 square_meter_per_second: Unit
 standard_gravity: Unit
