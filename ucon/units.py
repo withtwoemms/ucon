@@ -212,6 +212,14 @@ def _register_aliases() -> None:
     lumen = _units['lumen']
     register_priority_scaled_alias('millilumen', lumen, Scale.milli)
 
+    # Concentration (molar prefixed forms; unscaled "M" lives in TOML aliases)
+    molar = _units['molar']
+    register_priority_scaled_alias('mM', molar, Scale.milli)
+    register_priority_scaled_alias('µM', molar, Scale.micro)
+    register_priority_scaled_alias('uM', molar, Scale.micro)
+    register_priority_scaled_alias('nM', molar, Scale.nano)
+    register_priority_scaled_alias('pM', molar, Scale.pico)
+
     # -- Plural forms of spelled-out scaled aliases ---------------------------
     # Length
     register_priority_scaled_alias('kilometers', meter, Scale.kilo)
