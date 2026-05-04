@@ -619,6 +619,8 @@ dimension = "ratio"
 aliases = [
     "frac",
     "1",
+    "dimensionless",
+    "unitless",
 ]
 
 [[units]]
@@ -1886,6 +1888,7 @@ name = "day"
 dimension = "time"
 aliases = [
     "d",
+    "days",
 ]
 
 [units.base_form]
@@ -2795,6 +2798,7 @@ name = "minute"
 dimension = "time"
 aliases = [
     "min",
+    "minutes",
 ]
 
 [units.base_form]
@@ -2850,6 +2854,7 @@ name = "molar"
 dimension = "concentration"
 aliases = [
     "mol/L",
+    "M",
 ]
 
 [units.base_form]
