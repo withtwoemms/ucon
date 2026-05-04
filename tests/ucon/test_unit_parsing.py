@@ -42,8 +42,16 @@ class TestSimpleUnitLookup(unittest.TestCase):
         result = get_unit_by_name("METER")
         self.assertEqual(result, units.meter)
 
-    def test_lookup_case_insensitive_alias(self):
+    def test_lookup_case_sensitive_M_resolves_to_molar(self):
+        # 'M' is the standard chemistry symbol for molar concentration
+        # (and SI prefix for mega when used as a prefix). Lowercase 'm'
+        # remains the meter alias.
         result = get_unit_by_name("M")
+        self.assertEqual(result, units.molar)
+
+    def test_lookup_case_insensitive_alias(self):
+        # Lowercase 'm' is the canonical alias for meter.
+        result = get_unit_by_name("m")
         self.assertEqual(result, units.meter)
 
     def test_lookup_liter_L(self):
@@ -897,6 +905,74 @@ class TestPluralAliases(unittest.TestCase):
         result = get_unit_by_name("millilumen")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
+
+    # -- 1.6.4 additions ------------------------------------------------------
+
+    def test_days(self):
+        self.assertEqual(get_unit_by_name("days"), units.day)
+
+    def test_minutes(self):
+        self.assertEqual(get_unit_by_name("minutes"), units.minute)
+
+
+class TestDimensionlessAliases(unittest.TestCase):
+    """Test 'dimensionless' / 'unitless' aliases for the fraction unit.
+
+    Models in the UnitSafe benchmark commonly emit 'dimensionless' or
+    'unitless' for ratios; both should resolve to the existing fraction
+    unit (dimension ratio).
+    """
+
+    def test_dimensionless(self):
+        self.assertEqual(get_unit_by_name("dimensionless"), units.fraction)
+
+    def test_unitless(self):
+        self.assertEqual(get_unit_by_name("unitless"), units.fraction)
+
+    def test_frac_still_works(self):
+        self.assertEqual(get_unit_by_name("frac"), units.fraction)
+
+
+class TestMolarAliases(unittest.TestCase):
+    """Test 'M' (molar) and SI-prefixed molar aliases.
+
+    'M' is the standard chemistry symbol for molar concentration. Common
+    prefixed forms used in lab/clinical contexts (mM, µM, uM, nM, pM) are
+    registered as priority scaled aliases so prefix decomposition does not
+    need to be relied upon at the boundary between unit and prefix.
+    """
+
+    def test_M_is_molar(self):
+        self.assertEqual(get_unit_by_name("M"), units.molar)
+
+    def test_mM_is_millimolar(self):
+        result = get_unit_by_name("mM")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertEqual(result.dimension, Dimension.concentration)
+        # fold_scale() returns the scale prefix factor (milli = 1e-3)
+        self.assertAlmostEqual(result.fold_scale(), 1e-3, places=15)
+
+    def test_uM_equals_micromolar(self):
+        u = get_unit_by_name("uM")
+        mu = get_unit_by_name("µM")
+        self.assertEqual(u, mu)
+
+    def test_nM_is_nanomolar(self):
+        result = get_unit_by_name("nM")
+        self.assertEqual(result.dimension, Dimension.concentration)
+
+    def test_pM_is_picomolar(self):
+        result = get_unit_by_name("pM")
+        self.assertEqual(result.dimension, Dimension.concentration)
+
+    def test_mol_per_L_still_works(self):
+        self.assertEqual(get_unit_by_name("mol/L").dimension,
+                         Dimension.concentration)
+
+    def test_mM_to_M_conversion(self):
+        c = Number(500, unit=get_unit_by_name("mM"))
+        result = c.to(get_unit_by_name("M"))
+        self.assertAlmostEqual(result.quantity, 0.5, places=9)
 
 
 if __name__ == '__main__':
