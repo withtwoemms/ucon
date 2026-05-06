@@ -938,6 +938,7 @@ name = "gray"
 dimension = "energy"
 aliases = [
     "Gy",
+    "Gy(RBE)",
 ]
 
 [units.base_form]
@@ -1274,6 +1275,7 @@ name = "sievert"
 dimension = "energy"
 aliases = [
     "Sv",
+    "Sv(RBE)",
 ]
 
 [units.base_form]

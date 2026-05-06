@@ -975,5 +975,79 @@ class TestMolarAliases(unittest.TestCase):
         self.assertAlmostEqual(result.quantity, 0.5, places=9)
 
 
+class TestWholeTokenAliases(unittest.TestCase):
+    """Test resolution of aliases that contain operator-like characters.
+
+    Some domain-specific labels include parentheses or other characters that
+    the composite parser would otherwise interpret as expression syntax. Such
+    labels are registered as ordinary aliases; the resolver checks the whole
+    string against the alias registry BEFORE composite-detection runs, so
+    the label resolves as a single token.
+
+    Current cases:
+    - ``Gy(RBE)`` → ``gray`` (radiobiological-equivalent dose label used in
+      proton/heavy-ion therapy)
+    - ``Sv(RBE)`` → ``sievert``
+
+    The semantic distinction (RBE-weighted vs unweighted) is a Kind-of-Quantity
+    concern handled at higher layers; at the unit-resolution layer the labels
+    are aliases of the canonical SI dose units.
+    """
+
+    def test_gy_rbe_resolves_to_gray(self):
+        self.assertEqual(get_unit_by_name("Gy(RBE)"), units.gray)
+
+    def test_sv_rbe_resolves_to_sievert(self):
+        self.assertEqual(get_unit_by_name("Sv(RBE)"), units.sievert)
+
+    def test_gy_rbe_is_not_unitproduct(self):
+        # Whole-token resolution returns the bare Unit, not a UnitProduct
+        result = get_unit_by_name("Gy(RBE)")
+        self.assertIsInstance(result, Unit)
+
+    def test_gy_alias_still_works(self):
+        self.assertEqual(get_unit_by_name("Gy"), units.gray)
+
+    def test_sv_alias_still_works(self):
+        self.assertEqual(get_unit_by_name("Sv"), units.sievert)
+
+    def test_composite_with_real_operators_unchanged(self):
+        # Regression: actual composite expressions still parse normally
+        result = get_unit_by_name("m/s")
+        self.assertIsInstance(result, UnitProduct)
+
+    def test_composite_with_parentheses_unchanged(self):
+        # Regression: parenthesised composites still parse
+        result = get_unit_by_name("J/(mol*K)")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertEqual(result.dimension,
+                         get_unit_by_name("J/mol/K").dimension)
+
+    def test_priority_alias_min_unchanged(self):
+        # Regression: 'min' still resolves to minute, not milli-inch
+        self.assertEqual(get_unit_by_name("min"), units.minute)
+
+    def test_priority_scaled_alias_mcg_unchanged(self):
+        # Regression: 'mcg' still resolves to microgram via priority scaled
+        # alias path (it is NOT in the unit-name registry, so the new
+        # whole-string check falls through cleanly)
+        result = get_unit_by_name("mcg")
+        self.assertIsInstance(result, UnitProduct)
+        self.assertEqual(result.dimension, Dimension.mass)
+        self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
+
+    def test_unknown_parenthesised_token_still_errors(self):
+        # Verbatim check falls through; composite parser then raises
+        # for the unknown parenthesised expression.
+        with self.assertRaises((UnknownUnitError, Exception)):
+            get_unit_by_name("Foo(BAR)")
+
+    def test_verbatim_lookup_is_case_sensitive(self):
+        # Verbatim aliases are convention-specific; the exact casing is
+        # required. Lowercase variants are not silently coerced.
+        with self.assertRaises((UnknownUnitError, Exception)):
+            get_unit_by_name("gy(rbe)")
+
+
 if __name__ == '__main__':
     unittest.main()
