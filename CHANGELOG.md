@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.5] - 2026-05-05
+
+### Added
+
+- **Whole-token alias resolution for parenthesised labels.** Aliases
+  containing parentheses are now resolved as a single token before the
+  composite parser tokenises the input. The resolver maintains an
+  internal `_VERBATIM_ALIASES` registry populated automatically when a
+  unit's alias contains `(` or `)`; this is consulted at the top of
+  `get_unit_by_name()` ahead of composite detection. Aliases that contain
+  only multiplication or division operators (e.g. `m/s²`, `J/K`) continue
+  to flow through the existing composite parser unchanged. Case-sensitive
+  only — convention-bearing labels carry their canonical casing.
+
+- **`Gy(RBE)` alias on `gray`** and **`Sv(RBE)` alias on `sievert`.**
+  Used in radiation oncology (proton and heavy-ion therapy) to label
+  radiobiological-equivalent dose. At the unit-resolution layer these
+  resolve to the canonical SI dose units; the semantic distinction
+  between RBE-weighted and unweighted quantities is a Kind-of-Quantity
+  concern handled at higher layers.
+
 ## [1.6.4] - 2026-05-04
 
 ### Added
