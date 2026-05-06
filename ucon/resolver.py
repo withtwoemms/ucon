@@ -46,6 +46,23 @@ from ucon.parsing import parse_unit_expression, ParseError
 _UNIT_REGISTRY: Dict[str, Unit] = {}
 _UNIT_REGISTRY_CASE_SENSITIVE: Dict[str, Unit] = {}
 
+# Verbatim alias registry: aliases that contain parentheses are stored
+# here so they can be resolved as a single token before the composite
+# parser tokenises on '('. Multiplication / division operators are NOT
+# routed through this registry because the composite parser already
+# handles aliases like "m/s²" or "J/K" correctly; only parentheses cause
+# the parser to fail outright (e.g. "Gy(RBE)" → ParseError).
+#
+# Only aliases enter this registry; canonical unit names are unaffected.
+# This preserves the existing invariant that composite-looking strings
+# parse via the recursive-descent parser unless an explicit
+# parenthesised alias intercepts them.
+_VERBATIM_ALIASES: Dict[str, Unit] = {}
+
+# Characters whose presence in an alias makes it un-parseable by the
+# composite parser, requiring whole-token resolution.
+_VERBATIM_TRIGGER_CHARS = frozenset('()')
+
 # ---------------------------------------------------------------------------
 # Priority Alias Invariant (for contributors)
 # ---------------------------------------------------------------------------
@@ -119,6 +136,10 @@ def register_unit(unit: Unit) -> None:
         if alias:
             _UNIT_REGISTRY[alias.lower()] = unit
             _UNIT_REGISTRY_CASE_SENSITIVE[alias] = unit
+            # Aliases containing parentheses need the verbatim registry
+            # to bypass composite tokenisation (which would fail on '(').
+            if any(c in alias for c in _VERBATIM_TRIGGER_CHARS):
+                _VERBATIM_ALIASES[alias] = unit
 
 
 def register_priority_scaled_alias(alias: str, unit: Unit, scale: Scale) -> None:
@@ -303,6 +324,14 @@ def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
         raise UnknownUnitError(name if name else "")
 
     name = name.strip()
+
+    # Verbatim alias check (runs BEFORE composite detection).
+    # Aliases registered with operator-like characters (e.g. "Gy(RBE)",
+    # "Sv(RBE)") resolve as a single token rather than being tokenised
+    # on the parenthesis. Case-sensitive only — these labels carry
+    # convention-specific casing.
+    if name in _VERBATIM_ALIASES:
+        return _VERBATIM_ALIASES[name]
 
     # Check for composite (has operators or parentheses)
     # Note: · (U+00B7 middle dot) and ⋅ (U+22C5 dot operator) are both multiplication
