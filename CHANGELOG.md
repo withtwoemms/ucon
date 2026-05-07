@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.6] - 2026-05-06
+
+### Fixed
+
+- **Cross-basis arithmetic in `Vector` now consults the active
+  `BasisGraph`.** `Vector.__mul__` and `Vector.__truediv__` previously
+  raised `ValueError` on any pair of operands whose bases were not
+  equal by identity. They now attempt to unify operands through a
+  *clean* (non-lossy) transform path resolved against the active
+  basis graph (set via `using_basis_graph` or the module default)
+  before raising. Both projection directions are tried; the first
+  clean projection wins. A path is "clean" when no non-zero source
+  exponent would be discarded — i.e., embeddings such as SI into an
+  extended basis (the shape produced by `extend_basis`) compose
+  transparently, while genuine dimensional incompatibility (no path,
+  or only a lossy path) continues to raise the same `ValueError` as
+  before. The redundant basis-equality guard at the `Dimension` layer
+  (`Dimension.__mul__`, `Dimension.__truediv__`) has been removed so
+  the unification logic lives in exactly one place.
+
+  This unblocks expressions like `USD * year` or `USD / year` when
+  `economic` is registered via `extend_basis(name="economic",
+  base="SI", additional_components=[currency])`: SI operands promote
+  into the extended basis, the currency exponent passes through
+  untouched, and the result lives in `economic`. Closes the
+  cross-basis blocker in the ucon-tools sovereign-potential demo
+  (issue 2.5 in the ucon-tools feedback registry). Regression coverage
+  added in `tests/ucon/test_basis.py::TestVectorCrossBasisArithmetic`
+  exercising extension-basis multiplication (USD·year), extension-basis
+  division (USD/year), left-operand symmetry, no-transform-path
+  rejection, and lossy-only-path rejection.
+
 ## [1.6.5] - 2026-05-05
 
 ### Added
