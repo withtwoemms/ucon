@@ -297,7 +297,7 @@ class TestResolve(unittest.TestCase):
 
     def test_resolve_zero_vector_returns_none(self):
         """Test resolving zero vector returns Dimension.none."""
-        vec = SI.zero_vector()
+        vec = Vector.zero(SI)
         dim = resolve(vec)
         self.assertEqual(dim, Dimension.none)
 

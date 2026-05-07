@@ -24,7 +24,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from fractions import Fraction
 
-from ucon.basis import Basis, BasisComponent, Vector, LossyProjection
+from ucon.basis.types import Basis, BasisComponent, LossyProjection
+from ucon.basis.vector import Vector
 
 
 # -----------------------------------------------------------------------------

@@ -298,7 +298,7 @@ class Dimension(metaclass=_DimensionMeta):
         if name is None:
             name = tag
 
-        vector = basis.zero_vector()
+        vector = Vector.zero(basis)
         return cls(vector=vector, name=name, symbol=symbol, tag=tag)
 
     def in_basis(self, transform: "BasisTransform") -> "Dimension":

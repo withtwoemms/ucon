@@ -208,19 +208,19 @@ class TestBasisIterationAndProperties:
 # -----------------------------------------------------------------------------
 
 
-class TestBasisZeroVector:
-    """Tests for Basis.zero_vector()."""
+class TestVectorZero:
+    """Tests for Vector.zero(basis)."""
 
     def test_zero_vector_has_correct_components(self):
-        """GIVEN a basis, WHEN zero_vector(), THEN all components are Fraction(0)."""
+        """GIVEN a basis, WHEN Vector.zero(basis), THEN all components are Fraction(0)."""
         basis = Basis("Test", ["length", "mass", "time"])
-        zero = basis.zero_vector()
+        zero = Vector.zero(basis)
         assert zero.components == (Fraction(0), Fraction(0), Fraction(0))
 
     def test_zero_vector_has_same_basis(self):
-        """GIVEN a basis, WHEN zero_vector(), THEN vector.basis is same object."""
+        """GIVEN a basis, WHEN Vector.zero(basis), THEN vector.basis is same object."""
         basis = Basis("Test", ["length", "mass"])
-        zero = basis.zero_vector()
+        zero = Vector.zero(basis)
         assert zero.basis is basis
 
 
@@ -316,7 +316,7 @@ class TestVector:
 
     def test_is_dimensionless(self, mechanics_basis):
         """GIVEN a zero vector, THEN is_dimensionless returns True."""
-        zero = mechanics_basis.zero_vector()
+        zero = Vector.zero(mechanics_basis)
         assert zero.is_dimensionless()
 
         nonzero = Vector(mechanics_basis, (Fraction(1), Fraction(0), Fraction(0)))
@@ -367,16 +367,16 @@ class TestVector:
     def test_multiplication_different_bases_raises(self, mechanics_basis):
         """GIVEN vectors from different bases, THEN multiplication raises."""
         other_basis = Basis("Other", ["x", "y", "z"])
-        v1 = mechanics_basis.zero_vector()
-        v2 = other_basis.zero_vector()
+        v1 = Vector.zero(mechanics_basis)
+        v2 = Vector.zero(other_basis)
         with pytest.raises(ValueError, match="Cannot multiply vectors from different bases"):
             v1 * v2
 
     def test_division_different_bases_raises(self, mechanics_basis):
         """GIVEN vectors from different bases, THEN division raises."""
         other_basis = Basis("Other", ["x", "y", "z"])
-        v1 = mechanics_basis.zero_vector()
-        v2 = other_basis.zero_vector()
+        v1 = Vector.zero(mechanics_basis)
+        v2 = Vector.zero(other_basis)
         with pytest.raises(ValueError, match="Cannot divide vectors from different bases"):
             v1 / v2
 
@@ -395,8 +395,8 @@ class TestVector:
     def test_inequality_basis(self, mechanics_basis):
         """GIVEN vectors from different bases, THEN not equal."""
         other_basis = Basis("Other", ["length", "mass", "time"])
-        v1 = mechanics_basis.zero_vector()
-        v2 = other_basis.zero_vector()
+        v1 = Vector.zero(mechanics_basis)
+        v2 = Vector.zero(other_basis)
         assert v1 != v2
 
     def test_hashable(self, mechanics_basis):
@@ -415,7 +415,7 @@ class TestVector:
 
     def test_repr_dimensionless(self, mechanics_basis):
         """GIVEN a zero vector, THEN repr indicates dimensionless."""
-        v = mechanics_basis.zero_vector()
+        v = Vector.zero(mechanics_basis)
         assert "dimensionless" in repr(v)
 
 
@@ -545,8 +545,8 @@ class TestVectorCrossBasisArithmetic:
         from ucon.basis.graph import BasisGraph, using_basis_graph
 
         unrelated = Basis("Unrelated", ["x", "y", "z"])
-        v1 = si_like.zero_vector()
-        v2 = unrelated.zero_vector()
+        v1 = Vector.zero(si_like)
+        v2 = Vector.zero(unrelated)
         empty_graph = BasisGraph()
 
         with using_basis_graph(empty_graph):
@@ -687,7 +687,7 @@ class TestBasisTransform:
 
     def test_wrong_basis_raises(self, cgs_basis, si_to_cgs):
         """GIVEN a vector in wrong basis, THEN ValueError raised."""
-        cgs_v = cgs_basis.zero_vector()
+        cgs_v = Vector.zero(cgs_basis)
 
         with pytest.raises(ValueError, match="expects basis 'SI'"):
             si_to_cgs(cgs_v)
