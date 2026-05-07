@@ -253,11 +253,9 @@ class Vector:
         if self.basis == other.basis:
             return self, other
 
-        # ``get_basis_graph`` is bound at module level via the bottom-of-file
-        # re-export from :mod:`ucon.basis.graph` (whose canonical home is
-        # :mod:`ucon.basis._active`). Method bodies resolve names from
-        # ``__globals__`` at call time, by which point all submodules have
-        # finished loading.
+        # Local import to avoid circular import at module load.
+        from ucon.basis.graph import get_basis_graph
+
         graph = get_basis_graph()
 
         # Try projecting self into other's basis.

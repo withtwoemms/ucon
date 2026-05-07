@@ -2,20 +2,21 @@
 # Licensed under the Apache License, Version 2.0
 
 """
-BasisGraph registry for basis transforms.
+BasisGraph registry and context scoping for basis transforms.
 
-Provides path-finding and transitive composition of basis transforms.
-ContextVar-based scoping for default basis and basis graph overrides
-lives in :mod:`ucon.basis._active`; the relevant accessors are
-re-exported from this module for back-compat.
+Provides path-finding and transitive composition of basis transforms,
+plus ContextVar-based scoping for default basis and basis graph overrides.
 """
 
 from __future__ import annotations
 
 from collections import deque
-from typing import Union
+from contextvars import ContextVar
+from contextlib import contextmanager
 
-from ucon.basis import Basis, NoTransformPath
+from ucon.basis import Basis, Vector, NoTransformPath
+from ucon.basis.builtin import SI
+from typing import Union
 from ucon.basis.transforms import (
     BasisTransform,
     ConstantBoundBasisTransform,
@@ -204,8 +205,12 @@ class BasisGraph:
 
 
 # -----------------------------------------------------------------------------
-# Standard Graph Builder
+# Basis Context Scoping (v0.8.4)
 # -----------------------------------------------------------------------------
+
+_default_basis: ContextVar[Basis | None] = ContextVar("basis", default=None)
+_basis_graph_context: ContextVar[BasisGraph | None] = ContextVar("basis_graph", default=None)
+_default_basis_graph: BasisGraph | None = None
 
 
 def _build_standard_basis_graph() -> BasisGraph:
@@ -229,22 +234,107 @@ def _build_standard_basis_graph() -> BasisGraph:
     return graph
 
 
-# -----------------------------------------------------------------------------
-# Active-context accessors (canonical home: ucon.basis._active)
-# -----------------------------------------------------------------------------
-# Re-exported here for backward compatibility with callers that import these
-# names directly from ``ucon.basis.graph`` (e.g., ucon.checking, ucon.graph,
-# and the test suite). The canonical definitions live in
-# :mod:`ucon.basis._active` so that ``ucon.basis.__init__`` (where ``Vector``
-# is defined) can resolve :func:`get_basis_graph` at module load without
-# importing :mod:`ucon.basis.graph` (which would create a cycle through
-# ``Vector``).
+def get_default_basis() -> Basis:
+    """Get the current default basis.
 
-from ucon.basis._active import (  # noqa: E402
-    get_default_basis,
-    get_basis_graph,
-    set_default_basis_graph,
-    reset_default_basis_graph,
-    using_basis,
-    using_basis_graph,
-)
+    Returns the context-local basis if one has been set via
+    :func:`using_basis`, otherwise returns SI.
+
+    Returns
+    -------
+    Basis
+        The active basis for the current context.
+    """
+    return _default_basis.get() or SI
+
+
+def get_basis_graph() -> BasisGraph:
+    """Get the current basis graph.
+
+    Priority:
+
+    1. Context-local graph (from :func:`using_basis_graph`)
+    2. Module-level default graph (lazily built with standard transforms)
+
+    Returns
+    -------
+    BasisGraph
+        The active basis graph for the current context.
+    """
+    global _default_basis_graph
+    ctx_graph = _basis_graph_context.get()
+    if ctx_graph is not None:
+        return ctx_graph
+    if _default_basis_graph is None:
+        _default_basis_graph = _build_standard_basis_graph()
+    return _default_basis_graph
+
+
+def set_default_basis_graph(graph: BasisGraph) -> None:
+    """Replace the module-level default basis graph.
+
+    Parameters
+    ----------
+    graph : BasisGraph
+        The new default basis graph.
+    """
+    global _default_basis_graph
+    _default_basis_graph = graph
+
+
+def reset_default_basis_graph() -> None:
+    """Reset to the standard basis graph on next access.
+
+    The standard graph (with SI, CGS, CGS-ESU, and NATURAL transforms)
+    is lazily rebuilt when :func:`get_basis_graph` is next called.
+    """
+    global _default_basis_graph
+    _default_basis_graph = None
+
+
+@contextmanager
+def using_basis(basis: Basis):
+    """Context manager for scoped basis override.
+
+    Within the ``with`` block, :func:`get_default_basis` returns the
+    provided basis instead of SI. Thread-safe via ContextVar.
+
+    Parameters
+    ----------
+    basis : Basis
+        The basis to use within this context.
+
+    Yields
+    ------
+    Basis
+        The provided basis.
+    """
+    token = _default_basis.set(basis)
+    try:
+        yield basis
+    finally:
+        _default_basis.reset(token)
+
+
+@contextmanager
+def using_basis_graph(graph: BasisGraph | None):
+    """Context manager for scoped basis graph override.
+
+    Within the ``with`` block, :func:`get_basis_graph` returns the
+    provided graph. Thread-safe via ContextVar.
+
+    Parameters
+    ----------
+    graph : BasisGraph or None
+        The basis graph to use, or None to fall back to the module default.
+
+    Yields
+    ------
+    BasisGraph or None
+        The provided graph.
+    """
+    token = _basis_graph_context.set(graph)
+    try:
+        yield graph
+    finally:
+        _basis_graph_context.reset(token)
