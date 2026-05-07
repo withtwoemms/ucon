@@ -13,12 +13,13 @@ Submodules
 - ``types``: Core types (``Basis``, ``BasisComponent``, exceptions)
 - ``vector``: ``Vector`` dimensional exponent vectors
 - ``transforms``: Transform types and standard transform instances
-- ``graph``: ``BasisGraph`` registry and standard-graph factory
+- ``graph``: ``BasisGraph`` registry, standard-graph factory, and
+  ContextVar-scoped active state (``get_basis_graph``, ``using_basis``, etc.)
 - ``builtin``: Standard bases (SI, CGS, CGS-ESU, CGS-EMU, NATURAL, PLANCK, ATOMIC)
-- ``_active``: ContextVar-scoped active basis and graph (private)
 """
 
-from ucon.basis._active import (
+from ucon.basis.graph import (
+    BasisGraph,
     get_basis_graph,
     get_default_basis,
     reset_default_basis_graph,
@@ -26,7 +27,6 @@ from ucon.basis._active import (
     using_basis,
     using_basis_graph,
 )
-from ucon.basis.graph import BasisGraph
 from ucon.basis.transforms import (
     BasisTransform,
     ConstantBinding,

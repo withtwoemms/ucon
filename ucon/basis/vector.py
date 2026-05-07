@@ -7,7 +7,7 @@ Dimensional exponent vector tied to a basis.
 ``Vector`` is the algebraic object: a tuple of ``Fraction`` exponents
 indexed against a :class:`~ucon.basis.types.Basis`. Cross-basis arithmetic
 consults the active :class:`~ucon.basis.graph.BasisGraph` via the
-top-of-file accessor in :mod:`ucon.basis._active`.
+top-of-file accessor in :mod:`ucon.basis.graph`.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fractions import Fraction
 
-from ucon.basis._active import get_basis_graph
+from ucon.basis.graph import get_basis_graph
 from ucon.basis.types import Basis, LossyProjection, NoTransformPath
 
 
