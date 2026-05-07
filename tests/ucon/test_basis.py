@@ -420,6 +420,181 @@ class TestVector:
 
 
 # -----------------------------------------------------------------------------
+# Cross-Basis Vector Arithmetic via BasisGraph (1.6.6)
+# -----------------------------------------------------------------------------
+
+
+class TestVectorCrossBasisArithmetic:
+    """Vectors in different bases unify via the active BasisGraph when a
+    clean (non-lossy) transform path connects them. This makes basis-extension
+    scenarios (the ``extend_basis`` path) compose without manual transform
+    invocations.
+    """
+
+    @pytest.fixture
+    def si_like(self):
+        """A 3-component SI-like basis: length, mass, time."""
+        return Basis("SI", [
+            BasisComponent("length", "L"),
+            BasisComponent("mass", "M"),
+            BasisComponent("time", "T"),
+        ])
+
+    @pytest.fixture
+    def economic(self, si_like):
+        """SI-like extended with a currency component."""
+        components = list(si_like) + [BasisComponent("currency", "$")]
+        return Basis("economic", components)
+
+    @pytest.fixture
+    def si_to_economic(self, si_like, economic):
+        """Embedding transform: SI -> economic (zero-pads currency)."""
+        # Identity on the first 3 components, zero column for currency.
+        matrix = (
+            (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),
+            (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),
+            (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),
+        )
+        return BasisTransform(si_like, economic, matrix)
+
+    @pytest.fixture
+    def graph_with_embedding(self, si_to_economic):
+        """A BasisGraph carrying only the SI -> economic embedding."""
+        from ucon.basis.graph import BasisGraph
+        graph = BasisGraph()
+        graph.add_transform(si_to_economic)
+        return graph
+
+    def test_multiplication_promotes_si_into_extended_basis(
+        self, si_like, economic, graph_with_embedding,
+    ):
+        """GIVEN USD(economic) and year(SI) with SI->economic in the active
+        graph, WHEN multiplied, THEN the result lives in the economic basis
+        with currency=1, time=1."""
+        from ucon.basis.graph import using_basis_graph
+
+        # USD: currency=1, all SI components 0, expressed in economic basis.
+        usd = Vector(
+            economic,
+            (Fraction(0), Fraction(0), Fraction(0), Fraction(1)),
+        )
+        # year: time=1, expressed in SI.
+        year = Vector(
+            si_like,
+            (Fraction(0), Fraction(0), Fraction(1)),
+        )
+
+        with using_basis_graph(graph_with_embedding):
+            result = usd * year
+
+        assert result.basis == economic
+        assert result["currency"] == Fraction(1)
+        assert result["time"] == Fraction(1)
+        assert result["length"] == Fraction(0)
+        assert result["mass"] == Fraction(0)
+
+    def test_division_promotes_si_into_extended_basis(
+        self, si_like, economic, graph_with_embedding,
+    ):
+        """GIVEN USD(economic) divided by year(SI), THEN the result lives in
+        economic with currency=1, time=-1 (i.e., currency/time)."""
+        from ucon.basis.graph import using_basis_graph
+
+        usd = Vector(
+            economic,
+            (Fraction(0), Fraction(0), Fraction(0), Fraction(1)),
+        )
+        year = Vector(
+            si_like,
+            (Fraction(0), Fraction(0), Fraction(1)),
+        )
+
+        with using_basis_graph(graph_with_embedding):
+            result = usd / year
+
+        assert result.basis == economic
+        assert result["currency"] == Fraction(1)
+        assert result["time"] == Fraction(-1)
+
+    def test_multiplication_promotes_when_si_is_left_operand(
+        self, si_like, economic, graph_with_embedding,
+    ):
+        """Direction symmetry: SI(left) * economic(right) also unifies into
+        economic."""
+        from ucon.basis.graph import using_basis_graph
+
+        year = Vector(
+            si_like,
+            (Fraction(0), Fraction(0), Fraction(1)),
+        )
+        usd = Vector(
+            economic,
+            (Fraction(0), Fraction(0), Fraction(0), Fraction(1)),
+        )
+
+        with using_basis_graph(graph_with_embedding):
+            result = year * usd
+
+        assert result.basis == economic
+        assert result["currency"] == Fraction(1)
+        assert result["time"] == Fraction(1)
+
+    def test_no_transform_path_still_raises(self, si_like):
+        """GIVEN two bases with no transform path in the active graph,
+        THEN multiplication still raises ValueError."""
+        from ucon.basis.graph import BasisGraph, using_basis_graph
+
+        unrelated = Basis("Unrelated", ["x", "y", "z"])
+        v1 = si_like.zero_vector()
+        v2 = unrelated.zero_vector()
+        empty_graph = BasisGraph()
+
+        with using_basis_graph(empty_graph):
+            with pytest.raises(
+                ValueError,
+                match="Cannot multiply vectors from different bases",
+            ):
+                v1 * v2
+
+    def test_lossy_only_path_still_raises(self, si_like):
+        """GIVEN two bases connected only by a lossy projection (one drops a
+        non-zero component of the other), THEN multiplication still raises."""
+        from ucon.basis.graph import BasisGraph, using_basis_graph
+
+        # Smaller basis: just length, time (no mass).
+        small = Basis("small", ["length", "time"])
+        # Transform si_like -> small drops mass.
+        matrix = (
+            (Fraction(1), Fraction(0)),  # length -> length
+            (Fraction(0), Fraction(0)),  # mass -> dropped
+            (Fraction(0), Fraction(1)),  # time -> time
+        )
+        si_to_small = BasisTransform(si_like, small, matrix)
+        graph = BasisGraph()
+        graph.add_transform(si_to_small)
+
+        # mass=1 vector in si_like; projecting to small would discard mass.
+        mass_vec = Vector(
+            si_like,
+            (Fraction(0), Fraction(1), Fraction(0)),
+        )
+        # length=1 vector in small.
+        length_vec = Vector(
+            small,
+            (Fraction(1), Fraction(0)),
+        )
+
+        with using_basis_graph(graph):
+            # No reverse path (small -> si_like) and the forward path is
+            # lossy. Should raise.
+            with pytest.raises(
+                ValueError,
+                match="Cannot multiply vectors from different bases",
+            ):
+                mass_vec * length_vec
+
+
+# -----------------------------------------------------------------------------
 # BasisTransform Tests
 # -----------------------------------------------------------------------------
 
