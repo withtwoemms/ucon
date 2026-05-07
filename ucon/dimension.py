@@ -410,11 +410,6 @@ class Dimension(metaclass=_DimensionMeta):
         # Identity: X * NONE = X
         elif other == NONE:
             result = self
-        elif self.vector.basis != other.vector.basis:
-            raise ValueError(
-                f"Cannot multiply dimensions from different bases: "
-                f"'{self.vector.basis.name}' and '{other.vector.basis.name}'"
-            )
         # Pseudo-dimension combined with pseudo-dimension
         elif self.is_pseudo and other.is_pseudo:
             # Same pseudo-dimension: return self
@@ -432,6 +427,10 @@ class Dimension(metaclass=_DimensionMeta):
         elif other.is_pseudo:
             result = self   # MASS * ANGLE = MASS
         else:
+            # Vector arithmetic handles same-basis multiplication directly and
+            # cross-basis multiplication by consulting the active BasisGraph
+            # for a clean (non-lossy) transform path. If no path exists,
+            # Vector.__mul__ raises ValueError with the cross-basis message.
             new_vector = self.vector * other.vector
             result = resolve(new_vector)
 
@@ -459,11 +458,6 @@ class Dimension(metaclass=_DimensionMeta):
         # Identity: X / NONE = X (before basis check — NONE is universal identity)
         if other == NONE:
             result = self
-        elif self.vector.basis != other.vector.basis:
-            raise ValueError(
-                f"Cannot divide dimensions from different bases: "
-                f"'{self.vector.basis.name}' and '{other.vector.basis.name}'"
-            )
         # Pseudo-dimension divided by pseudo-dimension
         elif self.is_pseudo and other.is_pseudo:
             # Same pseudo-dimension: returns NONE (0/0 case, but semantically X/X = 1)
