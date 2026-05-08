@@ -37,6 +37,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unchanged, and `set_default_basis_graph` /
   `reset_default_basis_graph` retain their semantics.
 
+- **`ucon.parsing` promoted from single-file module to subpackage.**
+  The previous `ucon/parsing.py` is now `ucon/parsing/` with three
+  leaf modules: `lexer.py` (the shared `_Tokenizer`, `_Token`,
+  `_TokenType`, `ParseError`), `units.py` (the unit-expression grammar
+  and the quantity-string `parse()` entry point), and `dimensions.py`
+  (the dimension-expression grammar and `parse_dimension()`). The
+  public surface is unchanged — `from ucon.parsing import parse,
+  parse_dimension, parse_unit_expression, ParseError` continues to
+  work via re-exports in `ucon/parsing/__init__.py`, as do private
+  imports of `_Tokenizer`/`_Token`/`_TokenType`. Modules-of-definition
+  shift: e.g., `ParseError.__module__ == "ucon.parsing.lexer"` now
+  rather than `"ucon.parsing"`. The dimensions submodule is loaded
+  lazily via PEP 562 module `__getattr__` to avoid a load-time cycle
+  through `ucon.units → ucon.resolver → ucon.parsing`.
+
+- **`parse_dimension` definition moved out of `ucon/dimension.py`**
+  into `ucon/parsing/dimensions.py`. Its public import path is
+  `from ucon import parse_dimension` (or `from ucon.parsing import
+  parse_dimension`) — both unchanged. `from ucon.dimension import
+  parse_dimension` no longer works; nothing in the public docs
+  ever advertised that path.
+
 ### Added
 
 - **`parse_unit(name)` and `parse_dimension(spec, basis=None)` public
@@ -50,9 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   …), and (c) algebraic expressions over those atoms with `*`, `·`,
   `⋅`, `/`, `^`, Unicode superscripts, parentheses, and a `1`
   numerator (`"M*L/T^2"`, `"M·L/T²"`, `"L/T"`, `"1/T"`,
-  `"M/(L*T^2)"`). Both functions are exported from `ucon`. The parser
-  reuses `ucon.parsing._Tokenizer` so the unit and dimension grammars
-  share lexing rules.
+  `"M/(L*T^2)"`). Both functions are exported from `ucon`. The unit
+  and dimension grammars share a single tokenizer
+  (`ucon.parsing.lexer._Tokenizer`).
 
 - **v2.0 design proposal in `ROADMAP.md`** capturing a clean-DAG
   restructure of `ucon.basis` that eliminates the residual cycle by

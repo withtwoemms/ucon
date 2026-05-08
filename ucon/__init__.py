@@ -90,7 +90,6 @@ from ucon.core import (
 from ucon.dimension import (
     Dimension,
     all_dimensions,
-    parse_dimension,
     resolve as resolve_dimension,
 )
 from ucon.checking import enforce_dimensions
@@ -113,7 +112,7 @@ from ucon.contexts import (
 )
 from ucon.packages import ConstantDef, EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
 from ucon.resolver import get_unit_by_name, parse_unit, register_unit
-from ucon.parsing import ParseError, parse
+from ucon.parsing import ParseError, parse, parse_dimension
 
 
 __all__ = [
