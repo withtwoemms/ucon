@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`ucon.basis` subpackage internal layout.** The 404-line
+  `ucon/basis/__init__.py` has been split along the lines its docstring
+  already advertised. `Basis`, `BasisComponent`, `LossyProjection`, and
+  `NoTransformPath` move to a new leaf module `ucon/basis/types.py`.
+  `Vector` moves to a new module `ucon/basis/vector.py`. `__init__.py`
+  is now a thin re-export shim. The public API is unchanged: every
+  symbol previously importable from `ucon.basis` (or `ucon`) continues
+  to import from the same path. Downstream code that imported via the
+  documented entry points needs no modification. Code that reached
+  into the package via `from ucon.basis.__init__ import …` or relied
+  on these symbols' module-of-definition (`Vector.__module__ ==
+  "ucon.basis"`) will need to update — `Vector.__module__` is now
+  `"ucon.basis.vector"`, etc.
+
+- **`ucon/basis/graph.py` reorganised** to host the standard-graph
+  factory and active-state accessors alongside `BasisGraph` itself.
+  The eager top-of-file imports of every standard `*_TO_*` transform
+  instance are now deferred inside `_build_standard_basis_graph()`,
+  and `BasisTransform.identity` is deferred inside
+  `BasisGraph.get_transform()`. These two function-body imports are
+  the explicit, documented workaround for the load-time cycle
+  `vector → graph → transforms → vector` introduced when `Vector`
+  moved out of `__init__.py`. Behaviour is identical: the standard
+  graph is still built lazily on first call to `get_basis_graph()`,
+  context scoping via `using_basis_graph` / `using_basis` is
+  unchanged, and `set_default_basis_graph` /
+  `reset_default_basis_graph` retain their semantics.
+
+### Added
+
+- **v2.0 design proposal in `ROADMAP.md`** capturing a clean-DAG
+  restructure of `ucon.basis` that eliminates the residual cycle by
+  changing the API rather than the file layout. The proposal makes
+  `Vector.__mul__` / `__truediv__` strictly same-basis and moves
+  cross-basis arithmetic (the 1.6.6 implicit-`BasisGraph`
+  consultation) to explicit helpers in a new `ucon.basis.ops` module
+  (`ops.unify`, `ops.multiply_via`, `ops.divide_via`). Documented as
+  proposed; deferred until a major-version window.
+
+### Notes
+
+- This is a structural refactor with no behavioural change. Test
+  suite is green at the same pass count as `main` (2226 passed, 31
+  skipped). No public surface added, removed, or renamed.
+
 ## [1.6.6] - 2026-05-06
 
 ### Fixed
