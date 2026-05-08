@@ -834,6 +834,48 @@ Prerequisite for factor-label chains with countable items (tablets, doses).
 
 ---
 
+## v2.0 (Proposed) — Basis Subpackage Restructure
+
+**Theme:** Eliminate cyclic imports in `ucon.basis` by changing the API, not the file layout.
+
+**Motivation:**
+The `ucon.basis` subpackage carries a structural cycle (`vector → graph → transforms → vector`) that originates from the 1.6.6 implicit cross-basis arithmetic feature: `Vector.__mul__` / `__truediv__` consult the active `BasisGraph` at runtime, which depends on `BasisTransform`, which depends on `Vector`. No file reorganization can break this cycle while the cycle is encoded in the public API. The 1.7.x refactors mitigated symptoms (deferred imports, lazy default-graph construction) but the underlying triangle remains.
+
+**API change (breaking):**
+- `Vector.__mul__` / `__truediv__` raise on different bases instead of consulting `BasisGraph`. Vector becomes strictly same-basis.
+- Cross-basis arithmetic moves to explicit helpers in `ucon.basis.ops`:
+  - `ops.unify(a, b) -> tuple[Vector, Vector]`
+  - `ops.multiply_via(a, b, graph=None) -> Vector`
+  - `ops.divide_via(a, b, graph=None) -> Vector`
+- Migration: callers relying on implicit cross-basis arithmetic call the explicit `ops.*` helper.
+
+**Module layout (clean DAG, no cycles):**
+
+```
+ucon/basis/
+├── types.py        — Basis, BasisComponent, exceptions
+├── builtin.py      — SI, CGS, NATURAL, ATOMIC, PLANCK, …
+├── vector.py       — Vector with strict same-basis arithmetic
+├── transforms.py   — BasisTransform, ConstantBinding, ConstantBoundBasisTransform
+├── graph.py        — BasisGraph (pure registry + path-finding)
+├── standard.py     — standard transform instances + standard-graph factory
+├── active.py       — ContextVars + accessors (get_basis_graph, using_basis, …)
+├── ops.py          — explicit cross-basis helpers
+└── __init__.py     — re-exports
+```
+
+Dependency order: `types → {builtin, vector} → transforms → graph → standard → active → ops → __init__`. Every import lives at the top of its file. The standard graph is built eagerly at module load — no `global`, no lazy factory, no deferred imports.
+
+**Outcomes:**
+- Zero hidden global state in arithmetic operators
+- Zero deferred imports in the basis subpackage
+- Zero cycle-breaking hooks or holder classes
+- Cross-basis intent is visible at the call site
+
+**Status:** design captured during 1.7.x basis-types-extraction refactor. Implementation deferred until a major-version window opens.
+
+---
+
 ## Post-1.0 Vision
 
 | Feature | Version | Notes |

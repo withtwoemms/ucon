@@ -2,42 +2,41 @@
 # Licensed under the Apache License, Version 2.0
 
 """
-BasisGraph registry and context scoping for basis transforms.
+BasisGraph registry, standard-graph factory, and active-state accessors.
 
-Provides path-finding and transitive composition of basis transforms,
-plus ContextVar-based scoping for default basis and basis graph overrides.
+This module owns three cohesive concerns:
+
+1. :class:`BasisGraph` — the graph type and path-finding/composition logic.
+2. :func:`_build_standard_basis_graph` — factory that constructs the default
+   graph populated with the standard SI/CGS/CGS-ESU/CGS-EMU/natural/planck/atomic
+   transforms.
+3. ContextVar-scoped active state and accessors (:func:`get_basis_graph`,
+   :func:`set_default_basis_graph`, :func:`reset_default_basis_graph`,
+   :func:`using_basis`, :func:`using_basis_graph`, :func:`get_default_basis`).
+
+The accessors live alongside the graph type because they exist to serve it.
+The single function-body deferred import inside
+:func:`_build_standard_basis_graph` is the documented exception in this
+subpackage: it breaks the load-time cycle ``vector → graph → transforms →
+vector`` while keeping every other import at top of file. See
+``docs/internal/IMPLEMENTATION_PLAN_basis-types-extraction.md`` for the
+rationale.
 """
 
 from __future__ import annotations
 
 from collections import deque
-from contextvars import ContextVar
 from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Union
 
-from ucon.basis import Basis, Vector, NoTransformPath
 from ucon.basis.builtin import SI
-from typing import Union
-from ucon.basis.transforms import (
-    BasisTransform,
-    ConstantBoundBasisTransform,
-    SI_TO_CGS,
-    SI_TO_CGS_ESU,
-    SI_TO_CGS_EMU,
-    CGS_TO_SI,
-    CGS_ESU_TO_CGS_EMU,
-    CGS_EMU_TO_CGS_ESU,
-    SI_TO_NATURAL,
-    SI_TO_PLANCK,
-    SI_TO_ATOMIC,
-    NATURAL_TO_PLANCK,
-    PLANCK_TO_NATURAL,
-    NATURAL_TO_ATOMIC,
-    ATOMIC_TO_NATURAL,
-    PLANCK_TO_ATOMIC,
-    ATOMIC_TO_PLANCK,
-)
+from ucon.basis.types import Basis, NoTransformPath
 
-_Transform = Union[BasisTransform, ConstantBoundBasisTransform]
+if TYPE_CHECKING:
+    from ucon.basis.transforms import BasisTransform, ConstantBoundBasisTransform
+
+    _Transform = Union[BasisTransform, ConstantBoundBasisTransform]
 
 
 class BasisGraph:
@@ -56,10 +55,10 @@ class BasisGraph:
     """
 
     def __init__(self) -> None:
-        self._edges: dict[Basis, dict[Basis, _Transform]] = {}
-        self._cache: dict[tuple[Basis, Basis], _Transform] = {}
+        self._edges: dict[Basis, dict[Basis, "_Transform"]] = {}
+        self._cache: dict[tuple[Basis, Basis], "_Transform"] = {}
 
-    def add_transform(self, transform: _Transform) -> None:
+    def add_transform(self, transform: "_Transform") -> None:
         """Register a transform. Does NOT auto-register inverse.
 
         Args:
@@ -72,8 +71,8 @@ class BasisGraph:
 
     def add_transform_pair(
         self,
-        forward: BasisTransform,
-        reverse: BasisTransform,
+        forward: "BasisTransform",
+        reverse: "BasisTransform",
     ) -> None:
         """Register bidirectional transforms (e.g., projection + embedding).
 
@@ -84,7 +83,7 @@ class BasisGraph:
         self.add_transform(forward)
         self.add_transform(reverse)
 
-    def get_transform(self, source: Basis, target: Basis) -> BasisTransform:
+    def get_transform(self, source: Basis, target: Basis) -> "BasisTransform":
         """Find or compose a transform between bases.
 
         Args:
@@ -97,6 +96,8 @@ class BasisGraph:
         Raises:
             NoTransformPath: If no path exists between the bases.
         """
+        from ucon.basis.transforms import BasisTransform
+
         if source == target:
             return BasisTransform.identity(source)
 
@@ -116,12 +117,12 @@ class BasisGraph:
         self,
         source: Basis,
         target: Basis,
-    ) -> list[BasisTransform] | None:
+    ) -> "list[BasisTransform] | None":
         """BFS to find shortest transform path."""
         if source not in self._edges:
             return None
 
-        queue: deque[tuple[Basis, list[BasisTransform]]] = deque([(source, [])])
+        queue: deque = deque([(source, [])])
         visited: set[Basis] = {source}
 
         while queue:
@@ -138,7 +139,7 @@ class BasisGraph:
 
         return None
 
-    def _compose_path(self, path: list[BasisTransform]) -> BasisTransform:
+    def _compose_path(self, path: "list[BasisTransform]") -> "BasisTransform":
         """Compose transforms along path via matrix multiplication."""
         result = path[0]
         for transform in path[1:]:
@@ -182,7 +183,7 @@ class BasisGraph:
 
         return reachable
 
-    def with_transform(self, transform: BasisTransform) -> "BasisGraph":
+    def with_transform(self, transform: "BasisTransform") -> "BasisGraph":
         """Return a new graph with an additional transform (copy-on-extend).
 
         Args:
@@ -204,17 +205,33 @@ class BasisGraph:
         return f"BasisGraph({basis_count} bases, {edge_count} transforms)"
 
 
-# -----------------------------------------------------------------------------
-# Basis Context Scoping (v0.8.4)
-# -----------------------------------------------------------------------------
-
-_default_basis: ContextVar[Basis | None] = ContextVar("basis", default=None)
-_basis_graph_context: ContextVar[BasisGraph | None] = ContextVar("basis_graph", default=None)
-_default_basis_graph: BasisGraph | None = None
-
-
 def _build_standard_basis_graph() -> BasisGraph:
-    """Build standard basis graph with SI/CGS/CGS-ESU/CGS-EMU/natural/planck/atomic transforms."""
+    """Build standard basis graph with SI/CGS/CGS-ESU/CGS-EMU/natural/planck/atomic transforms.
+
+    The deferred import below is the single intentional exception in this
+    subpackage: ``transforms`` imports ``vector`` which imports ``graph``,
+    so loading transforms at the top of this file would close a load-time
+    cycle. The factory only runs when a default graph is requested, by which
+    time all submodules have finished loading.
+    """
+    from ucon.basis.transforms import (
+        ATOMIC_TO_NATURAL,
+        ATOMIC_TO_PLANCK,
+        CGS_EMU_TO_CGS_ESU,
+        CGS_ESU_TO_CGS_EMU,
+        CGS_TO_SI,
+        NATURAL_TO_ATOMIC,
+        NATURAL_TO_PLANCK,
+        PLANCK_TO_ATOMIC,
+        PLANCK_TO_NATURAL,
+        SI_TO_ATOMIC,
+        SI_TO_CGS,
+        SI_TO_CGS_EMU,
+        SI_TO_CGS_ESU,
+        SI_TO_NATURAL,
+        SI_TO_PLANCK,
+    )
+
     graph = BasisGraph()
     graph.add_transform(SI_TO_CGS)
     graph.add_transform(SI_TO_CGS_ESU)
@@ -232,6 +249,17 @@ def _build_standard_basis_graph() -> BasisGraph:
     graph.add_transform(PLANCK_TO_ATOMIC)
     graph.add_transform(ATOMIC_TO_PLANCK)
     return graph
+
+
+# -----------------------------------------------------------------------------
+# Active state: ContextVar-scoped basis and basis-graph
+# -----------------------------------------------------------------------------
+
+_default_basis: ContextVar[Basis | None] = ContextVar("basis", default=None)
+_basis_graph_context: ContextVar[BasisGraph | None] = ContextVar(
+    "basis_graph", default=None
+)
+_default_basis_graph: BasisGraph | None = None
 
 
 def get_default_basis() -> Basis:
@@ -338,3 +366,15 @@ def using_basis_graph(graph: BasisGraph | None):
         yield graph
     finally:
         _basis_graph_context.reset(token)
+
+
+__all__ = [
+    "BasisGraph",
+    "_build_standard_basis_graph",
+    "get_basis_graph",
+    "get_default_basis",
+    "reset_default_basis_graph",
+    "set_default_basis_graph",
+    "using_basis",
+    "using_basis_graph",
+]

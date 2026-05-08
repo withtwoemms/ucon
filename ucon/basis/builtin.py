@@ -15,7 +15,7 @@ Bases
 - ATOMIC: Atomic units (1 component, energy; ℏ=e=mₑ=4πε₀=1)
 """
 
-from ucon.basis import Basis, BasisComponent
+from ucon.basis.types import Basis, BasisComponent
 
 
 # -----------------------------------------------------------------------------
