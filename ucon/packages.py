@@ -344,18 +344,18 @@ class EdgeDef:
             If source or destination unit cannot be resolved.
         """
         # Resolve units within graph context
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         from ucon.graph import using_graph
         with using_graph(graph):
             try:
-                src_unit = get_unit_by_name(self.src)
+                src_unit = parse_unit(self.src)
             except UnknownUnitError:
                 raise PackageLoadError(
                     f"Cannot resolve source unit '{self.src}' in edge"
                 )
 
             try:
-                dst_unit = get_unit_by_name(self.dst)
+                dst_unit = parse_unit(self.dst)
             except UnknownUnitError:
                 raise PackageLoadError(
                     f"Cannot resolve destination unit '{self.dst}' in edge"
@@ -378,7 +378,7 @@ class ConstantDef:
         Numeric value in the specified unit.
     unit : str
         Unit expression string (e.g., "m/s", "J", "kg*m/s^2").
-        Resolved via ``get_unit_by_name()`` during materialization.
+        Resolved via ``parse_unit()`` during materialization.
     uncertainty : float | None
         Standard uncertainty. None for exact values.
     source : str
@@ -412,11 +412,11 @@ class ConstantDef:
         PackageLoadError
             If the unit string cannot be resolved.
         """
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         from ucon.graph import using_graph
         with using_graph(graph):
             try:
-                resolved_unit = get_unit_by_name(self.unit)
+                resolved_unit = parse_unit(self.unit)
             except UnknownUnitError:
                 raise PackageLoadError(
                     f"Cannot resolve unit '{self.unit}' for constant '{self.symbol}'"

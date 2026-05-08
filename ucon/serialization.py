@@ -794,7 +794,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
 
     # 7. Materialize constants (before edges so expression factors can
     #    resolve constant symbols like "1 / Eh").
-    from ucon.resolver import get_unit_by_name
+    from ucon.resolver import parse_unit
 
     constants = []
     with using_graph(graph):
@@ -811,7 +811,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
 
             unit_str = const_spec.get("unit", "")
             try:
-                unit_expr = get_unit_by_name(unit_str)
+                unit_expr = parse_unit(unit_str)
             except Exception:
                 # Fall back to local resolution
                 resolved = _resolve_unit(unit_str, unit_map, graph)
@@ -984,13 +984,13 @@ def _resolve_context_unit(
 ) -> Union[Unit, UnitProduct, None]:
     """Resolve a unit name for context edges.
 
-    Tries the full ``get_unit_by_name`` resolver first (which handles
+    Tries the full ``parse_unit`` resolver first (which handles
     composite and scaled names), then falls back to local resolution.
     """
-    from ucon.resolver import get_unit_by_name
+    from ucon.resolver import parse_unit
 
     try:
-        return get_unit_by_name(name)
+        return parse_unit(name)
     except Exception:
         pass
     resolved = _resolve_unit(name, unit_map, graph)
@@ -1049,7 +1049,7 @@ def _resolve_product_expression(
     unit_map: dict[str, Unit],
     graph,
 ) -> Union[UnitProduct, None]:
-    """Resolve a product expression string via ``get_unit_by_name()``.
+    """Resolve a product expression string via ``parse_unit()``.
 
     Falls back to local *unit_map* / *graph* resolution for units that
     exist only in the graph being loaded (not yet in the global
@@ -1058,14 +1058,14 @@ def _resolve_product_expression(
     Always returns a ``UnitProduct`` (wrapping bare ``Unit`` results)
     or ``None`` when resolution fails.
     """
-    from ucon.resolver import get_unit_by_name
+    from ucon.resolver import parse_unit
 
     expr = expr.strip()
     if not expr:
         return None
 
     try:
-        result = get_unit_by_name(expr)
+        result = parse_unit(expr)
         if isinstance(result, UnitProduct):
             return result
         return UnitProduct.from_unit(result)

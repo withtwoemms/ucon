@@ -593,11 +593,11 @@ class ConversionGraph:
         graph: 'ConversionGraph',
     ) -> bool:
         """Check if a package edge is redundant because the graph can already convert between its endpoints."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         with using_graph(graph):
             try:
-                src_unit = get_unit_by_name(edge_def.src)
-                dst_unit = get_unit_by_name(edge_def.dst)
+                src_unit = parse_unit(edge_def.src)
+                dst_unit = parse_unit(edge_def.dst)
             except UnknownUnitError:
                 return False  # Can't resolve — let materialize handle the error
 
@@ -1385,7 +1385,7 @@ def using_graph(graph: ConversionGraph):
 
         with using_graph(custom_graph):
             result = value.to(target)  # uses custom_graph
-            unit = get_unit_by_name("custom_unit")  # resolves in custom_graph
+            unit = parse_unit("custom_unit")  # resolves in custom_graph
 
     Parameters
     ----------

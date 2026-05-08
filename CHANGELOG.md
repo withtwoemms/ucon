@@ -39,6 +39,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`parse_unit(name)` and `parse_dimension(spec, basis=None)` public
+  parsers** as the canonical string-to-object entry points.
+  `parse_unit` is the new name for the existing `get_unit_by_name`
+  behaviour and is exposed at the top level (`from ucon import
+  parse_unit`). `parse_dimension` is a new function: it accepts (a)
+  bare component symbols of the active basis (`"M"`, `"L"`, `"T"`,
+  `"I"`, `"Θ"`, `"J"`, `"N"`, `"B"`), (b) bare dimension or component
+  names (`"mass"`, `"velocity"`, `"force"`, `"energy"`, `"frequency"`,
+  …), and (c) algebraic expressions over those atoms with `*`, `·`,
+  `⋅`, `/`, `^`, Unicode superscripts, parentheses, and a `1`
+  numerator (`"M*L/T^2"`, `"M·L/T²"`, `"L/T"`, `"1/T"`,
+  `"M/(L*T^2)"`). Both functions are exported from `ucon`. The parser
+  reuses `ucon.parsing._Tokenizer` so the unit and dimension grammars
+  share lexing rules.
+
 - **v2.0 design proposal in `ROADMAP.md`** capturing a clean-DAG
   restructure of `ucon.basis` that eliminates the residual cycle by
   changing the API rather than the file layout. The proposal makes
@@ -48,11 +63,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`ops.unify`, `ops.multiply_via`, `ops.divide_via`). Documented as
   proposed; deferred until a major-version window.
 
+### Deprecated
+
+- **`ucon.resolver.get_unit_by_name`** is now a soft-deprecated alias
+  for `parse_unit`. It continues to work and returns the same value
+  but emits a `DeprecationWarning` on every call. Removal is
+  scheduled for v2.0. All internal callers within `ucon/` have been
+  migrated to `parse_unit` so the deprecation warning is only
+  triggered by external code.
+
 ### Notes
 
-- This is a structural refactor with no behavioural change. Test
-  suite is green at the same pass count as `main` (2226 passed, 31
-  skipped). No public surface added, removed, or renamed.
+- The basis-package split is a structural refactor with no behavioural
+  change. The `parse_unit` / `parse_dimension` additions are
+  additive-only; the soft-deprecation of `get_unit_by_name` preserves
+  call-site compatibility under the v1.x LTS commitment, with
+  hard-removal scheduled for v2.0. Test suite is green at 2312 passed,
+  2 skipped.
 
 ## [1.6.6] - 2026-05-06
 

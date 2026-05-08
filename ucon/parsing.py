@@ -518,7 +518,7 @@ def parse(s: str) -> 'Number':
     if not s or not s.strip():
         raise ValueError("Cannot parse empty string")
 
-    from ucon.resolver import get_unit_by_name
+    from ucon.resolver import parse_unit
 
     s = s.strip()
 
@@ -529,7 +529,7 @@ def parse(s: str) -> 'Number':
         unit_str = unc_with_unit.group("unit1").strip()
         uncertainty = float(unc_with_unit.group("uncertainty"))
 
-        unit = get_unit_by_name(unit_str)
+        unit = parse_unit(unit_str)
         return Number(quantity=value, unit=unit, uncertainty=uncertainty)
 
     # Standard quantity pattern
@@ -565,7 +565,7 @@ def parse(s: str) -> 'Number':
 
     # Parse unit (or return dimensionless)
     if unit_str:
-        unit = get_unit_by_name(unit_str)
+        unit = parse_unit(unit_str)
     else:
         unit = None  # Number will use dimensionless default
 

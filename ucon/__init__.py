@@ -90,6 +90,7 @@ from ucon.core import (
 from ucon.dimension import (
     Dimension,
     all_dimensions,
+    parse_dimension,
     resolve as resolve_dimension,
 )
 from ucon.checking import enforce_dimensions
@@ -111,7 +112,7 @@ from ucon.contexts import (
     using_context,
 )
 from ucon.packages import ConstantDef, EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
-from ucon.resolver import get_unit_by_name, register_unit
+from ucon.resolver import get_unit_by_name, parse_unit, register_unit
 from ucon.parsing import ParseError, parse
 
 
@@ -184,6 +185,8 @@ __all__ = [
     'register_unit',
     'load_package',
     'parse',
+    'parse_dimension',
+    'parse_unit',
     'reset_default_graph',
     'resolve_dimension',
     'set_default_graph',
