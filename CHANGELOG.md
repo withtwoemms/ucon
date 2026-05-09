@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-05-09
+
 ### Changed
 
 - **`ucon.basis` subpackage internal layout.** The 404-line
@@ -94,14 +96,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   migrated to `parse_unit` so the deprecation warning is only
   triggered by external code.
 
+### Fixed
+
+- **`Dimension` algebra caches re-keyed by value instead of by `id()`.**
+  The mul/div/pow caches in `ucon/dimension.py` were previously keyed
+  on `(id(self), id(other))` (or `(id(self), power)`). Because `id()`
+  is only unique among simultaneously-living objects, transient
+  `Dimension` instances created during expression parsing
+  (`_DimensionParser._resolve_atom` constructs fresh instances per
+  symbol) could be garbage-collected and have their ids reassigned to
+  later transients of *different* base dimensions. The cache would
+  then return a stale entry whose key happened to share an id with
+  the new operand. The failure manifested on Python 3.13 in
+  `parse_dimension` test sequences: parsing `"L^2"` populated the pow
+  cache with `(id(transient_L), 2) → AREA`, and a subsequent parse of
+  `"M*L/T^2"` whose transient `T` landed at the freed id of
+  `transient_L` returned `AREA` for `T**2`, turning `M·L/T²` into
+  `M·L/L² = linear_density`. The caches are now keyed by the
+  `Dimension` instances themselves, which use structural hash and
+  equality on `(vector, tag)`. Distinct instances with identical
+  content collapse to the same key, and id reuse is no longer a
+  failure mode. Performance is preserved (the pre-existing `1.2×`
+  speedup over `pint` on the Unit-algebra microbenchmark holds) and
+  no public API changes. Regression coverage in
+  `tests/ucon/test_dimension.py::TestDimensionAlgebraCacheKeying`.
+
 ### Notes
 
 - The basis-package split is a structural refactor with no behavioural
   change. The `parse_unit` / `parse_dimension` additions are
   additive-only; the soft-deprecation of `get_unit_by_name` preserves
   call-site compatibility under the v1.x LTS commitment, with
-  hard-removal scheduled for v2.0. Test suite is green at 2312 passed,
-  2 skipped.
+  hard-removal scheduled for v2.0. The `Dimension` cache-keying fix
+  is a correctness fix with no API impact. Test suite is green at
+  2312 passed, 2 skipped.
 
 ## [1.6.6] - 2026-05-06
 
