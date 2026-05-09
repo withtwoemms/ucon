@@ -50,6 +50,9 @@ if TYPE_CHECKING:
 # -----------------------------------------------------------------------------
 
 _REGISTRY: dict[Vector, "Dimension"] = {}
+_DIM_MUL_CACHE: dict[tuple["Dimension", "Dimension"], "Dimension"] = {}
+_DIM_DIV_CACHE: dict[tuple["Dimension", "Dimension"], "Dimension"] = {}
+_DIM_POW_CACHE: dict[tuple["Dimension", object], "Dimension"] = {}
 
 
 def _register(dim: "Dimension") -> "Dimension":
@@ -396,33 +399,43 @@ class Dimension(metaclass=_DimensionMeta):
         if not isinstance(other, Dimension):
             return NotImplemented
 
+        cache_key = (self, other)
+        cached = _DIM_MUL_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
         # Identity: NONE * X = X (before basis check — NONE is universal identity)
         if self == NONE:
-            return other
+            result = other
         # Identity: X * NONE = X
-        if other == NONE:
-            return self
+        elif other == NONE:
+            result = self
         # Pseudo-dimension combined with pseudo-dimension
-        if self.is_pseudo and other.is_pseudo:
+        elif self.is_pseudo and other.is_pseudo:
             # Same pseudo-dimension: return self
             if self == other:
-                return self
-            # Different pseudo-dimensions can't combine
-            raise TypeError(
-                f"Cannot multiply different pseudo-dimensions: {self.name} and {other.name}"
-            )
+                result = self
+            else:
+                # Different pseudo-dimensions can't combine
+                raise TypeError(
+                    f"Cannot multiply different pseudo-dimensions: {self.name} and {other.name}"
+                )
         # Pseudo-dimension combined with regular dimension:
         # The pseudo-dimension acts like NONE (zero vector)
-        if self.is_pseudo:
-            return other  # ANGLE * MASS = MASS
-        if other.is_pseudo:
-            return self   # MASS * ANGLE = MASS
-        # Vector arithmetic handles same-basis multiplication directly and
-        # cross-basis multiplication by consulting the active BasisGraph
-        # for a clean (non-lossy) transform path. If no path exists,
-        # Vector.__mul__ raises ValueError with the cross-basis message.
-        new_vector = self.vector * other.vector
-        return resolve(new_vector)
+        elif self.is_pseudo:
+            result = other  # ANGLE * MASS = MASS
+        elif other.is_pseudo:
+            result = self   # MASS * ANGLE = MASS
+        else:
+            # Vector arithmetic handles same-basis multiplication directly and
+            # cross-basis multiplication by consulting the active BasisGraph
+            # for a clean (non-lossy) transform path. If no path exists,
+            # Vector.__mul__ raises ValueError with the cross-basis message.
+            new_vector = self.vector * other.vector
+            result = resolve(new_vector)
+
+        _DIM_MUL_CACHE[cache_key] = result
+        return result
 
     def __truediv__(self, other: "Dimension") -> "Dimension":
         """Divide dimensions (subtract exponent vectors).
@@ -437,26 +450,36 @@ class Dimension(metaclass=_DimensionMeta):
         if not isinstance(other, Dimension):
             return NotImplemented
 
+        cache_key = (self, other)
+        cached = _DIM_DIV_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
         # Identity: X / NONE = X (before basis check — NONE is universal identity)
         if other == NONE:
-            return self
+            result = self
         # Pseudo-dimension divided by pseudo-dimension
-        if self.is_pseudo and other.is_pseudo:
+        elif self.is_pseudo and other.is_pseudo:
             # Same pseudo-dimension: returns NONE (0/0 case, but semantically X/X = 1)
             if self == other:
-                return NONE
-            # Different pseudo-dimensions can't divide
-            raise TypeError(
-                f"Cannot divide different pseudo-dimensions: {self.name} and {other.name}"
-            )
+                result = NONE
+            else:
+                # Different pseudo-dimensions can't divide
+                raise TypeError(
+                    f"Cannot divide different pseudo-dimensions: {self.name} and {other.name}"
+                )
         # Regular divided by pseudo: pseudo acts like NONE
-        if other.is_pseudo:
-            return self   # MASS / ANGLE = MASS
+        elif other.is_pseudo:
+            result = self   # MASS / ANGLE = MASS
         # Pseudo divided by regular: pseudo acts like NONE
-        if self.is_pseudo:
-            return resolve(self.vector / other.vector)
-        new_vector = self.vector / other.vector
-        return resolve(new_vector)
+        elif self.is_pseudo:
+            result = resolve(self.vector / other.vector)
+        else:
+            new_vector = self.vector / other.vector
+            result = resolve(new_vector)
+
+        _DIM_DIV_CACHE[cache_key] = result
+        return result
 
     def __pow__(self, power: int | float | Fraction) -> "Dimension":
         """Raise dimension to a power (multiply exponent vector by scalar).
@@ -470,12 +493,21 @@ class Dimension(metaclass=_DimensionMeta):
         if power == 0:
             return NONE
 
+        cache_key = (self, power)
+        cached = _DIM_POW_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
         # Pseudo-dimensions are invariant under exponentiation
         # This allows expressions like mg/ea (COUNT ** -1) to work
         if self.is_pseudo:
-            return self
-        new_vector = self.vector ** power
-        return resolve(new_vector)
+            result = self
+        else:
+            new_vector = self.vector ** power
+            result = resolve(new_vector)
+
+        _DIM_POW_CACHE[cache_key] = result
+        return result
 
     # -------------------------------------------------------------------------
     # Comparison & Hashing
