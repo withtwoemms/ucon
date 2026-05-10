@@ -15,12 +15,9 @@ This module owns three cohesive concerns:
    :func:`using_basis`, :func:`using_basis_graph`, :func:`get_default_basis`).
 
 The accessors live alongside the graph type because they exist to serve it.
-The single function-body deferred import inside
-:func:`_build_standard_basis_graph` is the documented exception in this
-subpackage: it breaks the load-time cycle ``vector → graph → transforms →
-vector`` while keeping every other import at top of file. See
-``docs/internal/IMPLEMENTATION_PLAN_basis-types-extraction.md`` for the
-rationale.
+The basis subpackage is a clean DAG (``types ← vector ← transforms ← graph
+← ops``); ``transforms`` does not depend on ``graph``, so all imports here
+sit at module top.
 """
 
 from __future__ import annotations
@@ -28,15 +25,31 @@ from __future__ import annotations
 from collections import deque
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Union
+from typing import Union
 
 from ucon.basis.builtin import SI
+from ucon.basis.transforms import (
+    ATOMIC_TO_NATURAL,
+    ATOMIC_TO_PLANCK,
+    CGS_EMU_TO_CGS_ESU,
+    CGS_ESU_TO_CGS_EMU,
+    CGS_TO_SI,
+    NATURAL_TO_ATOMIC,
+    NATURAL_TO_PLANCK,
+    PLANCK_TO_ATOMIC,
+    PLANCK_TO_NATURAL,
+    SI_TO_ATOMIC,
+    SI_TO_CGS,
+    SI_TO_CGS_EMU,
+    SI_TO_CGS_ESU,
+    SI_TO_NATURAL,
+    SI_TO_PLANCK,
+    BasisTransform,
+    ConstantBoundBasisTransform,
+)
 from ucon.basis.types import Basis, NoTransformPath
 
-if TYPE_CHECKING:
-    from ucon.basis.transforms import BasisTransform, ConstantBoundBasisTransform
-
-    _Transform = Union[BasisTransform, ConstantBoundBasisTransform]
+_Transform = Union[BasisTransform, ConstantBoundBasisTransform]
 
 
 class BasisGraph:
@@ -96,8 +109,6 @@ class BasisGraph:
         Raises:
             NoTransformPath: If no path exists between the bases.
         """
-        from ucon.basis.transforms import BasisTransform
-
         if source == target:
             return BasisTransform.identity(source)
 
@@ -206,32 +217,7 @@ class BasisGraph:
 
 
 def _build_standard_basis_graph() -> BasisGraph:
-    """Build standard basis graph with SI/CGS/CGS-ESU/CGS-EMU/natural/planck/atomic transforms.
-
-    The deferred import below is the single intentional exception in this
-    subpackage: ``transforms`` imports ``vector`` which imports ``graph``,
-    so loading transforms at the top of this file would close a load-time
-    cycle. The factory only runs when a default graph is requested, by which
-    time all submodules have finished loading.
-    """
-    from ucon.basis.transforms import (
-        ATOMIC_TO_NATURAL,
-        ATOMIC_TO_PLANCK,
-        CGS_EMU_TO_CGS_ESU,
-        CGS_ESU_TO_CGS_EMU,
-        CGS_TO_SI,
-        NATURAL_TO_ATOMIC,
-        NATURAL_TO_PLANCK,
-        PLANCK_TO_ATOMIC,
-        PLANCK_TO_NATURAL,
-        SI_TO_ATOMIC,
-        SI_TO_CGS,
-        SI_TO_CGS_EMU,
-        SI_TO_CGS_ESU,
-        SI_TO_NATURAL,
-        SI_TO_PLANCK,
-    )
-
+    """Build standard basis graph with SI/CGS/CGS-ESU/CGS-EMU/natural/planck/atomic transforms."""
     graph = BasisGraph()
     graph.add_transform(SI_TO_CGS)
     graph.add_transform(SI_TO_CGS_ESU)
