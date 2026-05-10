@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-05-09
+
 ### Changed
 
 - **`ucon.basis` subpackage internal layout.** The 404-line
@@ -37,7 +39,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unchanged, and `set_default_basis_graph` /
   `reset_default_basis_graph` retain their semantics.
 
+- **`ucon.parsing` promoted from single-file module to subpackage.**
+  The previous `ucon/parsing.py` is now `ucon/parsing/` with three
+  leaf modules: `lexer.py` (the shared `_Tokenizer`, `_Token`,
+  `_TokenType`, `ParseError`), `units.py` (the unit-expression grammar
+  and the quantity-string `parse()` entry point), and `dimensions.py`
+  (the dimension-expression grammar and `parse_dimension()`). The
+  public surface is unchanged — `from ucon.parsing import parse,
+  parse_dimension, parse_unit_expression, ParseError` continues to
+  work via re-exports in `ucon/parsing/__init__.py`, as do private
+  imports of `_Tokenizer`/`_Token`/`_TokenType`. Modules-of-definition
+  shift: e.g., `ParseError.__module__ == "ucon.parsing.lexer"` now
+  rather than `"ucon.parsing"`. The dimensions submodule is loaded
+  lazily via PEP 562 module `__getattr__` to avoid a load-time cycle
+  through `ucon.units → ucon.resolver → ucon.parsing`.
+
+- **`parse_dimension` definition moved out of `ucon/dimension.py`**
+  into `ucon/parsing/dimensions.py`. Its public import path is
+  `from ucon import parse_dimension` (or `from ucon.parsing import
+  parse_dimension`) — both unchanged. `from ucon.dimension import
+  parse_dimension` no longer works; nothing in the public docs
+  ever advertised that path.
+
 ### Added
+
+- **`parse_unit(name)` and `parse_dimension(spec, basis=None)` public
+  parsers** as the canonical string-to-object entry points.
+  `parse_unit` is the new name for the existing `get_unit_by_name`
+  behaviour and is exposed at the top level (`from ucon import
+  parse_unit`). `parse_dimension` is a new function: it accepts (a)
+  bare component symbols of the active basis (`"M"`, `"L"`, `"T"`,
+  `"I"`, `"Θ"`, `"J"`, `"N"`, `"B"`), (b) bare dimension or component
+  names (`"mass"`, `"velocity"`, `"force"`, `"energy"`, `"frequency"`,
+  …), and (c) algebraic expressions over those atoms with `*`, `·`,
+  `⋅`, `/`, `^`, Unicode superscripts, parentheses, and a `1`
+  numerator (`"M*L/T^2"`, `"M·L/T²"`, `"L/T"`, `"1/T"`,
+  `"M/(L*T^2)"`). Both functions are exported from `ucon`. The unit
+  and dimension grammars share a single tokenizer
+  (`ucon.parsing.lexer._Tokenizer`).
 
 - **v2.0 design proposal in `ROADMAP.md`** capturing a clean-DAG
   restructure of `ucon.basis` that eliminates the residual cycle by
@@ -48,11 +87,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`ops.unify`, `ops.multiply_via`, `ops.divide_via`). Documented as
   proposed; deferred until a major-version window.
 
+### Deprecated
+
+- **`ucon.resolver.get_unit_by_name`** is now a soft-deprecated alias
+  for `parse_unit`. It continues to work and returns the same value
+  but emits a `DeprecationWarning` on every call. Removal is
+  scheduled for v2.0. All internal callers within `ucon/` have been
+  migrated to `parse_unit` so the deprecation warning is only
+  triggered by external code.
+
+### Fixed
+
+- **`Dimension` algebra caches re-keyed by value instead of by `id()`.**
+  The mul/div/pow caches in `ucon/dimension.py` were previously keyed
+  on `(id(self), id(other))` (or `(id(self), power)`). Because `id()`
+  is only unique among simultaneously-living objects, transient
+  `Dimension` instances created during expression parsing
+  (`_DimensionParser._resolve_atom` constructs fresh instances per
+  symbol) could be garbage-collected and have their ids reassigned to
+  later transients of *different* base dimensions. The cache would
+  then return a stale entry whose key happened to share an id with
+  the new operand. The failure manifested on Python 3.13 in
+  `parse_dimension` test sequences: parsing `"L^2"` populated the pow
+  cache with `(id(transient_L), 2) → AREA`, and a subsequent parse of
+  `"M*L/T^2"` whose transient `T` landed at the freed id of
+  `transient_L` returned `AREA` for `T**2`, turning `M·L/T²` into
+  `M·L/L² = linear_density`. The caches are now keyed by the
+  `Dimension` instances themselves, which use structural hash and
+  equality on `(vector, tag)`. Distinct instances with identical
+  content collapse to the same key, and id reuse is no longer a
+  failure mode. Performance is preserved (the pre-existing `1.2×`
+  speedup over `pint` on the Unit-algebra microbenchmark holds) and
+  no public API changes. Regression coverage in
+  `tests/ucon/test_dimension.py::TestDimensionAlgebraCacheKeying`.
+
 ### Notes
 
-- This is a structural refactor with no behavioural change. Test
-  suite is green at the same pass count as `main` (2226 passed, 31
-  skipped). No public surface added, removed, or renamed.
+- The basis-package split is a structural refactor with no behavioural
+  change. The `parse_unit` / `parse_dimension` additions are
+  additive-only; the soft-deprecation of `get_unit_by_name` preserves
+  call-site compatibility under the v1.x LTS commitment, with
+  hard-removal scheduled for v2.0. The `Dimension` cache-keying fix
+  is a correctness fix with no API impact. Test suite is green at
+  2312 passed, 2 skipped.
 
 ## [1.6.6] - 2026-05-06
 

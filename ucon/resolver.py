@@ -19,13 +19,15 @@ every canonical unit it defines.
 
 Functions
 ---------
-- :func:`get_unit_by_name` — Public resolver (string → Unit | UnitProduct).
+- :func:`parse_unit` — Public resolver (string → Unit | UnitProduct).
+- :func:`get_unit_by_name` — Deprecated alias for :func:`parse_unit`.
 - :func:`register_unit` — Register a unit (name + aliases) in the global lookup.
 - :func:`register_priority_scaled_alias` — Register a scaled alias (e.g. "mcg").
 """
 from __future__ import annotations
 
 import re
+import warnings
 from typing import Dict, Tuple, Union
 
 from ucon.core import (
@@ -293,9 +295,9 @@ def _parse_composite(s: str) -> UnitProduct:
 # Public API
 # ---------------------------------------------------------------------------
 
-def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
+def parse_unit(name: str) -> Union[Unit, UnitProduct]:
     """
-    Look up a unit by name, alias, or shorthand.
+    Parse a unit string into a :class:`Unit` or :class:`UnitProduct`.
 
     Handles:
     - Plain units: "meter", "m", "second", "s"
@@ -313,12 +315,15 @@ def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
         UnknownUnitError: If the unit cannot be resolved.
 
     Examples:
-        >>> get_unit_by_name("meter")
+        >>> parse_unit("meter")
         <Unit m>
-        >>> get_unit_by_name("km")
+        >>> parse_unit("km")
         <UnitProduct km>
-        >>> get_unit_by_name("m/s^2")
+        >>> parse_unit("m/s^2")
         <UnitProduct m/s²>
+
+    See Also:
+        :func:`~ucon.dimension.parse_dimension` — sibling for dimension strings.
     """
     if not name or not name.strip():
         raise UnknownUnitError(name if name else "")
@@ -352,7 +357,24 @@ def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
         return UnitProduct({UnitFactor(unit, scale): 1})
 
 
+def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
+    """Deprecated alias for :func:`parse_unit`.
+
+    .. deprecated:: 1.7.0
+        Use :func:`parse_unit` instead. ``get_unit_by_name`` will be
+        removed in v2.0.
+    """
+    warnings.warn(
+        "get_unit_by_name() is deprecated; use parse_unit() instead. "
+        "It will be removed in ucon v2.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return parse_unit(name)
+
+
 __all__ = [
+    'parse_unit',
     'get_unit_by_name',
     'register_unit',
     'register_priority_scaled_alias',

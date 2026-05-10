@@ -50,9 +50,9 @@ if TYPE_CHECKING:
 # -----------------------------------------------------------------------------
 
 _REGISTRY: dict[Vector, "Dimension"] = {}
-_DIM_MUL_CACHE: dict[tuple[int, int], "Dimension"] = {}
-_DIM_DIV_CACHE: dict[tuple[int, int], "Dimension"] = {}
-_DIM_POW_CACHE: dict[tuple[int, object], "Dimension"] = {}
+_DIM_MUL_CACHE: dict[tuple["Dimension", "Dimension"], "Dimension"] = {}
+_DIM_DIV_CACHE: dict[tuple["Dimension", "Dimension"], "Dimension"] = {}
+_DIM_POW_CACHE: dict[tuple["Dimension", object], "Dimension"] = {}
 
 
 def _register(dim: "Dimension") -> "Dimension":
@@ -399,7 +399,7 @@ class Dimension(metaclass=_DimensionMeta):
         if not isinstance(other, Dimension):
             return NotImplemented
 
-        cache_key = (id(self), id(other))
+        cache_key = (self, other)
         cached = _DIM_MUL_CACHE.get(cache_key)
         if cached is not None:
             return cached
@@ -450,7 +450,7 @@ class Dimension(metaclass=_DimensionMeta):
         if not isinstance(other, Dimension):
             return NotImplemented
 
-        cache_key = (id(self), id(other))
+        cache_key = (self, other)
         cached = _DIM_DIV_CACHE.get(cache_key)
         if cached is not None:
             return cached
@@ -493,7 +493,7 @@ class Dimension(metaclass=_DimensionMeta):
         if power == 0:
             return NONE
 
-        cache_key = (id(self), power)
+        cache_key = (self, power)
         cached = _DIM_POW_CACHE.get(cache_key)
         if cached is not None:
             return cached

@@ -48,7 +48,7 @@ except ImportError as e:
 from ucon.core import Dimension
 from ucon.core import Number as _Number
 from ucon.core import UnknownUnitError
-from ucon.resolver import get_unit_by_name
+from ucon.resolver import parse_unit
 
 
 def _validate_number(v: Any) -> _Number:
@@ -76,7 +76,7 @@ def _validate_number(v: Any) -> _Number:
         # Parse unit if provided
         if unit_str:
             try:
-                unit = get_unit_by_name(unit_str)
+                unit = parse_unit(unit_str)
             except UnknownUnitError as e:
                 raise ValueError(f"Unknown unit: {unit_str!r}") from e
         else:

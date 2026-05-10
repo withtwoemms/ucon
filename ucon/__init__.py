@@ -111,8 +111,8 @@ from ucon.contexts import (
     using_context,
 )
 from ucon.packages import ConstantDef, EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
-from ucon.resolver import get_unit_by_name, register_unit
-from ucon.parsing import ParseError, parse
+from ucon.resolver import get_unit_by_name, parse_unit, register_unit
+from ucon.parsing import ParseError, parse, parse_dimension
 
 
 __all__ = [
@@ -184,6 +184,8 @@ __all__ = [
     'register_unit',
     'load_package',
     'parse',
+    'parse_dimension',
+    'parse_unit',
     'reset_default_graph',
     'resolve_dimension',
     'set_default_graph',

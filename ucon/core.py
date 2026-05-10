@@ -1842,7 +1842,7 @@ class Number:
         ----------
         target : Unit, UnitProduct, or str
             The target unit to convert to. Strings are resolved via
-            :func:`~ucon.resolver.get_unit_by_name`, which supports bare names
+            :func:`~ucon.resolver.parse_unit`, which supports bare names
             (``"foot"``), aliases (``"ft"``), scale prefixes (``"km"``),
             and composite expressions (``"m/s²"``).
         graph : ConversionGraph, optional
@@ -1871,8 +1871,8 @@ class Number:
         """
         # Resolve string targets via name/alias/prefix/expression lookup
         if isinstance(target, str):
-            from ucon.resolver import get_unit_by_name
-            target = get_unit_by_name(target)
+            from ucon.resolver import parse_unit
+            target = parse_unit(target)
 
         # --- Fast path: plain Unit → plain Unit (no UnitProduct wrapping) ---
         src_unit = self.unit

@@ -132,6 +132,71 @@ class TestDimensionAlgebra(unittest.TestCase):
             Dimension.angle / Dimension.ratio
 
 
+class TestDimensionAlgebraCacheKeying(unittest.TestCase):
+    """Regression tests for Dimension algebra caches.
+
+    The mul/div/pow caches in ucon.dimension were originally keyed by
+    ``(id(self), id(other))``. Because ``id()`` is only unique among
+    simultaneously-living objects, garbage-collected transient ``Dimension``
+    instances could have their ids reused by later allocations, causing
+    stale cache hits to return the wrong dimension. This surfaced on
+    Python 3.13 in ``parse_dimension`` test sequences where parsing
+    ``"L^2"`` followed by ``"M*L/T^2"`` returned ``linear_density``
+    instead of ``force`` (because ``T**2`` hit the cached ``L**2 = AREA``
+    entry under a reused id, turning ``M*L/T^2`` into ``M*L/L^2``).
+
+    The caches are now keyed by the dimensions themselves, which use
+    structural hash/eq on ``(vector, tag)``. These tests pin the
+    invariants the new keying must preserve.
+    """
+
+    def test_distinct_instances_with_equal_content_produce_equal_results(self):
+        """Two distinct Dimension instances with identical content must
+        produce identical results across all algebraic operations.
+        """
+        a = Dimension.from_components(SI, length=1)
+        b = Dimension.from_components(SI, length=1)
+        self.assertIsNot(a, b)
+        self.assertEqual(a, b)
+        self.assertEqual(a, Dimension.length)
+
+        # Power: must not depend on which instance you use
+        self.assertEqual(a ** 2, Dimension.area)
+        self.assertEqual(b ** 2, Dimension.area)
+        self.assertEqual(a ** 2, b ** 2)
+
+        # Multiplication
+        self.assertEqual(a * a, Dimension.area)
+        self.assertEqual(b * b, Dimension.area)
+        self.assertEqual(a * b, Dimension.area)
+
+        # Division
+        self.assertEqual(a / b, Dimension.none)
+        t = Dimension.from_components(SI, time=1)
+        self.assertEqual(a / t, Dimension.velocity)
+
+    def test_parse_dimension_sequence_after_gc(self):
+        """Parsing ``L^2`` then ``M*L/T^2`` must return AREA then FORCE,
+        regardless of GC reaping the transient dimensions in between.
+
+        This is the exact failure path that broke on Python 3.13 with the
+        old id-keyed caches: the freed id of the transient ``L`` from the
+        area parse could be reassigned to the transient ``T`` of the force
+        parse, causing ``T**2`` to hit the stale ``L**2 = AREA`` cache
+        entry and turn ``M*L/T^2`` into ``M*L/L^2 = linear_density``.
+        """
+        import gc
+
+        from ucon import parse_dimension
+
+        self.assertEqual(parse_dimension("L^2"), Dimension.area)
+        gc.collect()  # encourage id reuse for the next parse
+
+        self.assertEqual(parse_dimension("M*L/T^2"), Dimension.force)
+        self.assertEqual(parse_dimension("M\u00b7L/T^2"), Dimension.force)
+        self.assertEqual(parse_dimension("M\u22c5L/T^2"), Dimension.force)
+
+
 class TestDimensionEquality(unittest.TestCase):
     """Test dimension equality and hashing."""
 
