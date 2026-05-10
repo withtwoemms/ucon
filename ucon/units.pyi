@@ -3,7 +3,8 @@
 # Regenerate with: make stubs
 # DO NOT EDIT MANUALLY
 
-from ucon.core import BaseForm, Dimension, Scale, Unit, UnitSystem, UnknownUnitError
+from ucon.core import BaseForm, Dimension, Scale, Unit, UnknownUnitError
+from ucon.system import BaseUnits
 from ucon.dimension import (
     NONE, TIME, LENGTH, MASS, CURRENT, TEMPERATURE,
     LUMINOUS_INTENSITY, AMOUNT_OF_SUBSTANCE, INFORMATION,
@@ -271,8 +272,8 @@ pint_volume: Unit
 point_typo: Unit
 
 # Predefined unit systems
-si: UnitSystem
-imperial: UnitSystem
+si: BaseUnits
+imperial: BaseUnits
 
 # Public API
 def have(name: str) -> bool: ...
