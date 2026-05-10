@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING
 
 from ucon.basis import Basis, BasisComponent, Vector, get_default_basis
 from ucon.basis.builtin import SI
+from ucon.basis.ops import divide_via, multiply_via
 
 if TYPE_CHECKING:
     from ucon.basis import BasisTransform
@@ -427,11 +428,11 @@ class Dimension(metaclass=_DimensionMeta):
         elif other.is_pseudo:
             result = self   # MASS * ANGLE = MASS
         else:
-            # Vector arithmetic handles same-basis multiplication directly and
-            # cross-basis multiplication by consulting the active BasisGraph
-            # for a clean (non-lossy) transform path. If no path exists,
-            # Vector.__mul__ raises ValueError with the cross-basis message.
-            new_vector = self.vector * other.vector
+            # ``Vector`` arithmetic is strict same-basis (raises
+            # ``BasisMismatch``). ``ops.multiply_via`` short-circuits to that
+            # path when both vectors share a basis and otherwise consults
+            # the active ``BasisGraph`` for a clean (non-lossy) projection.
+            new_vector = multiply_via(self.vector, other.vector)
             result = resolve(new_vector)
 
         _DIM_MUL_CACHE[cache_key] = result
@@ -473,9 +474,10 @@ class Dimension(metaclass=_DimensionMeta):
             result = self   # MASS / ANGLE = MASS
         # Pseudo divided by regular: pseudo acts like NONE
         elif self.is_pseudo:
-            result = resolve(self.vector / other.vector)
+            result = resolve(divide_via(self.vector, other.vector))
         else:
-            new_vector = self.vector / other.vector
+            # See ``__mul__`` for the rationale on routing through ``ops``.
+            new_vector = divide_via(self.vector, other.vector)
             result = resolve(new_vector)
 
         _DIM_DIV_CACHE[cache_key] = result
