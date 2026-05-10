@@ -7,17 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.8.0] - 2026-05-10
-
 ### Added
 
 - **`ucon.system` subpackage** as the new home for system-level value
-  types. In v1.8 it exposes a single class, `BaseUnits` (see *Changed*
-  below). A richer `UnitSystem` value type that owns a `BaseUnits` as
-  its `base_units` field, along with `use()` / `active()` context-var
-  plumbing and explicit cross-basis arithmetic via `ucon.basis.ops`,
-  is planned for subsequent phases of the v1.8 series. See
-  `docs/internal/IMPLEMENTATION_PLAN_unitsystem-v1.8.md` for the full
+  types. The subpackage exposes:
+  - `BaseUnits` — the renamed v1.7 `UnitSystem`, a small named
+    `Mapping[Dimension, Unit]` (see *Changed* below).
+  - `UnitSystem` — a new frozen-dataclass value type that owns
+    `basis`, `units`, `dimensions`, `base_units`, `conversions`,
+    `basis_graph`, `contexts`, `constants`, and a per-instance
+    `AlgebraCache`. Constructed directly or via
+    `UnitSystem.from_globals()`, which snapshots the current legacy
+    global state. Phase 2 of the v1.8 plan introduces the type and its
+    construction surface; later phases route the user-facing entry
+    points through it and retire the snapshot path.
+  - `AlgebraCache` — per-instance cache for `Dimension` algebraic
+    operations (`mul`, `div`, `pow`). In v1.8 it lives on each
+    `UnitSystem`; it will replace the module-level
+    `_DIM_MUL_CACHE` / `_DIM_DIV_CACHE` / `_DIM_POW_CACHE` in
+    `ucon.dimension` over the rest of the v1.8 series.
+  - `use(system)` — contextmanager that sets the active `UnitSystem`
+    for the duration of a `with` block.
+  - `active()` — returns the active `UnitSystem`, snapshotting from
+    globals if none has been set.
+  See `docs/internal/IMPLEMENTATION_PLAN_unitsystem-v1.8.md` for the full
   delivery plan.
 
 ### Changed
