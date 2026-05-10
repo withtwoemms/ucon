@@ -27,8 +27,8 @@ else:
 from ucon.basis import NoTransformPath
 from ucon.basis.builtin import SI
 from ucon.basis.graph import get_basis_graph
-from ucon.core import Dimension, Unit, UnitProduct
-from ucon.core import Number, DimensionConstraint
+from ucon.core import Dimension, DimensionConstraint, Number, RebasedUnit, Unit, UnitProduct
+from ucon.graph import ConversionNotFound, get_default_graph
 
 
 def _get_dimension(n: Number) -> Dimension:
@@ -122,8 +122,6 @@ def _coerce_via_graph(value: Number) -> Number:
     Finds an SI-basis unit with the matching dimension and converts to it.
     Returns *value* unchanged if no SI target is found.
     """
-    from ucon.graph import get_default_graph, ConversionNotFound
-
     graph = get_default_graph()
     unit = value.unit
 
@@ -139,7 +137,6 @@ def _coerce_via_graph(value: Number) -> Number:
         return value
 
     # Find the coherent SI unit for this dimension (prefactor == 1.0)
-    from ucon.core import RebasedUnit
     dim_edges = graph._unit_edges.get(si_dim, {})
     target = None
     for candidate in dim_edges:

@@ -439,7 +439,7 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
         """Dimension with no units in graph returns unchanged (line 163)."""
         from ucon.checking import _coerce_via_graph
         n = Number(1.0, units.dyne)
-        with patch('ucon.graph.get_default_graph') as mock_gg:
+        with patch('ucon.checking.get_default_graph') as mock_gg:
             mock_g = MagicMock()
             mock_g._unit_edges = {}
             mock_gg.return_value = mock_g
@@ -452,7 +452,7 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
         from ucon.graph import get_default_graph, ConversionNotFound
         real_graph = get_default_graph()
         n = Number(1.0, units.dyne)
-        with patch('ucon.graph.get_default_graph') as mock_gg:
+        with patch('ucon.checking.get_default_graph') as mock_gg:
             mock_g = MagicMock()
             mock_g._unit_edges = real_graph._unit_edges
             mock_g.convert.side_effect = ConversionNotFound('forced error')
@@ -479,7 +479,7 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
         fake_edges = {si_force: {kgf: {}}}
 
         n = Number(1.0, units.dyne)
-        with patch('ucon.graph.get_default_graph') as mock_gg:
+        with patch('ucon.checking.get_default_graph') as mock_gg:
             mock_g = MagicMock()
             mock_g._unit_edges = fake_edges
             mock_g.convert.return_value = lambda x: x * 1e-5
@@ -513,7 +513,7 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
             def __call__(self, x):
                 return x * 1e-5
 
-        with patch('ucon.graph.get_default_graph') as mock_gg:
+        with patch('ucon.checking.get_default_graph') as mock_gg:
             mock_g = MagicMock()
             mock_g._unit_edges = real_graph._unit_edges
             mock_g.convert.return_value = BareConversion()
