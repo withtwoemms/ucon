@@ -30,8 +30,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     for the duration of a `with` block.
   - `active()` — returns the active `UnitSystem`, snapshotting from
     globals if none has been set.
-  See `docs/internal/IMPLEMENTATION_PLAN_unitsystem-v1.8.md` for the full
-  delivery plan.
+
+- **`ucon.basis.ops` module** with explicit cross-basis arithmetic
+  helpers:
+  - `unify(a, b, *, system=None, graph=None)` — bring two `Vector`s
+    into a common basis via the active (or supplied) `BasisGraph`.
+    Tries forward and reverse projections; the first clean (non-lossy)
+    one wins.
+  - `multiply_via(a, b, *, system=None, graph=None)` — multiply two
+    `Vector`s, unifying bases as needed.
+  - `divide_via(a, b, *, system=None, graph=None)` — divide two
+    `Vector`s, unifying bases as needed.
+
+  All three accept an optional `graph=` kwarg or `system=` kwarg
+  (which contributes its `basis_graph`). When neither is given, the
+  ContextVar-scoped active graph is used. Resolution priority:
+  `graph= > system.basis_graph > active`.
+
+- **`BasisMismatch(ValueError)` exception** in `ucon.basis.types`
+  (re-exported from `ucon.basis`). Carries `left`, `right`, and `op`
+  attributes pointing at the offending bases and operation. Subclasses
+  `ValueError` so legacy `except ValueError` and
+  `pytest.raises(ValueError, match=...)` callsites continue to catch.
+  Replaces the bare `ValueError("Cannot multiply dimensions from
+  different bases: ...")` raised by `Vector.__mul__` and
+  `Vector.__truediv__` in v1.6.x and v1.7.x.
 
 ### Changed
 
@@ -47,6 +70,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `UnitSystem` is reserved for the richer value type planned for later
   in the v1.8 series, and `BaseUnits` more precisely describes what the
   small mapping actually is.
+
+- **`Vector` arithmetic is now strict same-basis.** `Vector.__mul__`
+  and `Vector.__truediv__` raise `BasisMismatch` immediately when
+  operands live in different bases. The 1.6.6 implicit consultation
+  of the active `BasisGraph` (via the now-removed
+  `Vector._unify_basis`) has been moved to explicit
+  `ucon.basis.ops.multiply_via` / `divide_via`. Same-basis
+  multiplication and division behaviour is byte-identical to before;
+  only the cross-basis silent-promotion path is gone. The error
+  message format is unchanged (`"Cannot {multiply,divide} vectors
+  from different bases: 'X' and 'Y'"`), and `BasisMismatch` is a
+  `ValueError` subclass, so existing regex-matched
+  `pytest.raises(ValueError, ...)` callsites continue to match.
+  `Dimension.__mul__` and `Dimension.__truediv__` now route through
+  `ops.multiply_via` / `divide_via`, so dimension-level cross-basis
+  algebra continues to work without code change at call sites that
+  use the active graph.
+
+- **`ucon.basis` subpackage is now a clean DAG.** The load-time cycle
+  `vector → graph → transforms → vector` documented in v1.7.0 is
+  fully resolved. `ucon/basis/vector.py` no longer imports from
+  `ucon.basis.graph` (it now depends only on `ucon.basis.types`),
+  and the two function-body deferred imports introduced in v1.7.0
+  inside `BasisGraph.get_transform()` and
+  `_build_standard_basis_graph()` have been promoted to top-of-file
+  imports. The basis subpackage's load order is now uniform —
+  `types ← vector ← transforms ← graph ← ops` — with no documented
+  exceptions.
+
+- **Deferred imports in `ucon.checking._coerce_via_graph` hoisted to
+  top of file.** The function-body
+  `from ucon.graph import get_default_graph, ConversionNotFound` and
+  `from ucon.core import RebasedUnit` are now top-of-file imports.
+  Tests that monkey-patched `ucon.graph.get_default_graph` to mock
+  the lookup have been updated to patch
+  `ucon.checking.get_default_graph` (the binding the function
+  actually reads), following the standard "patch where it's used,
+  not where it's defined" guidance. No production behaviour change.
 
 ### Deprecated
 
