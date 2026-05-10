@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-05-10
+
+### Added
+
+- **`ucon.system` subpackage** as the new home for system-level value
+  types. In v1.8 it exposes a single class, `BaseUnits` (see *Changed*
+  below). A richer `UnitSystem` value type that owns a `BaseUnits` as
+  its `base_units` field, along with `use()` / `active()` context-var
+  plumbing and explicit cross-basis arithmetic via `ucon.basis.ops`,
+  is planned for subsequent phases of the v1.8 series. See
+  `docs/internal/IMPLEMENTATION_PLAN_unitsystem-v1.8.md` for the full
+  delivery plan.
+
+### Changed
+
+- **`UnitSystem` renamed to `BaseUnits` and moved to `ucon.system`.**
+  The small `@dataclass(frozen=True)` mapping `name + bases:
+  Mapping[Dimension, Unit]` previously known at the top level as
+  `ucon.UnitSystem` is now `ucon.system.BaseUnits`. The class shape,
+  validation rules, and methods (`base_for`, `covers`, `dimensions`,
+  `__hash__`) are unchanged. The two pre-defined instances exposed by
+  `ucon.units` — `ucon.units.si` and `ucon.units.imperial` — are now
+  `BaseUnits` instances; their construction call sites use the new name
+  but identical field structure (`bases=...`). The rationale: the name
+  `UnitSystem` is reserved for the richer value type planned for later
+  in the v1.8 series, and `BaseUnits` more precisely describes what the
+  small mapping actually is.
+
+### Deprecated
+
+- **`from ucon import UnitSystem`** is now a PEP-562 alias resolving to
+  `BaseUnits`, with a `PendingDeprecationWarning`. Existing callers
+  continue to work; no code change required for v1.8. The alias will
+  be removed in v2.0. Migration: replace
+  `from ucon import UnitSystem` with `from ucon import BaseUnits`
+  (or `from ucon.system import BaseUnits`).
+
 ## [1.7.0] - 2026-05-09
 
 ### Changed

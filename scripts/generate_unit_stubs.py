@@ -4,7 +4,7 @@ Generate type stubs for ucon.units from runtime introspection.
 
 This script imports ucon.units and generates a .pyi stub file by:
 1. Extracting all Unit objects loaded from the TOML
-2. Including UnitSystem instances (si, imperial)
+2. Including BaseUnits instances (si, imperial)
 3. Including the sentinel ``none`` unit
 4. Including backward-compat aliases (pint_volume, point_typo)
 5. Including the ``have()`` function
@@ -23,7 +23,8 @@ from pathlib import Path
 # Ensure we import from the local package
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from ucon.core import Unit, UnitSystem
+from ucon.core import Unit
+from ucon.system import BaseUnits
 import ucon.units as units_module
 from ucon._loader import get_units
 
@@ -34,7 +35,8 @@ HEADER = '''\
 # Regenerate with: make stubs
 # DO NOT EDIT MANUALLY
 
-from ucon.core import BaseForm, Dimension, Scale, Unit, UnitSystem, UnknownUnitError
+from ucon.core import BaseForm, Dimension, Scale, Unit, UnknownUnitError
+from ucon.system import BaseUnits
 from ucon.dimension import (
     NONE, TIME, LENGTH, MASS, CURRENT, TEMPERATURE,
     LUMINOUS_INTENSITY, AMOUNT_OF_SUBSTANCE, INFORMATION,
@@ -95,8 +97,8 @@ def generate_special_stubs() -> list[str]:
     lines.append("")
 
     lines.append("# Predefined unit systems")
-    lines.append("si: UnitSystem")
-    lines.append("imperial: UnitSystem")
+    lines.append("si: BaseUnits")
+    lines.append("imperial: BaseUnits")
     lines.append("")
 
     lines.append("# Public API")
