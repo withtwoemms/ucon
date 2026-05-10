@@ -8,18 +8,47 @@ ucon.system
 
 System-level value types for ucon.
 
-This subpackage hosts the abstractions that record which units a coherent
-unit system uses for each dimension. In v1.8 the only public type is
-:class:`BaseUnits`, the renamed predecessor of ``ucon.UnitSystem``. A
-richer ``UnitSystem`` value type (which will own a ``BaseUnits`` as its
-``base_units`` field) is planned for later phases.
+This subpackage hosts the abstractions that record which units, dimensions,
+conversions, and basis transforms a coherent unit system uses.
+
+Public surface (v1.8):
+
+- :class:`BaseUnits` -- a small named ``Mapping[Dimension, Unit]`` that
+  records the canonical base unit per dimension. The renamed predecessor
+  of the v1.7 top-level ``UnitSystem`` class.
+- :class:`UnitSystem` -- the new value type that owns a ``BaseUnits`` plus
+  the registries (units, dimensions, conversions, basis_graph, contexts,
+  constants) and a per-instance :class:`AlgebraCache`. Phase 2 introduces
+  the type and its construction surface; later phases route call sites
+  through it.
+- :class:`AlgebraCache` -- per-instance cache for ``Dimension`` algebra
+  (mul/div/pow). Replaces the module-level caches in ``ucon.dimension`` in
+  later phases.
+- :func:`use` -- contextmanager that sets the active ``UnitSystem``.
+- :func:`active` -- returns the active ``UnitSystem`` (snapshotting from
+  globals if none has been set).
+
+The PEP-562 alias ``from ucon import UnitSystem`` continues to resolve to
+:class:`BaseUnits` in v1.8 with a ``PendingDeprecationWarning``. The new
+value type is reachable only via ``from ucon.system import UnitSystem``.
 """
 
-from dataclasses import dataclass
-from typing import Dict
+from __future__ import annotations
+
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Dict, Iterator, Mapping
 
 from ucon.core import DimensionNotCovered, Unit
 from ucon.dimension import Dimension
+
+if TYPE_CHECKING:
+    from ucon.basis.graph import BasisGraph
+    from ucon.basis.types import Basis
+    from ucon.constants import Constant
+    from ucon.contexts import ConversionContext
+    from ucon.graph import ConversionGraph
 
 
 @dataclass(frozen=True)
@@ -101,4 +130,208 @@ class BaseUnits:
         return hash((self.name, tuple(sorted(self.bases.items(), key=lambda x: x[0].name))))
 
 
-__all__ = ['BaseUnits']
+# -----------------------------------------------------------------------------
+# Per-instance Dimension algebra cache
+# -----------------------------------------------------------------------------
+
+
+@dataclass
+class AlgebraCache:
+    """Per-instance cache for ``Dimension`` algebraic operations.
+
+    Holds three sub-caches keyed by argument tuples:
+
+    - ``mul``: ``(Dimension, Dimension) -> Dimension``
+    - ``div``: ``(Dimension, Dimension) -> Dimension``
+    - ``pow``: ``(Dimension, exponent) -> Dimension``
+
+    In v1.8 Phase 2 this type exists as a per-``UnitSystem`` field. Later
+    phases will route ``Dimension.__mul__`` / ``__truediv__`` / ``__pow__``
+    through the active system's cache, retiring the module-level caches in
+    ``ucon.dimension``.
+    """
+
+    mul: dict = field(default_factory=dict)
+    div: dict = field(default_factory=dict)
+    pow: dict = field(default_factory=dict)
+
+    def clear(self) -> None:
+        """Empty all three sub-caches."""
+        self.mul.clear()
+        self.div.clear()
+        self.pow.clear()
+
+
+# -----------------------------------------------------------------------------
+# UnitSystem value type
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class UnitSystem:
+    """A complete unit system as a value type.
+
+    Owns the basis, the registries (units, dimensions, conversions,
+    basis_graph, contexts, constants), the canonical ``base_units``
+    mapping, and a per-instance :class:`AlgebraCache`.
+
+    In v1.8 Phase 2 the type exists with a construction surface but no
+    callers. Later phases route the user-facing entry points
+    (``compute``, ``convert``, ``declare_computation``, ...) through it.
+
+    Parameters
+    ----------
+    basis : Basis
+        Dimensional coordinate system.
+    units : Mapping[str, Unit]
+        Name registry of units.
+    dimensions : Mapping[str, Dimension]
+        Name registry of dimensions.
+    base_units : BaseUnits
+        Canonical base unit per covered dimension.
+    conversions : ConversionGraph
+        Graph of unit conversion morphisms.
+    basis_graph : BasisGraph
+        Graph of basis transforms.
+    contexts : Mapping[str, ConversionContext]
+        Named cross-dimensional context bundles. Defaults to empty.
+    constants : Mapping[str, Constant]
+        Physical constants registry. Defaults to empty.
+    _algebra_cache : AlgebraCache
+        Per-instance dimension-algebra cache. Constructed empty by default.
+
+    Notes
+    -----
+    The frozen dataclass holds references to mutable registries (dicts and
+    graph objects). "Frozen" applies to the field bindings, not the
+    contents of the registries -- mirroring how :class:`BaseUnits` already
+    treats its ``bases`` dict. Equality and hash use identity for the
+    mutable mappings/graphs and value equality for ``basis`` and
+    ``base_units``; the per-instance ``_algebra_cache`` is excluded from
+    both.
+    """
+
+    basis: 'Basis'
+    units: Mapping[str, 'Unit']
+    dimensions: Mapping[str, 'Dimension']
+    base_units: BaseUnits
+    conversions: 'ConversionGraph'
+    basis_graph: 'BasisGraph'
+    contexts: Mapping[str, 'ConversionContext'] = field(default_factory=dict)
+    constants: Mapping[str, 'Constant'] = field(default_factory=dict)
+    _algebra_cache: AlgebraCache = field(
+        default_factory=AlgebraCache, compare=False, repr=False
+    )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, UnitSystem):
+            return NotImplemented
+        return (
+            self.basis == other.basis
+            and self.base_units == other.base_units
+            and self.units is other.units
+            and self.dimensions is other.dimensions
+            and self.conversions is other.conversions
+            and self.basis_graph is other.basis_graph
+            and self.contexts is other.contexts
+            and self.constants is other.constants
+        )
+
+    def __hash__(self) -> int:
+        return hash((
+            self.basis,
+            self.base_units,
+            id(self.units),
+            id(self.dimensions),
+            id(self.conversions),
+            id(self.basis_graph),
+            id(self.contexts),
+            id(self.constants),
+        ))
+
+    @classmethod
+    def from_globals(cls, *, base_units: BaseUnits | None = None) -> 'UnitSystem':
+        """Snapshot the current global state into a ``UnitSystem``.
+
+        Reads the live registries from ``ucon._loader``, ``ucon.dimension``,
+        ``ucon.basis.graph``, and ``ucon.graph``. The registries are passed
+        through *by reference* (not copied) so two snapshots compare equal
+        and share state with the legacy global path.
+
+        Parameters
+        ----------
+        base_units : BaseUnits, optional
+            Override for the ``base_units`` field. Defaults to
+            ``ucon.units.si``.
+        """
+        # Deferred imports to avoid a load-time cycle:
+        # ucon.system is imported very early via ucon/__init__.py, before
+        # ucon.graph / ucon._loader / ucon.units have been initialised.
+        from ucon._loader import get_constants, get_units
+        from ucon.basis.graph import get_basis_graph, get_default_basis
+        from ucon.dimension import _DIMENSION_ATTRS
+        from ucon.graph import get_default_graph
+        from ucon import units as _units_module
+
+        if base_units is None:
+            base_units = _units_module.si
+
+        graph = get_default_graph()
+        return cls(
+            basis=get_default_basis(),
+            units=get_units(),
+            dimensions=_DIMENSION_ATTRS,
+            base_units=base_units,
+            conversions=graph,
+            basis_graph=get_basis_graph(),
+            contexts=getattr(graph, '_contexts', {}),
+            constants=get_constants(),
+        )
+
+
+# -----------------------------------------------------------------------------
+# Active-system context variable
+# -----------------------------------------------------------------------------
+
+
+_active: ContextVar['UnitSystem | None'] = ContextVar('ucon_active_system', default=None)
+
+
+def active() -> UnitSystem:
+    """Return the currently active :class:`UnitSystem`.
+
+    If no system has been activated via :func:`use`, snapshots the current
+    global state via :meth:`UnitSystem.from_globals` and returns that.
+    """
+    system = _active.get()
+    if system is None:
+        return UnitSystem.from_globals()
+    return system
+
+
+@contextmanager
+def use(system: UnitSystem) -> Iterator[UnitSystem]:
+    """Set ``system`` as the active :class:`UnitSystem` for the with-block.
+
+    On exit the previous active system (or ``None``) is restored.
+
+    Examples
+    --------
+    >>> sys = UnitSystem.from_globals()
+    >>> with use(sys):
+    ...     assert active() is sys
+    """
+    token = _active.set(system)
+    try:
+        yield system
+    finally:
+        _active.reset(token)
+
+
+__all__ = [
+    'BaseUnits',
+    'UnitSystem',
+    'AlgebraCache',
+    'use',
+    'active'
+]
