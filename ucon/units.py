@@ -23,7 +23,8 @@ Notes
 The design allows for future extensibility: users can register their own units,
 systems, or aliases dynamically, without modifying the core definitions.
 """
-from ucon.core import BaseForm, Dimension, Scale, Unit, UnitSystem, UnknownUnitError  # noqa: F401
+from ucon.core import BaseForm, Dimension, Scale, Unit, UnknownUnitError  # noqa: F401
+from ucon.system import BaseUnits
 from ucon.dimension import (
     NONE, TIME, LENGTH, MASS, CURRENT, TEMPERATURE,
     LUMINOUS_INTENSITY, AMOUNT_OF_SUBSTANCE, INFORMATION,
@@ -86,7 +87,7 @@ for _u in _units.values():
 # Predefined Unit Systems
 # ---------------------------------------------------------------------------
 
-si = UnitSystem(
+si = BaseUnits(
     name="SI",
     bases={
         LENGTH: _units['meter'],
@@ -99,7 +100,7 @@ si = UnitSystem(
     }
 )
 
-imperial = UnitSystem(
+imperial = BaseUnits(
     name="Imperial",
     bases={
         LENGTH: _units['foot'],

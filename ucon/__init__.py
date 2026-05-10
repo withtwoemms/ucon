@@ -84,9 +84,9 @@ from ucon.core import (
     Unit,
     UnitFactor,
     UnitProduct,
-    UnitSystem,
     UnknownUnitError,
 )
+from ucon.system import BaseUnits
 from ucon.dimension import (
     Dimension,
     all_dimensions,
@@ -152,6 +152,7 @@ __all__ = [
     'using_context',
     # Core types
     'BaseForm',
+    'BaseUnits',
     'Constant',
     'ConstantDef',
     'ConversionGraph',
@@ -174,7 +175,6 @@ __all__ = [
     'UnitFactor',
     'UnitPackage',
     'UnitProduct',
-    'UnitSystem',
     'UnknownUnitError',
     # Functions
     'all_dimensions',
@@ -194,3 +194,28 @@ __all__ = [
     'constants',
     'units',
 ]
+
+
+# ---------------------------------------------------------------------------
+# Deprecation aliases (PEP 562)
+# ---------------------------------------------------------------------------
+#
+# In v1.8 the small dimension→unit mapping previously called ``UnitSystem``
+# was renamed to :class:`BaseUnits` and moved to :mod:`ucon.system`. The
+# name ``UnitSystem`` is reserved for a richer value type planned for a
+# later phase. Existing callers that import ``UnitSystem`` from the top
+# level continue to work via the alias below, with a
+# ``PendingDeprecationWarning``. The alias will be removed in v2.0.
+
+def __getattr__(name):
+    if name == 'UnitSystem':
+        import warnings
+        warnings.warn(
+            "ucon.UnitSystem is a deprecated alias for ucon.BaseUnits. "
+            "Import BaseUnits from ucon (or ucon.system) directly. "
+            "The alias will be removed in ucon 2.0.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+        return BaseUnits
+    raise AttributeError(f"module 'ucon' has no attribute {name!r}")

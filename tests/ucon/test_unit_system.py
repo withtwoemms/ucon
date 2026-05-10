@@ -3,24 +3,25 @@
 # See the LICENSE file for details.
 
 """
-Tests for UnitSystem.
+Tests for BaseUnits (the v1.8 rename of the previous ``UnitSystem`` class).
 
-Verifies construction, validation, and query methods for named
-unit system definitions.
+Verifies construction, validation, and query methods for named base-unit
+mappings.
 """
 
 import unittest
 
 from ucon import units
-from ucon.core import UnitSystem, DimensionNotCovered
+from ucon.core import DimensionNotCovered
+from ucon.system import BaseUnits
 from ucon import Dimension
 
 
-class TestUnitSystemConstruction(unittest.TestCase):
-    """Test UnitSystem construction and validation."""
+class TestBaseUnitsConstruction(unittest.TestCase):
+    """Test BaseUnits construction and validation."""
 
     def test_valid_construction(self):
-        system = UnitSystem(
+        system = BaseUnits(
             name="SI",
             bases={
                 Dimension.length: units.meter,
@@ -32,7 +33,7 @@ class TestUnitSystemConstruction(unittest.TestCase):
         self.assertEqual(len(system.bases), 3)
 
     def test_single_base_allowed(self):
-        system = UnitSystem(
+        system = BaseUnits(
             name="length-only",
             bases={Dimension.length: units.meter}
         )
@@ -40,18 +41,18 @@ class TestUnitSystemConstruction(unittest.TestCase):
 
     def test_empty_name_rejected(self):
         with self.assertRaises(ValueError) as ctx:
-            UnitSystem(name="", bases={Dimension.length: units.meter})
+            BaseUnits(name="", bases={Dimension.length: units.meter})
         self.assertIn("name", str(ctx.exception).lower())
 
     def test_empty_bases_rejected(self):
         with self.assertRaises(ValueError) as ctx:
-            UnitSystem(name="empty", bases={})
+            BaseUnits(name="empty", bases={})
         self.assertIn("base", str(ctx.exception).lower())
 
     def test_mismatched_dimension_rejected(self):
         # meter has Dimension.length, but we declare it as mass
         with self.assertRaises(ValueError) as ctx:
-            UnitSystem(
+            BaseUnits(
                 name="bad",
                 bases={Dimension.mass: units.meter}
             )
@@ -59,7 +60,7 @@ class TestUnitSystemConstruction(unittest.TestCase):
 
     def test_partial_system_allowed(self):
         # Imperial doesn't need mole or candela
-        system = UnitSystem(
+        system = BaseUnits(
             name="Imperial",
             bases={
                 Dimension.length: units.foot,
@@ -70,11 +71,11 @@ class TestUnitSystemConstruction(unittest.TestCase):
         self.assertEqual(len(system.bases), 3)
 
 
-class TestUnitSystemQueries(unittest.TestCase):
-    """Test UnitSystem query methods."""
+class TestBaseUnitsQueries(unittest.TestCase):
+    """Test BaseUnits query methods."""
 
     def setUp(self):
-        self.si = UnitSystem(
+        self.si = BaseUnits(
             name="SI",
             bases={
                 Dimension.length: units.meter,
@@ -111,42 +112,42 @@ class TestUnitSystemQueries(unittest.TestCase):
         self.assertIn(Dimension.mass, dims)
 
 
-class TestUnitSystemEquality(unittest.TestCase):
-    """Test UnitSystem equality and hashing."""
+class TestBaseUnitsEquality(unittest.TestCase):
+    """Test BaseUnits equality and hashing."""
 
     def test_same_systems_equal(self):
-        s1 = UnitSystem(
+        s1 = BaseUnits(
             name="SI",
             bases={Dimension.length: units.meter}
         )
-        s2 = UnitSystem(
+        s2 = BaseUnits(
             name="SI",
             bases={Dimension.length: units.meter}
         )
         self.assertEqual(s1, s2)
 
     def test_different_names_not_equal(self):
-        s1 = UnitSystem(name="SI", bases={Dimension.length: units.meter})
-        s2 = UnitSystem(name="CGS", bases={Dimension.length: units.meter})
+        s1 = BaseUnits(name="SI", bases={Dimension.length: units.meter})
+        s2 = BaseUnits(name="CGS", bases={Dimension.length: units.meter})
         self.assertNotEqual(s1, s2)
 
     def test_different_bases_not_equal(self):
-        s1 = UnitSystem(name="test", bases={Dimension.length: units.meter})
-        s2 = UnitSystem(name="test", bases={Dimension.length: units.foot})
+        s1 = BaseUnits(name="test", bases={Dimension.length: units.meter})
+        s2 = BaseUnits(name="test", bases={Dimension.length: units.foot})
         self.assertNotEqual(s1, s2)
 
     def test_hashable(self):
-        s1 = UnitSystem(name="SI", bases={Dimension.length: units.meter})
-        s2 = UnitSystem(name="SI", bases={Dimension.length: units.meter})
+        s1 = BaseUnits(name="SI", bases={Dimension.length: units.meter})
+        s2 = BaseUnits(name="SI", bases={Dimension.length: units.meter})
         self.assertEqual(hash(s1), hash(s2))
         self.assertEqual(len({s1, s2}), 1)
 
 
-class TestUnitSystemImmutability(unittest.TestCase):
-    """Test that UnitSystem is immutable."""
+class TestBaseUnitsImmutability(unittest.TestCase):
+    """Test that BaseUnits is immutable."""
 
     def test_frozen_dataclass(self):
-        system = UnitSystem(
+        system = BaseUnits(
             name="SI",
             bases={Dimension.length: units.meter}
         )
