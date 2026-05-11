@@ -51,9 +51,17 @@ if TYPE_CHECKING:
 # -----------------------------------------------------------------------------
 
 _REGISTRY: dict[Vector, "Dimension"] = {}
-_DIM_MUL_CACHE: dict[tuple["Dimension", "Dimension"], "Dimension"] = {}
-_DIM_DIV_CACHE: dict[tuple["Dimension", "Dimension"], "Dimension"] = {}
-_DIM_POW_CACHE: dict[tuple["Dimension", object], "Dimension"] = {}
+
+
+def _algebra_cache():
+    """Resolve the per-system :class:`AlgebraCache` for dimension algebra.
+
+    Deferred import: ``ucon.system`` imports ``ucon.dimension`` at load
+    time, so we cannot reach for the system module at definition time.
+    After first call the import is a ``sys.modules`` dict lookup.
+    """
+    from ucon.system import _get_active_cache
+    return _get_active_cache()
 
 
 def _register(dim: "Dimension") -> "Dimension":
@@ -400,8 +408,9 @@ class Dimension(metaclass=_DimensionMeta):
         if not isinstance(other, Dimension):
             return NotImplemented
 
+        cache = _algebra_cache().mul
         cache_key = (self, other)
-        cached = _DIM_MUL_CACHE.get(cache_key)
+        cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
@@ -435,7 +444,7 @@ class Dimension(metaclass=_DimensionMeta):
             new_vector = multiply_via(self.vector, other.vector)
             result = resolve(new_vector)
 
-        _DIM_MUL_CACHE[cache_key] = result
+        cache[cache_key] = result
         return result
 
     def __truediv__(self, other: "Dimension") -> "Dimension":
@@ -451,8 +460,9 @@ class Dimension(metaclass=_DimensionMeta):
         if not isinstance(other, Dimension):
             return NotImplemented
 
+        cache = _algebra_cache().div
         cache_key = (self, other)
-        cached = _DIM_DIV_CACHE.get(cache_key)
+        cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
@@ -480,7 +490,7 @@ class Dimension(metaclass=_DimensionMeta):
             new_vector = divide_via(self.vector, other.vector)
             result = resolve(new_vector)
 
-        _DIM_DIV_CACHE[cache_key] = result
+        cache[cache_key] = result
         return result
 
     def __pow__(self, power: int | float | Fraction) -> "Dimension":
@@ -495,8 +505,9 @@ class Dimension(metaclass=_DimensionMeta):
         if power == 0:
             return NONE
 
+        cache = _algebra_cache().pow
         cache_key = (self, power)
-        cached = _DIM_POW_CACHE.get(cache_key)
+        cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
@@ -508,7 +519,7 @@ class Dimension(metaclass=_DimensionMeta):
             new_vector = self.vector ** power
             result = resolve(new_vector)
 
-        _DIM_POW_CACHE[cache_key] = result
+        cache[cache_key] = result
         return result
 
     # -------------------------------------------------------------------------
@@ -1003,6 +1014,44 @@ def all_dimensions() -> tuple[Dimension, ...]:
         ATOMIC_ENERGY,
         ATOMIC_LENGTH,
     )
+
+
+# -----------------------------------------------------------------------------
+# Back-compat shim for the v1.7 module-level algebra caches
+# -----------------------------------------------------------------------------
+#
+# Before v1.8, ``Dimension.__mul__`` / ``__truediv__`` / ``__pow__`` consulted
+# three module-level dicts (``_DIM_MUL_CACHE`` / ``_DIM_DIV_CACHE`` /
+# ``_DIM_POW_CACHE``). v1.8 moves the caches onto ``UnitSystem._algebra_cache``
+# so each system holds its own ledger. The old names continue to resolve via
+# PEP-562 ``__getattr__`` but emit ``PendingDeprecationWarning`` and return
+# the live ``mul`` / ``div`` / ``pow`` dict of the active system's cache.
+#
+# Per the v1.8 migration table, these aliases are scheduled for removal in
+# v2.0. Callers reaching for the dicts directly should read them via
+# ``ucon.system.active()._algebra_cache`` (or ``_get_active_cache()``).
+
+_LEGACY_CACHE_ATTRS = {
+    "_DIM_MUL_CACHE": "mul",
+    "_DIM_DIV_CACHE": "div",
+    "_DIM_POW_CACHE": "pow",
+}
+
+
+def __getattr__(name):  # pragma: no cover - exercised via deprecation tests
+    sub = _LEGACY_CACHE_ATTRS.get(name)
+    if sub is None:
+        raise AttributeError(f"module 'ucon.dimension' has no attribute {name!r}")
+    import warnings
+    warnings.warn(
+        f"ucon.dimension.{name} is deprecated; the dimension algebra cache "
+        f"now lives on UnitSystem._algebra_cache. Read it via "
+        f"ucon.system.active()._algebra_cache.{sub}. Scheduled for removal "
+        f"in ucon v2.0.",
+        PendingDeprecationWarning,
+        stacklevel=2,
+    )
+    return getattr(_algebra_cache(), sub)
 
 
 # -----------------------------------------------------------------------------
