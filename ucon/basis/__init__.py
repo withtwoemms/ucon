@@ -10,14 +10,19 @@ to a specific set of components.
 
 Submodules
 ----------
-- ``types``: Core types (``Basis``, ``BasisComponent``, exceptions)
-- ``vector``: ``Vector`` dimensional exponent vectors
-- ``transforms``: Transform types and standard transform instances
+- ``types``: Core types (``Basis``, ``BasisComponent``, exceptions including
+  ``BasisMismatch``, ``LossyProjection``, ``NoTransformPath``).
+- ``vector``: ``Vector`` dimensional exponent vectors. Arithmetic is strict
+  same-basis; cross-basis arithmetic lives in ``ops``.
+- ``transforms``: Transform types and standard transform instances.
 - ``graph``: ``BasisGraph`` registry, standard-graph factory, and
-  ContextVar-scoped active state (``get_basis_graph``, ``using_basis``, etc.)
-- ``builtin``: Standard bases (SI, CGS, CGS-ESU, CGS-EMU, NATURAL, PLANCK, ATOMIC)
+  ContextVar-scoped active state (``get_basis_graph``, ``using_basis``, etc.).
+- ``ops``: Explicit cross-basis arithmetic (``multiply_via``, ``divide_via``,
+  ``unify``).
+- ``builtin``: Standard bases (SI, CGS, CGS-ESU, CGS-EMU, NATURAL, PLANCK, ATOMIC).
 """
 
+from ucon.basis import ops
 from ucon.basis.graph import (
     BasisGraph,
     get_basis_graph,
@@ -35,6 +40,7 @@ from ucon.basis.transforms import (
 from ucon.basis.types import (
     Basis,
     BasisComponent,
+    BasisMismatch,
     LossyProjection,
     NoTransformPath,
 )
@@ -44,6 +50,7 @@ __all__ = [
     "Basis",
     "BasisComponent",
     "BasisGraph",
+    "BasisMismatch",
     "BasisTransform",
     "ConstantBinding",
     "ConstantBoundBasisTransform",
@@ -52,6 +59,7 @@ __all__ = [
     "Vector",
     "get_basis_graph",
     "get_default_basis",
+    "ops",
     "reset_default_basis_graph",
     "set_default_basis_graph",
     "using_basis",

@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 
 """
-Core basis types: ``BasisComponent``, ``Basis``, ``LossyProjection``, ``NoTransformPath``.
+Core basis types: ``BasisComponent``, ``Basis``, ``BasisMismatch``,
+``LossyProjection``, ``NoTransformPath``.
 
 This module is the canonical home for the basis data model. It has no
 dependencies on other ``ucon.basis`` submodules; everything else in the
@@ -204,3 +205,40 @@ class NoTransformPath(Exception):
             f"No transform path from '{source.name}' to '{target.name}'. "
             f"These are isolated dimensional systems."
         )
+
+
+class BasisMismatch(ValueError):
+    """Raised when a same-basis Vector operation receives operands in
+    different bases.
+
+    ``Vector`` arithmetic is strict same-basis. Cross-basis arithmetic must
+    go through :mod:`ucon.basis.ops`, which consults a ``BasisGraph`` for a
+    clean (non-lossy) projection.
+
+    Subclasses :class:`ValueError` so legacy ``except ValueError`` and
+    regex-matched ``pytest.raises(ValueError, ...)`` sites continue to
+    catch it.
+
+    Parameters
+    ----------
+    message : str
+        Human-readable description.
+    left, right : Basis, optional
+        The two bases that failed to unify.
+    op : str, optional
+        The operation that triggered the mismatch (e.g., ``"multiply"``,
+        ``"divide"``, ``"unify"``).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        left: "Basis | None" = None,
+        right: "Basis | None" = None,
+        op: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.left = left
+        self.right = right
+        self.op = op

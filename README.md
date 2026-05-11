@@ -171,18 +171,15 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 
 | Version | Theme | Status |
 |---------|-------|--------|
-| **0.3.x** | Dimensional Algebra | Complete |
-| **0.4.x** | Conversion System | Complete |
-| **0.5.x** | Dimensionless Units + Uncertainty | Complete |
-| **0.6.x** | Pydantic + MCP Server | Complete |
-| **0.7.x** | Compute Tool + Extension API | Complete |
-| **0.8.x** | Basis Abstraction + String Parsing | Complete |
-| **0.9.x** | Constants + Natural Units | Complete |
-| **0.10.x** | NumPy/Pandas/Polars Integration | Complete |
-| **0.11.x** | Module Reorganization | Complete |
-| **1.0.0** | API Stability + Units Expansion | Complete |
-| **1.1.0** | Package Format Enhancements | Current |
-| **1.2.0** | ConversionGraph Serialization | Planned |
+| **0.x** | Algebraic foundation: Unit/Scale separation, `ConversionGraph`, dimension/basis abstraction, uncertainty propagation, NumPy/Pandas/Polars, Pydantic, MCP | Complete |
+| **1.0.0** | API stability + 2-year LTS commitment, ~215 units across 67+ dimensions | Complete |
+| **1.2.0** | TOML round-trip `ConversionGraph` serialization | Complete |
+| **1.3.0** | Graph-independent arithmetic via `BaseForm` decomposition | Complete |
+| **1.4.0** | Basis isomorphisms: Atomic and Planck units as first-class bases | Complete |
+| **1.5.0** | Conversion factor uncertainty (GUM propagation) | Complete |
+| **1.6.0** | TOML takeover — single source of truth for unit definitions | Complete |
+| **1.7.0** | Basis subpackage layout: `types`/`vector` extraction | Complete |
+| **1.8.0** | `UnitSystem` as a value type, strict same-basis `Vector`, explicit cross-basis `ops` | In Progress |
 
 See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROADMAP.md)
 

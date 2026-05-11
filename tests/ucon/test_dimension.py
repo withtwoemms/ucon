@@ -131,6 +131,98 @@ class TestDimensionAlgebra(unittest.TestCase):
         with self.assertRaises(TypeError):
             Dimension.angle / Dimension.ratio
 
+    def test_same_pseudo_multiplied_yields_self(self):
+        """``ANGLE * ANGLE == ANGLE``.
+
+        Pins the ``self.is_pseudo and other.is_pseudo and self == other``
+        branch in ``Dimension.__mul__`` (where the same pseudo combines
+        to itself rather than 0+0=0 promoting to NONE).
+        """
+        self.assertEqual(Dimension.angle * Dimension.angle, Dimension.angle)
+        self.assertEqual(Dimension.ratio * Dimension.ratio, Dimension.ratio)
+        self.assertEqual(Dimension.count * Dimension.count, Dimension.count)
+
+    def test_same_pseudo_divided_yields_none(self):
+        """``ANGLE / ANGLE == NONE``.
+
+        Pins the same-pseudo division branch: the algebra collapses to
+        the dimensionless identity, distinguishing it from the
+        ``ANGLE * ANGLE = ANGLE`` invariant.
+        """
+        self.assertEqual(Dimension.angle / Dimension.angle, Dimension.none)
+        self.assertEqual(Dimension.ratio / Dimension.ratio, Dimension.none)
+        self.assertEqual(Dimension.count / Dimension.count, Dimension.none)
+
+    def test_pseudo_divided_by_regular_acts_as_none(self):
+        """``ANGLE / LENGTH == 1/LENGTH``.
+
+        Covers the ``pseudo / regular`` branch in ``Dimension.__truediv__``
+        which routes through ``ops.divide_via``. Pseudo-dimensions carry
+        the zero vector, so the result is the inverse of the regular
+        operand — i.e. ``wavenumber`` for ``1/length``.
+        """
+        self.assertEqual(Dimension.angle / Dimension.length, Dimension.wavenumber)
+        self.assertEqual(Dimension.ratio / Dimension.time, Dimension.frequency)
+
+
+class TestDimensionAlgebraOpsRouting(unittest.TestCase):
+    """Phase 3 routes ``Dimension.__mul__`` / ``__truediv__`` through
+    :mod:`ucon.basis.ops` instead of operating on ``Vector`` directly.
+
+    The same-basis fast path is exercised throughout
+    :class:`TestDimensionAlgebra`; these tests pin the cross-basis path
+    where ``ops.multiply_via`` / ``divide_via`` must consult the active
+    :class:`~ucon.basis.BasisGraph` to project operands into a shared
+    basis before composing.
+    """
+
+    def test_cross_basis_multiplication_routes_via_ops(self):
+        """SI length * CGS length yields an area-shaped dimension via
+        graph-mediated projection."""
+        from ucon.basis.builtin import CGS
+
+        si_length = Dimension.length
+        cgs_length = Dimension.from_components(CGS, length=1)
+        result = si_length * cgs_length
+        # Result must be 2-D in length; basis is whichever side the
+        # graph projected into (SI is the canonical hub, but either is
+        # acceptable so long as the structure is right).
+        # ``length`` exponent in the result must be 2.
+        length_axis = next(
+            i for i, c in enumerate(result.vector.basis) if c.name == "length"
+        )
+        self.assertEqual(result.vector.components[length_axis], 2)
+
+    def test_cross_basis_division_routes_via_ops(self):
+        """SI length / CGS time yields a velocity-shaped dimension via
+        graph-mediated projection."""
+        from ucon.basis.builtin import CGS
+
+        si_length = Dimension.length
+        cgs_time = Dimension.from_components(CGS, time=1)
+        result = si_length / cgs_time
+        # length=+1, time=-1 in the projected basis.
+        length_axis = next(
+            i for i, c in enumerate(result.vector.basis) if c.name == "length"
+        )
+        time_axis = next(
+            i for i, c in enumerate(result.vector.basis) if c.name == "time"
+        )
+        self.assertEqual(result.vector.components[length_axis], 1)
+        self.assertEqual(result.vector.components[time_axis], -1)
+
+    def test_cross_basis_with_no_transform_path_raises(self):
+        """If the active graph has no path between the operand bases,
+        the underlying ``BasisMismatch`` from ``ops`` surfaces as
+        :class:`ValueError` to the caller."""
+        from ucon.basis import Basis, BasisComponent, BasisGraph, using_basis_graph
+
+        isolated = Basis("isolated", [BasisComponent("phlogiston", "Φ")])
+        with using_basis_graph(BasisGraph()):  # empty graph — no SI ↔ isolated
+            phlogiston = Dimension.from_components(isolated, phlogiston=1)
+            with self.assertRaises(ValueError):
+                Dimension.length * phlogiston
+
 
 class TestDimensionAlgebraCacheKeying(unittest.TestCase):
     """Regression tests for Dimension algebra caches.
@@ -378,6 +470,37 @@ class TestDimensionRepr(unittest.TestCase):
     def test_repr_none(self):
         """Test repr for Dimension.none."""
         self.assertEqual(repr(Dimension.none), "Dimension(none)")
+
+    def test_repr_unnamed_dimension_falls_back_to_vector(self):
+        """Dimensions constructed without a name repr as their vector."""
+        from ucon.basis.builtin import CGS
+
+        # A CGS-basis dimension is not in the SI _REGISTRY and is created
+        # without a ``name``, exercising the ``__repr__`` fallback branch.
+        cgs_length = Dimension.from_components(CGS, length=1)
+        self.assertFalse(cgs_length.name)
+        rendered = repr(cgs_length)
+        self.assertTrue(rendered.startswith("Dimension(Vector("))
+        self.assertIn("CGS", rendered)
+
+
+class TestDimensionMetaDir(unittest.TestCase):
+    """The ``_DimensionMeta.__dir__`` surface backs IDE discoverability."""
+
+    def test_dir_includes_registered_dimensions(self):
+        """``dir(Dimension)`` exposes attribute-style dimension names."""
+        names = dir(Dimension)
+        for expected in ("length", "mass", "time", "velocity", "force"):
+            self.assertIn(expected, names)
+
+    def test_dir_includes_type_object_dunders(self):
+        """``dir(Dimension)`` still includes the underlying ``type`` members."""
+        names = dir(Dimension)
+        # The metaclass ``__dir__`` returns ``super().__dir__() + …``, so the
+        # standard dataclass / object protocol surface remains visible.
+        self.assertIn("__class__", names)
+        self.assertIn("__init__", names)
+        self.assertIn("__eq__", names)
 
 
 class TestDimensionRegistry(unittest.TestCase):

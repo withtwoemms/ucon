@@ -425,8 +425,14 @@ class TestVector:
 
 
 class TestVectorCrossBasisArithmetic:
-    """Vectors in different bases unify via the active BasisGraph when a
-    clean (non-lossy) transform path connects them. This makes basis-extension
+    """Cross-basis arithmetic via :mod:`ucon.basis.ops`.
+
+    ``Vector`` arithmetic itself is strict same-basis and raises
+    :class:`BasisMismatch` (a ``ValueError`` subclass) on operands from
+    different bases. The :mod:`ucon.basis.ops` module provides the
+    graph-mediated fallback: when a clean (non-lossy) transform path
+    connects the two bases, ``ops.multiply_via`` / ``ops.divide_via``
+    promote both operands into a common basis. This makes basis-extension
     scenarios (the ``extend_basis`` path) compose without manual transform
     invocations.
     """
@@ -469,8 +475,9 @@ class TestVectorCrossBasisArithmetic:
         self, si_like, economic, graph_with_embedding,
     ):
         """GIVEN USD(economic) and year(SI) with SI->economic in the active
-        graph, WHEN multiplied, THEN the result lives in the economic basis
-        with currency=1, time=1."""
+        graph, WHEN multiplied via ``ops.multiply_via``, THEN the result
+        lives in the economic basis with currency=1, time=1."""
+        from ucon.basis import ops
         from ucon.basis.graph import using_basis_graph
 
         # USD: currency=1, all SI components 0, expressed in economic basis.
@@ -485,7 +492,7 @@ class TestVectorCrossBasisArithmetic:
         )
 
         with using_basis_graph(graph_with_embedding):
-            result = usd * year
+            result = ops.multiply_via(usd, year)
 
         assert result.basis == economic
         assert result["currency"] == Fraction(1)
@@ -496,8 +503,9 @@ class TestVectorCrossBasisArithmetic:
     def test_division_promotes_si_into_extended_basis(
         self, si_like, economic, graph_with_embedding,
     ):
-        """GIVEN USD(economic) divided by year(SI), THEN the result lives in
-        economic with currency=1, time=-1 (i.e., currency/time)."""
+        """GIVEN USD(economic) divided by year(SI) via ``ops.divide_via``,
+        THEN the result lives in economic with currency=1, time=-1."""
+        from ucon.basis import ops
         from ucon.basis.graph import using_basis_graph
 
         usd = Vector(
@@ -510,7 +518,7 @@ class TestVectorCrossBasisArithmetic:
         )
 
         with using_basis_graph(graph_with_embedding):
-            result = usd / year
+            result = ops.divide_via(usd, year)
 
         assert result.basis == economic
         assert result["currency"] == Fraction(1)
@@ -520,7 +528,8 @@ class TestVectorCrossBasisArithmetic:
         self, si_like, economic, graph_with_embedding,
     ):
         """Direction symmetry: SI(left) * economic(right) also unifies into
-        economic."""
+        economic via ``ops.multiply_via``."""
+        from ucon.basis import ops
         from ucon.basis.graph import using_basis_graph
 
         year = Vector(
@@ -533,7 +542,7 @@ class TestVectorCrossBasisArithmetic:
         )
 
         with using_basis_graph(graph_with_embedding):
-            result = year * usd
+            result = ops.multiply_via(year, usd)
 
         assert result.basis == economic
         assert result["currency"] == Fraction(1)
