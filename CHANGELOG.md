@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Compound-unit parser routes through `system.units` at the factor
+  level.** Phase 4 wired `system=` onto `parse_unit`, but the
+  short-circuit only fired on whole-string matches; tokens inside
+  composite expressions (`"USD/year"`, `"widget*kg/s"`) still fell
+  through to the module globals. Phase 5 threads `system=` into the
+  recursive-descent compound parser:
+  - `ucon.resolver._lookup_factor` now consults `system.units` before
+    the graph-local and module-level registries when a system is in
+    scope.
+  - `ucon.resolver._parse_composite` accepts `system=` and forwards it
+    through a system-aware closure to `parse_unit_expression`.
+  - `parse_unit` threads `system=` into every internal helper call
+    (composite path, exponent path, and bare-factor path).
+
+  Net effect: a `UnitSystem` whose `units` mapping carries domain
+  identifiers (e.g. currency or finance units) closes the previously
+  blocked `"USD/year"` case without mutating module globals. With
+  `system=` omitted, behavior remains byte-for-byte identical to v1.7.
+
 - **`system=` kwarg threaded through the v1.8 user-facing entry points.**
   This aspect of the `UnitSystem` rollout wires an optional
   `system: UnitSystem` keyword onto five core surfaces:
