@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`system=` kwarg threaded through the v1.8 user-facing entry points.**
+  This aspect of the `UnitSystem` rollout wires an optional
+  `system: UnitSystem` keyword onto five core surfaces:
+  - `Number.to(target, *, graph=None, system=None, ...)` — when supplied,
+    `system.conversions` replaces `graph=`. Precedence: `system=` wins
+    over `graph=` when both are given.
+  - `ucon.resolver.parse_unit(name, *, system=None)` — when supplied,
+    a direct match in `system.units` short-circuits the lookup before
+    the module-level registries are consulted. Unknown names fall
+    through to the global path so prefix decomposition (e.g. `"km"`)
+    keeps working.
+  - `ucon.parsing.units.parse(s, *, system=None)` — threads the system
+    through to `parse_unit`.
+  - `ucon.parsing.dimensions.parse_dimension(spec, basis=None, *, system=None)` —
+    `system.basis` becomes the default basis (when `basis=` is omitted)
+    and `system.dimensions` is consulted before `_DIMENSION_ATTRS`.
+  - `ucon.checking.enforce_dimensions(fn=None, *, system=None)` — gains
+    a factory form. `@enforce_dimensions` (bare) is unchanged;
+    `@enforce_dimensions(system=sys)` uses `system.conversions` and
+    `system.basis_graph` for cross-basis compatibility checks and SI
+    coercion.
+
+  When `system=` is omitted on any of these, behavior is byte-for-byte
+  identical to v1.7. No call sites in the library currently pass
+  `system=`.
+
 - **`ucon.system` subpackage** as the new home for system-level value
   types. The subpackage exposes:
   - `BaseUnits` — the renamed v1.7 `UnitSystem`, a small named

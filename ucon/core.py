@@ -26,12 +26,16 @@ from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from dataclasses import dataclass, field
 import sys
-from typing import Dict, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Tuple, Union
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
 else:
     from typing_extensions import Annotated
+
+if TYPE_CHECKING:
+    from ucon.graph import ConversionGraph
+    from ucon.system import UnitSystem
 
 try:
     import numpy as np
@@ -1752,7 +1756,14 @@ class Number:
             uncertainty=new_uncertainty,
         )
 
-    def to(self, target, graph=None, propagate_factor_uncertainty=False):
+    def to(
+        self,
+        target,
+        graph: "ConversionGraph | None" = None,
+        propagate_factor_uncertainty: bool = False,
+        *,
+        system: "UnitSystem | None" = None,
+    ):
         """Convert this Number to a different unit expression.
 
         Parameters
@@ -1769,6 +1780,10 @@ class Number:
             factor (from measured physical constants) in the result uncertainty
             via GUM quadrature.  Default ``False`` preserves backward
             compatibility — only measurement uncertainty is propagated.
+        system : UnitSystem, optional
+            When provided, routes through ``system.conversions`` for graph
+            lookups and ``system.units`` for string-target parsing. Takes
+            precedence over ``graph=`` when both are given.
 
         Returns
         -------
@@ -1786,10 +1801,14 @@ class Number:
         >>> length.to("km")
         <0.1 km>
         """
+        # system= wins over graph= when both are given.
+        if system is not None:
+            graph = system.conversions
+
         # Resolve string targets via name/alias/prefix/expression lookup
         if isinstance(target, str):
             from ucon.resolver import parse_unit
-            target = parse_unit(target)
+            target = parse_unit(target, system=system)
 
         # --- Fast path: plain Unit → plain Unit (no UnitProduct wrapping) ---
         src_unit = self.unit

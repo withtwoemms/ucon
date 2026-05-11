@@ -10,7 +10,16 @@ Phase 2 introduces the type and its construction surface but wires no
 callers; these tests verify the shape directly.
 """
 
+import sys
 import unittest
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:
+    # Python 3.7 and 3.8: typing.Annotated is unavailable. Use the
+    # typing_extensions backport so get_origin() in ucon.checking still
+    # recognises the annotation.
+    from typing_extensions import Annotated
 
 from ucon.system import (
     AlgebraCache,
@@ -335,6 +344,144 @@ class TestBaseUnitsHashOrderStability(unittest.TestCase):
         self.assertEqual(s1, s2)
         self.assertEqual(hash(s1), hash(s2))
         self.assertEqual(len({s1, s2}), 1)
+
+
+class TestPhase4EntryPointKwargs(unittest.TestCase):
+    """Phase 4: ``system=`` kwarg wired through user-facing entry points.
+
+    The kwarg accepts a :class:`UnitSystem` and routes lookups/conversions
+    through it. When omitted, default v1.7 behavior is preserved.
+    """
+
+    def test_number_to_accepts_system_kwarg(self):
+        from ucon.units import meter
+        system = UnitSystem.from_globals()
+        result = meter(100).to("km", system=system)
+        self.assertAlmostEqual(result.quantity, 0.1)
+
+    def test_number_to_system_wins_over_graph(self):
+        # When both system= and graph= are given, system.conversions
+        # takes precedence. We verify this by passing a "wrong" graph
+        # via graph= and observing the conversion still succeeds via
+        # system.conversions.
+        from ucon.graph import ConversionGraph
+        from ucon.units import meter
+        bogus_graph = ConversionGraph()  # empty, would fail conversion
+        system = UnitSystem.from_globals()
+        result = meter(100).to("km", graph=bogus_graph, system=system)
+        self.assertAlmostEqual(result.quantity, 0.1)
+
+    def test_parse_unit_accepts_system_kwarg(self):
+        from ucon.resolver import parse_unit
+        from ucon.core import Unit
+        system = UnitSystem.from_globals()
+        unit = parse_unit("meter", system=system)
+        self.assertIsInstance(unit, Unit)
+
+    def test_parse_unit_system_override_short_circuits(self):
+        # If system.units has a direct entry for the name, parse_unit
+        # returns that without consulting the global registry.
+        from ucon.resolver import parse_unit
+        from ucon.units import meter as real_meter
+        # Build a minimal custom system: only "widget" is in units.
+        # Because parse_unit consults system.units first, "widget"
+        # resolves; bare "meter" still falls through to the global
+        # registry.
+        class _FakeSystem:
+            units = {"widget": real_meter}
+        result = parse_unit("widget", system=_FakeSystem())
+        self.assertIs(result, real_meter)
+
+    def test_parse_unit_falls_back_when_system_misses(self):
+        # When system.units does not have the name, parse_unit falls
+        # back to the global registry so prefix decomposition still
+        # works.
+        from ucon.resolver import parse_unit
+        class _EmptySystem:
+            units = {}
+        result = parse_unit("km", system=_EmptySystem())
+        # "km" is not in system.units; falls through to scale-prefix
+        # decomposition.
+        self.assertIsNotNone(result)
+
+    def test_parse_quantity_threads_system(self):
+        from ucon.parsing.units import parse
+        system = UnitSystem.from_globals()
+        n = parse("60 mph", system=system)
+        self.assertEqual(n.quantity, 60.0)
+
+    def test_parse_dimension_accepts_system_kwarg(self):
+        from ucon.parsing.dimensions import parse_dimension
+        from ucon.dimension import Dimension as Dim
+        system = UnitSystem.from_globals()
+        result = parse_dimension("length", system=system)
+        self.assertEqual(result, Dim.length)
+
+    def test_parse_dimension_system_overrides_basis(self):
+        # When basis= is omitted, system.basis is used as the default.
+        from ucon.parsing.dimensions import parse_dimension
+        from ucon.basis.builtin import SI
+        system = UnitSystem.from_globals()
+        # SI basis is the default; verify "M" parses against system.basis.
+        self.assertEqual(system.basis, SI)
+        result = parse_dimension("M", system=system)
+        self.assertIsNotNone(result)
+
+    def test_enforce_dimensions_factory_form(self):
+        # @enforce_dimensions(system=sys) returns a decorator that
+        # validates and coerces against the supplied system.
+        from ucon import Dimension as Dim
+        from ucon.checking import enforce_dimensions
+        from ucon.core import DimensionConstraint, Number
+        from ucon.units import meter, second
+
+        system = UnitSystem.from_globals()
+
+        @enforce_dimensions(system=system)
+        def speed(
+            d: Annotated[Number, DimensionConstraint(Dim.length)],
+            t: Annotated[Number, DimensionConstraint(Dim.time)],
+        ):
+            return d / t
+
+        result = speed(meter(100), second(10))
+        self.assertIsNotNone(result)
+
+    def test_enforce_dimensions_factory_rejects_wrong_dim(self):
+        from ucon import Dimension as Dim
+        from ucon.checking import enforce_dimensions
+        from ucon.core import DimensionConstraint, Number
+        from ucon.units import meter, second
+
+        system = UnitSystem.from_globals()
+
+        @enforce_dimensions(system=system)
+        def speed(
+            d: Annotated[Number, DimensionConstraint(Dim.length)],
+            t: Annotated[Number, DimensionConstraint(Dim.time)],
+        ):
+            return d / t
+
+        with self.assertRaises(ValueError):
+            speed(second(100), meter(10))
+
+    def test_enforce_dimensions_bare_form_still_works(self):
+        # Backward-compatibility: @enforce_dimensions (no parens) is
+        # the v1.7 form. It must continue to function.
+        from ucon import Dimension as Dim
+        from ucon.checking import enforce_dimensions
+        from ucon.core import DimensionConstraint, Number
+        from ucon.units import meter, second
+
+        @enforce_dimensions
+        def speed(
+            d: Annotated[Number, DimensionConstraint(Dim.length)],
+            t: Annotated[Number, DimensionConstraint(Dim.time)],
+        ):
+            return d / t
+
+        result = speed(meter(100), second(10))
+        self.assertIsNotNone(result)
 
 
 if __name__ == "__main__":

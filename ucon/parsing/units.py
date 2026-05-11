@@ -40,6 +40,9 @@ from ucon.parsing.lexer import (
 )
 
 if TYPE_CHECKING:
+    from ucon.system import UnitSystem
+
+if TYPE_CHECKING:
     from ucon.core import Scale, Unit, UnitProduct
 
 
@@ -319,7 +322,7 @@ _UNCERTAINTY_WITH_UNIT_PATTERN = re.compile(
 )
 
 
-def parse(s: str) -> 'Number':
+def parse(s: str, *, system: "UnitSystem | None" = None) -> 'Number':
     """Parse a quantity string into a Number.
 
     Supports various formats:
@@ -336,6 +339,8 @@ def parse(s: str) -> 'Number':
 
     Args:
         s: The quantity string to parse.
+        system: Optional :class:`~ucon.system.UnitSystem` threaded through
+            to :func:`~ucon.resolver.parse_unit`.
 
     Returns:
         A Number representing the parsed quantity.
@@ -368,7 +373,7 @@ def parse(s: str) -> 'Number':
         unit_str = unc_with_unit.group("unit1").strip()
         uncertainty = float(unc_with_unit.group("uncertainty"))
 
-        unit = parse_unit(unit_str)
+        unit = parse_unit(unit_str, system=system)
         return Number(quantity=value, unit=unit, uncertainty=uncertainty)
 
     # Standard quantity pattern
@@ -404,7 +409,7 @@ def parse(s: str) -> 'Number':
 
     # Parse unit (or return dimensionless)
     if unit_str:
-        unit = parse_unit(unit_str)
+        unit = parse_unit(unit_str, system=system)
     else:
         unit = None  # Number will use dimensionless default
 

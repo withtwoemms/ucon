@@ -28,7 +28,10 @@ from __future__ import annotations
 
 import re
 import warnings
-from typing import Dict, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Tuple, Union
+
+if TYPE_CHECKING:
+    from ucon.system import UnitSystem
 
 from ucon.core import (
     Scale,
@@ -295,7 +298,11 @@ def _parse_composite(s: str) -> UnitProduct:
 # Public API
 # ---------------------------------------------------------------------------
 
-def parse_unit(name: str) -> Union[Unit, UnitProduct]:
+def parse_unit(
+    name: str,
+    *,
+    system: "UnitSystem | None" = None,
+) -> Union[Unit, UnitProduct]:
     """
     Parse a unit string into a :class:`Unit` or :class:`UnitProduct`.
 
@@ -307,6 +314,11 @@ def parse_unit(name: str) -> Union[Unit, UnitProduct]:
 
     Args:
         name: Unit string to parse.
+        system: Optional :class:`~ucon.system.UnitSystem`. When provided,
+            ``system.units`` is consulted before the module-level registry,
+            so a system can shadow or restrict the name space without
+            mutating globals. Unknown names then fall back to the global
+            registry to keep prefix decomposition (``"km"``) working.
 
     Returns:
         Unit for simple unscaled units, UnitProduct for scaled or composite.
@@ -329,6 +341,15 @@ def parse_unit(name: str) -> Union[Unit, UnitProduct]:
         raise UnknownUnitError(name if name else "")
 
     name = name.strip()
+
+    # System override: when a UnitSystem is supplied, a direct match in
+    # ``system.units`` short-circuits the rest of the lookup. This lets
+    # callers thread a curated registry (e.g. CGS-only) through entry
+    # points without mutating module globals.
+    if system is not None:
+        sys_unit = system.units.get(name)
+        if sys_unit is not None:
+            return sys_unit
 
     # Verbatim alias check (runs BEFORE composite detection).
     # Aliases registered with operator-like characters (e.g. "Gy(RBE)",

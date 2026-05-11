@@ -16,6 +16,7 @@ from __future__ import annotations
 import functools
 import inspect
 import sys
+from typing import TYPE_CHECKING
 
 if sys.version_info >= (3, 9):
     from typing import Annotated, get_type_hints, get_args, get_origin
@@ -29,6 +30,9 @@ from ucon.basis.builtin import SI
 from ucon.basis.graph import get_basis_graph
 from ucon.core import Dimension, DimensionConstraint, Number, RebasedUnit, Unit, UnitProduct
 from ucon.graph import ConversionNotFound, get_default_graph
+
+if TYPE_CHECKING:
+    from ucon.system import UnitSystem
 
 
 def _get_dimension(n: Number) -> Dimension:
@@ -65,7 +69,7 @@ def _dimensions_compatible(actual: Dimension, expected: Dimension) -> bool:
     return actual == expected
 
 
-def _coerce_to_si(value: Number) -> Number:
+def _coerce_to_si(value: Number, *, system: "UnitSystem | None" = None) -> Number:
     """Rewrite a cross-basis Number into SI base units.
 
     Strategy:
@@ -75,6 +79,9 @@ def _coerce_to_si(value: Number) -> Number:
        to find an SI equivalent.
 
     Returns *value* unchanged when coercion is not possible.
+
+    When ``system`` is provided, ``system.conversions`` is used as the
+    fallback conversion graph in step 2.
     """
     unit = value.unit
 
@@ -93,7 +100,7 @@ def _coerce_to_si(value: Number) -> Number:
             return Number(si_qty, si_unit, uncertainty=si_unc)
 
     # --- graph path (CGS units without SI base_form) ---
-    return _coerce_via_graph(value)
+    return _coerce_via_graph(value, system=system)
 
 
 def _coerce_product_to_si(value: Number) -> Number:
@@ -116,13 +123,16 @@ def _coerce_product_to_si(value: Number) -> Number:
     return Number(si_qty, si_unit, uncertainty=si_unc)
 
 
-def _coerce_via_graph(value: Number) -> Number:
+def _coerce_via_graph(value: Number, *, system: "UnitSystem | None" = None) -> Number:
     """Coerce a cross-basis Number to SI using the conversion graph.
 
     Finds an SI-basis unit with the matching dimension and converts to it.
     Returns *value* unchanged if no SI target is found.
+
+    When ``system`` is provided, ``system.conversions`` replaces the
+    module-level default graph.
     """
-    graph = get_default_graph()
+    graph = system.conversions if system is not None else get_default_graph()
     unit = value.unit
 
     # Determine the SI dimension by transforming through the basis graph
@@ -171,8 +181,11 @@ def _coerce_via_graph(value: Number) -> Number:
     return Number(si_qty, target, uncertainty=si_unc)
 
 
-def enforce_dimensions(fn):
+def enforce_dimensions(fn=None, *, system: "UnitSystem | None" = None):
     """Validate and coerce Number arguments against their Number[Dimension] annotations.
+
+    Usable as a bare decorator (``@enforce_dimensions``) or as a factory
+    (``@enforce_dimensions(system=sys)``).
 
     Only parameters annotated as Number[Dimension.X] are checked.
     Plain Number parameters and non-Number parameters are ignored.
@@ -186,13 +199,19 @@ def enforce_dimensions(fn):
 
     Parameters
     ----------
-    fn : callable
-        The function to wrap.
+    fn : callable, optional
+        The function to wrap. When ``None``, returns a decorator factory
+        (this is how the ``system=`` keyword form is supported).
+    system : UnitSystem, optional
+        When supplied, ``system.conversions`` and ``system.basis_graph``
+        replace the module-level default graphs used for cross-basis
+        compatibility checks and SI coercion.
 
     Returns
     -------
     callable
-        Wrapped function with dimensional validation on entry.
+        Wrapped function with dimensional validation on entry, or a
+        decorator factory when called with keyword-only arguments.
 
     Raises
     ------
@@ -206,7 +225,18 @@ def enforce_dimensions(fn):
     >>> @enforce_dimensions
     ... def speed(distance: Number[Dimension.length], time: Number[Dimension.time]) -> Number:
     ...     return distance / time
+
+    >>> from ucon.system import UnitSystem
+    >>> @enforce_dimensions(system=UnitSystem.from_globals())
+    ... def kinetic(m: Number[Dimension.mass], v: Number[Dimension.velocity]) -> Number:
+    ...     return 0.5 * m * v * v
     """
+    # Factory form: @enforce_dimensions(system=sys)
+    if fn is None:
+        def decorator(f):
+            return enforce_dimensions(f, system=system)
+        return decorator
+
     hints = get_type_hints(fn, include_extras=True)
     sig = inspect.signature(fn)
 
@@ -255,7 +285,7 @@ def enforce_dimensions(fn):
                 continue
             actual_basis = _get_dimension(value).vector.basis
             if actual_basis != constraint.dimension.vector.basis:
-                bound.arguments[name] = _coerce_to_si(value)
+                bound.arguments[name] = _coerce_to_si(value, system=system)
                 needs_coercion = True
 
         if needs_coercion:
