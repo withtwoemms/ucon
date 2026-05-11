@@ -162,6 +162,31 @@ class AlgebraCache:
         self.pow.clear()
 
 
+#: Module-level fallback used by ``_get_active_cache`` when no
+#: ``UnitSystem`` has been activated via :func:`use`. This is the v1.8
+#: replacement for the module-level ``_DIM_MUL_CACHE`` / ``_DIM_DIV_CACHE``
+#: / ``_DIM_POW_CACHE`` dicts that previously lived in ``ucon.dimension``.
+_DEFAULT_ALGEBRA_CACHE: 'AlgebraCache' = AlgebraCache()
+
+
+def _get_active_cache() -> 'AlgebraCache':
+    """Return the algebra cache that ``Dimension`` algebra should use now.
+
+    Routes through the active :class:`UnitSystem`'s per-instance cache when
+    one has been set via :func:`use`. Falls back to
+    :data:`_DEFAULT_ALGEBRA_CACHE` otherwise.
+
+    The fallback is intentionally a stable module-level object rather than
+    a fresh ``UnitSystem.from_globals()`` snapshot: that snapshot would
+    construct a new :class:`AlgebraCache` on every call and defeat
+    memoization in the default (no ``use(...)``) state.
+    """
+    system = _active.get()
+    if system is None:
+        return _DEFAULT_ALGEBRA_CACHE
+    return system._algebra_cache
+
+
 # -----------------------------------------------------------------------------
 # UnitSystem value type
 # -----------------------------------------------------------------------------
