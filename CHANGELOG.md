@@ -58,7 +58,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **`UnitSystem` renamed to `BaseUnits` and moved to `ucon.system`.**
+- **`Dimension` algebra now routes through `UnitSystem._algebra_cache`.**
+  `Dimension.__mul__`, `__truediv__`, and `__pow__` consult the active
+  `UnitSystem`'s per-instance `AlgebraCache` (`mul` / `div` / `pow`
+  sub-dicts) instead of three module-level dicts. Outside a `use(...)`
+  block the new module-level `_DEFAULT_ALGEBRA_CACHE` in `ucon.system`
+  is used as the stable fallback; inside `use(system)`, all dimension
+  algebra populates `system._algebra_cache`. Cache keys remain
+  structural `(Dimension, Dimension)` / `(Dimension, exponent)` tuples,
+  so the v1.7 regression fix against `id()`-keyed collisions is
+  preserved. Same-process default behaviour is byte-identical; the
+  change becomes observable when callers swap `UnitSystem` instances.
+
+
   The small `@dataclass(frozen=True)` mapping `name + bases:
   Mapping[Dimension, Unit]` previously known at the top level as
   `ucon.UnitSystem` is now `ucon.system.BaseUnits`. The class shape,
@@ -117,6 +129,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   be removed in v2.0. Migration: replace
   `from ucon import UnitSystem` with `from ucon import BaseUnits`
   (or `from ucon.system import BaseUnits`).
+
+- **`ucon.dimension._DIM_MUL_CACHE` / `_DIM_DIV_CACHE` / `_DIM_POW_CACHE`**
+  are now PEP-562 module-level aliases that emit a
+  `PendingDeprecationWarning` on read and return the live `mul` /
+  `div` / `pow` dict of the active `UnitSystem._algebra_cache`. The
+  aliases are scheduled for removal in v2.0. Migration: read the live
+  cache via `ucon.system.active()._algebra_cache.mul` (or `.div` /
+  `.pow`).
 
 ## [1.7.0] - 2026-05-09
 
