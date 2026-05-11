@@ -48,7 +48,12 @@ if TYPE_CHECKING:
     pass
 
 
-def parse_dimension(spec: str, basis: Basis | None = None) -> "Dimension":
+def parse_dimension(
+    spec: str,
+    basis: Basis | None = None,
+    *,
+    system=None,
+) -> "Dimension":
     """Parse a dimension string into a :class:`~ucon.dimension.Dimension`.
 
     Accepts three input forms (all in one parser):
@@ -68,7 +73,12 @@ def parse_dimension(spec: str, basis: Basis | None = None) -> "Dimension":
         The dimension string to parse.
     basis : Basis, optional
         The basis to interpret component symbols against. Defaults to the
-        active basis from :func:`get_default_basis` (typically SI).
+        active basis from :func:`get_default_basis` (typically SI), or
+        ``system.basis`` when ``system`` is provided.
+    system : UnitSystem, optional
+        When provided, ``system.basis`` supplies the default basis (unless
+        ``basis=`` is given explicitly) and ``system.dimensions`` is
+        consulted before the module-level ``_DIMENSION_ATTRS`` registry.
 
     Returns
     -------
@@ -101,7 +111,13 @@ def parse_dimension(spec: str, basis: Basis | None = None) -> "Dimension":
 
     spec = spec.strip()
     if basis is None:
-        basis = get_default_basis()
+        basis = system.basis if system is not None else get_default_basis()
+
+    # System override: a direct hit in ``system.dimensions`` short-circuits.
+    if system is not None:
+        sys_dim = system.dimensions.get(spec)
+        if sys_dim is not None:
+            return sys_dim
 
     # Fast path: bare known dimension name (e.g., "length", "velocity").
     if spec in _DIMENSION_ATTRS:
