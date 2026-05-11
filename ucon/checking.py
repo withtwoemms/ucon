@@ -16,6 +16,7 @@ from __future__ import annotations
 import functools
 import inspect
 import sys
+from typing import TYPE_CHECKING
 
 if sys.version_info >= (3, 9):
     from typing import Annotated, get_type_hints, get_args, get_origin
@@ -29,6 +30,9 @@ from ucon.basis.builtin import SI
 from ucon.basis.graph import get_basis_graph
 from ucon.core import Dimension, DimensionConstraint, Number, RebasedUnit, Unit, UnitProduct
 from ucon.graph import ConversionNotFound, get_default_graph
+
+if TYPE_CHECKING:
+    from ucon.system import UnitSystem
 
 
 def _get_dimension(n: Number) -> Dimension:
@@ -65,7 +69,7 @@ def _dimensions_compatible(actual: Dimension, expected: Dimension) -> bool:
     return actual == expected
 
 
-def _coerce_to_si(value: Number, *, system=None) -> Number:
+def _coerce_to_si(value: Number, *, system: "UnitSystem | None" = None) -> Number:
     """Rewrite a cross-basis Number into SI base units.
 
     Strategy:
@@ -119,7 +123,7 @@ def _coerce_product_to_si(value: Number) -> Number:
     return Number(si_qty, si_unit, uncertainty=si_unc)
 
 
-def _coerce_via_graph(value: Number, *, system=None) -> Number:
+def _coerce_via_graph(value: Number, *, system: "UnitSystem | None" = None) -> Number:
     """Coerce a cross-basis Number to SI using the conversion graph.
 
     Finds an SI-basis unit with the matching dimension and converts to it.
@@ -177,7 +181,7 @@ def _coerce_via_graph(value: Number, *, system=None) -> Number:
     return Number(si_qty, target, uncertainty=si_unc)
 
 
-def enforce_dimensions(fn=None, *, system=None):
+def enforce_dimensions(fn=None, *, system: "UnitSystem | None" = None):
     """Validate and coerce Number arguments against their Number[Dimension] annotations.
 
     Usable as a bare decorator (``@enforce_dimensions``) or as a factory

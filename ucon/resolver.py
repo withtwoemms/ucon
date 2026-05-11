@@ -28,7 +28,10 @@ from __future__ import annotations
 
 import re
 import warnings
-from typing import Dict, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Tuple, Union
+
+if TYPE_CHECKING:
+    from ucon.system import UnitSystem
 
 from ucon.core import (
     Scale,
@@ -295,7 +298,11 @@ def _parse_composite(s: str) -> UnitProduct:
 # Public API
 # ---------------------------------------------------------------------------
 
-def parse_unit(name: str, *, system=None) -> Union[Unit, UnitProduct]:
+def parse_unit(
+    name: str,
+    *,
+    system: "UnitSystem | None" = None,
+) -> Union[Unit, UnitProduct]:
     """
     Parse a unit string into a :class:`Unit` or :class:`UnitProduct`.
 

@@ -26,12 +26,16 @@ from enum import Enum
 from functools import lru_cache, reduce, total_ordering
 from dataclasses import dataclass, field
 import sys
-from typing import Dict, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Tuple, Union
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
 else:
     from typing_extensions import Annotated
+
+if TYPE_CHECKING:
+    from ucon.graph import ConversionGraph
+    from ucon.system import UnitSystem
 
 try:
     import numpy as np
@@ -1752,7 +1756,14 @@ class Number:
             uncertainty=new_uncertainty,
         )
 
-    def to(self, target, graph=None, propagate_factor_uncertainty=False, *, system=None):
+    def to(
+        self,
+        target,
+        graph: "ConversionGraph | None" = None,
+        propagate_factor_uncertainty: bool = False,
+        *,
+        system: "UnitSystem | None" = None,
+    ):
         """Convert this Number to a different unit expression.
 
         Parameters

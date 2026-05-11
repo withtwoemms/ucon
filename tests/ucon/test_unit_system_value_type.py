@@ -10,7 +10,16 @@ Phase 2 introduces the type and its construction surface but wires no
 callers; these tests verify the shape directly.
 """
 
+import sys
 import unittest
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:
+    # Python 3.7 and 3.8: typing.Annotated is unavailable. Use the
+    # typing_extensions backport so get_origin() in ucon.checking still
+    # recognises the annotation.
+    from typing_extensions import Annotated
 
 from ucon.system import (
     AlgebraCache,
@@ -421,7 +430,6 @@ class TestPhase4EntryPointKwargs(unittest.TestCase):
     def test_enforce_dimensions_factory_form(self):
         # @enforce_dimensions(system=sys) returns a decorator that
         # validates and coerces against the supplied system.
-        from typing import Annotated
         from ucon import Dimension as Dim
         from ucon.checking import enforce_dimensions
         from ucon.core import DimensionConstraint, Number
@@ -440,7 +448,6 @@ class TestPhase4EntryPointKwargs(unittest.TestCase):
         self.assertIsNotNone(result)
 
     def test_enforce_dimensions_factory_rejects_wrong_dim(self):
-        from typing import Annotated
         from ucon import Dimension as Dim
         from ucon.checking import enforce_dimensions
         from ucon.core import DimensionConstraint, Number
@@ -461,7 +468,6 @@ class TestPhase4EntryPointKwargs(unittest.TestCase):
     def test_enforce_dimensions_bare_form_still_works(self):
         # Backward-compatibility: @enforce_dimensions (no parens) is
         # the v1.7 form. It must continue to function.
-        from typing import Annotated
         from ucon import Dimension as Dim
         from ucon.checking import enforce_dimensions
         from ucon.core import DimensionConstraint, Number

@@ -45,14 +45,14 @@ from ucon.dimension import (
 from ucon.parsing.lexer import _Tokenizer, _TokenType
 
 if TYPE_CHECKING:
-    pass
+    from ucon.system import UnitSystem
 
 
 def parse_dimension(
     spec: str,
     basis: Basis | None = None,
     *,
-    system=None,
+    system: "UnitSystem | None" = None,
 ) -> "Dimension":
     """Parse a dimension string into a :class:`~ucon.dimension.Dimension`.
 

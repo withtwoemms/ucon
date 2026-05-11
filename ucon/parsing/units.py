@@ -40,6 +40,9 @@ from ucon.parsing.lexer import (
 )
 
 if TYPE_CHECKING:
+    from ucon.system import UnitSystem
+
+if TYPE_CHECKING:
     from ucon.core import Scale, Unit, UnitProduct
 
 
@@ -319,7 +322,7 @@ _UNCERTAINTY_WITH_UNIT_PATTERN = re.compile(
 )
 
 
-def parse(s: str, *, system=None) -> 'Number':
+def parse(s: str, *, system: "UnitSystem | None" = None) -> 'Number':
     """Parse a quantity string into a Number.
 
     Supports various formats:
