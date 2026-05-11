@@ -203,12 +203,23 @@ def _parse_exponent(s: str) -> Tuple[str, float]:
     return s, 1.0
 
 
-def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
+def _lookup_factor(
+    s: str,
+    *,
+    system: "UnitSystem | None" = None,
+) -> Tuple[Unit, Scale]:
     """
     Look up a single unit factor, handling scale prefixes.
 
-    Checks graph-local registry first (if within a using_graph() context),
-    then falls back to the global registry.
+    Checks (in order):
+
+    1. ``system.units`` when a :class:`~ucon.system.UnitSystem` is supplied
+       — lets a curated registry shadow the global namespace at the factor
+       level, so composite expressions like ``"USD/year"`` resolve through
+       the system instead of the module globals.
+    2. The graph-local registry (if within a ``using_graph()`` context).
+    3. The module-level global registry, including priority aliases and
+       scale-prefix decomposition.
 
     Prioritizes prefix+unit interpretation over direct unit lookup,
     except for priority aliases (like 'min', 'mcg') which are checked first
@@ -231,6 +242,14 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     Raises:
         UnknownUnitError: If the unit cannot be resolved.
     """
+    # System override: a curated UnitSystem can shadow factor names.
+    # Only accept Unit values here — UnitProduct entries don't fit the
+    # (Unit, Scale) shape expected by the composite parser.
+    if system is not None:
+        sys_unit = system.units.get(s)
+        if isinstance(sys_unit, Unit):
+            return sys_unit, Scale.one
+
     # Check graph-local registry first (if in using_graph() context)
     graph = _get_parsing_graph()
     if graph is not None:
@@ -270,7 +289,11 @@ def _lookup_factor(s: str) -> Tuple[Unit, Scale]:
     raise UnknownUnitError(s)
 
 
-def _parse_composite(s: str) -> UnitProduct:
+def _parse_composite(
+    s: str,
+    *,
+    system: "UnitSystem | None" = None,
+) -> UnitProduct:
     """
     Parse composite unit string into UnitProduct using recursive descent.
 
@@ -284,6 +307,10 @@ def _parse_composite(s: str) -> UnitProduct:
     - Unicode superscripts: `⁰¹²³⁴⁵⁶⁷⁸⁹⁻`
     - ASCII exponents: `^2`, `^-1`
 
+    When ``system`` is supplied, factor lookups consult ``system.units``
+    before the global registry, so expressions like ``"USD/year"`` resolve
+    against a curated registry without mutating module globals.
+
     Returns:
         UnitProduct representing the parsed composite unit.
 
@@ -291,7 +318,13 @@ def _parse_composite(s: str) -> UnitProduct:
         ParseError: If the expression is malformed (e.g., unbalanced parens).
         UnknownUnitError: If a unit name cannot be resolved.
     """
-    return parse_unit_expression(s, _lookup_factor, UnitFactor, UnitProduct)
+    if system is None:
+        return parse_unit_expression(s, _lookup_factor, UnitFactor, UnitProduct)
+
+    def _system_lookup(token: str) -> Tuple[Unit, Scale]:
+        return _lookup_factor(token, system=system)
+
+    return parse_unit_expression(s, _system_lookup, UnitFactor, UnitProduct)
 
 
 # ---------------------------------------------------------------------------
@@ -362,16 +395,16 @@ def parse_unit(
     # Check for composite (has operators or parentheses)
     # Note: · (U+00B7 middle dot) and ⋅ (U+22C5 dot operator) are both multiplication
     if '/' in name or '·' in name or '⋅' in name or '*' in name or '(' in name:
-        return _parse_composite(name)
+        return _parse_composite(name, system=system)
 
     # Check for exponent
     base_str, exp = _parse_exponent(name)
     if exp != 1.0:
-        unit, scale = _lookup_factor(base_str)
+        unit, scale = _lookup_factor(base_str, system=system)
         return UnitProduct({UnitFactor(unit, scale): exp})
 
     # Simple unit or scaled unit
-    unit, scale = _lookup_factor(name)
+    unit, scale = _lookup_factor(name, system=system)
     if scale == Scale.one:
         return unit
     else:

@@ -484,5 +484,102 @@ class TestPhase4EntryPointKwargs(unittest.TestCase):
         self.assertIsNotNone(result)
 
 
+class TestPhase5CompoundParserRouting(unittest.TestCase):
+    """Phase 5: composite parser consults ``system.units`` at the factor level.
+
+    Closes the ``USD/year`` case — composite expressions whose tokens are
+    only defined in a curated :class:`UnitSystem` (not the module globals)
+    must resolve when that system is threaded through ``parse_unit``.
+    """
+
+    def test_composite_resolves_via_system_units(self):
+        # A composite expression "widget/widget2" resolves entirely from
+        # system.units, even though neither name is in the global registry.
+        from ucon.core import Unit, UnitProduct
+        from ucon.resolver import parse_unit
+        from ucon.units import meter, second
+
+        class _CurrencyLikeSystem:
+            # Stand-ins: pretend `meter`-shaped unit acts as "widget"
+            # and `second`-shaped unit acts as "widget2". The point is
+            # only the *lookup path* — composite parsing must hit
+            # ``system.units`` at the factor level.
+            units = {"widget": meter, "widget2": second}
+
+        result = parse_unit("widget/widget2", system=_CurrencyLikeSystem())
+        self.assertIsInstance(result, UnitProduct)
+        # Verify the factors come from system.units, not the global registry.
+        factor_units = {uf.unit for uf in result.factors.keys()}
+        self.assertIn(meter, factor_units)
+        self.assertIn(second, factor_units)
+
+    def test_composite_mixes_system_and_global_factors(self):
+        # When system.units provides one factor and the other is in the
+        # global registry, both should resolve.
+        from ucon.core import UnitProduct
+        from ucon.resolver import parse_unit
+        from ucon.units import meter
+
+        class _PartialSystem:
+            units = {"widget": meter}
+
+        # "widget" comes from system.units, "second" from global registry.
+        result = parse_unit("widget/second", system=_PartialSystem())
+        self.assertIsInstance(result, UnitProduct)
+
+    def test_composite_falls_back_when_system_empty(self):
+        # If system.units is empty, composite parsing falls through to
+        # the global registry exactly as it did before Phase 5.
+        from ucon.core import UnitProduct
+        from ucon.resolver import parse_unit
+
+        class _EmptySystem:
+            units = {}
+
+        result = parse_unit("m/s", system=_EmptySystem())
+        self.assertIsInstance(result, UnitProduct)
+
+    def test_composite_without_system_still_works(self):
+        # Backward-compatibility: parse_unit("m/s") with no system= must
+        # still resolve via the global registry.
+        from ucon.core import UnitProduct
+        from ucon.resolver import parse_unit
+
+        result = parse_unit("m/s")
+        self.assertIsInstance(result, UnitProduct)
+
+    def test_system_factor_wins_over_global(self):
+        # When a token exists in both ``system.units`` and the global
+        # registry, ``system.units`` takes precedence at the factor level.
+        from ucon.resolver import parse_unit
+        from ucon.units import kelvin, meter
+
+        class _ShadowingSystem:
+            # Map "m" to ``kelvin`` — a deliberately wrong global meaning
+            # — to prove the system path is consulted first. Pair with a
+            # distinct denominator so the two factors don't cancel.
+            units = {"m": kelvin}
+
+        result = parse_unit("m/s", system=_ShadowingSystem())
+        factor_units = {uf.unit for uf in result.factors.keys()}
+        # The "m" token must resolve to ``kelvin`` via system.units.
+        self.assertIn(kelvin, factor_units)
+        # And it must NOT resolve to ``meter`` (the global meaning).
+        self.assertNotIn(meter, factor_units)
+
+    def test_composite_with_exponent_threads_system(self):
+        # Exponents inside composites: ensure system.units lookups still
+        # work for tokens that carry exponents.
+        from ucon.core import UnitProduct
+        from ucon.resolver import parse_unit
+        from ucon.units import meter, second
+
+        class _Sys:
+            units = {"widget": meter, "widget2": second}
+
+        result = parse_unit("widget/widget2^2", system=_Sys())
+        self.assertIsInstance(result, UnitProduct)
+
+
 if __name__ == "__main__":
     unittest.main()
