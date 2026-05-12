@@ -594,7 +594,7 @@ class ConversionGraph:
     ) -> bool:
         """Check if a package edge is redundant because the graph can already convert between its endpoints."""
         from ucon.resolver import parse_unit
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             try:
                 src_unit = parse_unit(edge_def.src)
                 dst_unit = parse_unit(edge_def.dst)
@@ -1375,17 +1375,23 @@ def reset_default_graph() -> None:
 
 
 @contextmanager
-def using_graph(graph: ConversionGraph):
-    """Context manager for scoped graph override.
+def using_conversion_graph(graph: ConversionGraph):
+    """Context manager for scoped :class:`ConversionGraph` override.
 
-    Sets both the conversion graph and parsing graph contexts,
-    so that name resolution and conversions both use the same graph.
+    Sets both the conversion graph and parsing graph contexts, so that
+    name resolution and conversions both use the same graph.
+
+    The canonical name as of v1.8. The older :func:`using_graph` is a
+    :class:`PendingDeprecationWarning` alias preserved for one release
+    cycle; new code should call ``using_conversion_graph`` to align with
+    :attr:`UnitSystem.basis_graph` / ``UnitSystem.conversion_graph``
+    naming.
 
     Usage::
 
-        with using_graph(custom_graph):
-            result = value.to(target)  # uses custom_graph
-            unit = parse_unit("custom_unit")  # resolves in custom_graph
+        with using_conversion_graph(custom_graph):
+            result = value.to(target)        # uses custom_graph
+            unit = parse_unit("custom_unit") # resolves in custom_graph
 
     Parameters
     ----------
@@ -1404,6 +1410,37 @@ def using_graph(graph: ConversionGraph):
     finally:
         _graph_context.reset(token_graph)
         _parsing_graph.reset(token_parsing)
+
+
+@contextmanager
+def using_graph(graph: ConversionGraph):
+    """Deprecated alias for :func:`using_conversion_graph`.
+
+    .. deprecated:: 1.8
+       The name is ambiguous next to :func:`ucon.basis.using_basis_graph`.
+       Use :func:`using_conversion_graph` instead. Scheduled for removal
+       in ucon 2.0.
+
+    Parameters
+    ----------
+    graph : ConversionGraph
+        The graph to use within this context.
+
+    Yields
+    ------
+    ConversionGraph
+        The same graph passed in.
+    """
+    import warnings
+    warnings.warn(
+        "ucon.using_graph is deprecated; use ucon.using_conversion_graph "
+        "for symmetry with using_basis_graph. Scheduled for removal in "
+        "ucon 2.0.",
+        PendingDeprecationWarning,
+        stacklevel=3,
+    )
+    with using_conversion_graph(graph) as g:
+        yield g
 
 
 def _build_standard_graph() -> ConversionGraph:

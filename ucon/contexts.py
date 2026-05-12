@@ -33,7 +33,7 @@ from typing import Union
 
 from ucon import units
 from ucon.core import Unit, UnitProduct
-from ucon.graph import get_default_graph, using_graph
+from ucon.graph import get_default_graph, using_conversion_graph
 from ucon.maps import Map, LinearMap, ReciprocalMap
 
 
@@ -82,7 +82,7 @@ def using_context(*contexts: ConversionContext):
     """Activate one or more conversion contexts.
 
     Creates a copy of the current graph, inserts all context edges,
-    and scopes the extended graph via ``using_graph()``.
+    and scopes the extended graph via :func:`using_conversion_graph`.
 
     Parameters
     ----------
@@ -106,7 +106,7 @@ def using_context(*contexts: ConversionContext):
     for ctx in contexts:
         for edge in ctx.edges:
             _add_context_edge(extended, edge)
-    with using_graph(extended) as g:
+    with using_conversion_graph(extended) as g:
         yield g
 
 

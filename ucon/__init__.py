@@ -101,6 +101,7 @@ from ucon.graph import (
     get_default_graph,
     reset_default_graph,
     set_default_graph,
+    using_conversion_graph,
     using_graph,
 )
 from ucon.contexts import (
@@ -189,6 +190,7 @@ __all__ = [
     'reset_default_graph',
     'resolve_dimension',
     'set_default_graph',
+    'using_conversion_graph',
     'using_graph',
     # Submodules
     'constants',
