@@ -191,7 +191,6 @@ __all__ = [
     'resolve_dimension',
     'set_default_graph',
     'using_conversion_graph',
-    'using_graph',
     # Submodules
     'constants',
     'units',

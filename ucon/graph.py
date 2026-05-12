@@ -67,7 +67,7 @@ __all__ = [
     'get_default_graph',
     'set_default_graph',
     'reset_default_graph',
-    'using_graph',
+    'using_conversion_graph',
 ]
 
 

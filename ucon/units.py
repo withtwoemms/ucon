@@ -286,3 +286,19 @@ def have(name: str) -> bool:
             if any((alias or "").lower() == target for alias in getattr(val, "aliases", ())):
                 return True
     return False
+
+
+# Public surface: explicit names plus every TOML-loaded unit attribute.
+# Built dynamically because the unit set is populated at import time from
+# the canonical TOML registry.
+__all__ = sorted(
+    {
+        "have",
+        "none",
+        "pint_volume",
+        "point_typo",
+        "si",
+        "imperial",
+        *_units.keys(),
+    }
+)

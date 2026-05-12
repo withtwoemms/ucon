@@ -404,7 +404,6 @@ def using_basis_graph(graph: BasisGraph | None):
 
 __all__ = [
     "BasisGraph",
-    "_build_standard_basis_graph",
     "get_basis_graph",
     "get_default_basis",
     "reset_default_basis_graph",

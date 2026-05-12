@@ -21,6 +21,9 @@ from fractions import Fraction
 from ucon.basis.types import Basis, BasisMismatch
 
 
+__all__ = ["Vector"]
+
+
 @dataclass(frozen=True)
 class Vector:
     """A dimensional exponent vector tied to a specific basis.

@@ -48,6 +48,22 @@ from ucon.basis import Basis, BasisGraph
 from ucon.dimension import Dimension, NONE
 
 
+__all__ = [
+    'BaseForm',
+    'DimensionConstraint',
+    'DimensionNotCovered',
+    'Exponent',
+    'Number',
+    'Ratio',
+    'RebasedUnit',
+    'Scale',
+    'Unit',
+    'UnitFactor',
+    'UnitProduct',
+    'UnknownUnitError',
+]
+
+
 # --------------------------------------------------------------------------------------
 # Exceptions
 # --------------------------------------------------------------------------------------
