@@ -3,11 +3,8 @@
 # See the LICENSE file for details.
 
 """
-Tests for the v1.8 ``ucon.system.UnitSystem`` value type and its
+Tests for the ``ucon.system.UnitSystem`` value type and its
 ``use`` / ``active`` context-var plumbing.
-
-Phase 2 introduces the type and its construction surface but wires no
-callers; these tests verify the shape directly.
 """
 
 import sys
@@ -346,11 +343,12 @@ class TestBaseUnitsHashOrderStability(unittest.TestCase):
         self.assertEqual(len({s1, s2}), 1)
 
 
-class TestPhase4EntryPointKwargs(unittest.TestCase):
-    """Phase 4: ``system=`` kwarg wired through user-facing entry points.
+class TestUnitSystemEntryPointKwargs(unittest.TestCase):
+    """``system=`` kwarg wired through user-facing entry points.
 
     The kwarg accepts a :class:`UnitSystem` and routes lookups/conversions
-    through it. When omitted, default v1.7 behavior is preserved.
+    through it. When omitted, the legacy module-global behavior is
+    preserved.
     """
 
     def test_number_to_accepts_system_kwarg(self):
@@ -467,7 +465,7 @@ class TestPhase4EntryPointKwargs(unittest.TestCase):
 
     def test_enforce_dimensions_bare_form_still_works(self):
         # Backward-compatibility: @enforce_dimensions (no parens) is
-        # the v1.7 form. It must continue to function.
+        # the legacy form. It must continue to function.
         from ucon import Dimension as Dim
         from ucon.checking import enforce_dimensions
         from ucon.core import DimensionConstraint, Number
@@ -484,12 +482,13 @@ class TestPhase4EntryPointKwargs(unittest.TestCase):
         self.assertIsNotNone(result)
 
 
-class TestPhase5CompoundParserRouting(unittest.TestCase):
-    """Phase 5: composite parser consults ``system.units`` at the factor level.
+class TestCompoundParserSystemRouting(unittest.TestCase):
+    """The composite parser consults ``system.units`` at the factor level.
 
-    Closes the ``USD/year`` case — composite expressions whose tokens are
-    only defined in a curated :class:`UnitSystem` (not the module globals)
-    must resolve when that system is threaded through ``parse_unit``.
+    Composite expressions whose tokens are only defined in a curated
+    :class:`UnitSystem` (not the module globals) must resolve when that
+    system is threaded through ``parse_unit`` — e.g. ``"USD/year"``
+    parsing against a finance/currency :class:`UnitSystem`.
     """
 
     def test_composite_resolves_via_system_units(self):
@@ -529,7 +528,7 @@ class TestPhase5CompoundParserRouting(unittest.TestCase):
 
     def test_composite_falls_back_when_system_empty(self):
         # If system.units is empty, composite parsing falls through to
-        # the global registry exactly as it did before Phase 5.
+        # the global registry exactly as it does without ``system=``.
         from ucon.core import UnitProduct
         from ucon.resolver import parse_unit
 
@@ -579,6 +578,144 @@ class TestPhase5CompoundParserRouting(unittest.TestCase):
 
         result = parse_unit("widget/widget2^2", system=_Sys())
         self.assertIsInstance(result, UnitProduct)
+
+
+class TestCrossBasisArithmetic(unittest.TestCase):
+    """``with use(system): ...`` propagates ``system.basis_graph`` down
+    through ``Number`` arithmetic via ``get_basis_graph()``, and
+    :func:`ucon.basis.ops.unify` performs 3-way unification through a
+    common combined basis.
+
+    Closes the ``USD*s`` case — multiplying a Number whose unit lives in
+    a domain basis (currency) by a Number whose unit lives in SI must
+    succeed when the active :class:`UnitSystem`'s basis_graph contains
+    embeddings of both bases into a combined basis.
+    """
+
+    @staticmethod
+    def _build_combined_currency_si_system():
+        """Build a UnitSystem whose basis_graph embeds currency and SI
+        into a combined ``SI+currency`` basis."""
+        import dataclasses
+
+        import numpy as np
+
+        from ucon.basis.builtin import SI
+        from ucon.basis.graph import BasisGraph
+        from ucon.basis.transforms import BasisTransform
+        from ucon.basis.types import Basis, BasisComponent
+        from ucon.system import UnitSystem
+
+        si_components = tuple(SI)
+        combined = Basis(
+            name="SI+currency",
+            components=si_components + (BasisComponent(name="currency", symbol="C"),),
+        )
+        currency = Basis(
+            name="currency",
+            components=(BasisComponent(name="currency", symbol="C"),),
+        )
+        n_si = len(si_components)
+        # currency(1) -> combined(n+1): currency component maps to last slot.
+        currency_to_combined = np.zeros((1, n_si + 1))
+        currency_to_combined[0, -1] = 1.0
+        # SI(n) -> combined(n+1): identity in first n columns.
+        si_to_combined = np.zeros((n_si, n_si + 1))
+        for i in range(n_si):
+            si_to_combined[i, i] = 1.0
+
+        bg = BasisGraph()
+        bg.add_transform(
+            BasisTransform(source=currency, target=combined, matrix=currency_to_combined)
+        )
+        bg.add_transform(
+            BasisTransform(source=SI, target=combined, matrix=si_to_combined)
+        )
+
+        sys = dataclasses.replace(UnitSystem.from_globals(), basis_graph=bg)
+        return sys, currency, combined
+
+    def test_unify_via_common_combined_basis(self):
+        # 3-way unification: vectors in disjoint bases meet in a common
+        # combined basis when no direct path exists.
+        from ucon.basis.ops import unify
+        from ucon.dimension import Dimension
+
+        sys, currency, combined = self._build_combined_currency_si_system()
+        usd_dim = Dimension.from_components(currency, currency=1)
+
+        from ucon.dimension import Dimension as Dim
+        currency_vec = usd_dim.vector
+        time_vec = Dim.time.vector
+
+        a_prime, b_prime = unify(currency_vec, time_vec, system=sys)
+        self.assertEqual(a_prime.basis, combined)
+        self.assertEqual(b_prime.basis, combined)
+
+    def test_cross_basis_number_multiply_inside_use(self):
+        # The headline acceptance gate: USD * second succeeds inside
+        # ``with use(sys):`` when sys.basis_graph embeds both bases.
+        from ucon.core import Number, Unit
+        from ucon.dimension import Dimension
+        from ucon.system import use
+        from ucon.units import second
+
+        sys, currency, combined = self._build_combined_currency_si_system()
+        usd_dim = Dimension.from_components(currency, currency=1)
+        usd = Unit(name="USD", dimension=usd_dim, aliases=("$",))
+
+        n1 = Number(100, usd)
+        n2 = Number(1, second)
+
+        with use(sys):
+            result = n1 * n2
+        self.assertEqual(result.quantity, 100)
+        self.assertEqual(result.unit.dimension.vector.basis, combined)
+
+    def test_cross_basis_number_multiply_outside_use_still_raises(self):
+        # Backward-compatibility: with no active system and no transforms
+        # in the default graph, cross-basis multiply still raises.
+        from ucon.basis.types import Basis, BasisComponent, BasisMismatch
+        from ucon.core import Number, Unit
+        from ucon.dimension import Dimension
+        from ucon.units import second
+
+        currency = Basis(
+            name="currency",
+            components=(BasisComponent(name="currency", symbol="C"),),
+        )
+        usd_dim = Dimension.from_components(currency, currency=1)
+        usd = Unit(name="USD", dimension=usd_dim, aliases=("$",))
+
+        n1 = Number(100, usd)
+        n2 = Number(1, second)
+
+        with self.assertRaises(BasisMismatch):
+            n1 * n2
+
+    def test_get_basis_graph_honors_active_system(self):
+        # The plumbing hook: get_basis_graph() returns system.basis_graph
+        # when a system is active.
+        from ucon.basis.graph import get_basis_graph
+        from ucon.system import use
+
+        sys, _, _ = self._build_combined_currency_si_system()
+        with use(sys):
+            self.assertIs(get_basis_graph(), sys.basis_graph)
+
+    def test_using_basis_graph_still_wins_over_active_system(self):
+        # Precedence: an explicit ``using_basis_graph`` context still wins
+        # over the active UnitSystem.
+        from ucon.basis.graph import BasisGraph, get_basis_graph, using_basis_graph
+        from ucon.system import use
+
+        sys, _, _ = self._build_combined_currency_si_system()
+        explicit = BasisGraph()
+        with use(sys):
+            with using_basis_graph(explicit):
+                self.assertIs(get_basis_graph(), explicit)
+            # Outside the explicit override, falls back to system.basis_graph
+            self.assertIs(get_basis_graph(), sys.basis_graph)
 
 
 if __name__ == "__main__":

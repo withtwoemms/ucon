@@ -3,10 +3,9 @@
 
 """Direct coverage for :mod:`ucon.basis.ops`.
 
-Phase 3 of v1.8.0 makes :class:`ucon.basis.vector.Vector` arithmetic strict
-same-basis. Cross-basis multiplication / division now lives in
-:mod:`ucon.basis.ops`. These tests exercise the ops module directly,
-including the three graph-resolution branches:
+:class:`ucon.basis.vector.Vector` arithmetic is strict same-basis; cross-basis
+multiplication / division lives in :mod:`ucon.basis.ops`. These tests exercise
+the ops module directly, including the three graph-resolution branches:
 
 - explicit ``graph=`` kwarg (highest priority)
 - ``system=`` kwarg (mid priority)
@@ -264,3 +263,122 @@ class TestGraphResolution:
         s = _vec(SI, time=1)
         with pytest.raises(BasisMismatch):
             ops.multiply_via(usd, s, system=system, graph=BasisGraph())
+
+
+# ---------------------------------------------------------------------------
+# Cocone (3-way) fallback: neither a→b nor b→a is clean, but both a and b
+# embed into some common third basis.
+# ---------------------------------------------------------------------------
+
+
+class TestUnifyCoconeFallback:
+    """``unify`` searches for a common upper-bound basis when neither operand
+    directly embeds in the other.
+    """
+
+    def setup_method(self) -> None:
+        self.flux = Basis("flux", [BasisComponent("flux", "Φ")])
+
+    def _combined(self, name: str = "combined") -> Basis:
+        """SI + flux slot, packaged as a combined basis."""
+        return Basis(name, list(SI) + [BasisComponent("flux", "Φ")])
+
+    def _si_to_combined(self, combined: Basis) -> BasisTransform:
+        n_tgt = len(combined)
+        matrix = tuple(
+            tuple(Fraction(1) if j == i else Fraction(0) for j in range(n_tgt))
+            for i in range(len(SI))
+        )
+        return BasisTransform(SI, combined, matrix)
+
+    def _flux_to_combined_clean(self, combined: Basis) -> BasisTransform:
+        """flux → combined: maps the lone flux axis to the last column."""
+        n_tgt = len(combined)
+        matrix = ((Fraction(0),) * (n_tgt - 1) + (Fraction(1),),)
+        return BasisTransform(self.flux, combined, matrix)
+
+    def _flux_to_combined_lossy(self, combined: Basis) -> BasisTransform:
+        """flux → combined: matrix row is all zeros, so any non-zero flux
+        component raises LossyProjection on call."""
+        n_tgt = len(combined)
+        matrix = ((Fraction(0),) * n_tgt,)
+        return BasisTransform(self.flux, combined, matrix)
+
+    def test_cocone_bridges_incomparable_bases(self) -> None:
+        """``flux`` and SI are incomparable in the embedding order; the
+        graph contains both → combined, so unify meets in combined."""
+        combined = self._combined()
+        g = BasisGraph()
+        g.add_transform(self._flux_to_combined_clean(combined))
+        g.add_transform(self._si_to_combined(combined))
+
+        flux_vec = _vec(self.flux, flux=1)
+        si_vec = _vec(SI, time=1)
+        a_, b_ = ops.unify(flux_vec, si_vec, graph=g)
+        assert a_.basis == combined
+        assert b_.basis == combined
+        assert a_["flux"] == 1
+        assert b_["time"] == 1
+
+    def test_cocone_skips_lossy_candidate_and_uses_clean_one(self) -> None:
+        """When ``common`` has multiple candidates and one is lossy on the
+        test vector, the loop continues until it finds a clean one. The
+        result lives in the clean candidate's basis regardless of set
+        iteration order."""
+        combined_bad = self._combined("combined_bad")
+        combined_ok = self._combined("combined_ok")
+
+        g = BasisGraph()
+        # flux → combined_bad is lossy on flux=1; flux → combined_ok is clean.
+        g.add_transform(self._flux_to_combined_lossy(combined_bad))
+        g.add_transform(self._flux_to_combined_clean(combined_ok))
+        # SI projects cleanly into both.
+        g.add_transform(self._si_to_combined(combined_bad))
+        g.add_transform(self._si_to_combined(combined_ok))
+
+        flux_vec = _vec(self.flux, flux=1)
+        si_vec = _vec(SI, time=1)
+        a_, b_ = ops.unify(flux_vec, si_vec, graph=g)
+        # Only combined_ok yields a clean projection; whichever iteration
+        # order picks, the loop converges there.
+        assert a_.basis == combined_ok
+        assert b_.basis == combined_ok
+        assert a_["flux"] == 1
+
+    def test_cocone_all_candidates_lossy_raises_basis_mismatch(self) -> None:
+        """When every candidate in ``common`` is lossy on the test vector,
+        the loop exhausts and falls through to ``BasisMismatch``. This
+        deterministically exercises the ``continue`` branch for every
+        candidate before the fall-through, regardless of iteration order.
+        """
+        combined1 = self._combined("combined1")
+        combined2 = self._combined("combined2")
+
+        g = BasisGraph()
+        g.add_transform(self._flux_to_combined_lossy(combined1))
+        g.add_transform(self._flux_to_combined_lossy(combined2))
+        g.add_transform(self._si_to_combined(combined1))
+        g.add_transform(self._si_to_combined(combined2))
+
+        flux_vec = _vec(self.flux, flux=1)
+        si_vec = _vec(SI, time=1)
+        with pytest.raises(BasisMismatch, match="different bases"):
+            ops.unify(flux_vec, si_vec, graph=g)
+
+    def test_cocone_empty_common_raises_basis_mismatch(self) -> None:
+        """When ``a.basis`` and ``b.basis`` share no reachable upper bound
+        in the graph, ``common`` is empty, the loop never executes, and the
+        function falls through to ``BasisMismatch``."""
+        # Install only outgoing edges that lead to disjoint targets.
+        flux_only = Basis("flux_only", [BasisComponent("flux", "Φ")])
+        flux_to_flux_only = BasisTransform(
+            self.flux, flux_only, ((Fraction(1),),)
+        )
+        g = BasisGraph()
+        g.add_transform(flux_to_flux_only)
+        # SI in this graph reaches only itself.
+
+        flux_vec = _vec(self.flux, flux=1)
+        si_vec = _vec(SI, time=1)
+        with pytest.raises(BasisMismatch, match="different bases"):
+            ops.unify(flux_vec, si_vec, graph=g)

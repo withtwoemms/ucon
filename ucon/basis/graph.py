@@ -267,8 +267,13 @@ def get_basis_graph() -> BasisGraph:
 
     Priority:
 
-    1. Context-local graph (from :func:`using_basis_graph`)
-    2. Module-level default graph (lazily built with standard transforms)
+    1. Context-local graph (from :func:`using_basis_graph`).
+    2. The active :class:`~ucon.system.UnitSystem`'s ``basis_graph``
+       (from :func:`ucon.system.use`). This lets ``with use(system):``
+       propagate ``system.basis_graph`` down through the algebraic chain
+       — ``Number`` arithmetic → ``Dimension`` algebra → ``multiply_via``
+       — without changing operator signatures.
+    3. Module-level default graph (lazily built with standard transforms).
 
     Returns
     -------
@@ -279,6 +284,19 @@ def get_basis_graph() -> BasisGraph:
     ctx_graph = _basis_graph_context.get()
     if ctx_graph is not None:
         return ctx_graph
+
+    # Active UnitSystem next. Lazy import: ``ucon.basis.graph`` sits below
+    # ``ucon.system`` in the import DAG, so we can only reach the system
+    # ContextVar at call time, not at module load.
+    try:
+        from ucon.system import _active as _active_system
+    except ImportError:
+        _active_system = None
+    if _active_system is not None:
+        sys = _active_system.get()
+        if sys is not None:
+            return sys.basis_graph
+
     if _default_basis_graph is None:
         _default_basis_graph = _build_standard_basis_graph()
     return _default_basis_graph

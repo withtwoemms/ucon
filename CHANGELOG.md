@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Cross-basis arithmetic via the active `UnitSystem`.** Phase 3 wired
+  `system=` onto `ucon.basis.ops.multiply_via` / `divide_via` / `unify`,
+  but `Number` arithmetic (`n1 * n2`) doesn't pass kwargs through the
+  operator chain — `__mul__` → `Unit.__mul__` → `UnitProduct.__init__` →
+  `Dimension.__mul__` → `multiply_via`. Phase 6 closes this gap by:
+  - Hooking `ucon.basis.graph.get_basis_graph()` to consult
+    `ucon.system._active.get()` after the explicit `using_basis_graph`
+    ContextVar override and before the module default. When a
+    `UnitSystem` is active (`with use(sys): ...`), its `basis_graph`
+    flows down the entire algebraic chain without changing operator
+    signatures.
+  - Extending `ucon.basis.ops.unify` to perform **3-way unification**.
+    When no direct transform connects `a.basis` and `b.basis`, the graph
+    is searched for a common target basis ``c`` reachable from both, and
+    both vectors are projected into ``c``. This handles direct-sum
+    scenarios where a `UnitSystem`'s `basis_graph` embeds two domain
+    bases (e.g. `currency` and SI) into a combined basis (`SI+currency`)
+    without registering a direct `currency ↔ SI` transform.
+
+  Net effect: the previously blocked `USD*s` case is reachable. Inside
+  ``with use(sys):`` where `sys.basis_graph` embeds both bases into a
+  combined basis, `Number(100, USD) * Number(1, second)` returns a
+  `Number` in the combined basis instead of raising `BasisMismatch`.
+  Outside any active system, behavior is byte-for-byte identical to v1.7.
+
 - **Compound-unit parser routes through `system.units` at the factor
   level.** Phase 4 wired `system=` onto `parse_unit`, but the
   short-circuit only fired on whole-string matches; tokens inside

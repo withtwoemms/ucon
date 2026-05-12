@@ -107,6 +107,23 @@ def unify(
     except (NoTransformPath, LossyProjection):
         pass
 
+    # 3-way unification: find a common target basis ``c`` reachable from
+    # both ``a.basis`` and ``b.basis`` and project both sides into it.
+    # This handles direct-sum scenarios where the graph contains
+    # ``a.basis → c`` and ``b.basis → c`` embeddings but no direct
+    # transform between ``a.basis`` and ``b.basis`` (e.g. currency and SI
+    # each embedding into a combined ``SI+currency`` basis).
+    a_reachable = g.reachable_from(a.basis)
+    b_reachable = g.reachable_from(b.basis)
+    common = (a_reachable & b_reachable) - {a.basis, b.basis}
+    for c in common:
+        try:
+            ta = g.get_transform(a.basis, c)
+            tb = g.get_transform(b.basis, c)
+            return ta(a), tb(b)
+        except (NoTransformPath, LossyProjection):
+            continue
+
     raise BasisMismatch(
         f"Cannot unify vectors from different bases: "
         f"'{a.basis.name}' and '{b.basis.name}'",

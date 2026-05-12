@@ -166,7 +166,7 @@ class TestDimensionAlgebra(unittest.TestCase):
 
 
 class TestDimensionAlgebraOpsRouting(unittest.TestCase):
-    """Phase 3 routes ``Dimension.__mul__`` / ``__truediv__`` through
+    """``Dimension.__mul__`` / ``__truediv__`` route through
     :mod:`ucon.basis.ops` instead of operating on ``Vector`` directly.
 
     The same-basis fast path is exercised throughout
