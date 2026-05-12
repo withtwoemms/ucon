@@ -3,10 +3,9 @@
 
 """Direct coverage for :mod:`ucon.basis.ops`.
 
-Phase 3 of v1.8.0 makes :class:`ucon.basis.vector.Vector` arithmetic strict
-same-basis. Cross-basis multiplication / division now lives in
-:mod:`ucon.basis.ops`. These tests exercise the ops module directly,
-including the three graph-resolution branches:
+:class:`ucon.basis.vector.Vector` arithmetic is strict same-basis; cross-basis
+multiplication / division lives in :mod:`ucon.basis.ops`. These tests exercise
+the ops module directly, including the three graph-resolution branches:
 
 - explicit ``graph=`` kwarg (highest priority)
 - ``system=`` kwarg (mid priority)
