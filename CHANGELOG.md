@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-05-12
+
 ### Migration from v1.7 → v1.8
 
 v1.8 is API-additive for code that uses the documented public surface.
