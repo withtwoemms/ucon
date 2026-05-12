@@ -438,7 +438,7 @@ After import, activate a context with `using_context()`:
 graph = ConversionGraph.from_toml("my-graph.ucon.toml")
 ctx = graph._contexts["spectroscopy"]
 
-with using_graph(graph), using_context(ctx):
+with using_conversion_graph(graph), using_context(ctx):
     wavelength = Number(500e-9, units.meter)   # 500 nm
     frequency = wavelength.to(units.hertz)     # ~5.996e14 Hz
 ```
@@ -586,13 +586,13 @@ factor = 0.3048
 ```
 
 ```python
-from ucon.graph import ConversionGraph, using_graph
+from ucon.graph import ConversionGraph, using_conversion_graph
 from ucon import Number
 
 graph = ConversionGraph.from_toml("minimal.ucon.toml")
 m = graph._name_registry_cs["meter"]
 ft = graph._name_registry_cs["foot"]
 
-with using_graph(graph):
+with using_conversion_graph(graph):
     print(Number(1, m).to(ft))   # <3.28084 foot>
 ```

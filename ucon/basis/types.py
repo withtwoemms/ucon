@@ -16,6 +16,15 @@ from dataclasses import dataclass
 from typing import Iterator, Sequence
 
 
+__all__ = [
+    "Basis",
+    "BasisComponent",
+    "BasisMismatch",
+    "LossyProjection",
+    "NoTransformPath",
+]
+
+
 @dataclass(frozen=True)
 class BasisComponent:
     """An atomic generator of a dimensional basis.

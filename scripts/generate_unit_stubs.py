@@ -6,8 +6,7 @@ This script imports ucon.units and generates a .pyi stub file by:
 1. Extracting all Unit objects loaded from the TOML
 2. Including BaseUnits instances (si, imperial)
 3. Including the sentinel ``none`` unit
-4. Including backward-compat aliases (pint_volume, point_typo)
-5. Including the ``have()`` function
+4. Including the ``have()`` function
 
 Usage:
     python scripts/generate_unit_stubs.py > ucon/units.pyi
@@ -89,11 +88,6 @@ def generate_special_stubs() -> list[str]:
 
     lines.append("# Sentinel unit")
     lines.append("none: Unit")
-    lines.append("")
-
-    lines.append("# Backward-compat variable aliases")
-    lines.append("pint_volume: Unit")
-    lines.append("point_typo: Unit")
     lines.append("")
 
     lines.append("# Predefined unit systems")

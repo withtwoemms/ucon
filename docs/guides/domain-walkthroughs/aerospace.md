@@ -73,13 +73,13 @@ factor = 0.138255
 ```python
 from ucon import get_default_graph, get_unit_by_name, Number
 from ucon.packages import load_package
-from ucon.graph import using_graph
+from ucon.graph import using_conversion_graph
 
 # Load the aerospace unit package
 package = load_package("aerospace.ucon.toml")
 graph = get_default_graph().with_package(package)
 
-with using_graph(graph):
+with using_conversion_graph(graph):
     slug = get_unit_by_name("slug")
     knot = get_unit_by_name("knot")
     nmi = get_unit_by_name("nautical_mile")
@@ -159,12 +159,12 @@ compute(
 ```python
 from ucon import get_default_graph, get_unit_by_name, Number
 from ucon.packages import load_package
-from ucon.graph import using_graph
+from ucon.graph import using_conversion_graph
 
 package = load_package("aerospace.ucon.toml")
 graph = get_default_graph().with_package(package)
 
-with using_graph(graph):
+with using_conversion_graph(graph):
     knot = get_unit_by_name("knot")
     meter_per_second = get_unit_by_name("meter/second")
     mile_per_hour = get_unit_by_name("mile/hour")
@@ -202,12 +202,12 @@ convert(value=450, from_unit="kn", to_unit="mi/h")
 ```python
 from ucon import get_default_graph, get_unit_by_name, Number, Scale
 from ucon.packages import load_package
-from ucon.graph import using_graph
+from ucon.graph import using_conversion_graph
 
 package = load_package("aerospace.ucon.toml")
 graph = get_default_graph().with_package(package)
 
-with using_graph(graph):
+with using_conversion_graph(graph):
     nmi = get_unit_by_name("nautical_mile")
     km = Scale.kilo * get_unit_by_name("meter")
 

@@ -48,6 +48,14 @@ from ucon.maps import (
     Map,
 )
 
+__all__ = [
+    "FORMAT_VERSION",
+    "GraphLoadError",
+    "from_toml",
+    "to_toml",
+]
+
+
 FORMAT_VERSION = "1.5"
 
 
@@ -593,7 +601,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     ConversionGraph
         The reconstructed graph.
     """
-    from ucon.graph import ConversionGraph, using_graph
+    from ucon.graph import ConversionGraph, using_conversion_graph
     from ucon.packages import _build_map
 
     path = Path(path)
@@ -797,7 +805,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     from ucon.resolver import parse_unit
 
     constants = []
-    with using_graph(graph):
+    with using_conversion_graph(graph):
         for i, const_spec in enumerate(doc.get("constants", [])):
             section = f"constants[{i}]"
             sym = _require(const_spec, "symbol", section)
@@ -857,7 +865,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
             constant_table[alias] = er
 
     # 9. Materialize unit edges (with expression resolution)
-    with using_graph(graph):
+    with using_conversion_graph(graph):
         for i, edge_spec in enumerate(doc.get("edges", [])):
             section = f"edges[{i}]"
             src_name = _require(edge_spec, "src", section)
@@ -875,7 +883,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
             graph.add_edge(src=src_unit, dst=dst_unit, map=m)
 
     # 10. Materialize product edges
-    with using_graph(graph):
+    with using_conversion_graph(graph):
         for i, edge_spec in enumerate(doc.get("product_edges", [])):
             section = f"product_edges[{i}]"
             src_expr = _require(edge_spec, "src", section)
@@ -898,7 +906,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
             graph.add_edge(src=src_prod, dst=dst_prod, map=m)
 
     # 11. Materialize cross-basis edges
-    with using_graph(graph):
+    with using_conversion_graph(graph):
         for i, edge_spec in enumerate(doc.get("cross_basis_edges", [])):
             section = f"cross_basis_edges[{i}]"
             src_name = _require(edge_spec, "src", section)
@@ -928,7 +936,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     # 12. Materialize contexts
     from ucon.contexts import ConversionContext, ContextEdge
 
-    with using_graph(graph):
+    with using_conversion_graph(graph):
         for ctx_name, ctx_spec in doc.get("contexts", {}).items():
             description = ctx_spec.get("description", "")
             ctx_edges = []

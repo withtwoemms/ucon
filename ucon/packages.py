@@ -345,8 +345,8 @@ class EdgeDef:
         """
         # Resolve units within graph context
         from ucon.resolver import parse_unit
-        from ucon.graph import using_graph
-        with using_graph(graph):
+        from ucon.graph import using_conversion_graph
+        with using_conversion_graph(graph):
             try:
                 src_unit = parse_unit(self.src)
             except UnknownUnitError:
@@ -413,8 +413,8 @@ class ConstantDef:
             If the unit string cannot be resolved.
         """
         from ucon.resolver import parse_unit
-        from ucon.graph import using_graph
-        with using_graph(graph):
+        from ucon.graph import using_conversion_graph
+        with using_conversion_graph(graph):
             try:
                 resolved_unit = parse_unit(self.unit)
             except UnknownUnitError:

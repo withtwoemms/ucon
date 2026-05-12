@@ -410,8 +410,8 @@ Since v0.7.3, unit name resolution is graph-scoped:
 _name_registry: dict[str, Unit]      # case-insensitive
 _name_registry_cs: dict[str, Unit]   # case-sensitive (m vs M)
 
-# using_graph() sets both conversion AND parsing context
-with using_graph(custom_graph):
+# using_conversion_graph() sets both conversion AND parsing context
+with using_conversion_graph(custom_graph):
     unit = get_unit_by_name("custom_unit")  # resolves in custom_graph
 ```
 

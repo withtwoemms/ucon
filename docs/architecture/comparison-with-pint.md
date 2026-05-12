@@ -13,7 +13,7 @@ Both ucon and [Pint](https://pint.readthedocs.io/) solve unit conversion in Pyth
 | **Architecture** | Mutable `UnitRegistry` singleton | Injectable `ConversionGraph` (copy-on-extend) |
 | **Type Safety** | Runtime checks only | `Number[Dimension.X]` generics + `@enforce_dimensions` |
 | **Conversion Model** | Implicit registry lookup | Explicit `Map` hierarchy (`LinearMap`, `AffineMap`, `LogMap`) |
-| **State Isolation** | Manual (separate registries, which are incompatible) | Built-in (`ContextVar` + `using_graph()`) |
+| **State Isolation** | Manual (separate registries, which are incompatible) | Built-in (`ContextVar` + `using_conversion_graph()`) |
 | **Logarithmic Units** | Beta (`dB`, `dBm`) | `LogMap` / `ExpMap` with configurable base, scale, reference |
 | **Uncertainty** | Via third-party `uncertainties` package | Built-in propagation through arithmetic and conversion |
 | **NumPy** | First-class (ufunc wrapping) | `NumberArray` with unit-aware reductions |
@@ -62,7 +62,7 @@ ucon uses dependency injection via context managers:
 
 ```python
 from ucon import units
-from ucon.graph import using_graph, get_default_graph
+from ucon.graph import using_conversion_graph, get_default_graph
 
 # Default graph used implicitly
 distance = units.meter(5)
@@ -72,7 +72,7 @@ speed = distance / units.second(2)
 custom = get_default_graph().copy()
 custom.add_edge(src=my_unit, dst=units.meter, map=LinearMap(1.5))
 
-with using_graph(custom):
+with using_conversion_graph(custom):
     # Operations use custom graph
     value.to(my_unit)
 ```
@@ -128,7 +128,7 @@ pint.set_application_registry(ureg2)
 pint.Quantity(1, "smoot")  # UndefinedUnitError — smoot no longer exists
 ```
 
-**ucon:** `set_default_graph()` only affects contexts that haven't explicitly called `using_graph()`. An explicit context is immune to default changes.
+**ucon:** `set_default_graph()` only affects contexts that haven't explicitly called `using_conversion_graph()`. An explicit context is immune to default changes.
 
 #### Silent Redefinition
 
@@ -149,8 +149,8 @@ ureg.Quantity(1, "widget").to("gram")  # 100 gram (stale cache!)
 
 | Scenario | Pint Hazard | ucon Solution |
 |----------|-------------|---------------|
-| **MCP Server** | Concurrent agents race on shared registry, or separate registries block interoperability | `with_package()` per agent config, `using_graph()` per request |
-| **pytest-xdist** | Parallel tests with `define()` produce intermittent failures | `using_graph()` isolates each test |
+| **MCP Server** | Concurrent agents race on shared registry, or separate registries block interoperability | `with_package()` per agent config, `using_conversion_graph()` per request |
+| **pytest-xdist** | Parallel tests with `define()` produce intermittent failures | `using_conversion_graph()` isolates each test |
 | **Long-running Pipeline** | Recalibration via `define()` corrupts in-flight data | Immutable graphs preserve calibration epochs |
 
 ### Architectural Summary
@@ -160,7 +160,7 @@ ureg.Quantity(1, "widget").to("gram")  # 100 gram (stale cache!)
 | State container | `UnitRegistry` (mutable) | `ConversionGraph` (copy-on-extend) |
 | Global singleton | `application_registry` (process-wide) | None (ContextVar-scoped default) |
 | Extension mechanism | `define()` (mutates in place) | `with_package()` (returns new graph) |
-| Context scoping | None (manual registry passing) | `using_graph()` via ContextVar |
+| Context scoping | None (manual registry passing) | `using_conversion_graph()` via ContextVar |
 | Thread isolation | Requires separate registries | Built-in via ContextVar |
 | Cross-context interop | Blocked (different-registry error) | Native (results are plain numbers) |
 | Redefinition behavior | Silent overwrite + stale cache | Not possible (immutable extension) |

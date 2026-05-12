@@ -24,7 +24,7 @@ length + time  # raises immediately, not after computation
 ucon avoids global mutable state. The `ConversionGraph` is injectable via context managers rather than a singleton.
 
 ```python
-from ucon.graph import using_graph, ConversionGraph
+from ucon.graph import using_conversion_graph, ConversionGraph
 
 # Default graph used implicitly
 distance.to(units.mile)
@@ -33,7 +33,7 @@ distance.to(units.mile)
 custom = ConversionGraph()
 custom.add_edge(src=my_unit, dst=units.meter, map=LinearMap(1.5))
 
-with using_graph(custom):
+with using_conversion_graph(custom):
     # All operations use custom graph
     value.to(my_unit)
 ```

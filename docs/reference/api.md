@@ -561,9 +561,9 @@ graph.list_transforms()  # [SI_TO_CGS_ESU, ...]
 ### Context Manager
 
 ```python
-from ucon.graph import using_graph
+from ucon.graph import using_conversion_graph
 
-with using_graph(my_graph):
+with using_conversion_graph(my_graph):
     # Unit parsing uses my_graph for resolution
     value = convert(1, "custom_unit", "kg")
 ```
@@ -1343,6 +1343,59 @@ NATURAL_TO_SI.target.name  # "SI"
 # Convert to plain BasisTransform (loses binding info)
 plain = SI_TO_NATURAL.as_basis_transform()
 ```
+
+---
+
+## UnitSystem (`system=` kwarg)
+
+New in v1.8. A `UnitSystem` is a frozen value type that bundles a `Basis`, the unit / dimension / conversion / basis-graph registries, a `BaseUnits` mapping, and a per-instance `AlgebraCache`.
+
+```python
+from ucon.system import UnitSystem, BaseUnits, use, active
+```
+
+Note: `from ucon import UnitSystem` continues to resolve to the renamed `BaseUnits` (with a `PendingDeprecationWarning`) for v1.7 compatibility. The new value type is reachable only via `ucon.system`.
+
+### Activation
+
+```python
+sys = UnitSystem.from_globals()  # snapshot current globals
+with use(sys):
+    assert active() is sys
+```
+
+### Resolution Priority
+
+Entry points that accept `system=` resolve their basis-graph and conversion-graph in this order:
+
+```
+explicit kwarg (graph=, basis_graph=, …)
+    > system.basis_graph / system.conversions
+    > active() snapshot
+    > module-level default
+```
+
+### Threaded Entry Points
+
+The `system=` kwarg is accepted by:
+
+| Entry point | Module |
+|-------------|--------|
+| `Number.to(target, *, system=None, graph=None, ...)` | `ucon.quantity` |
+| `parse(text, *, system=None, ...)` | `ucon.parsing` |
+| `parse_unit(text, *, system=None, ...)` | `ucon.parsing` |
+| `parse_dimension(text, *, system=None, ...)` | `ucon.parsing` |
+| `enforce_dimensions(*, system=None)` | `ucon.checking` |
+
+Each entry point falls back to `active()` (and then to module-level globals) when `system=` is omitted, preserving v1.7 call sites verbatim.
+
+### AlgebraCache
+
+`UnitSystem` owns a per-instance `AlgebraCache` (sub-caches `mul` / `div` / `pow`). Module-level `_DIM_*_CACHE` dicts in `ucon.dimension` are deprecated shims; v2.0 routes `Dimension` algebra through the active system's cache.
+
+See [ucon.system](modules/system.md) for the full reference and [ucon.basis.ops](modules/basis-ops.md) for the explicit cross-basis helpers that the new value type composes with.
+
+---
 
 ### Particle Physics Applications
 

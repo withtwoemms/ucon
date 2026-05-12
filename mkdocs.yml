@@ -92,6 +92,7 @@ nav:
       - ucon.basis.builtin: reference/modules/basis-builtin.md
       - ucon.basis.transforms: reference/modules/basis-transforms.md
       - ucon.basis.graph: reference/modules/basis-graph.md
+      - ucon.basis.ops: reference/modules/basis-ops.md
       - ucon.checking: reference/modules/checking.md
       - ucon.constants: reference/modules/constants.md
       - ucon.contexts: reference/modules/contexts.md
@@ -101,6 +102,7 @@ nav:
       - ucon.maps: reference/modules/maps.md
       - ucon.packages: reference/modules/packages.md
       - ucon.parsing: reference/modules/parsing.md
+      - ucon.system: reference/modules/system.md
       - ucon.units: reference/modules/units.md
       - ucon.integrations.numpy: reference/modules/integrations-numpy.md
       - ucon.integrations.pandas: reference/modules/integrations-pandas.md

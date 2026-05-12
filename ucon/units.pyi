@@ -267,10 +267,6 @@ year: Unit
 # Sentinel unit
 none: Unit
 
-# Backward-compat variable aliases
-pint_volume: Unit
-point_typo: Unit
-
 # Predefined unit systems
 si: BaseUnits
 imperial: BaseUnits
