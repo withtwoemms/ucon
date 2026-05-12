@@ -9,6 +9,7 @@ Tests for the ``ucon.system.UnitSystem`` value type and its
 
 import sys
 import unittest
+import warnings
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -716,6 +717,79 @@ class TestCrossBasisArithmetic(unittest.TestCase):
                 self.assertIs(get_basis_graph(), explicit)
             # Outside the explicit override, falls back to system.basis_graph
             self.assertIs(get_basis_graph(), sys.basis_graph)
+
+
+class TestConversionsDeprecatedAlias(unittest.TestCase):
+    """v1.8.0 named the field ``conversions``. v1.8.1 renamed it to
+    ``conversion_graph`` for symmetry with ``basis_graph`` and exposes a
+    deprecation shim — both as a constructor kwarg and as a read
+    property. Both emit ``PendingDeprecationWarning`` and are scheduled
+    for removal in v2.0."""
+
+    def test_conversions_kwarg_warns_and_routes_to_conversion_graph(self):
+        parent = UnitSystem.from_globals()
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            s = UnitSystem(
+                basis=parent.basis,
+                units=parent.units,
+                dimensions=parent.dimensions,
+                base_units=parent.base_units,
+                conversions=parent.conversion_graph,
+                basis_graph=parent.basis_graph,
+                contexts=parent.contexts,
+                constants=parent.constants,
+            )
+        self.assertIs(s.conversion_graph, parent.conversion_graph)
+        self.assertTrue(
+            any(issubclass(w.category, PendingDeprecationWarning) for w in captured),
+            f"expected PendingDeprecationWarning; got {[w.category for w in captured]}",
+        )
+
+    def test_conversions_property_warns_and_returns_conversion_graph(self):
+        s = UnitSystem.from_globals()
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            value = s.conversions
+        self.assertIs(value, s.conversion_graph)
+        self.assertTrue(
+            any(issubclass(w.category, PendingDeprecationWarning) for w in captured),
+            f"expected PendingDeprecationWarning; got {[w.category for w in captured]}",
+        )
+
+    def test_both_kwargs_raises_typeerror(self):
+        parent = UnitSystem.from_globals()
+        with self.assertRaises(TypeError):
+            UnitSystem(
+                basis=parent.basis,
+                units=parent.units,
+                dimensions=parent.dimensions,
+                base_units=parent.base_units,
+                conversion_graph=parent.conversion_graph,
+                conversions=parent.conversion_graph,
+                basis_graph=parent.basis_graph,
+                contexts=parent.contexts,
+                constants=parent.constants,
+            )
+
+    def test_conversion_graph_kwarg_does_not_warn(self):
+        parent = UnitSystem.from_globals()
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            UnitSystem(
+                basis=parent.basis,
+                units=parent.units,
+                dimensions=parent.dimensions,
+                base_units=parent.base_units,
+                conversion_graph=parent.conversion_graph,
+                basis_graph=parent.basis_graph,
+                contexts=parent.contexts,
+                constants=parent.constants,
+            )
+        self.assertFalse(
+            any(issubclass(w.category, PendingDeprecationWarning) for w in captured),
+            "modern kwarg path must not emit a deprecation warning",
+        )
 
 
 if __name__ == "__main__":

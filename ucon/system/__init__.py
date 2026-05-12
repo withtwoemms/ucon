@@ -35,6 +35,7 @@ value type is reachable only via ``from ucon.system import UnitSystem``.
 
 from __future__ import annotations
 
+import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -274,6 +275,23 @@ class UnitSystem:
             id(self.constants),
         ))
 
+    @property
+    def conversions(self) -> 'ConversionGraph':
+        """Deprecated alias for :attr:`conversion_graph`.
+
+        Returns ``self.conversion_graph`` and emits
+        ``PendingDeprecationWarning``. The field was renamed in v1.8.1 for
+        symmetry with ``basis_graph``; the alias is scheduled for removal
+        in v2.0.
+        """
+        warnings.warn(
+            "UnitSystem.conversions is a deprecated alias for "
+            "UnitSystem.conversion_graph; it will be removed in ucon v2.0.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+        return self.conversion_graph
+
     @classmethod
     def from_globals(cls, *, base_units: BaseUnits | None = None) -> 'UnitSystem':
         """Snapshot the current global state into a ``UnitSystem``.
@@ -312,6 +330,40 @@ class UnitSystem:
             contexts=getattr(graph, '_contexts', {}),
             constants=get_constants(),
         )
+
+
+# -----------------------------------------------------------------------------
+# Deprecated kwarg alias: conversions= -> conversion_graph=
+#
+# The field was named ``conversions`` in v1.8.0 and renamed to
+# ``conversion_graph`` in v1.8.1 for symmetry with ``basis_graph``. The
+# alias accepts the old kwarg with a ``PendingDeprecationWarning`` and is
+# scheduled for removal in v2.0 alongside the matching property shim.
+# -----------------------------------------------------------------------------
+
+
+_unitsystem_dataclass_init = UnitSystem.__init__
+
+
+def _unitsystem_init_with_conversions_alias(self, *args, **kwargs):
+    if 'conversions' in kwargs:
+        if 'conversion_graph' in kwargs:
+            raise TypeError(
+                "UnitSystem() got both 'conversion_graph' and the deprecated "
+                "alias 'conversions'; pass only 'conversion_graph'"
+            )
+        warnings.warn(
+            "UnitSystem(conversions=...) is a deprecated alias for "
+            "UnitSystem(conversion_graph=...); it will be removed in ucon v2.0.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+        kwargs['conversion_graph'] = kwargs.pop('conversions')
+    _unitsystem_dataclass_init(self, *args, **kwargs)
+
+
+_unitsystem_init_with_conversions_alias.__doc__ = _unitsystem_dataclass_init.__doc__
+UnitSystem.__init__ = _unitsystem_init_with_conversions_alias
 
 
 # -----------------------------------------------------------------------------
