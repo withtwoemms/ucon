@@ -9,298 +9,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.0] - 2026-05-12
 
-### Migration from v1.7 → v1.8
-
-v1.8 is API-additive for code that uses the documented public surface.
-Every change below is paired with a behaviour-preserving alias or
-fallback; no caller is required to change to upgrade. The notes below
-document the new spellings for callers who want to retire the
-deprecation warnings before v2.0.
-
-- **`UnitSystem` → `BaseUnits` (rename).** The v1.7 `UnitSystem` class
-  was a small `Mapping[Dimension, Unit]` value. It has been renamed
-  `BaseUnits` to free the name `UnitSystem` for the new richer value
-  type. `from ucon import UnitSystem` is retained as a PEP-562 alias
-  resolving to `BaseUnits` and emits a `PendingDeprecationWarning`.
-  Replace with `from ucon import BaseUnits` (or
-  `from ucon.system import BaseUnits`). The alias is scheduled for
-  removal in v2.0.
-
-- **New `UnitSystem` (frozen value type).** `ucon.system.UnitSystem`
-  owns `basis`, `units`, `dimensions`, `base_units`, `conversions`,
-  `basis_graph`, `contexts`, `constants`, and a per-instance
-  `AlgebraCache`. Construct directly, or via
-  `UnitSystem.from_globals()` to snapshot the current module state.
-  Activate with `with use(sys): ...`; query inside the block with
-  `ucon.system.active()`. Outside any `use(...)` block, behaviour is
-  byte-for-byte identical to v1.7.
-
-- **`system=` kwarg on the user-facing entry points.** Optional and
-  ignored when omitted. Accepted on:
-  - `Number.to(target, *, system=None, graph=None)`
-  - `ucon.parsing.units.parse(s, *, system=None)`
-  - `ucon.resolver.parse_unit(name, *, system=None)`
-  - `ucon.parsing.dimensions.parse_dimension(spec, basis=None, *, system=None)`
-  - `ucon.checking.enforce_dimensions(*, system=None)`
-    (factory form; bare `@enforce_dimensions` unchanged)
-  Resolution priority where multiple sources can supply a graph:
-  `graph= > system.basis_graph > active() > module default`.
-
-- **`ucon.basis.ops` module — explicit cross-basis arithmetic.**
-  `Vector.__mul__` and `Vector.__truediv__` now raise `BasisMismatch`
-  when operands live in different bases. The 1.6.6 implicit
-  consultation of the active `BasisGraph` has been moved to explicit
-  helpers in `ucon.basis.ops`:
-  - `unify(a, b, *, system=None, graph=None) -> tuple[Vector, Vector]`
-  - `multiply_via(a, b, *, system=None, graph=None) -> Vector`
-  - `divide_via(a, b, *, system=None, graph=None) -> Vector`
-  `Dimension.__mul__` / `__truediv__` route through `multiply_via` /
-  `divide_via` automatically, so dimension-level cross-basis algebra
-  continues to work at call sites that rely on the active graph.
-  Callers that performed cross-basis multiplication on raw `Vector`s
-  must switch to the explicit helper.
-
-- **`BasisMismatch(ValueError)`.** The bare
-  `ValueError("Cannot multiply dimensions from different bases: ...")`
-  raised by v1.6.x / v1.7.x is now `ucon.basis.types.BasisMismatch`
-  (re-exported from `ucon.basis`). It subclasses `ValueError`, so
-  `except ValueError` and `pytest.raises(ValueError, match=...)`
-  callsites continue to catch. The error-message format is unchanged.
-  New attributes: `left`, `right`, `op`.
-
-- **`using_graph` → `using_conversion_graph` (rename).**
-  `ucon.using_graph` is retained as a `PendingDeprecationWarning`
-  alias to `ucon.using_conversion_graph` for symmetry with
-  `using_basis_graph`. Replace `with using_graph(g):` with
-  `with using_conversion_graph(g):`. The alias is scheduled for
-  removal in v2.0.
-
-- **`_DIM_MUL_CACHE` / `_DIM_DIV_CACHE` / `_DIM_POW_CACHE` (internal).**
-  These module-level dicts in `ucon.dimension` are now PEP-562
-  read-aliases that emit a `PendingDeprecationWarning` and return the
-  live `mul` / `div` / `pow` sub-dicts of the active
-  `UnitSystem._algebra_cache`. Callers reaching into the caches
-  should switch to `ucon.system.active()._algebra_cache.{mul,div,pow}`.
-  Scheduled for removal in v2.0.
+v1.8 introduces a frozen `UnitSystem` value type and routes the algebraic,
+parsing, and conversion surfaces through it via an optional `system=` kwarg.
+Every change is paired with a PEP-562 alias, a kwarg default, or a
+`DeprecationWarning`-emitting delegate, so v1.7 code runs unchanged. Outside
+a `with use(sys): ...` block, behaviour is byte-for-byte identical to v1.7.
+Deprecated surfaces are scheduled for removal in v2.0.
 
 ### Added
 
-- **Cross-basis arithmetic via the active `UnitSystem`.** Phase 3 wired
-  `system=` onto `ucon.basis.ops.multiply_via` / `divide_via` / `unify`,
-  but `Number` arithmetic (`n1 * n2`) doesn't pass kwargs through the
-  operator chain — `__mul__` → `Unit.__mul__` → `UnitProduct.__init__` →
-  `Dimension.__mul__` → `multiply_via`. Phase 6 closes this gap by:
-  - Hooking `ucon.basis.graph.get_basis_graph()` to consult
-    `ucon.system._active.get()` after the explicit `using_basis_graph`
-    ContextVar override and before the module default. When a
-    `UnitSystem` is active (`with use(sys): ...`), its `basis_graph`
-    flows down the entire algebraic chain without changing operator
-    signatures.
-  - Extending `ucon.basis.ops.unify` to perform **3-way unification**.
-    When no direct transform connects `a.basis` and `b.basis`, the graph
-    is searched for a common target basis ``c`` reachable from both, and
-    both vectors are projected into ``c``. This handles direct-sum
-    scenarios where a `UnitSystem`'s `basis_graph` embeds two domain
-    bases (e.g. `currency` and SI) into a combined basis (`SI+currency`)
-    without registering a direct `currency ↔ SI` transform.
+- **`ucon.system` subpackage** — new home for system-level value types.
+  Exposes `BaseUnits` (the renamed v1.7 `UnitSystem`, a small named
+  `Mapping[Dimension, Unit]`), `UnitSystem` (a frozen-dataclass value type
+  owning `basis`, `units`, `dimensions`, `base_units`, `conversions`,
+  `basis_graph`, `contexts`, `constants`, and a per-instance
+  `AlgebraCache`), `AlgebraCache`, plus the activation helpers
+  `use(system)` (contextmanager) and `active()` (queries the active
+  system, snapshotting from globals if none is set). Construct a
+  `UnitSystem` directly or via `UnitSystem.from_globals()`.
 
-  Net effect: the previously blocked `USD*s` case is reachable. Inside
-  ``with use(sys):`` where `sys.basis_graph` embeds both bases into a
-  combined basis, `Number(100, USD) * Number(1, second)` returns a
-  `Number` in the combined basis instead of raising `BasisMismatch`.
-  Outside any active system, behavior is byte-for-byte identical to v1.7.
+- **`system=` kwarg on user-facing entry points.** Optional; ignored when
+  omitted. Accepted on:
+  - `Number.to(target, *, graph=None, system=None)`
+  - `ucon.parsing.units.parse(s, *, system=None)`
+  - `ucon.resolver.parse_unit(name, *, system=None)`
+  - `ucon.parsing.dimensions.parse_dimension(spec, basis=None, *, system=None)`
+  - `ucon.checking.enforce_dimensions(*, system=None)` (factory form;
+    bare `@enforce_dimensions` unchanged)
 
-- **Compound-unit parser routes through `system.units` at the factor
-  level.** Phase 4 wired `system=` onto `parse_unit`, but the
-  short-circuit only fired on whole-string matches; tokens inside
-  composite expressions (`"USD/year"`, `"widget*kg/s"`) still fell
-  through to the module globals. Phase 5 threads `system=` into the
-  recursive-descent compound parser:
-  - `ucon.resolver._lookup_factor` now consults `system.units` before
-    the graph-local and module-level registries when a system is in
-    scope.
-  - `ucon.resolver._parse_composite` accepts `system=` and forwards it
-    through a system-aware closure to `parse_unit_expression`.
-  - `parse_unit` threads `system=` into every internal helper call
-    (composite path, exponent path, and bare-factor path).
+  The compound-unit parser threads `system=` into every internal helper,
+  so factor-level lookups inside `"USD/year"` or `"widget*kg/s"` consult
+  `system.units` before module globals. Resolution priority when multiple
+  sources supply a graph: `graph= > system.basis_graph > active() > module
+  default`. Inside `with use(sys): ...` whose `basis_graph` embeds two
+  domain bases into a combined basis, `Number(100, USD) * Number(1,
+  second)` resolves through `sys.basis_graph` instead of raising
+  `BasisMismatch`.
 
-  Net effect: a `UnitSystem` whose `units` mapping carries domain
-  identifiers (e.g. currency or finance units) closes the previously
-  blocked `"USD/year"` case without mutating module globals. With
-  `system=` omitted, behavior remains byte-for-byte identical to v1.7.
+- **`ucon.basis.ops` module — explicit cross-basis arithmetic.** Three
+  helpers — `unify(a, b, *, system=None, graph=None)`, `multiply_via`,
+  `divide_via` — bring two `Vector`s into a common basis via the active
+  or supplied `BasisGraph`. `unify` performs 3-way unification: if no
+  direct transform connects the operands' bases, the graph is searched
+  for a common target reachable from both.
 
-- **`system=` kwarg threaded through the v1.8 user-facing entry points.**
-  This aspect of the `UnitSystem` rollout wires an optional
-  `system: UnitSystem` keyword onto five core surfaces:
-  - `Number.to(target, *, graph=None, system=None, ...)` — when supplied,
-    `system.conversions` replaces `graph=`. Precedence: `system=` wins
-    over `graph=` when both are given.
-  - `ucon.resolver.parse_unit(name, *, system=None)` — when supplied,
-    a direct match in `system.units` short-circuits the lookup before
-    the module-level registries are consulted. Unknown names fall
-    through to the global path so prefix decomposition (e.g. `"km"`)
-    keeps working.
-  - `ucon.parsing.units.parse(s, *, system=None)` — threads the system
-    through to `parse_unit`.
-  - `ucon.parsing.dimensions.parse_dimension(spec, basis=None, *, system=None)` —
-    `system.basis` becomes the default basis (when `basis=` is omitted)
-    and `system.dimensions` is consulted before `_DIMENSION_ATTRS`.
-  - `ucon.checking.enforce_dimensions(fn=None, *, system=None)` — gains
-    a factory form. `@enforce_dimensions` (bare) is unchanged;
-    `@enforce_dimensions(system=sys)` uses `system.conversions` and
-    `system.basis_graph` for cross-basis compatibility checks and SI
-    coercion.
-
-  When `system=` is omitted on any of these, behavior is byte-for-byte
-  identical to v1.7. No call sites in the library currently pass
-  `system=`.
-
-- **`ucon.system` subpackage** as the new home for system-level value
-  types. The subpackage exposes:
-  - `BaseUnits` — the renamed v1.7 `UnitSystem`, a small named
-    `Mapping[Dimension, Unit]` (see *Changed* below).
-  - `UnitSystem` — a new frozen-dataclass value type that owns
-    `basis`, `units`, `dimensions`, `base_units`, `conversions`,
-    `basis_graph`, `contexts`, `constants`, and a per-instance
-    `AlgebraCache`. Constructed directly or via
-    `UnitSystem.from_globals()`, which snapshots the current legacy
-    global state. Phase 2 of the v1.8 plan introduces the type and its
-    construction surface; later phases route the user-facing entry
-    points through it and retire the snapshot path.
-  - `AlgebraCache` — per-instance cache for `Dimension` algebraic
-    operations (`mul`, `div`, `pow`). In v1.8 it lives on each
-    `UnitSystem`; it will replace the module-level
-    `_DIM_MUL_CACHE` / `_DIM_DIV_CACHE` / `_DIM_POW_CACHE` in
-    `ucon.dimension` over the rest of the v1.8 series.
-  - `use(system)` — contextmanager that sets the active `UnitSystem`
-    for the duration of a `with` block.
-  - `active()` — returns the active `UnitSystem`, snapshotting from
-    globals if none has been set.
-
-- **`ucon.basis.ops` module** with explicit cross-basis arithmetic
-  helpers:
-  - `unify(a, b, *, system=None, graph=None)` — bring two `Vector`s
-    into a common basis via the active (or supplied) `BasisGraph`.
-    Tries forward and reverse projections; the first clean (non-lossy)
-    one wins.
-  - `multiply_via(a, b, *, system=None, graph=None)` — multiply two
-    `Vector`s, unifying bases as needed.
-  - `divide_via(a, b, *, system=None, graph=None)` — divide two
-    `Vector`s, unifying bases as needed.
-
-  All three accept an optional `graph=` kwarg or `system=` kwarg
-  (which contributes its `basis_graph`). When neither is given, the
-  ContextVar-scoped active graph is used. Resolution priority:
-  `graph= > system.basis_graph > active`.
-
-- **`BasisMismatch(ValueError)` exception** in `ucon.basis.types`
-  (re-exported from `ucon.basis`). Carries `left`, `right`, and `op`
-  attributes pointing at the offending bases and operation. Subclasses
-  `ValueError` so legacy `except ValueError` and
-  `pytest.raises(ValueError, match=...)` callsites continue to catch.
-  Replaces the bare `ValueError("Cannot multiply dimensions from
-  different bases: ...")` raised by `Vector.__mul__` and
-  `Vector.__truediv__` in v1.6.x and v1.7.x.
+- **`BasisMismatch(ValueError)`** in `ucon.basis.types` (re-exported from
+  `ucon.basis`). Carries `left`, `right`, and `op` attributes. Replaces
+  the bare `ValueError("Cannot multiply dimensions from different bases:
+  …")` raised by `Vector.__mul__` / `__truediv__` in v1.6.x / v1.7.x.
+  Subclasses `ValueError` so existing `except ValueError` and
+  `pytest.raises(ValueError, match=...)` callsites continue to catch;
+  message format is unchanged.
 
 ### Changed
 
-- **`Dimension` algebra now routes through `UnitSystem._algebra_cache`.**
-  `Dimension.__mul__`, `__truediv__`, and `__pow__` consult the active
-  `UnitSystem`'s per-instance `AlgebraCache` (`mul` / `div` / `pow`
-  sub-dicts) instead of three module-level dicts. Outside a `use(...)`
-  block the new module-level `_DEFAULT_ALGEBRA_CACHE` in `ucon.system`
-  is used as the stable fallback; inside `use(system)`, all dimension
-  algebra populates `system._algebra_cache`. Cache keys remain
-  structural `(Dimension, Dimension)` / `(Dimension, exponent)` tuples,
-  so the v1.7 regression fix against `id()`-keyed collisions is
-  preserved. Same-process default behaviour is byte-identical; the
-  change becomes observable when callers swap `UnitSystem` instances.
-
-
-  The small `@dataclass(frozen=True)` mapping `name + bases:
-  Mapping[Dimension, Unit]` previously known at the top level as
-  `ucon.UnitSystem` is now `ucon.system.BaseUnits`. The class shape,
+- **`UnitSystem` renamed to `BaseUnits`.** The v1.7 `UnitSystem` was a
+  small `@dataclass(frozen=True)` mapping `name + bases:
+  Mapping[Dimension, Unit]`. It has been renamed `BaseUnits` to free the
+  `UnitSystem` name for the new richer value type. Class shape,
   validation rules, and methods (`base_for`, `covers`, `dimensions`,
-  `__hash__`) are unchanged. The two pre-defined instances exposed by
-  `ucon.units` — `ucon.units.si` and `ucon.units.imperial` — are now
-  `BaseUnits` instances; their construction call sites use the new name
-  but identical field structure (`bases=...`). The rationale: the name
-  `UnitSystem` is reserved for the richer value type planned for later
-  in the v1.8 series, and `BaseUnits` more precisely describes what the
-  small mapping actually is.
+  `__hash__`) are unchanged. The pre-defined `ucon.units.si` and
+  `ucon.units.imperial` are now `BaseUnits` instances. `from ucon import
+  UnitSystem` is retained as a PEP-562 alias (see *Deprecated*).
 
-- **`Vector` arithmetic is now strict same-basis.** `Vector.__mul__`
-  and `Vector.__truediv__` raise `BasisMismatch` immediately when
-  operands live in different bases. The 1.6.6 implicit consultation
-  of the active `BasisGraph` (via the now-removed
-  `Vector._unify_basis`) has been moved to explicit
-  `ucon.basis.ops.multiply_via` / `divide_via`. Same-basis
-  multiplication and division behaviour is byte-identical to before;
-  only the cross-basis silent-promotion path is gone. The error
-  message format is unchanged (`"Cannot {multiply,divide} vectors
-  from different bases: 'X' and 'Y'"`), and `BasisMismatch` is a
-  `ValueError` subclass, so existing regex-matched
-  `pytest.raises(ValueError, ...)` callsites continue to match.
-  `Dimension.__mul__` and `Dimension.__truediv__` now route through
-  `ops.multiply_via` / `divide_via`, so dimension-level cross-basis
-  algebra continues to work without code change at call sites that
-  use the active graph.
+- **`Vector` arithmetic is now strict same-basis.** `Vector.__mul__` and
+  `Vector.__truediv__` raise `BasisMismatch` immediately when operands
+  live in different bases. The 1.6.6 implicit consultation of the active
+  `BasisGraph` (via the removed `Vector._unify_basis`) has moved to
+  explicit `ucon.basis.ops.multiply_via` / `divide_via`. Same-basis
+  behaviour is byte-identical. `Dimension.__mul__` and
+  `Dimension.__truediv__` now route through `ops.multiply_via` /
+  `divide_via`, so dimension-level cross-basis algebra continues to work
+  via the active graph without code change.
+
+- **`Dimension` algebra routes through `UnitSystem._algebra_cache`.**
+  `Dimension.__mul__`, `__truediv__`, and `__pow__` consult the active
+  `UnitSystem`'s per-instance `AlgebraCache` (with `mul` / `div` / `pow`
+  sub-dicts) instead of three module-level dicts. Outside a `use(...)`
+  block, the new `_DEFAULT_ALGEBRA_CACHE` in `ucon.system` is the stable
+  fallback. Cache keys remain structural `(Dimension, Dimension)` /
+  `(Dimension, exponent)` tuples, so the v1.7 regression fix against
+  `id()`-keyed collisions is preserved.
 
 - **`ucon.basis` subpackage is now a clean DAG.** The load-time cycle
-  `vector → graph → transforms → vector` documented in v1.7.0 is
-  fully resolved. `ucon/basis/vector.py` no longer imports from
-  `ucon.basis.graph` (it now depends only on `ucon.basis.types`),
-  and the two function-body deferred imports introduced in v1.7.0
-  inside `BasisGraph.get_transform()` and
-  `_build_standard_basis_graph()` have been promoted to top-of-file
-  imports. The basis subpackage's load order is now uniform —
-  `types ← vector ← transforms ← graph ← ops` — with no documented
-  exceptions.
+  `vector → graph → transforms → vector` documented in v1.7.0 is fully
+  resolved. `ucon/basis/vector.py` depends only on `ucon.basis.types`;
+  the two function-body deferred imports in `BasisGraph.get_transform()`
+  and `_build_standard_basis_graph()` are now top-of-file. Load order is
+  uniform: `types ← vector ← transforms ← graph ← ops`.
 
-- **Deferred imports in `ucon.checking._coerce_via_graph` hoisted to
-  top of file.** The function-body
+- **Deferred imports in `ucon.checking._coerce_via_graph` hoisted.**
   `from ucon.graph import get_default_graph, ConversionNotFound` and
-  `from ucon.core import RebasedUnit` are now top-of-file imports.
-  Tests that monkey-patched `ucon.graph.get_default_graph` to mock
-  the lookup have been updated to patch
-  `ucon.checking.get_default_graph` (the binding the function
-  actually reads), following the standard "patch where it's used,
-  not where it's defined" guidance. No production behaviour change.
+  `from ucon.core import RebasedUnit` are now module-level. Tests that
+  patched `ucon.graph.get_default_graph` were updated to patch
+  `ucon.checking.get_default_graph` (the binding the function actually
+  reads). No production behaviour change.
 
 ### Deprecated
 
-- **`from ucon import UnitSystem`** is now a PEP-562 alias resolving to
-  `BaseUnits`, with a `PendingDeprecationWarning`. Existing callers
-  continue to work; no code change required for v1.8. The alias will
-  be removed in v2.0. Migration: replace
-  `from ucon import UnitSystem` with `from ucon import BaseUnits`
-  (or `from ucon.system import BaseUnits`).
+- **`from ucon import UnitSystem`** is a PEP-562 alias resolving to
+  `BaseUnits` and emits a `PendingDeprecationWarning`. Migration: replace
+  with `from ucon import BaseUnits` (or `from ucon.system import
+  BaseUnits`). Scheduled for removal in v2.0.
 
-- **`ucon.dimension._DIM_MUL_CACHE` / `_DIM_DIV_CACHE` / `_DIM_POW_CACHE`**
-  are now PEP-562 module-level aliases that emit a
-  `PendingDeprecationWarning` on read and return the live `mul` /
-  `div` / `pow` dict of the active `UnitSystem._algebra_cache`. The
-  aliases are scheduled for removal in v2.0. Migration: read the live
-  cache via `ucon.system.active()._algebra_cache.mul` (or `.div` /
-  `.pow`).
+- **`ucon.using_graph`** is retained as a `PendingDeprecationWarning`
+  alias to `ucon.using_conversion_graph`, renamed for symmetry with
+  `using_basis_graph`. Migration: replace `with using_graph(g):` with
+  `with using_conversion_graph(g):`. Scheduled for removal in v2.0.
 
-- **`ucon.units.have(name)`** now emits a `DeprecationWarning` and
-  delegates to `parse_unit()`. The legacy Python-variable-name
-  fallback path has been dropped; `have()` resolves only canonical
-  `Unit.name` and registered aliases. Scheduled for removal in v2.0.
+- **`ucon.dimension._DIM_MUL_CACHE` / `_DIM_DIV_CACHE` /
+  `_DIM_POW_CACHE`** are PEP-562 module-level aliases that emit a
+  `PendingDeprecationWarning` on read and return the live `mul` / `div` /
+  `pow` dict of the active `UnitSystem._algebra_cache`. Migration: read
+  via `ucon.system.active()._algebra_cache.{mul,div,pow}`. Scheduled for
+  removal in v2.0.
+
+- **`ucon.units.have(name)`** emits a `DeprecationWarning` and delegates
+  to `parse_unit()`. The legacy Python-variable-name fallback is dropped;
+  `have()` resolves only canonical `Unit.name` and registered aliases.
   Migration: call `parse_unit(name)` and catch `UnknownUnitError`.
+  Scheduled for removal in v2.0.
 
 ### Removed
 
-- **`ucon.units.pint_volume` / `ucon.units.point_typo`.** These two
-  pre-TOML Python-identifier aliases (carried since v0.x to avoid
-  variable-name collisions in the hand-built module) are removed. The
-  canonical units remain accessible as `units.pint` and `units.point`,
-  with TOML-registered aliases `pt` / `pints` and `pt_typo`
-  respectively. They were never registered in the resolver and were
-  reachable only as module attributes via `from ucon.units import
-  pint_volume` / `point_typo`. Migration: replace `units.pint_volume`
-  with `units.pint` and `units.point_typo` with `units.point`.
+- **`ucon.units.pint_volume` / `ucon.units.point_typo`.** Two pre-TOML
+  Python-identifier aliases (carried since v0.x to avoid variable-name
+  collisions in the hand-built module). The canonical units remain
+  accessible as `units.pint` and `units.point`, with TOML-registered
+  aliases `pt` / `pints` and `pt_typo`. They were never reachable through
+  the resolver. Migration: replace `units.pint_volume` with `units.pint`
+  and `units.point_typo` with `units.point`.
 
 ## [1.7.0] - 2026-05-09
 
