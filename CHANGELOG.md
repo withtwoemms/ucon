@@ -7,6 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Migration from v1.7 → v1.8
+
+v1.8 is API-additive for code that uses the documented public surface.
+Every change below is paired with a behaviour-preserving alias or
+fallback; no caller is required to change to upgrade. The notes below
+document the new spellings for callers who want to retire the
+deprecation warnings before v2.0.
+
+- **`UnitSystem` → `BaseUnits` (rename).** The v1.7 `UnitSystem` class
+  was a small `Mapping[Dimension, Unit]` value. It has been renamed
+  `BaseUnits` to free the name `UnitSystem` for the new richer value
+  type. `from ucon import UnitSystem` is retained as a PEP-562 alias
+  resolving to `BaseUnits` and emits a `PendingDeprecationWarning`.
+  Replace with `from ucon import BaseUnits` (or
+  `from ucon.system import BaseUnits`). The alias is scheduled for
+  removal in v2.0.
+
+- **New `UnitSystem` (frozen value type).** `ucon.system.UnitSystem`
+  owns `basis`, `units`, `dimensions`, `base_units`, `conversions`,
+  `basis_graph`, `contexts`, `constants`, and a per-instance
+  `AlgebraCache`. Construct directly, or via
+  `UnitSystem.from_globals()` to snapshot the current module state.
+  Activate with `with use(sys): ...`; query inside the block with
+  `ucon.system.active()`. Outside any `use(...)` block, behaviour is
+  byte-for-byte identical to v1.7.
+
+- **`system=` kwarg on the user-facing entry points.** Optional and
+  ignored when omitted. Accepted on:
+  - `Number.to(target, *, system=None, graph=None)`
+  - `ucon.parsing.units.parse(s, *, system=None)`
+  - `ucon.resolver.parse_unit(name, *, system=None)`
+  - `ucon.parsing.dimensions.parse_dimension(spec, basis=None, *, system=None)`
+  - `ucon.checking.enforce_dimensions(*, system=None)`
+    (factory form; bare `@enforce_dimensions` unchanged)
+  Resolution priority where multiple sources can supply a graph:
+  `graph= > system.basis_graph > active() > module default`.
+
+- **`ucon.basis.ops` module — explicit cross-basis arithmetic.**
+  `Vector.__mul__` and `Vector.__truediv__` now raise `BasisMismatch`
+  when operands live in different bases. The 1.6.6 implicit
+  consultation of the active `BasisGraph` has been moved to explicit
+  helpers in `ucon.basis.ops`:
+  - `unify(a, b, *, system=None, graph=None) -> tuple[Vector, Vector]`
+  - `multiply_via(a, b, *, system=None, graph=None) -> Vector`
+  - `divide_via(a, b, *, system=None, graph=None) -> Vector`
+  `Dimension.__mul__` / `__truediv__` route through `multiply_via` /
+  `divide_via` automatically, so dimension-level cross-basis algebra
+  continues to work at call sites that rely on the active graph.
+  Callers that performed cross-basis multiplication on raw `Vector`s
+  must switch to the explicit helper.
+
+- **`BasisMismatch(ValueError)`.** The bare
+  `ValueError("Cannot multiply dimensions from different bases: ...")`
+  raised by v1.6.x / v1.7.x is now `ucon.basis.types.BasisMismatch`
+  (re-exported from `ucon.basis`). It subclasses `ValueError`, so
+  `except ValueError` and `pytest.raises(ValueError, match=...)`
+  callsites continue to catch. The error-message format is unchanged.
+  New attributes: `left`, `right`, `op`.
+
+- **`using_graph` → `using_conversion_graph` (rename).**
+  `ucon.using_graph` is retained as a `PendingDeprecationWarning`
+  alias to `ucon.using_conversion_graph` for symmetry with
+  `using_basis_graph`. Replace `with using_graph(g):` with
+  `with using_conversion_graph(g):`. The alias is scheduled for
+  removal in v2.0.
+
+- **`_DIM_MUL_CACHE` / `_DIM_DIV_CACHE` / `_DIM_POW_CACHE` (internal).**
+  These module-level dicts in `ucon.dimension` are now PEP-562
+  read-aliases that emit a `PendingDeprecationWarning` and return the
+  live `mul` / `div` / `pow` sub-dicts of the active
+  `UnitSystem._algebra_cache`. Callers reaching into the caches
+  should switch to `ucon.system.active()._algebra_cache.{mul,div,pow}`.
+  Scheduled for removal in v2.0.
+
 ### Added
 
 - **Cross-basis arithmetic via the active `UnitSystem`.** Phase 3 wired
