@@ -152,6 +152,64 @@ class TestDimensionContextIntegration:
         assert pseudo.basis == SI
 
 
+class TestGetBasisGraphActiveSystemHook:
+    """Tests for the active-``UnitSystem`` lookup tier inside
+    :func:`get_basis_graph`. The tier sits between the context-local graph
+    (highest priority) and the module-level default (lowest), so a
+    ``with use(system):`` block routes through it without changing operator
+    signatures."""
+
+    def teardown_method(self) -> None:
+        reset_default_basis_graph()
+
+    def test_active_system_supplies_basis_graph(self) -> None:
+        """When a UnitSystem is active and no context-local graph is set,
+        get_basis_graph returns the system's basis_graph."""
+        import dataclasses
+
+        from ucon.system import UnitSystem, use
+
+        custom = BasisGraph()
+        system = dataclasses.replace(UnitSystem.from_globals(), basis_graph=custom)
+        with use(system):
+            assert get_basis_graph() is custom
+
+    def test_no_active_system_falls_through_to_default(self) -> None:
+        """When neither context-local graph nor active system is set, the
+        module-level default is returned. This exercises the
+        ``sys is None`` branch of the active-system tier."""
+        # No `use(...)` block, no `using_basis_graph(...)`: the function
+        # should fall through past the active-system tier to the default.
+        default_graph = get_basis_graph()
+        # A second call returns the same lazily-built default.
+        assert get_basis_graph() is default_graph
+
+    def test_active_system_import_failure_falls_through(self, monkeypatch) -> None:
+        """The active-system lookup is wrapped in ``try/except ImportError``
+        as defensive bootstrap code. If ``ucon.system`` cannot be imported
+        (or lacks ``_active``), ``get_basis_graph`` falls through to the
+        module-level default rather than raising."""
+        import sys as _sys
+
+        import ucon.system as _ucon_system
+
+        # Simulate the import failing by hiding the attribute. The
+        # ``from ucon.system import _active`` statement inside
+        # ``get_basis_graph`` will raise ImportError when _active is absent.
+        monkeypatch.delattr(_ucon_system, "_active", raising=True)
+        # Also evict any cached reference path that would let the import
+        # succeed from a parent package's __init__ re-export.
+        for name in list(_sys.modules):
+            if name.startswith("ucon.system") and name != "ucon.system":
+                # leave submodules alone — only the parent package's
+                # `_active` attribute matters for the from-import
+                pass
+
+        # Should fall through cleanly to the module default; no exception.
+        graph = get_basis_graph()
+        assert isinstance(graph, BasisGraph)
+
+
 class TestThreadSafety:
     """Tests verifying context isolation (conceptual, using same thread)."""
 
