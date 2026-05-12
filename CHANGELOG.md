@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-05-12
+
+API correction on the freshly-introduced `UnitSystem` value type.
+
+### Changed
+
+- **`UnitSystem.conversion_graph`** — the `conversions` field on the v1.8.0
+  `UnitSystem` value type is renamed to `conversion_graph` for symmetry
+  with the sibling `basis_graph` field. The old name remains accepted in
+  both directions during the v1.8.x window:
+
+  - `UnitSystem(conversions=...)` constructor kwarg continues to work and
+    emits `PendingDeprecationWarning`.
+  - `system.conversions` attribute access continues to return
+    `system.conversion_graph` and emits `PendingDeprecationWarning`.
+  - Passing both `conversion_graph=` and `conversions=` raises `TypeError`.
+
+  The alias is scheduled for removal in v2.0 alongside the other
+  `PendingDeprecationWarning` items listed in the v1.8 implementation
+  plan.
+
 ## [1.8.0] - 2026-05-12
 
 v1.8 introduces a frozen `UnitSystem` value type and routes the algebraic,
