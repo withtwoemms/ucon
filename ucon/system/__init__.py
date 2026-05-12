@@ -196,7 +196,7 @@ def _get_active_cache() -> 'AlgebraCache':
 class UnitSystem:
     """A complete unit system as a value type.
 
-    Owns the basis, the registries (units, dimensions, conversions,
+    Owns the basis, the registries (units, dimensions, conversion_graph,
     basis_graph, contexts, constants), the canonical ``base_units``
     mapping, and a per-instance :class:`AlgebraCache`.
 
@@ -214,7 +214,7 @@ class UnitSystem:
         Name registry of dimensions.
     base_units : BaseUnits
         Canonical base unit per covered dimension.
-    conversions : ConversionGraph
+    conversion_graph : ConversionGraph
         Graph of unit conversion morphisms.
     basis_graph : BasisGraph
         Graph of basis transforms.
@@ -240,7 +240,7 @@ class UnitSystem:
     units: Mapping[str, 'Unit']
     dimensions: Mapping[str, 'Dimension']
     base_units: BaseUnits
-    conversions: 'ConversionGraph'
+    conversion_graph: 'ConversionGraph'
     basis_graph: 'BasisGraph'
     contexts: Mapping[str, 'ConversionContext'] = field(default_factory=dict)
     constants: Mapping[str, 'Constant'] = field(default_factory=dict)
@@ -256,7 +256,7 @@ class UnitSystem:
             and self.base_units == other.base_units
             and self.units is other.units
             and self.dimensions is other.dimensions
-            and self.conversions is other.conversions
+            and self.conversion_graph is other.conversion_graph
             and self.basis_graph is other.basis_graph
             and self.contexts is other.contexts
             and self.constants is other.constants
@@ -268,7 +268,7 @@ class UnitSystem:
             self.base_units,
             id(self.units),
             id(self.dimensions),
-            id(self.conversions),
+            id(self.conversion_graph),
             id(self.basis_graph),
             id(self.contexts),
             id(self.constants),
@@ -307,7 +307,7 @@ class UnitSystem:
             units=get_units(),
             dimensions=_DIMENSION_ATTRS,
             base_units=base_units,
-            conversions=graph,
+            conversion_graph=graph,
             basis_graph=get_basis_graph(),
             contexts=getattr(graph, '_contexts', {}),
             constants=get_constants(),

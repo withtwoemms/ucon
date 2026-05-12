@@ -21,7 +21,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - **`ucon.system` subpackage** — new home for system-level value types.
   Exposes `BaseUnits` (the renamed v1.7 `UnitSystem`, a small named
   `Mapping[Dimension, Unit]`), `UnitSystem` (a frozen-dataclass value type
-  owning `basis`, `units`, `dimensions`, `base_units`, `conversions`,
+  owning `basis`, `units`, `dimensions`, `base_units`, `conversion_graph`,
   `basis_graph`, `contexts`, `constants`, and a per-instance
   `AlgebraCache`), `AlgebraCache`, plus the activation helpers
   `use(system)` (contextmanager) and `active()` (queries the active

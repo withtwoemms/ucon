@@ -1797,7 +1797,7 @@ class Number:
             via GUM quadrature.  Default ``False`` preserves backward
             compatibility — only measurement uncertainty is propagated.
         system : UnitSystem, optional
-            When provided, routes through ``system.conversions`` for graph
+            When provided, routes through ``system.conversion_graph`` for graph
             lookups and ``system.units`` for string-target parsing. Takes
             precedence over ``graph=`` when both are given.
 
@@ -1819,7 +1819,7 @@ class Number:
         """
         # system= wins over graph= when both are given.
         if system is not None:
-            graph = system.conversions
+            graph = system.conversion_graph
 
         # Resolve string targets via name/alias/prefix/expression lookup
         if isinstance(target, str):

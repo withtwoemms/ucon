@@ -64,7 +64,7 @@ class TestUnitSystemFromGlobals(unittest.TestCase):
         self.assertIsInstance(system.units, dict)
         self.assertIsInstance(system.dimensions, dict)
         self.assertIsInstance(system.base_units, BaseUnits)
-        self.assertIsNotNone(system.conversions)
+        self.assertIsNotNone(system.conversion_graph)
         self.assertIsNotNone(system.basis_graph)
         self.assertIsInstance(system.contexts, dict)
         self.assertIsInstance(system.constants, dict)
@@ -187,7 +187,7 @@ class TestFromGlobalsOverride(unittest.TestCase):
         overridden = UnitSystem.from_globals(base_units=custom)
         self.assertIs(overridden.units, baseline.units)
         self.assertIs(overridden.dimensions, baseline.dimensions)
-        self.assertIs(overridden.conversions, baseline.conversions)
+        self.assertIs(overridden.conversion_graph, baseline.conversion_graph)
         self.assertIs(overridden.basis_graph, baseline.basis_graph)
 
 
@@ -200,7 +200,7 @@ class TestUnitSystemDifferentialEquality(unittest.TestCase):
             "units": base.units,
             "dimensions": base.dimensions,
             "base_units": base.base_units,
-            "conversions": base.conversions,
+            "conversion_graph": base.conversion_graph,
             "basis_graph": base.basis_graph,
             "contexts": base.contexts,
             "constants": base.constants,
@@ -254,9 +254,9 @@ class TestUnitSystemDifferentialEquality(unittest.TestCase):
         twin = self._twin(s, constants=dict(s.constants))
         self.assertNotEqual(s, twin)
 
-    def test_conversions_field_uses_identity_not_value(self):
+    def test_conversion_graph_field_uses_identity_not_value(self):
         s = UnitSystem.from_globals()
-        twin = self._twin(s, conversions=object())
+        twin = self._twin(s, conversion_graph=object())
         self.assertNotEqual(s, twin)
 
     def test_basis_graph_field_uses_identity_not_value(self):
@@ -358,10 +358,10 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         self.assertAlmostEqual(result.quantity, 0.1)
 
     def test_number_to_system_wins_over_graph(self):
-        # When both system= and graph= are given, system.conversions
+        # When both system= and graph= are given, system.conversion_graph
         # takes precedence. We verify this by passing a "wrong" graph
         # via graph= and observing the conversion still succeeds via
-        # system.conversions.
+        # system.conversion_graph.
         from ucon.graph import ConversionGraph
         from ucon.units import meter
         bogus_graph = ConversionGraph()  # empty, would fail conversion
