@@ -210,6 +210,33 @@ class TestGetBasisGraphActiveSystemHook:
         assert isinstance(graph, BasisGraph)
 
 
+class TestRetirementWarnings:
+    """``set_default_basis_graph`` and ``reset_default_basis_graph`` emit
+    ``PendingDeprecationWarning`` in v1.8 because the module-level default
+    basis graph is being retired in favor of :class:`UnitSystem` ownership."""
+
+    def teardown_method(self) -> None:
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PendingDeprecationWarning)
+            reset_default_basis_graph()
+
+    def test_set_default_basis_graph_emits_pending_deprecation(self) -> None:
+        custom_graph = BasisGraph()
+        with pytest.warns(PendingDeprecationWarning, match="set_default_basis_graph"):
+            set_default_basis_graph(custom_graph)
+        # Behavior preserved: the mutation still takes effect.
+        assert get_basis_graph() is custom_graph
+
+    def test_reset_default_basis_graph_emits_pending_deprecation(self) -> None:
+        with pytest.warns(PendingDeprecationWarning, match="reset_default_basis_graph"):
+            reset_default_basis_graph()
+        # Behavior preserved: a subsequent get rebuilds the standard graph.
+        rebuilt = get_basis_graph()
+        assert rebuilt.are_connected(SI, CGS)
+
+
 class TestThreadSafety:
     """Tests verifying context isolation (conceptual, using same thread)."""
 

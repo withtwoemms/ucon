@@ -305,11 +305,26 @@ def get_basis_graph() -> BasisGraph:
 def set_default_basis_graph(graph: BasisGraph) -> None:
     """Replace the module-level default basis graph.
 
+    .. deprecated:: 1.8
+       The module-level default basis graph is being retired in favor of
+       :class:`~ucon.system.UnitSystem` ownership. Use
+       ``with use(active().with_basis_graph(graph)):`` instead. Scheduled
+       for removal in ucon 2.0.
+
     Parameters
     ----------
     graph : BasisGraph
         The new default basis graph.
     """
+    import warnings
+    warnings.warn(
+        "ucon.basis.set_default_basis_graph is deprecated; the module-level "
+        "default basis graph is being retired in favor of UnitSystem "
+        "ownership. Use 'with use(active().with_basis_graph(graph)): ...' "
+        "instead. Scheduled for removal in ucon 2.0.",
+        PendingDeprecationWarning,
+        stacklevel=2,
+    )
     global _default_basis_graph
     _default_basis_graph = graph
 
@@ -317,9 +332,24 @@ def set_default_basis_graph(graph: BasisGraph) -> None:
 def reset_default_basis_graph() -> None:
     """Reset to the standard basis graph on next access.
 
+    .. deprecated:: 1.8
+       The module-level default basis graph is being retired in favor of
+       :class:`~ucon.system.UnitSystem` ownership. Leave the ``with
+       use(...)`` block instead of resetting a global. Scheduled for
+       removal in ucon 2.0.
+
     The standard graph (with SI, CGS, CGS-ESU, and NATURAL transforms)
     is lazily rebuilt when :func:`get_basis_graph` is next called.
     """
+    import warnings
+    warnings.warn(
+        "ucon.basis.reset_default_basis_graph is deprecated; the module-level "
+        "default basis graph is being retired in favor of UnitSystem "
+        "ownership. Leave the 'with use(...)' block instead of resetting a "
+        "global. Scheduled for removal in ucon 2.0.",
+        PendingDeprecationWarning,
+        stacklevel=2,
+    )
     global _default_basis_graph
     _default_basis_graph = None
 
