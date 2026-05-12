@@ -30,3 +30,8 @@ For a curated overview with examples, see the [API Reference](../api.md).
 - **[ucon.basis.builtin](basis-builtin.md)** --- Standard bases (SI, CGS, CGS_ESU, NATURAL)
 - **[ucon.basis.transforms](basis-transforms.md)** --- BasisTransform, standard transforms
 - **[ucon.basis.graph](basis-graph.md)** --- BasisGraph, context scoping
+- **[ucon.basis.ops](basis-ops.md)** --- Explicit cross-basis arithmetic (unify, multiply_via, divide_via)
+
+## System
+
+- **[ucon.system](system.md)** --- UnitSystem value type, BaseUnits, AlgebraCache, use/active
