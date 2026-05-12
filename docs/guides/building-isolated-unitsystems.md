@@ -41,7 +41,7 @@ isolated = UnitSystem(
     units=default.units,
     dimensions=default.dimensions,
     base_units=default.base_units,
-    conversions=my_isolated_graph,   # the one field you actually want different
+    conversion_graph=my_isolated_graph,   # the one field you actually want different
     basis_graph=default.basis_graph,
     contexts={},
     constants=default.constants,
@@ -77,7 +77,7 @@ def isolated_system():
         units=parent.units,
         dimensions=parent.dimensions,
         base_units=parent.base_units,
-        conversions=ConversionGraph(),  # empty per-test graph
+        conversion_graph=ConversionGraph(),  # empty per-test graph
         basis_graph=parent.basis_graph,
         contexts={},
         constants=parent.constants,
@@ -175,7 +175,7 @@ aero_system = UnitSystem(
     units=parent.units,
     dimensions=parent.dimensions,
     base_units=parent.base_units,
-    conversions=aero_graph,
+    conversion_graph=aero_graph,
     basis_graph=parent.basis_graph,
     contexts=parent.contexts,
     constants=parent.constants,
@@ -272,7 +272,7 @@ v1.8 collapses that to one:
 # v1.8 — one UnitSystem
 my_system = UnitSystem(
     basis=my_basis,
-    conversions=my_graph,
+    conversion_graph=my_graph,
     contexts={"my_ctx": my_ctx},
     # other fields from parent snapshot
     ...

@@ -1,7 +1,7 @@
 # UnitSystem as a Value Type
 
 In v1.8, ucon introduced `UnitSystem` (`ucon.system.UnitSystem`) — a frozen
-dataclass that bundles a basis, the registries (units, dimensions, conversions,
+dataclass that bundles a basis, the registries (units, dimensions, conversion_graph,
 basis graph, contexts, constants), a canonical `BaseUnits` mapping, and a
 per-instance algebra cache.
 
@@ -15,15 +15,15 @@ v0.x.
 
 ```
 UnitSystem
-├── basis           : Basis                # dimensional coordinate system
-├── units           : Mapping[str, Unit]   # name → Unit registry
-├── dimensions      : Mapping[str, Dim]    # name → Dimension registry
-├── base_units      : BaseUnits            # canonical base unit per dimension
-├── conversions     : ConversionGraph      # Unit → Unit morphisms
-├── basis_graph     : BasisGraph           # Basis → Basis transforms
-├── contexts        : Mapping[str, Ctx]    # named cross-dimension contexts
-├── constants       : Mapping[str, Const]  # physical-constant registry
-└── _algebra_cache  : AlgebraCache         # per-instance dimension memoization
+├── basis            : Basis                # dimensional coordinate system
+├── units            : Mapping[str, Unit]   # name → Unit registry
+├── dimensions       : Mapping[str, Dim]    # name → Dimension registry
+├── base_units       : BaseUnits            # canonical base unit per dimension
+├── conversion_graph : ConversionGraph      # Unit → Unit morphisms
+├── basis_graph      : BasisGraph           # Basis → Basis transforms
+├── contexts         : Mapping[str, Ctx]    # named cross-dimension contexts
+├── constants        : Mapping[str, Const]  # physical-constant registry
+└── _algebra_cache   : AlgebraCache         # per-instance dimension memoization
 ```
 
 `BaseUnits` is a separate, smaller value type — just `(name, bases: dict)` —
@@ -94,15 +94,15 @@ Equality splits across that line:
 
 | Field           | Comparison    | Why                                          |
 |-----------------|---------------|----------------------------------------------|
-| `basis`         | by value      | `Basis` is a frozen value type               |
-| `base_units`    | by value      | `BaseUnits` is a frozen value type           |
-| `units`         | by identity   | dict; comparing by value would be O(n)       |
-| `dimensions`    | by identity   | dict                                         |
-| `conversions`   | by identity   | graph; structural equality is too expensive  |
-| `basis_graph`   | by identity   | graph                                        |
-| `contexts`      | by identity   | dict                                         |
-| `constants`     | by identity   | dict                                         |
-| `_algebra_cache`| excluded      | per-instance memoization, not part of value  |
+| `basis`            | by value    | `Basis` is a frozen value type               |
+| `base_units`       | by value    | `BaseUnits` is a frozen value type           |
+| `units`            | by identity | dict; comparing by value would be O(n)       |
+| `dimensions`       | by identity | dict                                         |
+| `conversion_graph` | by identity | graph; structural equality is too expensive  |
+| `basis_graph`      | by identity | graph                                        |
+| `contexts`         | by identity | dict                                         |
+| `constants`        | by identity | dict                                         |
+| `_algebra_cache`   | excluded    | per-instance memoization, not part of value  |
 
 Two snapshots produced by `UnitSystem.from_globals()` back-to-back are equal:
 the basis and base units compare by value, and the registries are passed
@@ -110,7 +110,7 @@ through by reference (the snapshot does not copy them).
 
 Modifying the global registries between snapshots breaks that — by design.
 Mutation of a shared world should change identity of every snapshot pointing at
-it, and identity-equality on `units`/`dimensions`/`conversions` captures
+it, and identity-equality on `units`/`dimensions`/`conversion_graph` captures
 exactly that.
 
 ---
@@ -190,7 +190,7 @@ test_system = UnitSystem(
     units=parent.units,
     dimensions=parent.dimensions,
     base_units=parent.base_units,
-    conversions=isolated_graph,           # different graph
+    conversion_graph=isolated_graph,      # different graph
     basis_graph=parent.basis_graph,
     contexts={},
     constants=parent.constants,
