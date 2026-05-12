@@ -332,18 +332,18 @@ with using_basis_graph(custom_graph):
     get_basis_graph() is custom_graph  # True
 ```
 
-### Relationship to `using_graph()`
+### Relationship to `using_conversion_graph()`
 
 | Context Manager | Scope | Affects |
 |-----------------|-------|---------|
-| `using_graph()` | ConversionGraph | Unit conversions, name resolution |
+| `using_conversion_graph()` | ConversionGraph | Unit conversions, name resolution |
 | `using_basis()` | Default Basis | Dimension creation defaults |
 | `using_basis_graph()` | BasisGraph | Cross-basis validation |
 
 These are independent — you can combine them as needed:
 
 ```python
-with using_graph(aerospace_graph):
+with using_conversion_graph(aerospace_graph):
     with using_basis(CGS):
         # Aerospace units, CGS dimensions
         pass

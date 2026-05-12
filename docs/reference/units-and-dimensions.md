@@ -387,8 +387,8 @@ from ucon import units
 graph.add_edge(slug, units.kilogram, LinearMap(14.5939))
 
 # Now conversions work
-from ucon.graph import using_graph
-with using_graph(graph):
+from ucon.graph import using_conversion_graph
+with using_conversion_graph(graph):
     mass = slug(1).to(units.kilogram)  # <14.5939 kg>
 ```
 

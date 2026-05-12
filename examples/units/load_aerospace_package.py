@@ -63,9 +63,9 @@ def load_and_demonstrate(toml_path: str | Path):
     # -------------------------------------------------------------------------
     # Demonstrate conversions
     # -------------------------------------------------------------------------
-    from ucon.graph import using_graph
+    from ucon.graph import using_conversion_graph
 
-    with using_graph(graph):
+    with using_conversion_graph(graph):
         from ucon import get_unit_by_name
 
         # Resolve package units

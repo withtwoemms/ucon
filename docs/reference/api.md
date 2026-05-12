@@ -561,9 +561,9 @@ graph.list_transforms()  # [SI_TO_CGS_ESU, ...]
 ### Context Manager
 
 ```python
-from ucon.graph import using_graph
+from ucon.graph import using_conversion_graph
 
-with using_graph(my_graph):
+with using_conversion_graph(my_graph):
     # Unit parsing uses my_graph for resolution
     value = convert(1, "custom_unit", "kg")
 ```

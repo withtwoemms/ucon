@@ -47,13 +47,13 @@ graph.add_edge(slug, kilogram, LinearMap(14.5939))
 
 ### Context Manager
 
-Use `using_graph` to temporarily set the active graph:
+Use `using_conversion_graph` to temporarily set the active graph:
 
 ```python
 from ucon.core import Scale
-from ucon.graph import using_graph
+from ucon.graph import using_conversion_graph
 
-with using_graph(graph):
+with using_conversion_graph(graph):
     kilogram = Scale.kilo * units.gram
     result = slug(1).to(kilogram)
     print(result)  # <14.5939 kg>
@@ -174,7 +174,7 @@ Verify your custom units work correctly:
 def test_slug_conversion():
     graph = build_aerospace_graph()
 
-    with using_graph(graph):
+    with using_conversion_graph(graph):
         # Forward conversion
         mass_kg = slug(1).to(kilogram)
         assert abs(mass_kg.quantity - 14.5939) < 0.001
