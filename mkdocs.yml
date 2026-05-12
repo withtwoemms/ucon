@@ -54,6 +54,7 @@ nav:
     - Config Safety: guides/dimensional-safety-config.md
     - Dimensional Analysis: guides/dimensional-analysis.md
     - Custom Units & Graphs: guides/custom-units-and-graphs.md
+    - Isolated UnitSystems: guides/building-isolated-unitsystems.md
     - Conversion Contexts: guides/conversion-contexts.md
     - Natural Units: guides/natural-units.md
     - MCP Server:
@@ -67,6 +68,7 @@ nav:
       - Aerospace: guides/domain-walkthroughs/aerospace.md
       - Finance: guides/domain-walkthroughs/finance.md
       - Electrical Engineering: guides/domain-walkthroughs/electrical-engineering.md
+      - Particle Physics: guides/domain-walkthroughs/particle-physics.md
     - Domain-Specific Bases:
       - guides/domain-bases/index.md
       - Radiation Dosimetry: guides/domain-bases/radiation-dosimetry.md
@@ -114,6 +116,7 @@ nav:
     - Kind-of-Quantity Problem: architecture/kind-of-quantity.md
     - ConversionGraph: architecture/conversion-graph.md
     - Dual-Graph Architecture: architecture/dual-graph-architecture.md
+    - UnitSystem Value Type: architecture/unitsystem-value-type.md
     - Suggestions & Recovery: architecture/suggestions-and-recovery.md
     - Comparison with Pint: architecture/comparison-with-pint.md
 
