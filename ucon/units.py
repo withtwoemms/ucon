@@ -84,7 +84,7 @@ for _u in _units.values():
 
 
 # ---------------------------------------------------------------------------
-# Predefined Unit Systems
+# Predefined BaseUnits (dimension → base unit mappings)
 # ---------------------------------------------------------------------------
 
 si = BaseUnits(
