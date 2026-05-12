@@ -35,6 +35,7 @@ value type is reachable only via ``from ucon.system import UnitSystem``.
 
 from __future__ import annotations
 
+import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -196,7 +197,7 @@ def _get_active_cache() -> 'AlgebraCache':
 class UnitSystem:
     """A complete unit system as a value type.
 
-    Owns the basis, the registries (units, dimensions, conversions,
+    Owns the basis, the registries (units, dimensions, conversion_graph,
     basis_graph, contexts, constants), the canonical ``base_units``
     mapping, and a per-instance :class:`AlgebraCache`.
 
@@ -214,7 +215,7 @@ class UnitSystem:
         Name registry of dimensions.
     base_units : BaseUnits
         Canonical base unit per covered dimension.
-    conversions : ConversionGraph
+    conversion_graph : ConversionGraph
         Graph of unit conversion morphisms.
     basis_graph : BasisGraph
         Graph of basis transforms.
@@ -240,7 +241,7 @@ class UnitSystem:
     units: Mapping[str, 'Unit']
     dimensions: Mapping[str, 'Dimension']
     base_units: BaseUnits
-    conversions: 'ConversionGraph'
+    conversion_graph: 'ConversionGraph'
     basis_graph: 'BasisGraph'
     contexts: Mapping[str, 'ConversionContext'] = field(default_factory=dict)
     constants: Mapping[str, 'Constant'] = field(default_factory=dict)
@@ -256,7 +257,7 @@ class UnitSystem:
             and self.base_units == other.base_units
             and self.units is other.units
             and self.dimensions is other.dimensions
-            and self.conversions is other.conversions
+            and self.conversion_graph is other.conversion_graph
             and self.basis_graph is other.basis_graph
             and self.contexts is other.contexts
             and self.constants is other.constants
@@ -268,11 +269,28 @@ class UnitSystem:
             self.base_units,
             id(self.units),
             id(self.dimensions),
-            id(self.conversions),
+            id(self.conversion_graph),
             id(self.basis_graph),
             id(self.contexts),
             id(self.constants),
         ))
+
+    @property
+    def conversions(self) -> 'ConversionGraph':
+        """Deprecated alias for :attr:`conversion_graph`.
+
+        Returns ``self.conversion_graph`` and emits
+        ``PendingDeprecationWarning``. The field was renamed in v1.8.1 for
+        symmetry with ``basis_graph``; the alias is scheduled for removal
+        in v2.0.
+        """
+        warnings.warn(
+            "UnitSystem.conversions is a deprecated alias for "
+            "UnitSystem.conversion_graph; it will be removed in ucon v2.0.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+        return self.conversion_graph
 
     @classmethod
     def from_globals(cls, *, base_units: BaseUnits | None = None) -> 'UnitSystem':
@@ -307,11 +325,45 @@ class UnitSystem:
             units=get_units(),
             dimensions=_DIMENSION_ATTRS,
             base_units=base_units,
-            conversions=graph,
+            conversion_graph=graph,
             basis_graph=get_basis_graph(),
             contexts=getattr(graph, '_contexts', {}),
             constants=get_constants(),
         )
+
+
+# -----------------------------------------------------------------------------
+# Deprecated kwarg alias: conversions= -> conversion_graph=
+#
+# The field was named ``conversions`` in v1.8.0 and renamed to
+# ``conversion_graph`` in v1.8.1 for symmetry with ``basis_graph``. The
+# alias accepts the old kwarg with a ``PendingDeprecationWarning`` and is
+# scheduled for removal in v2.0 alongside the matching property shim.
+# -----------------------------------------------------------------------------
+
+
+_unitsystem_dataclass_init = UnitSystem.__init__
+
+
+def _unitsystem_init_with_conversions_alias(self, *args, **kwargs):
+    if 'conversions' in kwargs:
+        if 'conversion_graph' in kwargs:
+            raise TypeError(
+                "UnitSystem() got both 'conversion_graph' and the deprecated "
+                "alias 'conversions'; pass only 'conversion_graph'"
+            )
+        warnings.warn(
+            "UnitSystem(conversions=...) is a deprecated alias for "
+            "UnitSystem(conversion_graph=...); it will be removed in ucon v2.0.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+        kwargs['conversion_graph'] = kwargs.pop('conversions')
+    _unitsystem_dataclass_init(self, *args, **kwargs)
+
+
+_unitsystem_init_with_conversions_alias.__doc__ = _unitsystem_dataclass_init.__doc__
+UnitSystem.__init__ = _unitsystem_init_with_conversions_alias
 
 
 # -----------------------------------------------------------------------------

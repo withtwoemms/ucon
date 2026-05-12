@@ -59,7 +59,7 @@ Both problems are forms of *ambient state in the arithmetic path*. Eliminating o
 
 - Today's `UnitSystem` is renamed `BaseUnits` (a mapping from dimension to chosen base unit).
 - A new `UnitSystem` is introduced as a frozen value owning:
-  - `units`, `dimensions`, `conversions` (formerly `_REGISTRY`, `_DIMENSION_ATTRS`, the default `ConversionGraph`),
+  - `units`, `dimensions`, `conversion_graph` (formerly `_REGISTRY`, `_DIMENSION_ATTRS`, the default `ConversionGraph`),
   - `basis`, `basis_graph`, `base_units`,
   - per-instance algebra caches (replacing the module-level `_DIM_*_CACHE`).
 - Operations on `UnitSystem` are pure functions returning new systems: `extend`, `restrict`, `overlay`, `merge`.

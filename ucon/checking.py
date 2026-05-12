@@ -80,7 +80,7 @@ def _coerce_to_si(value: Number, *, system: "UnitSystem | None" = None) -> Numbe
 
     Returns *value* unchanged when coercion is not possible.
 
-    When ``system`` is provided, ``system.conversions`` is used as the
+    When ``system`` is provided, ``system.conversion_graph`` is used as the
     fallback conversion graph in step 2.
     """
     unit = value.unit
@@ -129,10 +129,10 @@ def _coerce_via_graph(value: Number, *, system: "UnitSystem | None" = None) -> N
     Finds an SI-basis unit with the matching dimension and converts to it.
     Returns *value* unchanged if no SI target is found.
 
-    When ``system`` is provided, ``system.conversions`` replaces the
+    When ``system`` is provided, ``system.conversion_graph`` replaces the
     module-level default graph.
     """
-    graph = system.conversions if system is not None else get_default_graph()
+    graph = system.conversion_graph if system is not None else get_default_graph()
     unit = value.unit
 
     # Determine the SI dimension by transforming through the basis graph
@@ -203,7 +203,7 @@ def enforce_dimensions(fn=None, *, system: "UnitSystem | None" = None):
         The function to wrap. When ``None``, returns a decorator factory
         (this is how the ``system=`` keyword form is supported).
     system : UnitSystem, optional
-        When supplied, ``system.conversions`` and ``system.basis_graph``
+        When supplied, ``system.conversion_graph`` and ``system.basis_graph``
         replace the module-level default graphs used for cross-basis
         compatibility checks and SI coercion.
 

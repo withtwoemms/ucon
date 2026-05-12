@@ -1370,7 +1370,7 @@ Entry points that accept `system=` resolve their basis-graph and conversion-grap
 
 ```
 explicit kwarg (graph=, basis_graph=, …)
-    > system.basis_graph / system.conversions
+    > system.basis_graph / system.conversion_graph
     > active() snapshot
     > module-level default
 ```
