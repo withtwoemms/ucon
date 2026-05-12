@@ -282,6 +282,24 @@ deprecation warnings before v2.0.
   cache via `ucon.system.active()._algebra_cache.mul` (or `.div` /
   `.pow`).
 
+- **`ucon.units.have(name)`** now emits a `DeprecationWarning` and
+  delegates to `parse_unit()`. The legacy Python-variable-name
+  fallback path has been dropped; `have()` resolves only canonical
+  `Unit.name` and registered aliases. Scheduled for removal in v2.0.
+  Migration: call `parse_unit(name)` and catch `UnknownUnitError`.
+
+### Removed
+
+- **`ucon.units.pint_volume` / `ucon.units.point_typo`.** These two
+  pre-TOML Python-identifier aliases (carried since v0.x to avoid
+  variable-name collisions in the hand-built module) are removed. The
+  canonical units remain accessible as `units.pint` and `units.point`,
+  with TOML-registered aliases `pt` / `pints` and `pt_typo`
+  respectively. They were never registered in the resolver and were
+  reachable only as module attributes via `from ucon.units import
+  pint_volume` / `point_typo`. Migration: replace `units.pint_volume`
+  with `units.pint` and `units.point_typo` with `units.point`.
+
 ## [1.7.0] - 2026-05-09
 
 ### Changed
