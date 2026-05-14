@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-05-14
+
+Adds a thin convenience for constructing the canonical "append-only" basis
+embedding so callers that extend a parent basis with additional components
+(e.g. `SI` extended with a `currency` slot) can register the lift in the
+active `BasisGraph` and have `unify` succeed across the two bases.
+
+### Added
+
+- **`BasisTransform.append_components_embedding(parent, extended)`** —
+  classmethod that returns the zero-pad embedding `parent -> extended`.
+  Each parent component is routed by name to the same-named slot in
+  `extended`; components present only in `extended` receive a zero
+  column. The reverse projection is available via the resulting
+  transform's `.embedding()` and raises `LossyProjection` if a non-zero
+  added component is asked to drop — the correct behavior for
+  unification.
+
+  This is the canonical primitive for an append-only basis extension:
+  with the forward transform registered in the active
+  `BasisGraph`, `ucon.basis.ops.unify` (and therefore the algebraic
+  path through `multiply_via` / `divide_via`) lifts parent-basis
+  vectors into the extended basis when composing with extended units.
+
+  Example:
+  ```python
+  from ucon.basis import Basis, BasisComponent, BasisTransform
+  from ucon.basis.builtin import SI
+  from ucon.basis.graph import get_basis_graph
+
+  fin = Basis("fin", list(SI) + [BasisComponent("currency", "C")])
+  forward = BasisTransform.append_components_embedding(SI, fin)
+
+  graph = get_basis_graph()
+  graph.add_transform(forward)
+  graph.add_transform(forward.embedding())  # reverse projection
+  ```
+
+### Fixed
+
+- **#247 — cross-basis arithmetic with append-extended bases.** Provides
+  the missing primitive so downstream callers (notably the ucon-tools
+  MCP `extend_basis` tool) can register a parent ↔ extended transform
+  pair at basis-creation time. Without an edge in the basis graph,
+  `unify` raises `BasisMismatch` when composing a parent-basis vector
+  (e.g. `s` on SI) with an extended-basis vector (e.g. `USD` on a
+  financial basis); ucon's algebraic surface had no built-in helper for
+  the trivial zero-pad case, forcing callers to hand-roll the matrix.
+  Registration remains the caller's responsibility — `Basis` and
+  `BasisTransform` continue to be value types — but the matrix
+  construction is now a one-liner.
+
 ## [1.8.1] - 2026-05-12
 
 API correction on the freshly-introduced `UnitSystem` value type.
