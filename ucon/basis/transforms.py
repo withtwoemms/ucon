@@ -342,6 +342,75 @@ class BasisTransform:
         )
         return cls(basis, basis, matrix)
 
+    @classmethod
+    def append_components_embedding(
+        cls,
+        parent: Basis,
+        extended: Basis,
+    ) -> "BasisTransform":
+        """Return the zero-pad embedding ``parent -> extended``.
+
+        Builds a clean ``parent -> extended`` embedding where each parent
+        component maps 1-to-1 to the same-named component in ``extended``,
+        and components present only in ``extended`` are zero-padded (i.e.,
+        a parent vector lifts into ``extended`` with zeros on the added
+        slots).
+
+        This is the canonical transform for an "append-only" basis
+        extension (e.g., ``SI`` extended with a ``currency`` component to
+        form a financial basis). With this transform registered in the
+        active :class:`~ucon.basis.graph.BasisGraph`,
+        :func:`~ucon.basis.ops.unify` succeeds when composing parent-basis
+        vectors with extended-basis vectors.
+
+        The reverse projection (``extended -> parent``) is derived via
+        :meth:`embedding`; it drops the added components and raises
+        :class:`~ucon.basis.types.LossyProjection` if any of them is
+        non-zero, which is the correct behavior for unification.
+
+        Args:
+            parent: The smaller basis (e.g., ``SI``).
+            extended: The larger basis that contains every component of
+                ``parent`` (matched by name) plus optionally additional
+                components.
+
+        Returns:
+            A ``BasisTransform`` from ``parent`` to ``extended``.
+
+        Raises:
+            ValueError: If any parent component is not present (by name)
+                in ``extended``.
+
+        Examples:
+            >>> from ucon.basis.builtin import SI
+            >>> from ucon.basis import Basis, BasisComponent
+            >>> fin = Basis("fin", list(SI) + [BasisComponent("currency", "C")])
+            >>> embedding = BasisTransform.append_components_embedding(SI, fin)
+            >>> embedding.source.name, embedding.target.name
+            ('SI', 'fin')
+        """
+        n_parent = len(parent)
+        n_extended = len(extended)
+
+        rows: list[tuple[Fraction, ...]] = []
+        for i in range(n_parent):
+            parent_comp = parent[i]
+            try:
+                j = extended.index(parent_comp.name)
+            except KeyError as exc:
+                raise ValueError(
+                    f"Cannot build embedding {parent.name!r} -> "
+                    f"{extended.name!r}: parent component "
+                    f"{parent_comp.name!r} is not present in target basis"
+                ) from exc
+            row = tuple(
+                Fraction(1) if k == j else Fraction(0)
+                for k in range(n_extended)
+            )
+            rows.append(row)
+
+        return cls(parent, extended, tuple(rows))
+
     def is_identity(self) -> bool:
         """Check if this transform is the identity.
 
