@@ -800,6 +800,111 @@ class TestBasisTransform:
         with pytest.raises(ValueError, match="not a clean projection"):
             complex_transform.embedding()
 
+    # ---- append_components_embedding -------------------------------------
+
+    def test_append_components_embedding_zero_pads_added_slots(self):
+        """GIVEN a parent and an append-extended basis, THEN the embedding
+        maps each parent component to its same-named target slot and emits
+        zeros on the added components."""
+        parent = Basis("P", [
+            BasisComponent("length", "L"),
+            BasisComponent("mass", "M"),
+            BasisComponent("time", "T"),
+        ])
+        extended = Basis("P+", list(parent) + [
+            BasisComponent("currency", "$"),
+        ])
+
+        embedding = BasisTransform.append_components_embedding(parent, extended)
+
+        assert embedding.source == parent
+        assert embedding.target == extended
+        assert embedding.matrix == (
+            (Fraction(1), Fraction(0), Fraction(0), Fraction(0)),
+            (Fraction(0), Fraction(1), Fraction(0), Fraction(0)),
+            (Fraction(0), Fraction(0), Fraction(1), Fraction(0)),
+        )
+
+    def test_append_components_embedding_lifts_vectors(self):
+        """GIVEN a parent vector, THEN the embedding lifts it into the
+        extended basis with zeros on the added components."""
+        parent = Basis("P", [
+            BasisComponent("length", "L"),
+            BasisComponent("time", "T"),
+        ])
+        extended = Basis("P+", list(parent) + [
+            BasisComponent("currency", "$"),
+        ])
+
+        embedding = BasisTransform.append_components_embedding(parent, extended)
+        velocity = Vector(parent, (Fraction(1), Fraction(-1)))
+
+        lifted = embedding(velocity)
+
+        assert lifted.basis == extended
+        assert lifted["length"] == Fraction(1)
+        assert lifted["time"] == Fraction(-1)
+        assert lifted["currency"] == Fraction(0)
+
+    def test_append_components_embedding_resolves_components_by_name(self):
+        """GIVEN extended reorders or interleaves components, THEN the
+        embedding still routes by name."""
+        parent = Basis("P", [
+            BasisComponent("length", "L"),
+            BasisComponent("time", "T"),
+        ])
+        # Add 'currency' between length and time
+        extended = Basis("P+", [
+            BasisComponent("length", "L"),
+            BasisComponent("currency", "$"),
+            BasisComponent("time", "T"),
+        ])
+
+        embedding = BasisTransform.append_components_embedding(parent, extended)
+
+        assert embedding.matrix == (
+            (Fraction(1), Fraction(0), Fraction(0)),  # length -> column 0
+            (Fraction(0), Fraction(0), Fraction(1)),  # time   -> column 2
+        )
+
+    def test_append_components_embedding_round_trip_via_embedding(self):
+        """GIVEN the forward zero-pad embedding, THEN ``.embedding()``
+        produces the canonical reverse projection that drops added
+        components."""
+        parent = Basis("P", [
+            BasisComponent("length", "L"),
+            BasisComponent("time", "T"),
+        ])
+        extended = Basis("P+", list(parent) + [
+            BasisComponent("currency", "$"),
+        ])
+
+        forward = BasisTransform.append_components_embedding(parent, extended)
+        reverse = forward.embedding()
+
+        assert reverse.source == extended
+        assert reverse.target == parent
+
+        # Round-trip a pure-parent vector through extended and back.
+        v = Vector(parent, (Fraction(2), Fraction(-1)))
+        assert reverse(forward(v)) == v
+
+    def test_append_components_embedding_missing_parent_component_raises(self):
+        """GIVEN extended is missing a parent component, THEN building the
+        embedding raises ``ValueError``."""
+        parent = Basis("P", [
+            BasisComponent("length", "L"),
+            BasisComponent("time", "T"),
+        ])
+        # 'time' is intentionally absent.
+        extended = Basis("P+", [
+            BasisComponent("length", "L"),
+            BasisComponent("currency", "$"),
+        ])
+
+        with pytest.raises(ValueError, match="not present in target basis"):
+            BasisTransform.append_components_embedding(parent, extended)
+
     def test_composition(self, si_basis, cgs_basis):
         """GIVEN two transforms, THEN composition via @ works."""
         # SI -> CGS (identity on L, M, T; drop I)
