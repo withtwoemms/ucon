@@ -1837,10 +1837,67 @@ factors = [
 [[units]]
 name = "each"
 dimension = "count"
+scalable = false
 aliases = [
     "ea",
     "item",
     "ct",
+]
+
+# Computing-event family ----------------------------------------------------
+# Discrete countable events used in performance characterization. All are
+# scalable so SI prefixes (kilo/mega/giga/tera/peta/exa) and the IEC binary
+# prefixes attach naturally (e.g., Pflop, Gop, Mrequest). Their base form
+# is the unit count, so they share the ``count`` dimension with ``each``.
+
+[[units]]
+name = "flop"
+dimension = "count"
+aliases = [
+    "FLOP",
+    "flops",
+    "FLOPs",
+]
+
+[[units]]
+name = "op"
+dimension = "count"
+aliases = [
+    "OP",
+    "operation",
+    "operations",
+]
+
+[[units]]
+name = "instruction"
+dimension = "count"
+aliases = [
+    "instr",
+    "instructions",
+]
+
+[[units]]
+name = "cycle"
+dimension = "count"
+aliases = [
+    "cyc",
+    "cycles",
+]
+
+[[units]]
+name = "request"
+dimension = "count"
+aliases = [
+    "req",
+    "requests",
+]
+
+[[units]]
+name = "event"
+dimension = "count"
+aliases = [
+    "evt",
+    "events",
 ]
 
 [[units]]
@@ -1902,6 +1959,7 @@ factors = [
 [[units]]
 name = "decibel"
 dimension = "ratio"
+scalable = false
 aliases = [
     "dB",
 ]
@@ -1909,6 +1967,7 @@ aliases = [
 [[units]]
 name = "decibel_spl"
 dimension = "pressure"
+scalable = false
 aliases = [
     "dBSPL",
     "dB_SPL",
@@ -1917,6 +1976,7 @@ aliases = [
 [[units]]
 name = "decibel_volt"
 dimension = "voltage"
+scalable = false
 aliases = [
     "dBV",
 ]

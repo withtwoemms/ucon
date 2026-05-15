@@ -146,6 +146,7 @@ class UnitDef:
     dimension: str
     aliases: tuple[str, ...] = ()
     shorthand: str | None = None
+    scalable: bool = True
 
     def materialize(self) -> Unit:
         """Convert to a Unit object.
@@ -175,6 +176,7 @@ class UnitDef:
             name=self.name,
             dimension=dim,
             aliases=aliases,
+            scalable=self.scalable,
         )
 
 
@@ -515,6 +517,7 @@ def load_package(path: str | Path) -> UnitPackage:
             dimension=u["dimension"],
             aliases=tuple(u.get("aliases", ())),
             shorthand=u.get("shorthand"),
+            scalable=bool(u.get("scalable", True)),
         )
         for u in data.get("units", [])
     )

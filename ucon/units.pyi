@@ -83,6 +83,7 @@ cubic_inch: Unit
 cubic_yard: Unit
 cup: Unit
 curie: Unit
+cycle: Unit
 dalton: Unit
 day: Unit
 debye: Unit
@@ -101,9 +102,11 @@ electron_mass: Unit
 electron_volt: Unit
 enzyme_unit: Unit
 erg: Unit
+event: Unit
 fahrenheit: Unit
 farad: Unit
 fathom: Unit
+flop: Unit
 fluid_ounce: Unit
 foot: Unit
 foot_candle: Unit
@@ -137,6 +140,7 @@ imperial_quart: Unit
 inch: Unit
 inch_mercury: Unit
 inch_water: Unit
+instruction: Unit
 international_ampere: Unit
 international_ohm: Unit
 international_volt: Unit
@@ -183,6 +187,7 @@ nines: Unit
 nit: Unit
 oersted: Unit
 ohm: Unit
+op: Unit
 ounce: Unit
 ounce_force: Unit
 pH: Unit
@@ -217,6 +222,7 @@ reaumur: Unit
 reciprocal_meter: Unit
 refrigeration_ton: Unit
 rem: Unit
+request: Unit
 reyn: Unit
 rod: Unit
 roentgen: Unit
