@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-05-15
+
+Lifts unit prefix-scalability from consumer-side policy into a first-class
+`Unit` property, with resolver enforcement, TOML round-trip, a dedicated
+`NonScalableError` diagnostic, and a computing-event vocabulary in the
+catalog.
+
+Prior to this release, every consumer that wanted to reject nonsensical
+prefix decompositions (e.g. `meach` for "milli-each", `kdB` for "kilo-decibel")
+had to maintain its own allowlist of scalable units. The ucon-tools MCP
+server in particular hardcoded `SCALABLE_UNITS = {"meter", "gram", ...}`
+and tagged every other unit as non-scalable by fiat, which both duplicated
+catalog knowledge and made it impossible for callers to define new
+scalable units via `define_unit`. With `Unit.scalable` as a first-class
+field on the catalog entry, the policy lives where the data lives.
+
+### Added
+
+- **`Unit.scalable: bool = True`** — new field on the `Unit` frozen
+  dataclass that marks whether the unit accepts SI/binary prefix
+  decomposition. The field defaults to `True` so existing catalog entries
+  and user-defined units continue to work unchanged. It is declared with
+  `compare=False, hash=False` so it does not participate in unit
+  identity: two `Unit` instances with the same `name`, `dimension`,
+  `aliases`, and `base_form` remain equal regardless of the scalability
+  flag. This preserves the established invariant that two catalogs with
+  the same vocabulary describe the same algebra.
+
+  Example:
+  ```python
+  from ucon import Unit, Dimension
+
+  each = Unit("each", Dimension.none, scalable=False)
+  meter = Unit("meter", Dimension.length)  # scalable=True by default
+  ```
+
+- **`NonScalableError`** — new exception (subclass of `UnknownUnitError`)
+  raised by the prefix-decomposition resolver when a prefix is applied
+  to a base unit that has opted out of scalability. The exception carries
+  `.attempted` (the failing token, e.g. `"meach"`), `.base` (the
+  resolved base `Unit`, e.g. `each`), and `.prefix` (the parsed prefix
+  descriptor) so callers can format domain-specific diagnostics instead
+  of the generic "unknown unit" message.
+
+  Because `NonScalableError` is a subclass of `UnknownUnitError`,
+  existing `except UnknownUnitError:` handlers continue to catch the
+  new exception — code that does not care about the distinction is
+  unaffected.
+
+- **TOML round-trip for `scalable`.** `_serialize_unit()` emits
+  `scalable = false` only when the field diverges from its default
+  (`True`), keeping catalog TOML compact and preserving backward
+  compatibility with packages produced before the field existed.
+  `from_toml` reads `scalable = bool(unit_spec.get("scalable", True))`
+  so packages serialized by earlier ucon versions load cleanly. The
+  field is also plumbed through `UnitDef.scalable` and `materialize()`
+  for the package layer.
+
+- **Computing-event family in `comprehensive.ucon.toml`** — six new
+  units under the `count` dimension: `flop`, `op`, `instruction`,
+  `cycle`, `request`, `event`. All are scalable by default, so common
+  HPC and observability vocabulary (`Gflop`, `Mop`, `kreq`, `Mevent`)
+  parses out of the box. Future sortal-lattice support on `Number`
+  will be the venue for distinguishing these kinds; for now they live
+  alongside `each` under `count` and are dimensionally
+  interchangeable.
+
+### Changed
+
+- **Prefix-decomposition resolver guards on `Unit.scalable`.** When the
+  resolver finds a candidate base for an unknown token via prefix
+  decomposition, it now checks `base.scalable` before accepting the
+  match. If the base is non-scalable, the resolver raises
+  `NonScalableError` instead of returning a `(prefix, base)` pair.
+  Shorter-prefix scalable bases continue to win over longer-prefix
+  non-scalable bases on the same token, so disambiguation is
+  deterministic.
+
+- **Catalog opt-outs in `comprehensive.ucon.toml`.** The following units
+  are marked `scalable = false`, since prefix decomposition of them
+  produces nonsensical reads:
+
+  - `each` — a counting marker, not a prefixable quantity.
+  - `decibel`, `decibel_spl`, `decibel_volt` — logarithmic units whose
+    SI prefix on the *outer* symbol would mean "prefix of the logarithm"
+    rather than "prefix of the underlying ratio".
+
+  This is a behaviour change for any caller that was relying on
+  `meach`, `kdB`, etc. parsing successfully; such tokens now raise
+  `NonScalableError`. The failure mode is intentional — the previous
+  parse was almost certainly a typo or a model hallucination.
+
 ## [1.8.2] - 2026-05-14
 
 Adds a thin convenience for constructing the canonical "append-only" basis
