@@ -1837,6 +1837,7 @@ factors = [
 [[units]]
 name = "each"
 dimension = "count"
+scalable = false
 aliases = [
     "ea",
     "item",
@@ -1958,6 +1959,7 @@ factors = [
 [[units]]
 name = "decibel"
 dimension = "ratio"
+scalable = false
 aliases = [
     "dB",
 ]
@@ -1965,6 +1967,7 @@ aliases = [
 [[units]]
 name = "decibel_spl"
 dimension = "pressure"
+scalable = false
 aliases = [
     "dBSPL",
     "dB_SPL",
@@ -1973,6 +1976,7 @@ aliases = [
 [[units]]
 name = "decibel_volt"
 dimension = "voltage"
+scalable = false
 aliases = [
     "dBV",
 ]
