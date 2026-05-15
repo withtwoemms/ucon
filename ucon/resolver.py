@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from ucon.system import UnitSystem
 
 from ucon.core import (
+    NonScalableError,
     Scale,
     Unit,
     UnitFactor,
@@ -203,6 +204,44 @@ def _parse_exponent(s: str) -> Tuple[str, float]:
     return s, 1.0
 
 
+def _resolve_base_for_prefix(
+    remainder: str,
+    *,
+    graph=None,
+) -> Unit | None:
+    """Resolve a prefix-decomposition remainder to a base :class:`Unit`.
+
+    Used by :func:`_lookup_factor` after greedy prefix matching. Consults
+    both the graph-local registry (case-sensitive, for session-defined units)
+    and the global module-level registry. Returns ``None`` if the remainder
+    is not a known unit in either registry.
+
+    Case-sensitive in both registries — preserves the distinction between
+    ``"fT"`` (femto-tesla) and ``"ft"`` (foot), and lets session-defined
+    units shadow globals via the graph when present.
+
+    Parameters
+    ----------
+    remainder : str
+        The unit-name portion left after stripping a scale prefix.
+    graph : ConversionGraph | None
+        The graph context (already resolved via ``_get_parsing_graph()`` by
+        the caller); ``None`` falls back to the global registry only.
+
+    Returns
+    -------
+    Unit | None
+        The base unit if found, otherwise ``None``.
+    """
+    if graph is not None:
+        graph_result = graph.resolve_unit(remainder)
+        if graph_result is not None:
+            return graph_result[0]
+    if remainder in _UNIT_REGISTRY_CASE_SENSITIVE:
+        return _UNIT_REGISTRY_CASE_SENSITIVE[remainder]
+    return None
+
+
 def _lookup_factor(
     s: str,
     *,
@@ -269,13 +308,35 @@ def _lookup_factor(
         if s_lower in _UNIT_REGISTRY:
             return _UNIT_REGISTRY[s_lower], Scale.one
 
-    # Try scale prefix + unit (prioritize decomposition)
-    # Only case-sensitive matching for remainder (e.g., "fT" = femto-tesla, "ft" = foot)
+    # Try scale prefix + unit (prioritize decomposition).
+    # Only case-sensitive matching for remainder (e.g., "fT" = femto-tesla, "ft" = foot).
+    #
+    # The remainder is looked up in both the graph-local registry (when in a
+    # using_graph context) and the global registry, so session-defined units
+    # participate in prefix decomposition with the same scalability semantics
+    # as built-ins.
+    #
+    # When a prefix decomposition matches but the base unit is marked
+    # non-scalable (Unit.scalable == False), the match is *recorded* rather
+    # than returned. This lets a subsequent shorter prefix that lands on a
+    # scalable base still win (the parser stays greedy on scalable matches),
+    # while preserving the diagnostic so an unambiguous non-scalable
+    # decomposition surfaces as NonScalableError rather than the generic
+    # UnknownUnitError. NonScalableError is-a UnknownUnitError so existing
+    # exception handlers continue to work.
+    non_scalable_match: Tuple[Unit, str] | None = None
     for prefix in _SCALE_PREFIXES_SORTED:
         if s.startswith(prefix) and len(s) > len(prefix):
             remainder = s[len(prefix):]
-            if remainder in _UNIT_REGISTRY_CASE_SENSITIVE:
-                return _UNIT_REGISTRY_CASE_SENSITIVE[remainder], _SCALE_PREFIXES[prefix]
+            base_unit = _resolve_base_for_prefix(remainder, graph=graph)
+            if base_unit is not None:
+                if base_unit.scalable:
+                    return base_unit, _SCALE_PREFIXES[prefix]
+                if non_scalable_match is None:
+                    # Record the first (longest-prefix) non-scalable hit;
+                    # keep looping in case a shorter prefix yields a scalable
+                    # match against a different base.
+                    non_scalable_match = (base_unit, prefix)
 
     # Fall back to exact case-sensitive match (for aliases like 'L', 'B', 'm')
     if s in _UNIT_REGISTRY_CASE_SENSITIVE:
@@ -285,6 +346,13 @@ def _lookup_factor(
     s_lower = s.lower()
     if s_lower in _UNIT_REGISTRY:
         return _UNIT_REGISTRY[s_lower], Scale.one
+
+    # No other interpretation succeeded. If we recorded a non-scalable
+    # decomposition, surface it specifically; otherwise the input is just
+    # unknown.
+    if non_scalable_match is not None:
+        base_unit, prefix = non_scalable_match
+        raise NonScalableError(s, base_unit, prefix)
 
     raise UnknownUnitError(s)
 

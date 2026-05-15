@@ -356,10 +356,18 @@ def _serialize_transform(
 
 
 def _serialize_unit(unit: Unit) -> dict:
-    """Serialize a Unit to TOML dict."""
+    """Serialize a Unit to TOML dict.
+
+    The ``scalable`` flag is only emitted when it diverges from the
+    default (``True``). This keeps catalog TOML compact and preserves
+    backward compatibility with packages produced before the field
+    existed.
+    """
     d: dict = {"name": unit.name, "dimension": unit.dimension.name}
     if unit.aliases:
         d["aliases"] = list(unit.aliases)
+    if unit.scalable is False:
+        d["scalable"] = False
     if unit.base_form is not None:
         d["base_form"] = {
             "prefactor": float(unit.base_form.prefactor),
@@ -762,10 +770,12 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                 )
 
         aliases = tuple(unit_spec.get("aliases", []))
+        scalable = bool(unit_spec.get("scalable", True))
         unit = Unit(
             name=uname,
             dimension=dim,
             aliases=aliases,
+            scalable=scalable,
         )
         unit_map[unit.name] = unit
         graph.register_unit(unit)

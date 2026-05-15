@@ -53,6 +53,7 @@ __all__ = [
     'DimensionConstraint',
     'DimensionNotCovered',
     'Exponent',
+    'NonScalableError',
     'Number',
     'Ratio',
     'RebasedUnit',
@@ -79,6 +80,38 @@ class UnknownUnitError(Exception):
     def __init__(self, name: str):
         self.name = name
         super().__init__(f"Unknown unit: {name!r}")
+
+
+class NonScalableError(UnknownUnitError):
+    """Raised when a scale prefix is applied to a unit marked non-scalable.
+
+    Subclass of :class:`UnknownUnitError` so that callers that catch the
+    parent class continue to work. Callers that want the richer diagnostic
+    can catch :class:`NonScalableError` directly and inspect :attr:`base`
+    and :attr:`prefix`.
+
+    Attributes
+    ----------
+    attempted : str
+        The full unit string that failed to parse (e.g. ``"Pflop"``).
+    base : Unit
+        The base unit that was found but is marked non-scalable.
+    prefix : str
+        The prefix shorthand that was attempted (e.g. ``"P"`` for peta).
+    """
+
+    def __init__(self, attempted: str, base: 'Unit', prefix: str):
+        self.attempted = attempted
+        self.base = base
+        self.prefix = prefix
+        # Bypass UnknownUnitError.__init__ to install a precise message.
+        Exception.__init__(
+            self,
+            f"Unit {attempted!r} not found: base unit {base.name!r} is "
+            f"registered but marked non-scalable, so prefix {prefix!r} "
+            f"cannot be applied.",
+        )
+        self.name = attempted
 
 
 # --------------------------------------------------------------------------------------
@@ -398,11 +431,26 @@ class Unit:
         The physical dimension this unit represents.
     aliases : tuple[str, ...]
         Optional shorthand symbols (e.g., ("m", "M")).
+    scalable : bool
+        Whether SI scale prefixes (k, M, G, …) may be applied to this unit
+        at parse time. Defaults to ``True``. Set to ``False`` for units that
+        do not compose with prefixes (e.g. affine temperature scales like
+        ``celsius``, or domain conventions like ``radian`` where prefixed
+        forms are not idiomatic). When ``False``, parsing ``"Pflop"`` for a
+        non-scalable ``"flop"`` raises :class:`NonScalableError` rather than
+        a generic :class:`UnknownUnitError`, giving callers a precise signal
+        that the base is registered but does not accept prefix decomposition.
+
+        Like :attr:`base_form`, ``scalable`` is metadata about parsing
+        behavior, not an identity attribute — two Units that differ only in
+        ``scalable`` compare equal and hash identically. This keeps the
+        registry consistent if the flag is flipped on an existing unit.
     """
     name: str = ""
     dimension: Dimension = field(default=NONE)
     aliases: tuple[str, ...] = ()
     base_form: 'BaseForm | None' = field(default=None, repr=False, compare=False, hash=False)
+    scalable: bool = field(default=True, compare=False, hash=False)
 
     def __post_init__(self):
         object.__setattr__(
