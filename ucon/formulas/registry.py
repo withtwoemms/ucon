@@ -1,0 +1,116 @@
+# Copyright 2026 The Radiativity Company
+# Licensed under the Apache License, Version 2.0
+
+"""
+Formula registry.
+
+The :class:`FormulaRegistry` indexes :class:`~ucon.formulas.types.KindFormula`
+instances by name and by input-kind tuple. v1.9.0 supports exact-match
+lookup only; subkind-climb lookup (``generalizes``) and same-level
+ambiguity handling land in v1.9.2.
+
+There is no module-level default registry in v1.9.x. In v2.0.0 the
+registry becomes a member of ``UnitSystem``; this module's API does
+not change.
+"""
+
+from __future__ import annotations
+
+from typing import Iterable
+
+from ucon.formulas.exceptions import DuplicateFormula, FormulaNotFound
+from ucon.formulas.types import KindFormula
+from ucon.kinds import Kind
+
+
+__all__ = ["FormulaRegistry"]
+
+
+class FormulaRegistry:
+    """Indexes formulas by name and by input-kind tuple.
+
+    Parameters
+    ----------
+    formulas
+        Initial formulas to register.
+
+    Notes
+    -----
+    Equality semantics on :class:`~ucon.formulas.types.KindFormula`
+    key off name. Registering two formulas with the same name raises
+    :class:`~ucon.formulas.exceptions.DuplicateFormula`.
+
+    Input-kind indexing keys by ordered tuple of input kinds. When a
+    formula declares ``commutative=True`` and has exactly two inputs,
+    the registry also indexes the reversed ordering — so
+    ``voltage × current`` and ``current × voltage`` both resolve to
+    the same formula. Higher-arity commutativity (full input
+    permutations) lands with v1.9.2's lookup work.
+    """
+
+    def __init__(self, formulas: Iterable[KindFormula] = ()) -> None:
+        self._by_name: dict[str, KindFormula] = {}
+        self._by_inputs: dict[tuple[Kind, ...], KindFormula] = {}
+        for f in formulas:
+            self.register(f)
+
+    # ---------- ingestion ----------
+
+    def register(self, formula: KindFormula) -> None:
+        """Add a formula to the registry. Refuses duplicate names."""
+        if formula.name in self._by_name:
+            raise DuplicateFormula(formula.name)
+        self._by_name[formula.name] = formula
+
+        key = formula.input_kind_tuple()
+        # First-writer wins on input-tuple collisions; the name index
+        # is the primary key and disambiguation policy across formulas
+        # sharing an input tuple lands with v1.9.2 lookup semantics.
+        self._by_inputs.setdefault(key, formula)
+        if formula.commutative and len(key) == 2 and key[0] != key[1]:
+            self._by_inputs.setdefault((key[1], key[0]), formula)
+
+    # ---------- public lookups ----------
+
+    def __contains__(self, name: str) -> bool:
+        return name in self._by_name
+
+    def __len__(self) -> int:
+        return len(self._by_name)
+
+    def __iter__(self):
+        return iter(self._by_name.values())
+
+    def names(self) -> tuple[str, ...]:
+        """All registered formula names."""
+        return tuple(self._by_name.keys())
+
+    def get(self, name: str) -> KindFormula:
+        """Resolve a formula by name.
+
+        Raises
+        ------
+        FormulaNotFound
+            If no formula matches.
+        """
+        formula = self._by_name.get(name)
+        if formula is None:
+            raise FormulaNotFound(name)
+        return formula
+
+    def lookup(self, *input_kinds: Kind) -> KindFormula:
+        """Resolve a formula by exact input-kind tuple.
+
+        v1.9.0 performs exact-match lookup only. Subkind climbing
+        (``generalizes``) lands in v1.9.2.
+
+        Raises
+        ------
+        FormulaNotFound
+            If no formula matches the supplied input kinds.
+        """
+        key = tuple(input_kinds)
+        formula = self._by_inputs.get(key)
+        if formula is None:
+            raise FormulaNotFound(key)
+        return formula
