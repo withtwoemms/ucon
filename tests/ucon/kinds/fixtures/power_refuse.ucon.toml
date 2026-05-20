@@ -1,0 +1,23 @@
+# Power lattice with join_policy = "refuse".
+# Active + reactive power must combine via S = sqrt(P^2 + Q^2),
+# not via addition. The lattice refuses the LCA join.
+
+[[kinds]]
+name = "power"
+dimension = "M·L^2/T^3"
+join_policy = "refuse"
+
+[[kinds]]
+name = "active_power"
+dimension = "M·L^2/T^3"
+parent = "power"
+
+[[kinds]]
+name = "reactive_power"
+dimension = "M·L^2/T^3"
+parent = "power"
+
+[[kinds]]
+name = "apparent_power"
+dimension = "M·L^2/T^3"
+parent = "power"

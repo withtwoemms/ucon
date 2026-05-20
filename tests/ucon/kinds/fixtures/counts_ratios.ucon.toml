@@ -1,0 +1,40 @@
+# Dimensionless lattice exercising LCA-vs-refuse at the parent layer.
+# count joins via LCA (apples + tablets -> count); ratio refuses
+# (strain + efficiency must combine via named formula, not +).
+
+[[kinds]]
+name = "dimensionless"
+dimension = "1"
+join_policy = "refuse"
+
+[[kinds]]
+name = "count"
+dimension = "1"
+parent = "dimensionless"
+join_policy = "lca"
+
+[[kinds]]
+name = "apples"
+dimension = "1"
+parent = "count"
+
+[[kinds]]
+name = "tablets"
+dimension = "1"
+parent = "count"
+
+[[kinds]]
+name = "ratio"
+dimension = "1"
+parent = "dimensionless"
+join_policy = "refuse"
+
+[[kinds]]
+name = "strain"
+dimension = "1"
+parent = "ratio"
+
+[[kinds]]
+name = "efficiency"
+dimension = "1"
+parent = "ratio"

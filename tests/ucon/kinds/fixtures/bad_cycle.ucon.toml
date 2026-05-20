@@ -1,0 +1,16 @@
+# Loader should raise KindCycle on this lattice.
+
+[[kinds]]
+name = "a"
+dimension = "M·L^2/T^2"
+parent = "c"
+
+[[kinds]]
+name = "b"
+dimension = "M·L^2/T^2"
+parent = "a"
+
+[[kinds]]
+name = "c"
+dimension = "M·L^2/T^2"
+parent = "b"

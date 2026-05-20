@@ -1,0 +1,32 @@
+# Radiation weighting: equivalent dose H = D * w_R.
+# Exercises a multi-input formula with aspect_rules.
+#
+# Kinds and formulas live in the same payload here so the fixture is
+# self-contained; the parser only consults its own section ([[kinds]]
+# for the lattice loader, [[formulas]] for the formula loader).
+
+[[kinds]]
+name = "absorbed_dose"
+dimension = "L^2/T^2"
+
+[[kinds]]
+name = "radiation_weighting_factor"
+dimension = "1"
+
+[[kinds]]
+name = "equivalent_dose"
+dimension = "L^2/T^2"
+
+[[formulas]]
+name = "radiation_weighting"
+expression = "D * w_R"
+output_kind = "equivalent_dose"
+commutative = true
+notes = "w_R per ICRP 103; caller supplies the appropriate value."
+
+  [formulas.inputs]
+  D   = { kind = "absorbed_dose" }
+  w_R = { kind = "radiation_weighting_factor" }
+
+  [formulas.aspect_rules]
+  signal_summary = "consume"

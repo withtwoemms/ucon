@@ -1,0 +1,27 @@
+# Minimal energy lattice for LCA tests.
+
+[[kinds]]
+name = "energy"
+dimension = "M·L^2/T^2"
+
+[[kinds]]
+name = "kinetic_energy"
+dimension = "M·L^2/T^2"
+parent = "energy"
+aliases = ["KE"]
+
+[[kinds]]
+name = "potential_energy"
+dimension = "M·L^2/T^2"
+parent = "energy"
+aliases = ["PE"]
+
+[[kinds]]
+name = "gravitational_pe"
+dimension = "M·L^2/T^2"
+parent = "potential_energy"
+
+[[kinds]]
+name = "elastic_pe"
+dimension = "M·L^2/T^2"
+parent = "potential_energy"

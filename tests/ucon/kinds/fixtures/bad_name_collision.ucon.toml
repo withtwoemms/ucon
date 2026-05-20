@@ -1,0 +1,9 @@
+# Loader should raise NameCollision.
+
+[[kinds]]
+name = "foo"
+dimension = "M·L^2/T^2"
+
+[[kinds]]
+name = "foo"
+dimension = "M·L^2/T^2"
