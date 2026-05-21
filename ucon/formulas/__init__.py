@@ -13,8 +13,6 @@ by formulas.
 This subpackage is not wired into :class:`~ucon.quantity.Number` in
 v1.9.x. ``aspect_rules`` is opaque until v1.9.1; ``generalizes`` and
 ``commutative`` are inert until v1.9.2.
-
-See ``docs/internal/ARCHITECTURE_number-kind-v6.md`` §4.4.
 """
 
 from ucon.formulas.exceptions import (

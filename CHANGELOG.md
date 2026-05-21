@@ -30,7 +30,6 @@ parent edges, `join_policy`) and the lookup machinery (`KindLattice.lca`,
 lattices, query them, validate them at load time, and prepare formula
 declarations against them in isolation.
 
-The full design lives in `docs/internal/ARCHITECTURE_number-kind-v6.md`.
 The roadmap from there forward: v1.9.1 wires aspect machinery (the
 opaque `aspect_rules` field gains semantics); v1.9.2 wires
 formula-lookup generalization (`generalizes` and `commutative` become
@@ -1162,8 +1161,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 
 - Deferral comment on ESU↔EMU cross-family conversion in `ucon/graph.py`,
   noting that the bridge requires promoting `CGS_EMU` to a 4-component
-  basis and is scheduled for v1.4.0 (basis isomorphisms release). See
-  `docs/internal/IMPLEMENTATION_basis_isomorphisms.md`.
+  basis and is scheduled for v1.4.0 (basis isomorphisms release).
 
 ### Notes
 
