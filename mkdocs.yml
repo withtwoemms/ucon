@@ -100,7 +100,9 @@ nav:
       - ucon.contexts: reference/modules/contexts.md
       - ucon.core: reference/modules/core.md
       - ucon.dimension: reference/modules/dimension.md
+      - ucon.formulas: reference/modules/formulas.md
       - ucon.graph: reference/modules/graph.md
+      - ucon.kinds: reference/modules/kinds.md
       - ucon.maps: reference/modules/maps.md
       - ucon.packages: reference/modules/packages.md
       - ucon.parsing: reference/modules/parsing.md

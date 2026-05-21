@@ -28,14 +28,18 @@ This is known as the **Kind-of-Quantity (KOQ) problem** in metrology literature.
 
 ---
 
-## ucon's Two Solutions
+## ucon's Three Solutions
 
-ucon addresses KOQ through two complementary mechanisms:
+ucon addresses KOQ through three complementary mechanisms:
 
 1. **Pseudo-dimensions** — Semantic tags for quantities dimensionless within a basis
 2. **Basis abstraction** — Coordinate transforms across dimensional systems
+3. **Kind lattices** — Sortal refinements *within* a single dimension
 
-Both solutions build on the relationship between `BasisVector` and `Dimension`.
+The first two solutions build on the relationship between `BasisVector` and
+`Dimension`. The third (introduced in v1.9.0 as an opt-in preview surface)
+layers a partial order *on top of* dimensions to distinguish quantities that
+share the same `BasisVector` but represent physically distinct kinds.
 
 ---
 
@@ -296,23 +300,159 @@ natural_velocity.is_dimensionless()  # True! (c = 1)
 
 ---
 
-## Comparing the Two Approaches
+## Solution 3: Kind Lattices
 
-| Aspect | Pseudo-Dimensions | Basis Abstraction |
-|--------|-------------------|-------------------|
-| **Problem solved** | Dimensionless quantities that differ semantically | Quantities with same dimension that differ physically |
-| **Mechanism** | Semantic tag on zero-vector | Choose a basis where dimensions differ |
-| **Scope** | Works within any single basis | Requires defining/choosing appropriate basis |
-| **Examples** | angle vs count vs ratio | torque vs energy, Gy vs Sv |
-| **Declaration** | `Dimension.pseudo("tag")` | `Basis(name, components)` |
-| **Trade-off** | Simple but limited to "truly" dimensionless | Powerful but requires domain modeling |
+Some KOQ distinctions are too fine-grained to justify a basis split and too
+structural to be captured by a pseudo-dimension tag. Two examples:
+
+- **Absorbed dose** (Gy) and **equivalent dose** (Sv) share the SI dimension
+  `L²·T⁻²`. We can pull them apart with a domain basis (Solution 2), but in
+  many radiation-protection workflows the operator wants to keep working in
+  ordinary SI and still have the type system know that "Sv" is a *refinement*
+  of "Gy" — every Sv is a kind of absorbed dose, but not vice versa.
+- **Kinetic energy** and **potential energy** share the dimension of energy.
+  Adding them is meaningful (total mechanical energy), but mixing torque with
+  kinetic energy is not — even though all three share `M·L²·T⁻²`.
+
+A **kind lattice** captures this kind of refinement structure explicitly.
+Each `Kind` is a *sortal* — a name and a parent — and the lattice records the
+partial order: `kinetic_energy ≤ energy`, `gravitational_pe ≤ potential_energy
+≤ energy`, and so on. The dimension is carried along, so a child kind cannot
+refine across dimensions.
+
+```python
+from ucon.kinds import Kind, KindLattice, JoinPolicy
+from ucon.dimension import LENGTH, MASS, TIME
+
+ENERGY_DIM = (LENGTH ** 2) * MASS / (TIME ** 2)
+
+energy = Kind("energy", dimension=ENERGY_DIM)
+kinetic = Kind("kinetic_energy", dimension=ENERGY_DIM, parent=energy)
+potential = Kind("potential_energy", dimension=ENERGY_DIM, parent=energy)
+grav = Kind("gravitational_pe", dimension=ENERGY_DIM, parent=potential)
+elastic = Kind("elastic_pe", dimension=ENERGY_DIM, parent=potential)
+
+lat = KindLattice([energy, kinetic, potential, grav, elastic])
+
+# Mixed potential-energy operations meet at their LCA.
+ancestor, policy = lat.lca(grav, elastic)
+ancestor.name      # "potential_energy"
+policy             # JoinPolicy.LCA
+```
+
+### Join Policies
+
+A `Kind` carries a `JoinPolicy` that determines what happens when two
+distinct sibling kinds are combined (e.g., added):
+
+| Policy | Meaning | Use case |
+|--------|---------|----------|
+| `LCA` (default) | Result takes the least-common-ancestor kind | Energies, doses, masses |
+| `REFUSE` | Operation is rejected at the kind layer | `ratio`, `dimensionless`, anything where the union has no physical interpretation |
+
+This is enough machinery to distinguish *refinement* (Sv ≤ Gy) from
+*incommensurability* (ratio ⊥ dimensionless) without changing the underlying
+dimensional algebra.
+
+### Formula Registry
+
+Kinds also unlock a small algebraic layer: a `FormulaRegistry` records
+named relationships between input kinds and an output kind. The radiation
+weighting equation `H = D · w_R` is a typical entry — given absorbed dose
+and a weighting factor, the registry yields equivalent dose:
+
+```python
+from ucon.formulas import KindFormula, FormulaRegistry
+
+D = Kind("absorbed_dose", dimension=ABSORBED_DOSE_DIM)
+wR = Kind("radiation_weighting_factor", dimension=DIMENSIONLESS)
+H = Kind("equivalent_dose", dimension=ABSORBED_DOSE_DIM)
+
+f = KindFormula(
+    name="radiation_weighting",
+    expression="D * w_R",
+    input_kinds={"D": D, "w_R": wR},
+    output_kind=H,
+    commutative=True,
+)
+reg = FormulaRegistry([f])
+reg.lookup(D, wR).name  # "radiation_weighting"
+reg.lookup(wR, D).name  # "radiation_weighting" (commutative)
+```
+
+### TOML Authoring
+
+Both kinds and formulas can be declared in TOML and loaded with
+`load_kinds_file` / `load_formulas_file`. The two sections are siblings and
+can share a file:
+
+```toml
+[[kinds]]
+name = "absorbed_dose"
+dimension = "L^2/T^2"
+aliases = ["D"]
+
+[[kinds]]
+name = "equivalent_dose"
+dimension = "L^2/T^2"
+parent = "absorbed_dose"
+aliases = ["H"]
+
+[[formulas]]
+name = "radiation_weighting"
+expression = "D * w_R"
+output_kind = "equivalent_dose"
+commutative = true
+
+[formulas.inputs]
+D = { kind = "absorbed_dose" }
+w_R = { kind = "radiation_weighting_factor" }
+```
+
+### Status in v1.9.0
+
+Kinds and formulas are an **opt-in preview surface**:
+
+- Not re-exported from the top-level `ucon` package — import from
+  `ucon.kinds`, `ucon.formulas`, and `ucon.parsing` directly.
+- Not yet wired into `Number` arithmetic; `Kind` information is carried only
+  by client code that chooses to participate.
+- The `aspect_rules` field on `KindFormula` is parsed but otherwise opaque
+  until v1.9.1.
+- Higher-arity commutative permutation, generalization, and dimension-only
+  registry lookup are scheduled for v1.9.2.
+- v2.0 wires the lattice into `Number` so the type system can enforce
+  refinement constraints automatically.
+
+### When to Use a Kind Lattice
+
+| Scenario | Why kinds fit |
+|----------|---------------|
+| Distinguishing refinements (Gy → Sv, energy → kinetic_energy) | Partial order is the natural model; basis splitting would be heavyweight |
+| Locking down algebra at boundaries (no torque + energy, no ratio + dimensionless) | `REFUSE` policy at the lattice level is more precise than a tag |
+| Driving formula lookup from declared inputs | `FormulaRegistry` indexes by `(Kind, …)` directly |
+| Authoring domain knowledge in TOML | Kinds and formulas serialize cleanly alongside unit packages |
+
+---
+
+## Comparing the Three Approaches
+
+| Aspect | Pseudo-Dimensions | Basis Abstraction | Kind Lattices |
+|--------|-------------------|-------------------|---------------|
+| **Problem solved** | Dimensionless quantities that differ semantically | Quantities with same dimension that differ physically | Refinements *within* a dimension (sortal structure) |
+| **Mechanism** | Semantic tag on zero-vector | Choose a basis where dimensions differ | Partial order over named kinds |
+| **Scope** | Works within any single basis | Requires defining/choosing appropriate basis | Works within any single dimension |
+| **Examples** | angle vs count vs ratio | torque vs energy, Gy vs Sv | kinetic_energy ≤ energy, equivalent_dose ≤ absorbed_dose |
+| **Declaration** | `Dimension.pseudo("tag")` | `Basis(name, components)` | `Kind(name, dimension, parent=...)` |
+| **Trade-off** | Simple but limited to "truly" dimensionless | Powerful but requires domain modeling | Lightweight refinement, but opt-in (not yet wired to `Number`) |
 
 ---
 
 ## The Unified Picture
 
-Both solutions preserve **kind-of-quantity information** that pure dimensional
-analysis loses. The choice depends on the nature of the ambiguity:
+All three solutions preserve **kind-of-quantity information** that pure
+dimensional analysis loses. The choice depends on the nature of the
+ambiguity:
 
 ```mermaid
 flowchart TB
@@ -320,20 +460,26 @@ flowchart TB
 
     KOQ --> dimensionless["Dimensionless but<br/>semantically distinct"]
     KOQ --> same_dim["Same dimension but<br/>physically distinct"]
+    KOQ --> refinement["Refinement <i>within</i><br/>a dimension"]
 
     dimensionless --> pseudo["<b>PSEUDO-DIMENSION</b><br/><br/>angle<br/>count<br/>ratio"]
     same_dim --> basis["<b>BASIS ABSTRACTION</b><br/><br/>Expand basis to<br/>include hidden<br/>dimension"]
+    refinement --> kind["<b>KIND LATTICE</b><br/><br/>Sortal partial order<br/>over named kinds"]
 
     pseudo --> tag["Tag on zero-vector<br/><code>(0,0,0,...,'angle')</code>"]
     basis --> vectors["Different vectors<br/>in richer basis"]
+    kind --> parent["Parent edges<br/>+ JoinPolicy"]
 ```
 
 **Key insight**: The SI's 7-dimensional basis is a pragmatic choice, not a
 physical necessity. Some KOQ problems arise because the SI basis is too
-coarse to distinguish certain quantities. ucon lets you:
+coarse to distinguish certain quantities; others arise because the quantities
+*do* share a dimension but stand in a refinement relation. ucon lets you:
 
 1. **Add semantic tags** for quantities the SI treats as dimensionless
 2. **Define richer bases** for quantities the SI conflates
+3. **Declare a kind lattice** for quantities that share a dimension but
+   refine one another
 
 ---
 
