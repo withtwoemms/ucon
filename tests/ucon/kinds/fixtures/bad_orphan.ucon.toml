@@ -1,0 +1,6 @@
+# Loader should raise OrphanParent: 'energy' is not declared.
+
+[[kinds]]
+name = "kinetic_energy"
+dimension = "M·L^2/T^2"
+parent = "energy"

@@ -1,0 +1,10 @@
+# Loader should raise CrossDimensionParent: parent has different dimension.
+
+[[kinds]]
+name = "power"
+dimension = "M·L^2/T^3"
+
+[[kinds]]
+name = "weird"
+dimension = "M·L^2/T^2"
+parent = "power"

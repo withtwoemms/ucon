@@ -1,0 +1,24 @@
+# Cycles-per-time formula: f = N / t.
+# Exercises a non-commutative formula (division order matters).
+
+[[kinds]]
+name = "cycle_count"
+dimension = "1"
+
+[[kinds]]
+name = "duration"
+dimension = "T"
+
+[[kinds]]
+name = "frequency"
+dimension = "1/T"
+
+[[formulas]]
+name = "cycles_to_frequency"
+expression = "N / t"
+output_kind = "frequency"
+commutative = false
+
+  [formulas.inputs]
+  N = { kind = "cycle_count" }
+  t = { kind = "duration" }

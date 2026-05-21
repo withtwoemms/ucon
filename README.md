@@ -179,7 +179,8 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 | **1.5.0** | Conversion factor uncertainty (GUM propagation) | Complete |
 | **1.6.0** | TOML takeover — single source of truth for unit definitions | Complete |
 | **1.7.0** | Basis subpackage layout: `types`/`vector` extraction | Complete |
-| **1.8.0** | `UnitSystem` as a value type, strict same-basis `Vector`, explicit cross-basis `ops` | In Progress |
+| **1.8.0** | `UnitSystem` as a value type, strict same-basis `Vector`, explicit cross-basis `ops` | Complete |
+| **1.9.0** | Kind-of-Quantity (KOQ) sortal lattice and formula registry — opt-in preview surface | Complete |
 
 See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROADMAP.md)
 

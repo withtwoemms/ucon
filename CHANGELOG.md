@@ -7,6 +7,190 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-05-20
+
+Introduces *kinds* as a first-class concept: dimensional refinements that
+let callers distinguish kinetic energy from potential energy, active power
+from reactive power, or apples from tablets, even though each pair shares
+a dimension. v1.9.0 lands the storage and structural-reasoning surface —
+the `Kind` dataclass, `KindLattice` with lowest-common-ancestor (LCA)
+computation, the `KindFormula` dataclass, the `FormulaRegistry`, and the
+TOML loaders that build both from declarative files. None of it is wired
+to `Number` yet; the lattice is opt-in, queried explicitly, and lives
+alongside the existing arithmetic without changing its semantics.
+
+Until now, two quantities with the same dimension were interchangeable
+under arithmetic, full stop. That is correct for raw dimensional algebra
+but wrong for physics: `5 J` of kinetic energy plus `5 J` of potential
+energy yields `10 J` of *mechanical energy* — a different sortal — and
+`5 m` of "elastic deformation" plus `5 m` of "wavelength" yields
+nonsense. v1.9.0 publishes the vocabulary for that distinction (`Kind`,
+parent edges, `join_policy`) and the lookup machinery (`KindLattice.lca`,
+`KindLattice.join`) without yet enforcing it on `Number`. Users can build
+lattices, query them, validate them at load time, and prepare formula
+declarations against them in isolation.
+
+The roadmap from there forward: v1.9.1 wires aspect machinery (the
+opaque `aspect_rules` field gains semantics); v1.9.2 wires
+formula-lookup generalization (`generalizes` and `commutative` become
+load-bearing); v2.0.0 folds the lattice and registry into `UnitSystem`
+and wires them into `Number`.
+
+### Added
+
+- **`ucon.kinds` subpackage** — new public surface for the sortal lattice.
+
+  - **`Kind(name, dimension, parent=None, join_policy=JoinPolicy.LCA,
+    aliases=())`** — frozen dataclass representing a kind node. A kind
+    refines a `Dimension`: every kind in a lattice partition has the same
+    dimension as its parent, and parent edges form rooted trees within
+    each dimension. Equality and hashing key off `name` only, so two
+    references to the same name compare equal even when one is a
+    placeholder constructed during parsing.
+
+  - **`JoinPolicy`** enum (`LCA`, `REFUSE`) — declared per kind, consulted
+    at the lowest common ancestor. `LCA` lifts the result to the ancestor
+    (the default); `REFUSE` raises `JoinRefused`, signalling that the two
+    kinds must be combined via a named formula rather than via addition.
+
+  - **`KindLattice([kinds...])`** — owns the canonical `Kind` instances,
+    indexes them by name and alias, and runs load-time validation in a
+    fixed order: name/alias collisions, then orphan parents, then
+    cross-dimension parent edges, then cycles. The public surface:
+    `get(name_or_alias)`, `names()`, `ancestors(kind)`,
+    `is_descendant(child, ancestor)`, `lca(a, b)`, `join(a, b)`,
+    `register(kind)` for additive extension, `__contains__`, `__len__`,
+    `__iter__`.
+
+  - **`lca(a, b, *, lattice)`** — module-level convenience that
+    delegates to `KindLattice.lca`. There is no implicit global; the
+    lattice is always explicit in v1.9.x. (v2.0.0 will host it on
+    `UnitSystem`.)
+
+  - Exception family: **`KindError`** (base), **`KindCycle`**,
+    **`OrphanParent`**, **`CrossDimensionParent`**, **`NameCollision`**,
+    **`AliasCollision`**, **`KindNotFound`**, **`JoinRefused`**. Each
+    carries diagnostic attributes (`OrphanParent.missing_parent`,
+    `JoinRefused.left/right/parent`, etc.) so callers can format
+    error messages without re-parsing the message text.
+
+  Minimal usage:
+  ```python
+  from ucon.dimension import LENGTH, MASS, TIME
+  from ucon.kinds import Kind, KindLattice
+
+  ENERGY = (LENGTH ** 2) * MASS / (TIME ** 2)
+  energy = Kind("energy", dimension=ENERGY)
+  ke = Kind("kinetic_energy", dimension=ENERGY, parent=energy)
+  pe = Kind("potential_energy", dimension=ENERGY, parent=energy)
+  lat = KindLattice([energy, ke, pe])
+
+  ancestor, policy = lat.lca(ke, pe)  # (energy, JoinPolicy.LCA)
+  ```
+
+- **`ucon.formulas` subpackage** — new public surface for the formula
+  registry.
+
+  - **`KindFormula(name, expression, input_kinds, output_kind,
+    aspect_rules={}, generalizes=False, commutative=True, notes="")`** —
+    frozen dataclass declaring a relationship between kinds. Formulas
+    serve three purposes: documentation of the physical relationship,
+    kind assignment for multiplication/division (the lattice handles
+    addition), and a named computation surface. Equality and hashing key
+    off `name` only, matching `Kind`.
+
+  - **`AspectRule`** enum (`CONSUME`, `CARRY`) — declared per facet in
+    `KindFormula.aspect_rules`. The field is opaque in v1.9.0; semantics
+    activate in v1.9.1 alongside the `Aspect` type.
+
+  - **`FormulaRegistry([formulas...])`** — indexes formulas by name and
+    by input-kind tuple. `register(formula)` refuses duplicate names
+    (`DuplicateFormula`); `get(name)` and `lookup(*input_kinds)` resolve
+    by name and by exact input-kind tuple respectively
+    (`FormulaNotFound` on miss). When a formula declares `commutative=True`
+    and has exactly two inputs, the registry also indexes the reversed
+    ordering, so `voltage × current` and `current × voltage` both
+    resolve to the same formula. Higher-arity permutations and subkind
+    climbing (`generalizes`) land with v1.9.2's lookup work.
+
+  - Exception family: **`FormulaError`** (base), **`FormulaNotFound`**,
+    **`DuplicateFormula`**.
+
+- **TOML loaders in `ucon.parsing`.**
+
+  - **`parse_kinds_payload(payload)`** and **`load_kinds_file(path)`**
+    build a `KindLattice` from a TOML payload. Schema:
+    ```toml
+    [[kinds]]
+    name = "kinetic_energy"
+    dimension = "L^2·M/T^2"
+    parent = "energy"           # optional
+    join_policy = "lca"         # optional, default "lca"
+    aliases = ["KE"]            # optional
+    ```
+    The `dimension` field is parsed via the existing
+    `ucon.parsing.parse_dimension`. Parent references are resolved in a
+    second pass, so out-of-order and forward-reference declarations are
+    supported. Load-time validation surfaces as the corresponding
+    `KindError` subclass.
+
+  - **`parse_formulas_payload(payload, *, lattice)`** and
+    **`load_formulas_file(path, *, lattice)`** build a `FormulaRegistry`
+    against a supplied lattice. Schema:
+    ```toml
+    [[formulas]]
+    name = "radiation_weighting"
+    expression = "D * w_R"
+    output_kind = "equivalent_dose"
+    notes = "w_R per ICRP 103; caller selects."
+    commutative = true              # optional, default true
+    generalizes = false             # optional, default false
+      [formulas.inputs]
+      D   = { kind = "absorbed_dose" }
+      w_R = { kind = "radiation_weighting_factor" }
+      [formulas.aspect_rules]       # optional, opaque in v1.9.0
+      signal_summary = "consume"
+    ```
+    Kind references resolve through `lattice.get`, so unknown names
+    surface as `KindNotFound`. Both loaders are exported lazily from
+    `ucon.parsing` via the same PEP 562 mechanism as `parse_dimension`.
+
+### Notes
+
+- **Not wired to `Number`.** v1.9.0 does not change arithmetic on
+  `Number`. Two numbers with the same dimension still combine without
+  consulting any lattice; the kind machinery is queried explicitly by
+  callers who opt in. Wiring lands at v2.0.0, when `UnitSystem` becomes
+  the home for the active lattice and formula registry.
+
+- **No module-level default lattice or registry.** Every API that needs
+  one takes it as an explicit argument (`lattice=...`). There is no
+  hidden global state in v1.9.x; users compose their own lattice and
+  pass it where it is needed. This mirrors the shape `UnitSystem` will
+  take in v2.0.0, so v1.9.x code carries forward without an
+  import-site rewrite.
+
+- **No top-level re-export.** `Kind`, `KindLattice`, `KindFormula`, and
+  the parsers are not exposed on `ucon` directly. Callers opt in via
+  `from ucon.kinds import ...` and `from ucon.formulas import ...`.
+  This signals that the surface is preview-ish and discourages
+  inadvertent dependency before v2.0.0 settles the wiring.
+
+- **`aspect_rules`, `generalizes`, and `commutative` are stored but
+  partially inert.** The fields exist on `KindFormula` so v1.9.0 TOML
+  files do not need to be rewritten when v1.9.1 and v1.9.2 land. Only
+  the two-input commutative case is honored by `FormulaRegistry.lookup`
+  in v1.9.0; everything else is data carried through the registry for
+  future passes to consult.
+
+- **Parser diagnostic quirk.** `[[kinds]]` with two entries sharing the
+  same `name` surfaces as `AliasCollision` rather than `NameCollision`
+  because the parser's second pass deduplicates by name before handing
+  the lattice a `Kind` instance. The lattice's direct-construction path
+  raises the canonical `NameCollision` (covered in
+  `tests/ucon/kinds/test_validation.py`); the parser-level diagnostic
+  is a minor message-quality issue tracked for v1.9.0.1.
+
 ## [1.8.3] - 2026-05-15
 
 Lifts unit prefix-scalability from consumer-side policy into a first-class
@@ -977,8 +1161,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 
 - Deferral comment on ESU↔EMU cross-family conversion in `ucon/graph.py`,
   noting that the bridge requires promoting `CGS_EMU` to a 4-component
-  basis and is scheduled for v1.4.0 (basis isomorphisms release). See
-  `docs/internal/IMPLEMENTATION_basis_isomorphisms.md`.
+  basis and is scheduled for v1.4.0 (basis isomorphisms release).
 
 ### Notes
 
@@ -1876,7 +2059,18 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.6.1...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.9.0...HEAD
+[1.9.0]: https://github.com/withtwoemms/ucon/compare/1.8.3...1.9.0
+[1.8.3]: https://github.com/withtwoemms/ucon/compare/1.8.2...1.8.3
+[1.8.2]: https://github.com/withtwoemms/ucon/compare/1.8.1...1.8.2
+[1.8.1]: https://github.com/withtwoemms/ucon/compare/1.8.0...1.8.1
+[1.8.0]: https://github.com/withtwoemms/ucon/compare/1.7.0...1.8.0
+[1.7.0]: https://github.com/withtwoemms/ucon/compare/1.6.6...1.7.0
+[1.6.6]: https://github.com/withtwoemms/ucon/compare/1.6.5...1.6.6
+[1.6.5]: https://github.com/withtwoemms/ucon/compare/1.6.4...1.6.5
+[1.6.4]: https://github.com/withtwoemms/ucon/compare/1.6.3...1.6.4
+[1.6.3]: https://github.com/withtwoemms/ucon/compare/1.6.2...1.6.3
+[1.6.2]: https://github.com/withtwoemms/ucon/compare/1.6.1...1.6.2
 [1.6.1]: https://github.com/withtwoemms/ucon/compare/1.6.0...1.6.1
 [1.6.0]: https://github.com/withtwoemms/ucon/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/withtwoemms/ucon/compare/1.4.0...1.5.0

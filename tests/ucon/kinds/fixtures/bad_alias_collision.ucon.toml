@@ -1,0 +1,11 @@
+# Loader should raise AliasCollision: alias 'shared' is claimed twice.
+
+[[kinds]]
+name = "foo"
+dimension = "M·L^2/T^2"
+aliases = ["shared"]
+
+[[kinds]]
+name = "bar"
+dimension = "M·L^2/T^2"
+aliases = ["shared"]

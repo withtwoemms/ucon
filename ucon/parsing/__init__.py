@@ -48,21 +48,33 @@ from ucon.parsing.units import (
 )
 
 
+_LAZY = {
+    "parse_dimension": ("ucon.parsing.dimensions", "parse_dimension"),
+    "parse_kinds_payload": ("ucon.parsing.kinds", "parse_kinds_payload"),
+    "load_kinds_file": ("ucon.parsing.kinds", "load_kinds_file"),
+    "parse_formulas_payload": ("ucon.parsing.formulas", "parse_formulas_payload"),
+    "load_formulas_file": ("ucon.parsing.formulas", "load_formulas_file"),
+}
+
+
 def __getattr__(name):
-    """PEP 562 lazy attribute access for parse_dimension.
+    """PEP 562 lazy attribute access.
 
     Loading ``ucon.parsing.dimensions`` eagerly would force
     ``ucon.dimension`` to be evaluated whenever ``ucon.parsing`` is
     imported, including the early-bootstrap path
     ``ucon.units → ucon.resolver → ucon.parsing`` where the dimension
-    module has not yet finished registering its attributes. Deferring
-    until first access guarantees a fully-loaded ``ucon.dimension``
-    by the time the parser actually runs.
+    module has not yet finished registering its attributes. The kind
+    and formula parsers are deferred for the same reason: keeping
+    ``ucon.kinds`` and ``ucon.formulas`` out of the bootstrap path.
     """
-    if name == "parse_dimension":
-        from ucon.parsing.dimensions import parse_dimension
-        return parse_dimension
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    spec = _LAZY.get(name)
+    if spec is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attr = spec
+    import importlib
+
+    return getattr(importlib.import_module(module_name), attr)
 
 
 __all__ = [
@@ -70,4 +82,8 @@ __all__ = [
     "parse",
     "parse_dimension",
     "parse_unit_expression",
+    "parse_kinds_payload",
+    "load_kinds_file",
+    "parse_formulas_payload",
+    "load_formulas_file",
 ]

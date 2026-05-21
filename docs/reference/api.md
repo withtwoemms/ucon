@@ -1426,3 +1426,348 @@ si_momentum = BasisVector(SI, (
 ))
 SI_TO_NATURAL(si_momentum)["E"]  # Fraction(1)
 ```
+
+---
+
+## Kinds
+
+New in v1.9.0. **Preview surface — opt-in, not yet wired to `Number`.**
+
+A *kind* is a sortal refinement *within* a single dimension. Where
+pseudo-dimensions and basis abstraction distinguish quantities by changing
+their dimensional signature, a `KindLattice` records a partial order over
+named kinds that all share the same dimension (e.g.,
+`kinetic_energy ≤ energy`, `equivalent_dose ≤ absorbed_dose`).
+
+```python
+from ucon.kinds import (
+    Kind,
+    JoinPolicy,
+    KindLattice,
+    lca,
+)
+```
+
+Kinds and the lattice are deliberately **not** re-exported from the
+top-level `ucon` package in v1.9.0. Import from `ucon.kinds` directly.
+See [Kind-of-Quantity Problem](../architecture/kind-of-quantity.md) for the
+conceptual framing.
+
+### Kind
+
+Frozen dataclass representing a single kind:
+
+```python
+from ucon.dimension import LENGTH, MASS, TIME
+from ucon.kinds import Kind, JoinPolicy
+
+ENERGY_DIM = (LENGTH ** 2) * MASS / (TIME ** 2)
+
+energy = Kind("energy", dimension=ENERGY_DIM)
+kinetic = Kind(
+    name="kinetic_energy",
+    dimension=ENERGY_DIM,
+    parent=energy,
+    aliases=("KE",),
+    join_policy=JoinPolicy.LCA,
+)
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | str | required | Canonical name (must be unique within a lattice) |
+| `dimension` | Dimension | required | Physical dimension carried by this kind |
+| `parent` | Kind \| None | `None` | Parent in the refinement lattice; must share dimension |
+| `aliases` | tuple[str, ...] | `()` | Alternative names for lookup |
+| `join_policy` | JoinPolicy | `LCA` | What happens when two distinct sibling kinds combine |
+
+Equality and hash key off `name` only — two `Kind` instances with the same
+name are considered the same kind regardless of other fields.
+
+### JoinPolicy
+
+Enum that controls operations between distinct sibling kinds:
+
+| Member | Behavior |
+|--------|----------|
+| `JoinPolicy.LCA` | Result takes the least-common-ancestor kind |
+| `JoinPolicy.REFUSE` | Operation is rejected at the kind layer |
+
+`LCA` is the default and is appropriate for energies, doses, and other
+refinements where the union is physically meaningful. `REFUSE` is used by
+`ratio` and `dimensionless`, where mixing yields no sensible interpretation.
+
+### KindLattice
+
+Container that validates structural invariants and provides LCA-based
+lookup:
+
+```python
+from ucon.kinds import KindLattice
+
+lat = KindLattice([energy, kinetic])
+lat.get("kinetic_energy")        # Kind('kinetic_energy')
+lat.get("KE")                    # resolves via alias
+"KE" in lat                      # True
+lat.names()                      # ('energy', 'kinetic_energy')
+lat.lca(kinetic, kinetic)        # (kinetic, JoinPolicy.LCA)
+```
+
+Adding a `Kind` whose parent is unknown, whose parent has a different
+dimension, or that creates a cycle is rejected when the lattice is
+constructed (see Exceptions below).
+
+#### Module-level `lca()`
+
+`ucon.kinds.lca(a, b, lattice)` is a thin functional wrapper around
+`KindLattice.lca` for code that prefers a free function.
+
+### Exceptions
+
+```python
+from ucon.kinds import (
+    KindError,           # base class
+    KindCycle,           # parent edges form a cycle
+    OrphanParent,        # parent name does not resolve
+    CrossDimensionParent,# parent has a different dimension
+    NameCollision,       # two distinct Kinds share a name
+    AliasCollision,      # an alias overlaps another kind's name/alias
+    KindNotFound,        # lookup by name/alias missed
+    JoinRefused,         # JoinPolicy.REFUSE triggered
+)
+```
+
+| Exception | When raised |
+|-----------|-------------|
+| `KindCycle` | Adding a kind would create a cycle in parent edges |
+| `OrphanParent` | A parent name does not resolve in the lattice |
+| `CrossDimensionParent` | A child kind's dimension differs from its parent's |
+| `NameCollision` | Two distinct `Kind` instances are registered under the same name |
+| `AliasCollision` | An alias overlaps the name or alias of another kind |
+| `KindNotFound` | `lat.get(...)` is called with an unknown name or alias |
+| `JoinRefused` | An operation is refused by `JoinPolicy.REFUSE` |
+
+---
+
+## Formulas
+
+New in v1.9.0. **Preview surface — not yet wired to `Number`.**
+
+A `FormulaRegistry` records named relationships between input kinds and an
+output kind. Given a sequence of `Kind` instances, the registry can resolve
+the formula that produces the corresponding output.
+
+```python
+from ucon.formulas import (
+    KindFormula,
+    AspectRule,
+    FormulaRegistry,
+)
+```
+
+### KindFormula
+
+Frozen dataclass describing a single relationship:
+
+```python
+from ucon.kinds import Kind
+from ucon.formulas import AspectRule, KindFormula
+from ucon.dimension import LENGTH, MASS, TIME
+
+ABSORBED_DOSE_DIM = (LENGTH ** 2) / (TIME ** 2)
+DIMENSIONLESS = LENGTH / LENGTH
+
+D = Kind("absorbed_dose", dimension=ABSORBED_DOSE_DIM)
+wR = Kind("radiation_weighting_factor", dimension=DIMENSIONLESS)
+H = Kind("equivalent_dose", dimension=ABSORBED_DOSE_DIM)
+
+f = KindFormula(
+    name="radiation_weighting",
+    expression="D * w_R",
+    input_kinds={"D": D, "w_R": wR},
+    output_kind=H,
+    commutative=True,
+    aspect_rules={"signal_summary": AspectRule.CONSUME},
+    notes="w_R per ICRP 103; caller selects.",
+)
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | str | required | Unique formula identifier within a registry |
+| `expression` | str | required | Free-form expression string (e.g. `"D * w_R"`) |
+| `input_kinds` | dict[str, Kind] | required | Named inputs in declaration order |
+| `output_kind` | Kind | required | Kind of the resulting quantity |
+| `aspect_rules` | dict[str, AspectRule] | `{}` | Parsed but opaque until v1.9.1 |
+| `generalizes` | bool | `False` | Reserved; effective in v1.9.2 |
+| `commutative` | bool | `True` | Two-input formulas are mirrored on registration |
+| `notes` | str | `""` | Free-form annotation |
+
+Equality and hash key off `name` only. `input_kind_tuple()` returns the
+kinds in insertion order.
+
+### AspectRule
+
+Enum classifying how an aspect propagates through a formula:
+
+| Member | String value | Meaning |
+|--------|--------------|---------|
+| `AspectRule.CONSUME` | `"consume"` | The aspect is absorbed by the formula |
+| `AspectRule.CARRY` | `"carry"` | The aspect is preserved on the output |
+
+In v1.9.0 these values are parsed and stored but not yet acted on. Aspect
+semantics are scheduled for v1.9.1.
+
+### FormulaRegistry
+
+Indexed collection of `KindFormula` instances supporting name lookup and
+input-tuple lookup:
+
+```python
+from ucon.formulas import FormulaRegistry
+
+reg = FormulaRegistry([f])
+reg.get("radiation_weighting")        # the KindFormula
+reg.lookup(D, wR).name                # "radiation_weighting"
+reg.lookup(wR, D).name                # "radiation_weighting" (commutative)
+"radiation_weighting" in reg          # True
+len(reg)                              # 1
+reg.names()                           # ('radiation_weighting',)
+```
+
+| Method | Purpose |
+|--------|---------|
+| `register(formula)` | Add a formula; raises `DuplicateFormula` on name reuse |
+| `get(name)` | Return the named formula or raise `FormulaNotFound` |
+| `lookup(*kinds)` | Resolve a formula by input-kind tuple |
+| `names()` | Tuple of registered names |
+
+Two-argument commutative formulas are indexed under both `(a, b)` and
+`(b, a)`. Higher-arity commutative permutation is deferred to v1.9.2.
+
+### Exceptions
+
+```python
+from ucon.formulas import (
+    FormulaError,         # base class
+    FormulaNotFound,      # name or kind-tuple did not resolve
+    DuplicateFormula,     # name already registered
+)
+```
+
+| Exception | When raised |
+|-----------|-------------|
+| `FormulaNotFound` | `get(name)` or `lookup(*kinds)` did not match |
+| `DuplicateFormula` | A formula with the same name is already registered |
+
+---
+
+## TOML Loaders for Kinds & Formulas
+
+New in v1.9.0. Kinds and formulas can be authored in TOML and loaded into
+a `KindLattice` and `FormulaRegistry`. The loaders are **independent of**
+the `ConversionGraph` TOML schema documented in
+[Serialization Format](serialization-format.md) — they read the `[[kinds]]`
+and `[[formulas]]` sections from any TOML file, and the two sections can
+share a file.
+
+```python
+from ucon.parsing import (
+    parse_kinds_payload,
+    load_kinds_file,
+    parse_formulas_payload,
+    load_formulas_file,
+)
+```
+
+### Schema: `[[kinds]]`
+
+```toml
+[[kinds]]
+name = "energy"
+dimension = "L^2 * M / T^2"
+aliases = ["E"]
+join_policy = "lca"
+
+[[kinds]]
+name = "kinetic_energy"
+dimension = "L^2 * M / T^2"
+parent = "energy"
+aliases = ["KE"]
+```
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | string | yes | Canonical kind name |
+| `dimension` | string | yes | Dimension expression (e.g. `"L^2 * M / T^2"`, `"1"`) |
+| `parent` | string | no | Name of an existing kind (forward references resolved) |
+| `aliases` | array of strings | no | Alternative names |
+| `join_policy` | string | no | `"lca"` (default) or `"refuse"` |
+
+### Schema: `[[formulas]]`
+
+```toml
+[[formulas]]
+name = "radiation_weighting"
+expression = "D * w_R"
+output_kind = "equivalent_dose"
+commutative = true
+notes = "w_R per ICRP 103."
+
+[formulas.inputs]
+D = { kind = "absorbed_dose" }
+w_R = { kind = "radiation_weighting_factor" }
+
+[formulas.aspect_rules]
+signal_summary = "consume"
+```
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | string | yes | Formula name |
+| `expression` | string | yes | Free-form expression text |
+| `output_kind` | string | yes | Name of an existing kind |
+| `inputs` | table | yes | Map of input names to `{ kind = "..." }` |
+| `commutative` | bool | no | Defaults to `true` |
+| `generalizes` | bool | no | Defaults to `false` |
+| `aspect_rules` | table | no | Map of aspect names to `"consume"` or `"carry"` |
+| `notes` | string | no | Free-form notes |
+
+### Loading
+
+```python
+from pathlib import Path
+from ucon.parsing import load_kinds_file, load_formulas_file
+
+lat = load_kinds_file(Path("radiation.ucon.toml"))
+reg = load_formulas_file(Path("radiation.ucon.toml"), lattice=lat)
+
+reg.get("radiation_weighting").output_kind.name  # "equivalent_dose"
+```
+
+`load_formulas_file` requires a `KindLattice` because formula inputs and
+outputs reference kinds by name. Unknown kind references raise
+`KindNotFound`.
+
+### Payload-Level Helpers
+
+`parse_kinds_payload(payload)` and `parse_formulas_payload(payload, lattice=...)`
+accept already-decoded dictionaries and are useful for testing or for
+embedding kind definitions inside a larger TOML document.
+
+```python
+from ucon.parsing import parse_kinds_payload
+
+lat = parse_kinds_payload({
+    "kinds": [
+        {"name": "energy", "dimension": "L^2 * M / T^2"},
+        {"name": "kinetic_energy", "dimension": "L^2 * M / T^2", "parent": "energy"},
+    ]
+})
+lat.get("kinetic_energy").parent.name  # "energy"
+```
+
+Parser-level validation surfaces the same exceptions as the lattice itself
+(`KindCycle`, `OrphanParent`, `CrossDimensionParent`, `AliasCollision`) plus
+`ValueError` for malformed payloads (missing `name`, unknown `join_policy`,
+non-string aliases, etc.).
