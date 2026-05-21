@@ -12,35 +12,25 @@ the **edge** in the kind graph. Formulas serve three roles:
    addition).
 3. Named computation surface, invoked outside operator overloads.
 
-In v1.9.0 ``aspect_rules`` is opaque; the :class:`AspectRule` enum is
-declared here so the typing of formulas does not change at v1.9.1 when
-aspect machinery lands. ``generalizes`` and ``commutative`` are stored
-but inert until v1.9.2 wires them into formula lookup.
+:class:`AspectRule` shipped from this module in v1.9.0. It now lives
+in :mod:`ucon.aspects.types` (aspects are orthogonal to kinds and
+deserve their own subpackage); the symbol is re-exported here so that
+existing import paths — ``from ucon.formulas import AspectRule`` and
+``from ucon.formulas.types import AspectRule`` — keep working.
+
+``generalizes`` and ``commutative`` are stored but inert until v1.9.2
+wires them into formula lookup.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
 
+from ucon.aspects.types import AspectRule
 from ucon.kinds import Kind
 
 
 __all__ = ["AspectRule", "KindFormula"]
-
-
-class AspectRule(Enum):
-    """How a formula treats an operand aspect facet under multiplication.
-
-    ``CONSUME`` drops the facet on the output (the ratio transcends the
-    distinction). ``CARRY`` propagates the facet to the output.
-
-    Used only by formula authors; ``aspect_rules`` is opaque to ucon
-    in v1.9.0 and gains semantics in v1.9.1 alongside the Aspect type.
-    """
-
-    CONSUME = "consume"
-    CARRY = "carry"
 
 
 @dataclass(frozen=True)
