@@ -209,7 +209,8 @@ class TestSerializationRoundTrip(unittest.TestCase):
             to_toml(src, tmp_path)
             dst = from_toml(tmp_path)
         finally:
-            tmp_path.unlink(missing_ok=True)
+            if tmp_path.exists():
+                tmp_path.unlink()
         return dst
 
     def test_non_scalable_unit_round_trips(self):
@@ -254,7 +255,8 @@ class TestSerializationRoundTrip(unittest.TestCase):
 
             dst = from_toml(tmp_path)
         finally:
-            tmp_path.unlink(missing_ok=True)
+            if tmp_path.exists():
+                tmp_path.unlink()
 
         recovered = dst.resolve_unit("widget")
         self.assertIsNotNone(recovered)
