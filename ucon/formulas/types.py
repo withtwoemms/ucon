@@ -25,8 +25,9 @@ wires them into formula lookup.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Mapping
 
-from ucon.aspects.types import AspectRule
+from ucon.aspects.types import AspectRule, AspectSet
 from ucon.kinds import Kind
 
 
@@ -101,3 +102,47 @@ class KindFormula:
         positional lookups.
         """
         return tuple(self.input_kinds.values())
+
+    def project_aspects(
+        self,
+        inputs: Mapping[str, AspectSet],
+    ) -> AspectSet:
+        """Project operand aspect sets through this formula's rules.
+
+        For each binding name declared in :attr:`input_kinds`, consult
+        :attr:`aspect_rules`:
+
+        - :attr:`~ucon.aspects.AspectRule.CARRY` (or absent): union the
+          operand's aspect set into the output.
+        - :attr:`~ucon.aspects.AspectRule.CONSUME`: drop the operand's
+          aspect set.
+
+        Bindings missing from ``inputs`` contribute an empty aspect set.
+        Aspect rules declared for binding names not present in
+        :attr:`input_kinds` are ignored.
+
+        Parameters
+        ----------
+        inputs
+            Mapping from binding name to that operand's aspect set.
+
+        Returns
+        -------
+        AspectSet
+            The union of carried operand aspect sets.
+
+        Notes
+        -----
+        Pure: no state, no lattice consultation. The output depends only
+        on :attr:`aspect_rules` and the supplied operand aspect sets.
+        Aspect rules attached to binding names not declared in
+        :attr:`input_kinds` are silently ignored, matching the rule that
+        :attr:`input_kinds` is the authoritative set of operand slots.
+        """
+        carried: frozenset[str] = frozenset()
+        for binding in self.input_kinds:
+            rule = self.aspect_rules.get(binding, AspectRule.CARRY)
+            if rule is AspectRule.CONSUME:
+                continue
+            carried = carried | inputs.get(binding, frozenset())
+        return carried
