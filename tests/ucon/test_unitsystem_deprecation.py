@@ -3,42 +3,29 @@
 # See the LICENSE file for details.
 
 """
-Tests for the v1.8 PEP-562 alias from ``ucon.UnitSystem`` to
-``ucon.system.BaseUnits``.
+Tests for the v2.0 top-level ``ucon.UnitSystem`` export.
 
-The alias preserves backwards compatibility for code that still imports
-``UnitSystem`` from the top-level ``ucon`` package. It emits
-``PendingDeprecationWarning`` and resolves to :class:`BaseUnits`. The
-alias is scheduled for removal in ucon 2.0.
+In v1.8 ``ucon.UnitSystem`` was a deprecated alias for ``BaseUnits``.
+In v2.0 ``UnitSystem`` is the real system type from ``ucon.system``,
+exported directly. ``BaseUnits`` remains available under its own name.
 """
-
-import warnings
 
 import pytest
 
 import ucon
-from ucon.system import BaseUnits
+from ucon.system import BaseUnits, UnitSystem
 
 
-def test_alias_emits_pending_deprecation_warning():
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        cls = ucon.UnitSystem
-    assert any(
-        issubclass(item.category, PendingDeprecationWarning)
-        and "BaseUnits" in str(item.message)
-        for item in w
-    ), f"expected PendingDeprecationWarning mentioning BaseUnits, got {[str(i.message) for i in w]}"
-    assert cls is BaseUnits
+def test_unitsystem_is_the_real_class():
+    assert ucon.UnitSystem is UnitSystem
 
 
-def test_alias_resolves_to_baseunits_identity():
-    # Two accesses should return the same object
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", PendingDeprecationWarning)
-        a = ucon.UnitSystem
-        b = ucon.UnitSystem
-    assert a is b is BaseUnits
+def test_unitsystem_is_not_baseunits():
+    assert ucon.UnitSystem is not BaseUnits
+
+
+def test_baseunits_still_exported():
+    assert ucon.BaseUnits is BaseUnits
 
 
 def test_unknown_attribute_still_raises():
