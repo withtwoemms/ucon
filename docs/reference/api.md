@@ -1663,36 +1663,92 @@ reg.names()                           # ('radiation_weighting',)
 |--------|---------|
 | `register(formula)` | Add a formula; raises `DuplicateFormula` on name reuse |
 | `get(name)` | Return the named formula or raise `FormulaNotFound` |
-| `lookup(*kinds)` | Resolve a formula by input-kind tuple |
-| `apply(inputs)` | Resolve formula **and** project aspects in one step (v1.9.1) |
+| `lookup(*kinds)` | Resolve a formula by exact input-kind tuple |
+| `resolve(*kinds)` | Tiered formula resolution returning `LookupResult` (v1.9.2) |
+| `apply(inputs)` | Resolve formula **and** project aspects in one step (v1.9.1, extended v1.9.2) |
 | `names()` | Tuple of registered names |
 
-Two-argument commutative formulas are indexed under both `(a, b)` and
-`(b, a)`. Higher-arity commutative permutation is deferred to v1.9.2.
+Commutative formulas are indexed under both the original key and a
+canonical sorted key, so permuted orderings resolve at any arity.
 
-#### `apply(inputs)`
+#### `resolve(*input_kinds, lattice=None, dimension_fallback=False)`
 
-New in v1.9.1. Single entry point that resolves the formula by input kinds
-and projects aspect sets through it:
+New in v1.9.2. Tiered formula resolution through successive match tiers,
+checked in strict priority order — the first to produce a match wins:
+
+1. **EXACT** — direct input-kind tuple match.
+2. **COMMUTATIVE** — canonical sorted-key match (any arity).
+3. **GENERALIZED** — ancestor-walk via `lattice` at increasing L1 distance
+   (only formulas with `generalizes=True`).
+4. **DIMENSIONAL** — dimension-tuple match ignoring kind identity
+   (only when `dimension_fallback=True`).
+
+```python
+from ucon.formulas import MatchKind
+
+result = reg.resolve(D, wR)
+result.formula.name   # "radiation_weighting"
+result.match_kind     # MatchKind.EXACT
+result.distance       # 0
+
+# Generalized: child kind climbs to parent
+result = reg.resolve(child_kind, wR, lattice=lat)
+result.match_kind     # MatchKind.GENERALIZED
+result.distance       # 1 (L1 distance in ancestor walk)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `*input_kinds` | Kind | Kinds to match, in caller-supplied order |
+| `lattice` | KindLattice \| None | Enables GENERALIZED matching via ancestor walk |
+| `dimension_fallback` | bool | Enables DIMENSIONAL matching as a last resort |
+
+Returns `LookupResult`. Raises `FormulaNotFound` if no formula matched
+at any enabled tier, or `AmbiguousFormula` if multiple formulas matched
+at the same GENERALIZED distance.
+
+#### `apply(inputs, *, lattice=None, dimension_fallback=False)`
+
+New in v1.9.1, extended in v1.9.2. Single entry point that resolves the
+formula by input kinds and projects aspect sets through it:
 
 ```python
 from ucon.aspects import AspectSet
+from ucon.formulas import MatchKind
 
-formula, out_kind, out_aspects = reg.apply({
+formula, out_kind, out_aspects, match_kind = reg.apply({
     "D":   (D,  AspectSet("signal_summary")),
     "w_R": (wR, AspectSet("calibrated")),
 })
 # formula     == <KindFormula "radiation_weighting">
 # out_kind    == H (equivalent_dose)
 # out_aspects == frozenset({"signal_summary"})
+# match_kind  == MatchKind.EXACT
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `inputs` | Mapping[str, tuple[Kind, AspectSet]] | Map of binding names to (kind, aspects) pairs |
+| `lattice` | KindLattice \| None | Enables GENERALIZED matching via ancestor walk |
+| `dimension_fallback` | bool | Enables DIMENSIONAL matching as a last resort |
 
-Returns `tuple[KindFormula, Kind, AspectSet]`. Raises `FormulaNotFound`
-if no formula matches the input kinds.
+Returns `tuple[KindFormula, Kind, AspectSet, MatchKind]`. Raises
+`FormulaNotFound` if no formula matches the input kinds, or
+`AmbiguousFormula` if multiple formulas match at the same GENERALIZED
+distance.
+
+### Types
+
+New in v1.9.2.
+
+```python
+from ucon.formulas import MatchKind, LookupResult
+```
+
+| Type | Description |
+|------|-------------|
+| `MatchKind` | Enum: `EXACT`, `COMMUTATIVE`, `GENERALIZED`, `DIMENSIONAL` |
+| `LookupResult` | Frozen dataclass with `formula`, `match_kind`, and `distance` (L1 distance for GENERALIZED; 0 for others) |
 
 ### Exceptions
 
@@ -1701,13 +1757,15 @@ from ucon.formulas import (
     FormulaError,         # base class
     FormulaNotFound,      # name or kind-tuple did not resolve
     DuplicateFormula,     # name already registered
+    AmbiguousFormula,     # multiple formulas match at same distance
 )
 ```
 
 | Exception | When raised |
 |-----------|-------------|
-| `FormulaNotFound` | `get(name)` or `lookup(*kinds)` did not match |
+| `FormulaNotFound` | `get(name)`, `lookup(*kinds)`, or `resolve(*kinds)` did not match |
 | `DuplicateFormula` | A formula with the same name is already registered |
+| `AmbiguousFormula` | Multiple formulas matched at the same GENERALIZED distance; carries `candidates` and `distance` |
 
 ---
 
