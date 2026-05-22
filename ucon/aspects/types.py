@@ -36,12 +36,54 @@ __all__ = [
 ]
 
 
-#: An immutable set of aspect names carried alongside a quantity.
-#:
-#: Aspects are strings by convention; ucon does not validate them
-#: against a registry. Callers and formulas agree on aspect names
-#: out of band.
-AspectSet = FrozenSet[str]
+class AspectSet(frozenset):
+    """An immutable, variadic-friendly set of aspect names.
+
+    Aspects are strings by convention; ucon does not validate them
+    against a registry. Callers and formulas agree on aspect names
+    out of band.
+
+    ``AspectSet`` is a ``frozenset[str]`` subclass and is fully
+    interchangeable with plain ``frozenset`` values at every internal
+    surface (``project_aspects``, ``join_aspects``, ``apply``). It
+    exists to give callers a more ergonomic construction site than the
+    bare ``frozenset({...})`` literal.
+
+    Construction
+    ------------
+    Variadic — the primary form::
+
+        AspectSet("calibrated", "ICRP103")
+
+    Single iterable — when the caller already has a collection::
+
+        AspectSet({"calibrated", "ICRP103"})
+        AspectSet(["calibrated", "ICRP103"])
+        AspectSet(existing_frozenset)
+
+    Empty::
+
+        AspectSet()
+
+    A single string argument is treated as one aspect (not iterated as
+    characters): ``AspectSet("calibrated") == frozenset({"calibrated"})``.
+
+    Compatibility
+    -------------
+    Because ``AspectSet`` is-a ``frozenset``, plain frozenset literals
+    continue to satisfy ``AspectSet``-typed parameters; equality and
+    hashing are inherited and remain value-based. Set algebra
+    (``&``, ``|``, ``-``, ``^``) returns plain ``frozenset`` instances
+    — wrap with ``AspectSet(...)`` if you need the class identity
+    preserved.
+    """
+
+    def __new__(cls, *aspects):
+        # Single non-string iterable: AspectSet(some_collection)
+        if len(aspects) == 1 and not isinstance(aspects[0], str):
+            return super().__new__(cls, aspects[0])
+        # Variadic primary: AspectSet("a", "b") or AspectSet() for empty
+        return super().__new__(cls, aspects)
 
 
 class AspectRule(Enum):
