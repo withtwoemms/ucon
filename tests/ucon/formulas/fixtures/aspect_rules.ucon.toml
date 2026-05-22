@@ -1,0 +1,68 @@
+# End-to-end TOML -> apply coverage for aspect propagation.
+# Three formulas exercise the three rule shapes:
+#   1. sparse rules            (some bindings omitted -> default CARRY)
+#   2. fully-declared rules    (every binding mentioned)
+#   3. absent aspect_rules     (every binding defaults to CARRY)
+
+[[kinds]]
+name = "absorbed_dose"
+dimension = "L^2/T^2"
+
+[[kinds]]
+name = "radiation_weighting_factor"
+dimension = "1"
+
+[[kinds]]
+name = "tissue_weighting_factor"
+dimension = "1"
+
+[[kinds]]
+name = "equivalent_dose"
+dimension = "L^2/T^2"
+
+[[kinds]]
+name = "effective_dose"
+dimension = "L^2/T^2"
+
+
+# -- Sparse rules: only the consumed binding is declared.
+[[formulas]]
+name = "equivalent_dose"
+expression = "D * w_R"
+output_kind = "equivalent_dose"
+commutative = true
+
+  [formulas.inputs]
+  D   = { kind = "absorbed_dose" }
+  w_R = { kind = "radiation_weighting_factor" }
+
+  [formulas.aspect_rules]
+  w_R = "consume"
+
+
+# -- Fully-declared rules: every binding mentioned, mixed CARRY/CONSUME.
+[[formulas]]
+name = "effective_dose"
+expression = "H * w_T"
+output_kind = "effective_dose"
+commutative = true
+
+  [formulas.inputs]
+  H   = { kind = "equivalent_dose" }
+  w_T = { kind = "tissue_weighting_factor" }
+
+  [formulas.aspect_rules]
+  H   = "carry"
+  w_T = "consume"
+
+
+# -- Absent aspect_rules: pure default CARRY for both operands.
+[[formulas]]
+name = "dose_sum"
+expression = "H_a + H_b"
+output_kind = "equivalent_dose"
+commutative = true
+
+  [formulas.inputs]
+  H_a = { kind = "equivalent_dose" }
+  H_b = { kind = "equivalent_dose" }
