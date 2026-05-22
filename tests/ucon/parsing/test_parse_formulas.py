@@ -205,7 +205,7 @@ def test_e2e_sparse_rules_consume_binding_carry_default():
     lat, reg = _load_aspect_rules_fixture()
     D = lat.get("absorbed_dose")
     wR = lat.get("radiation_weighting_factor")
-    formula, out_kind, out_aspects = reg.apply({
+    formula, out_kind, out_aspects, _ = reg.apply({
         "D":   (D,  frozenset({"signal_summary"})),
         "w_R": (wR, frozenset({"calibrated"})),
     })
@@ -220,7 +220,7 @@ def test_e2e_fully_declared_rules_mixed_carry_and_consume():
     lat, reg = _load_aspect_rules_fixture()
     H = lat.get("equivalent_dose")
     wT = lat.get("tissue_weighting_factor")
-    formula, out_kind, out_aspects = reg.apply({
+    formula, out_kind, out_aspects, _ = reg.apply({
         "H":   (H,  frozenset({"signal_summary", "calibrated"})),
         "w_T": (wT, frozenset({"ICRP103"})),
     })
@@ -234,7 +234,7 @@ def test_e2e_absent_rules_carry_all():
     """Absent aspect_rules: every binding defaults to CARRY."""
     lat, reg = _load_aspect_rules_fixture()
     H = lat.get("equivalent_dose")
-    formula, out_kind, out_aspects = reg.apply({
+    formula, out_kind, out_aspects, _ = reg.apply({
         "H_a": (H, frozenset({"a_tag"})),
         "H_b": (H, frozenset({"b_tag"})),
     })
@@ -249,7 +249,7 @@ def test_e2e_empty_aspects_propagate_cleanly():
     lat, reg = _load_aspect_rules_fixture()
     D = lat.get("absorbed_dose")
     wR = lat.get("radiation_weighting_factor")
-    _, _, out_aspects = reg.apply({
+    _, _, out_aspects, _ = reg.apply({
         "D":   (D,  frozenset()),
         "w_R": (wR, frozenset()),
     })

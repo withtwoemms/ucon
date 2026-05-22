@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 from ucon.aspects.types import AspectSet
 from ucon.formulas.exceptions import AmbiguousFormula, DuplicateFormula, FormulaNotFound
 from ucon.formulas.types import KindFormula, LookupResult, MatchKind
-from ucon.kinds import Kind
+from ucon.kinds import Kind, KindNotFound
 
 
 __all__ = ["FormulaRegistry"]
@@ -253,9 +253,13 @@ class FormulaRegistry:
         """
         n = len(input_kinds)
         # Pre-compute ancestor chains (excluding position 0 = the kind itself).
-        chains: list[list[Kind]] = [
-            lattice.ancestors(k)[1:] for k in input_kinds
-        ]
+        # Kinds not registered in the lattice have no ancestors to climb.
+        chains: list[list[Kind]] = []
+        for k in input_kinds:
+            try:
+                chains.append(lattice.ancestors(k)[1:])
+            except KindNotFound:
+                chains.append([])
         depth_cap = min(sum(len(c) for c in chains), max_distance)
 
         for distance in range(1, depth_cap + 1):

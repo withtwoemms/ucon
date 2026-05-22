@@ -13,6 +13,7 @@ from ucon.formulas import (
     FormulaNotFound,
     FormulaRegistry,
     KindFormula,
+    MatchKind,
 )
 from ucon.kinds import Kind
 
@@ -138,8 +139,6 @@ def test_higher_arity_commutative_lookup_only():
 
 def test_higher_arity_commutative_permuted_via_resolve():
     # resolve() uses canonical sorted key for commutative formulas.
-    from ucon.formulas import MatchKind
-
     a = Kind("a", dimension=LENGTH_DIM)
     b = Kind("b", dimension=MASS)
     c = Kind("c", dimension=TIME_DIM)
@@ -192,7 +191,7 @@ def test_apply_composes_lookup_and_projection():
     # commutativity) lives in `test_registry_apply.py`.
     f, v, i, p = _voltage_current_power_formula()
     reg = FormulaRegistry([f])
-    formula, out_kind, out_aspects = reg.apply(
+    formula, out_kind, out_aspects, match_kind = reg.apply(
         {
             "V": (v, frozenset({"calibrated"})),
             "I": (i, frozenset()),
@@ -201,3 +200,4 @@ def test_apply_composes_lookup_and_projection():
     assert formula is f
     assert out_kind is p
     assert out_aspects == frozenset({"calibrated"})
+    assert match_kind == MatchKind.EXACT
