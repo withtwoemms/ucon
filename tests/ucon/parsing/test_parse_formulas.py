@@ -47,7 +47,7 @@ def test_load_radiation_weighting_parses_aspect_rules():
         FIXTURES / "radiation_weighting.ucon.toml", lattice=lat
     )
     f = reg.get("radiation_weighting")
-    assert f.aspect_rules == {"signal_summary": AspectRule.CONSUME}
+    assert f.aspect_rules == {"w_R": AspectRule.CONSUME}
 
 
 def test_load_radiation_weighting_commutative_lookup_both_orders():
@@ -187,3 +187,70 @@ def test_defaults_applied_when_optional_fields_missing():
     assert f.generalizes is False
     assert f.commutative is True
     assert f.notes == ""
+
+
+# --------- end-to-end: TOML -> apply ---------
+
+
+def _load_aspect_rules_fixture():
+    lat = load_kinds_file(FIXTURES / "aspect_rules.ucon.toml")
+    reg = load_formulas_file(
+        FIXTURES / "aspect_rules.ucon.toml", lattice=lat
+    )
+    return lat, reg
+
+
+def test_e2e_sparse_rules_consume_binding_carry_default():
+    """Sparse rules: w_R=CONSUME, D defaults to CARRY."""
+    lat, reg = _load_aspect_rules_fixture()
+    D = lat.get("absorbed_dose")
+    wR = lat.get("radiation_weighting_factor")
+    formula, out_kind, out_aspects = reg.apply({
+        "D":   (D,  frozenset({"signal_summary"})),
+        "w_R": (wR, frozenset({"calibrated"})),
+    })
+    assert formula.name == "equivalent_dose"
+    assert out_kind.name == "equivalent_dose"
+    # D carried, w_R consumed
+    assert out_aspects == frozenset({"signal_summary"})
+
+
+def test_e2e_fully_declared_rules_mixed_carry_and_consume():
+    """Fully-declared rules: H=CARRY, w_T=CONSUME."""
+    lat, reg = _load_aspect_rules_fixture()
+    H = lat.get("equivalent_dose")
+    wT = lat.get("tissue_weighting_factor")
+    formula, out_kind, out_aspects = reg.apply({
+        "H":   (H,  frozenset({"signal_summary", "calibrated"})),
+        "w_T": (wT, frozenset({"ICRP103"})),
+    })
+    assert formula.name == "effective_dose"
+    assert out_kind.name == "effective_dose"
+    # H carried, w_T consumed
+    assert out_aspects == frozenset({"signal_summary", "calibrated"})
+
+
+def test_e2e_absent_rules_carry_all():
+    """Absent aspect_rules: every binding defaults to CARRY."""
+    lat, reg = _load_aspect_rules_fixture()
+    H = lat.get("equivalent_dose")
+    formula, out_kind, out_aspects = reg.apply({
+        "H_a": (H, frozenset({"a_tag"})),
+        "H_b": (H, frozenset({"b_tag"})),
+    })
+    assert formula.name == "dose_sum"
+    assert out_kind.name == "equivalent_dose"
+    # Both carried — union
+    assert out_aspects == frozenset({"a_tag", "b_tag"})
+
+
+def test_e2e_empty_aspects_propagate_cleanly():
+    """Apply with empty aspect sets returns empty output."""
+    lat, reg = _load_aspect_rules_fixture()
+    D = lat.get("absorbed_dose")
+    wR = lat.get("radiation_weighting_factor")
+    _, _, out_aspects = reg.apply({
+        "D":   (D,  frozenset()),
+        "w_R": (wR, frozenset()),
+    })
+    assert out_aspects == frozenset()

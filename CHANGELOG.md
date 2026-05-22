@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-05-22
+
+Activates the `aspect_rules` field on `KindFormula` that shipped as opaque
+data in v1.9.0. Aspects are covariant tags (strings) that travel with
+quantities through formula application and lattice join, describing
+provenance or processing state rather than physical identity. The new
+machinery is still preview surface — not wired to `Number`; callers
+interact with aspects through `FormulaRegistry.apply` and `join_aspects`.
+
+### Added
+
+- **`ucon.aspects` subpackage** — new sibling to `ucon.kinds` and
+  `ucon.formulas`, housing aspect data types and the pure join operation.
+
+  - **`AspectSet`** — `frozenset` subclass with a variadic constructor
+    (`AspectSet("calibrated", "ICRP103")`). Fully interchangeable with
+    plain `frozenset[str]` at every internal surface. Single string
+    arguments are treated as one aspect (not iterated as characters).
+
+  - **`AspectJoinPolicy`** enum (`INTERSECT`, `UNION`) — controls how
+    aspect sets combine when kinds join at the lattice. `INTERSECT`
+    (the default) keeps only aspects present on both sides; `UNION`
+    keeps every aspect from either side.
+
+  - **`join_aspects(a, b, policy=INTERSECT)`** — pure function combining
+    two aspect sets under the given policy. Does not consult a lattice;
+    callers compose with `KindLattice.join` explicitly.
+
+- **`KindFormula.project_aspects(inputs)`** — pure method projecting
+  input aspect sets through the formula's `aspect_rules`. For each
+  binding: `CARRY` (or absent — the default) unions the binding's
+  aspects into the output; `CONSUME` drops them.
+
+- **`FormulaRegistry.apply(inputs)`** — single entry point that resolves
+  a formula by input kinds *and* projects aspects through it. Returns
+  `(formula, output_kind, output_aspects)`. Raises `FormulaNotFound` if
+  no formula matches.
+
+### Changed
+
+- **`AspectRule` canonical location.** `AspectRule` now lives in
+  `ucon.aspects.types`; the canonical import is
+  `from ucon.aspects import AspectRule`. The v1.9.0 import path
+  (`from ucon.formulas import AspectRule`) continues to work via
+  re-export and is not deprecated.
+
+### Notes
+
+- **`aspect_rules` keys are binding names.** Keys in `aspect_rules` are
+  operand binding names drawn from `[formulas.inputs]`, not aspect
+  strings. A `CONSUME` rule drops every aspect on its binding's
+  operand; a `CARRY` rule unions them into the output. Bindings
+  omitted from `aspect_rules` default to `CARRY`. Per-facet rule
+  semantics (selective propagation by aspect string) are a v2.0
+  question; the schema may be extended at that time to accept a richer
+  entry shape. v1.9.1 binding-keyed rules will continue to be honored
+  as a syntactic subset of any future schema.
+
 ## [1.9.0] - 2026-05-20
 
 Introduces *kinds* as a first-class concept: dimensional refinements that
@@ -148,8 +206,8 @@ and wires them into `Number`.
       [formulas.inputs]
       D   = { kind = "absorbed_dose" }
       w_R = { kind = "radiation_weighting_factor" }
-      [formulas.aspect_rules]       # optional, opaque in v1.9.0
-      signal_summary = "consume"
+      [formulas.aspect_rules]       # optional; keys are binding names
+      w_R = "consume"
     ```
     Kind references resolve through `lattice.get`, so unknown names
     surface as `KindNotFound`. Both loaders are exported lazily from
@@ -2059,7 +2117,8 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.9.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.9.1...HEAD
+[1.9.1]: https://github.com/withtwoemms/ucon/compare/1.9.0...1.9.1
 [1.9.0]: https://github.com/withtwoemms/ucon/compare/1.8.3...1.9.0
 [1.8.3]: https://github.com/withtwoemms/ucon/compare/1.8.2...1.8.3
 [1.8.2]: https://github.com/withtwoemms/ucon/compare/1.8.1...1.8.2

@@ -11,8 +11,11 @@ computation. Addition dispatch is governed by the kind lattice, not
 by formulas.
 
 This subpackage is not wired into :class:`~ucon.quantity.Number` in
-v1.9.x. ``aspect_rules`` is opaque until v1.9.1; ``generalizes`` and
-``commutative`` are inert until v1.9.2.
+v1.9.x. ``aspect_rules`` gained operational semantics in v1.9.1 via
+:meth:`~ucon.formulas.types.KindFormula.project_aspects` and
+:meth:`~ucon.formulas.registry.FormulaRegistry.apply`.
+``generalizes`` and ``commutative`` (higher-arity) are inert until
+v1.9.2.
 """
 
 from ucon.formulas.exceptions import (

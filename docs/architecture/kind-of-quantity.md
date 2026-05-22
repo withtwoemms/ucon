@@ -380,6 +380,121 @@ reg.lookup(D, wR).name  # "radiation_weighting"
 reg.lookup(wR, D).name  # "radiation_weighting" (commutative)
 ```
 
+### Aspect Propagation
+
+Kinds tell you *what* a quantity is; **aspects** tell you *something about*
+a quantity — that it was reduced from many measurements, that it was
+calibrated against a reference, that it represents a signal summary.
+Aspects are covariant tags (strings) carried alongside a quantity,
+orthogonal to kinds: two values with the same kind can differ in aspects,
+and two values with different kinds can share aspects.
+
+Aspects matter at two sites in the algebra:
+
+1. **Multiplication (formula application)** — the formula's `aspect_rules`
+   controls which operand aspects propagate to the output.
+2. **Addition (lattice join)** — the `AspectJoinPolicy` chosen by the
+   caller controls how aspects from two operands combine.
+
+#### Formula Rules: CONSUME and CARRY
+
+Each binding in a `KindFormula` can declare an `AspectRule`:
+
+| Rule | Behaviour |
+|------|-----------|
+| `CARRY` (default) | The operand's aspects are unioned into the output |
+| `CONSUME` | The operand's aspects are dropped |
+
+Bindings not mentioned in `aspect_rules` default to `CARRY` — the
+conservative choice is to preserve information; authors opt into dropping
+it.
+
+```mermaid
+flowchart LR
+    subgraph inputs ["Inputs"]
+        D["D: absorbed_dose<br/><b>aspects:</b> signal_summary"]
+        wR["w_R: weighting_factor<br/><b>aspects:</b> calibrated"]
+    end
+
+    subgraph formula ["Formula: H = D * w_R"]
+        rule_D["D → CARRY"]
+        rule_wR["w_R → CONSUME"]
+    end
+
+    subgraph output ["Output"]
+        H["H: equivalent_dose<br/><b>aspects:</b> signal_summary"]
+    end
+
+    D --> rule_D --> H
+    wR --> rule_wR
+```
+
+In code:
+
+```python
+from ucon.aspects import AspectRule, AspectSet
+from ucon.formulas import KindFormula, FormulaRegistry
+
+f = KindFormula(
+    name="radiation_weighting",
+    expression="D * w_R",
+    input_kinds={"D": absorbed_dose, "w_R": weighting_factor},
+    output_kind=equivalent_dose,
+    aspect_rules={"w_R": AspectRule.CONSUME},  # D defaults to CARRY
+)
+reg = FormulaRegistry([f])
+
+formula, out_kind, out_aspects = reg.apply({
+    "D":   (absorbed_dose,      AspectSet("signal_summary")),
+    "w_R": (weighting_factor,   AspectSet("calibrated")),
+})
+# out_kind    == equivalent_dose
+# out_aspects == frozenset({"signal_summary"})  — w_R's aspects consumed
+```
+
+#### Lattice Join: AspectJoinPolicy
+
+When two quantities with different kinds are added, the kind lattice
+computes the LCA. A separate, pure operation combines the aspect sets:
+
+| Policy | Behaviour | Default |
+|--------|-----------|---------|
+| `INTERSECT` | Keep only aspects present on **both** sides | Yes |
+| `UNION` | Keep every aspect from **either** side | No |
+
+`INTERSECT` is the default because addition crosses kinds: the LCA result
+is less specific than either operand, so unshared aspects cannot be
+honestly attributed to the result.
+
+```python
+from ucon.aspects import join_aspects, AspectJoinPolicy
+
+out = join_aspects(
+    AspectSet("signal_summary", "calibrated"),
+    AspectSet("signal_summary"),
+)
+# out == frozenset({"signal_summary"})   (INTERSECT default)
+
+out = join_aspects(
+    AspectSet("signal_summary", "calibrated"),
+    AspectSet("signal_summary"),
+    policy=AspectJoinPolicy.UNION,
+)
+# out == frozenset({"signal_summary", "calibrated"})
+```
+
+#### Status in v1.9.1
+
+Aspects are an **opt-in preview surface**, like kinds:
+
+- Not re-exported from the top-level `ucon` package — import from
+  `ucon.aspects` directly.
+- Not yet wired into `Number` arithmetic; aspect information is carried
+  only by client code that chooses to participate.
+- `FormulaRegistry.apply` is the single entry point that combines formula
+  lookup with aspect projection.
+- v2.0 binds aspects to `Number` alongside kinds.
+
 ### TOML Authoring
 
 Both kinds and formulas can be declared in TOML and loaded with
@@ -409,16 +524,17 @@ D = { kind = "absorbed_dose" }
 w_R = { kind = "radiation_weighting_factor" }
 ```
 
-### Status in v1.9.0
+### Status
 
-Kinds and formulas are an **opt-in preview surface**:
+Kinds, formulas, and aspects are an **opt-in preview surface**:
 
 - Not re-exported from the top-level `ucon` package — import from
-  `ucon.kinds`, `ucon.formulas`, and `ucon.parsing` directly.
-- Not yet wired into `Number` arithmetic; `Kind` information is carried only
-  by client code that chooses to participate.
-- The `aspect_rules` field on `KindFormula` is parsed but otherwise opaque
-  until v1.9.1.
+  `ucon.kinds`, `ucon.formulas`, `ucon.aspects`, and `ucon.parsing`
+  directly.
+- Not yet wired into `Number` arithmetic; `Kind` and aspect information is
+  carried only by client code that chooses to participate.
+- The `aspect_rules` field on `KindFormula` gained operational semantics
+  in v1.9.1 (see [Aspect Propagation](#aspect-propagation) above).
 - Higher-arity commutative permutation, generalization, and dimension-only
   registry lookup are scheduled for v1.9.2.
 - v2.0 wires the lattice into `Number` so the type system can enforce

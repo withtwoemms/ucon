@@ -161,3 +161,21 @@ def test_register_via_constructor_iterable():
     f, *_ = _voltage_current_power_formula()
     reg = FormulaRegistry(iter([f]))
     assert "ohms_power" in reg
+
+
+def test_apply_composes_lookup_and_projection():
+    # Co-located with the lookup tests because `apply` composes lookup
+    # with aspect projection over the same registry surface. The full
+    # behaviour matrix (rules, missing bindings, exception propagation,
+    # commutativity) lives in `test_registry_apply.py`.
+    f, v, i, p = _voltage_current_power_formula()
+    reg = FormulaRegistry([f])
+    formula, out_kind, out_aspects = reg.apply(
+        {
+            "V": (v, frozenset({"calibrated"})),
+            "I": (i, frozenset()),
+        }
+    )
+    assert formula is f
+    assert out_kind is p
+    assert out_aspects == frozenset({"calibrated"})

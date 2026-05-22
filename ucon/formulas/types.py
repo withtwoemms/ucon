@@ -12,35 +12,26 @@ the **edge** in the kind graph. Formulas serve three roles:
    addition).
 3. Named computation surface, invoked outside operator overloads.
 
-In v1.9.0 ``aspect_rules`` is opaque; the :class:`AspectRule` enum is
-declared here so the typing of formulas does not change at v1.9.1 when
-aspect machinery lands. ``generalizes`` and ``commutative`` are stored
-but inert until v1.9.2 wires them into formula lookup.
+:class:`AspectRule` shipped from this module in v1.9.0. It now lives
+in :mod:`ucon.aspects.types` (aspects are orthogonal to kinds and
+deserve their own subpackage); the symbol is re-exported here so that
+existing import paths — ``from ucon.formulas import AspectRule`` and
+``from ucon.formulas.types import AspectRule`` — keep working.
+
+``generalizes`` and ``commutative`` are stored but inert until v1.9.2
+wires them into formula lookup.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from typing import FrozenSet, Mapping
 
+from ucon.aspects.types import AspectRule, AspectSet
 from ucon.kinds import Kind
 
 
 __all__ = ["AspectRule", "KindFormula"]
-
-
-class AspectRule(Enum):
-    """How a formula treats an operand aspect facet under multiplication.
-
-    ``CONSUME`` drops the facet on the output (the ratio transcends the
-    distinction). ``CARRY`` propagates the facet to the output.
-
-    Used only by formula authors; ``aspect_rules`` is opaque to ucon
-    in v1.9.0 and gains semantics in v1.9.1 alongside the Aspect type.
-    """
-
-    CONSUME = "consume"
-    CARRY = "carry"
 
 
 @dataclass(frozen=True)
@@ -111,3 +102,47 @@ class KindFormula:
         positional lookups.
         """
         return tuple(self.input_kinds.values())
+
+    def project_aspects(
+        self,
+        inputs: Mapping[str, FrozenSet[str]],
+    ) -> FrozenSet[str]:
+        """Project operand aspect sets through this formula's rules.
+
+        For each binding name declared in :attr:`input_kinds`, consult
+        :attr:`aspect_rules`:
+
+        - :attr:`~ucon.aspects.AspectRule.CARRY` (or absent): union the
+          operand's aspect set into the output.
+        - :attr:`~ucon.aspects.AspectRule.CONSUME`: drop the operand's
+          aspect set.
+
+        Bindings missing from ``inputs`` contribute an empty aspect set.
+        Aspect rules declared for binding names not present in
+        :attr:`input_kinds` are ignored.
+
+        Parameters
+        ----------
+        inputs
+            Mapping from binding name to that operand's aspect set.
+
+        Returns
+        -------
+        AspectSet
+            The union of carried operand aspect sets.
+
+        Notes
+        -----
+        Pure: no state, no lattice consultation. The output depends only
+        on :attr:`aspect_rules` and the supplied operand aspect sets.
+        Aspect rules attached to binding names not declared in
+        :attr:`input_kinds` are silently ignored, matching the rule that
+        :attr:`input_kinds` is the authoritative set of operand slots.
+        """
+        carried: frozenset[str] = frozenset()
+        for binding in self.input_kinds:
+            rule = self.aspect_rules.get(binding, AspectRule.CARRY)
+            if rule is AspectRule.CONSUME:
+                continue
+            carried = carried | inputs.get(binding, frozenset())
+        return carried

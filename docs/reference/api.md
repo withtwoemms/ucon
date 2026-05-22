@@ -1551,11 +1551,13 @@ from ucon.kinds import (
 
 ## Formulas
 
-New in v1.9.0. **Preview surface — not yet wired to `Number`.**
+New in v1.9.0. **Preview surface — not yet wired to `Number`.** Aspect
+rules activated in v1.9.1 (see [Aspects](#aspects) below).
 
 A `FormulaRegistry` records named relationships between input kinds and an
 output kind. Given a sequence of `Kind` instances, the registry can resolve
-the formula that produces the corresponding output.
+the formula that produces the corresponding output — and, as of v1.9.1,
+project aspect sets through the formula's rules in one step via `apply`.
 
 ```python
 from ucon.formulas import (
@@ -1587,7 +1589,7 @@ f = KindFormula(
     input_kinds={"D": D, "w_R": wR},
     output_kind=H,
     commutative=True,
-    aspect_rules={"signal_summary": AspectRule.CONSUME},
+    aspect_rules={"w_R": AspectRule.CONSUME},
     notes="w_R per ICRP 103; caller selects.",
 )
 ```
@@ -1598,7 +1600,7 @@ f = KindFormula(
 | `expression` | str | required | Free-form expression string (e.g. `"D * w_R"`) |
 | `input_kinds` | dict[str, Kind] | required | Named inputs in declaration order |
 | `output_kind` | Kind | required | Kind of the resulting quantity |
-| `aspect_rules` | dict[str, AspectRule] | `{}` | Parsed but opaque until v1.9.1 |
+| `aspect_rules` | dict[str, AspectRule] | `{}` | Per-binding propagation rules (keys are binding names from `input_kinds`; see [Aspects](#aspects)) |
 | `generalizes` | bool | `False` | Reserved; effective in v1.9.2 |
 | `commutative` | bool | `True` | Two-input formulas are mirrored on registration |
 | `notes` | str | `""` | Free-form annotation |
@@ -1608,15 +1610,37 @@ kinds in insertion order.
 
 ### AspectRule
 
-Enum classifying how an aspect propagates through a formula:
+Enum classifying how a formula treats an operand's aspects. Declared per
+binding name in `KindFormula.aspect_rules`. Bindings not mentioned default
+to `CARRY`. The canonical import is `from ucon.aspects import AspectRule`;
+the v1.9.0 path `from ucon.formulas import AspectRule` continues to work.
 
 | Member | String value | Meaning |
 |--------|--------------|---------|
-| `AspectRule.CONSUME` | `"consume"` | The aspect is absorbed by the formula |
-| `AspectRule.CARRY` | `"carry"` | The aspect is preserved on the output |
+| `AspectRule.CONSUME` | `"consume"` | The binding's aspects are dropped from the output |
+| `AspectRule.CARRY` | `"carry"` | The binding's aspects are unioned into the output |
 
-In v1.9.0 these values are parsed and stored but not yet acted on. Aspect
-semantics are scheduled for v1.9.1.
+See [Aspects](#aspects) for the full propagation model.
+
+### `KindFormula.project_aspects(inputs)`
+
+Pure method that projects input aspect sets through this formula's
+`aspect_rules`, returning the output `AspectSet`. Called internally by
+`FormulaRegistry.apply`.
+
+```python
+aspects = f.project_aspects({
+    "D":   frozenset({"signal_summary"}),
+    "w_R": frozenset({"calibrated"}),
+})
+# aspects == frozenset({"signal_summary"})  — w_R consumed
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `inputs` | Mapping[str, AspectSet] | Map of binding names to aspect sets |
+
+Returns `AspectSet` (the union of all carried inputs' aspects).
 
 ### FormulaRegistry
 
@@ -1640,10 +1664,35 @@ reg.names()                           # ('radiation_weighting',)
 | `register(formula)` | Add a formula; raises `DuplicateFormula` on name reuse |
 | `get(name)` | Return the named formula or raise `FormulaNotFound` |
 | `lookup(*kinds)` | Resolve a formula by input-kind tuple |
+| `apply(inputs)` | Resolve formula **and** project aspects in one step (v1.9.1) |
 | `names()` | Tuple of registered names |
 
 Two-argument commutative formulas are indexed under both `(a, b)` and
 `(b, a)`. Higher-arity commutative permutation is deferred to v1.9.2.
+
+#### `apply(inputs)`
+
+New in v1.9.1. Single entry point that resolves the formula by input kinds
+and projects aspect sets through it:
+
+```python
+from ucon.aspects import AspectSet
+
+formula, out_kind, out_aspects = reg.apply({
+    "D":   (D,  AspectSet("signal_summary")),
+    "w_R": (wR, AspectSet("calibrated")),
+})
+# formula     == <KindFormula "radiation_weighting">
+# out_kind    == H (equivalent_dose)
+# out_aspects == frozenset({"signal_summary"})
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `inputs` | Mapping[str, tuple[Kind, AspectSet]] | Map of binding names to (kind, aspects) pairs |
+
+Returns `tuple[KindFormula, Kind, AspectSet]`. Raises `FormulaNotFound`
+if no formula matches the input kinds.
 
 ### Exceptions
 
@@ -1659,6 +1708,91 @@ from ucon.formulas import (
 |-----------|-------------|
 | `FormulaNotFound` | `get(name)` or `lookup(*kinds)` did not match |
 | `DuplicateFormula` | A formula with the same name is already registered |
+
+---
+
+## Aspects
+
+New in v1.9.1. **Preview surface — not yet wired to `Number`.**
+
+An *aspect* is a covariant tag (a string) carried alongside a quantity
+that describes its provenance, processing, or calibration state — not its
+physical identity. Aspects are orthogonal to kinds: two values with the
+same kind can differ in aspects, and vice versa.
+
+```python
+from ucon.aspects import (
+    AspectSet,
+    AspectRule,
+    AspectJoinPolicy,
+    join_aspects,
+)
+```
+
+### AspectSet
+
+An immutable set of aspect names. `AspectSet` is a `frozenset` subclass
+with a variadic constructor for ergonomic construction:
+
+```python
+# Variadic (primary form)
+AspectSet("calibrated", "ICRP103")
+
+# From an existing collection
+AspectSet({"calibrated", "ICRP103"})
+AspectSet(some_frozenset)
+
+# Empty
+AspectSet()
+
+# Single string is one aspect, not iterated as characters
+AspectSet("calibrated") == frozenset({"calibrated"})  # True
+```
+
+`AspectSet` is fully interchangeable with plain `frozenset[str]` at every
+internal surface. Set algebra (`&`, `|`, `-`, `^`) returns plain `frozenset`
+instances.
+
+### AspectJoinPolicy
+
+Enum controlling how aspect sets combine when kinds join at the lattice
+(addition path):
+
+| Member | String value | Behaviour |
+|--------|--------------|-----------|
+| `AspectJoinPolicy.INTERSECT` | `"intersect"` | Keep only aspects present on **both** sides (default) |
+| `AspectJoinPolicy.UNION` | `"union"` | Keep every aspect from **either** side |
+
+### `join_aspects(a, b, policy=INTERSECT)`
+
+Pure function combining two aspect sets under the given policy. Does not
+consult a kind lattice; callers compose with `KindLattice.join` explicitly.
+
+```python
+from ucon.aspects import join_aspects, AspectJoinPolicy
+
+# Default: INTERSECT
+join_aspects(
+    frozenset({"signal_summary", "calibrated"}),
+    frozenset({"signal_summary"}),
+)
+# frozenset({"signal_summary"})
+
+# Explicit UNION
+join_aspects(
+    frozenset({"signal_summary", "calibrated"}),
+    frozenset({"signal_summary"}),
+    policy=AspectJoinPolicy.UNION,
+)
+# frozenset({"signal_summary", "calibrated"})
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `a`, `b` | AspectSet | required | Aspect sets to combine |
+| `policy` | AspectJoinPolicy | `INTERSECT` | Combination policy |
+
+Raises `ValueError` if `policy` is not a recognised `AspectJoinPolicy`.
 
 ---
 
@@ -1719,7 +1853,7 @@ D = { kind = "absorbed_dose" }
 w_R = { kind = "radiation_weighting_factor" }
 
 [formulas.aspect_rules]
-signal_summary = "consume"
+w_R = "consume"
 ```
 
 | Key | Type | Required | Description |
@@ -1730,7 +1864,7 @@ signal_summary = "consume"
 | `inputs` | table | yes | Map of input names to `{ kind = "..." }` |
 | `commutative` | bool | no | Defaults to `true` |
 | `generalizes` | bool | no | Defaults to `false` |
-| `aspect_rules` | table | no | Map of aspect names to `"consume"` or `"carry"` |
+| `aspect_rules` | table | no | Map of binding names to `"consume"` or `"carry"` (keys must match `inputs`) |
 | `notes` | string | no | Free-form notes |
 
 ### Loading

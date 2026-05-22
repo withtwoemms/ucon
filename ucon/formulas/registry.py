@@ -16,8 +16,9 @@ not change.
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import FrozenSet, Iterable, Iterator, Mapping, Tuple
 
+from ucon.aspects.types import AspectSet
 from ucon.formulas.exceptions import DuplicateFormula, FormulaNotFound
 from ucon.formulas.types import KindFormula
 from ucon.kinds import Kind
@@ -78,7 +79,7 @@ class FormulaRegistry:
     def __len__(self) -> int:
         return len(self._by_name)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[KindFormula]:
         return iter(self._by_name.values())
 
     def names(self) -> tuple[str, ...]:
@@ -114,3 +115,56 @@ class FormulaRegistry:
         if formula is None:
             raise FormulaNotFound(key)
         return formula
+
+    def apply(
+        self,
+        inputs: Mapping[str, Tuple[Kind, FrozenSet[str]]],
+    ) -> Tuple[KindFormula, Kind, FrozenSet[str]]:
+        """Resolve a formula and project operand aspects in one step.
+
+        Combines :meth:`lookup` with
+        :meth:`~ucon.formulas.types.KindFormula.project_aspects`. The
+        caller supplies one ``(kind, aspect_set)`` pair per binding;
+        the registry resolves the formula by the kinds (in iteration
+        order of ``inputs``) and returns the formula together with the
+        output kind and the projected output aspect set.
+
+        Parameters
+        ----------
+        inputs
+            Mapping from binding name to a ``(kind, aspect_set)`` pair.
+            Iteration order determines the positional order passed to
+            :meth:`lookup`.
+
+        Returns
+        -------
+        tuple
+            ``(formula, output_kind, output_aspects)`` where
+            ``output_kind`` is :attr:`KindFormula.output_kind` and
+            ``output_aspects`` is the projection of the input aspect
+            sets through :attr:`KindFormula.aspect_rules`.
+
+        Raises
+        ------
+        FormulaNotFound
+            Propagated from :meth:`lookup` when no formula matches the
+            supplied input kinds (in iteration order).
+
+        Notes
+        -----
+        ``apply`` is additive. :meth:`lookup` remains the lower-level
+        surface; callers that do not carry aspects continue to use it.
+
+        Binding names in ``inputs`` are not validated against the
+        resolved formula's :attr:`~KindFormula.input_kinds`. Mismatches
+        manifest in the projection step: rules keyed on the formula's
+        bindings consult ``inputs`` by the same names; aspects supplied
+        under unrelated names contribute nothing to the projection.
+        """
+        kinds: Tuple[Kind, ...] = tuple(kind for kind, _ in inputs.values())
+        formula = self.lookup(*kinds)
+        aspects: dict[str, FrozenSet[str]] = {
+            name: aspect_set for name, (_, aspect_set) in inputs.items()
+        }
+        out_aspects = formula.project_aspects(aspects)
+        return formula, formula.output_kind, out_aspects

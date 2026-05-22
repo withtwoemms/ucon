@@ -90,6 +90,7 @@ nav:
     - Scales & Prefixes: reference/scales-and-prefixes.md
     - Module Reference:
       - reference/modules/index.md
+      - ucon.aspects: reference/modules/aspects.md
       - ucon.basis: reference/modules/basis.md
       - ucon.basis.builtin: reference/modules/basis-builtin.md
       - ucon.basis.transforms: reference/modules/basis-transforms.md

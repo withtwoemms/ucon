@@ -29,4 +29,4 @@ notes = "w_R per ICRP 103; caller supplies the appropriate value."
   w_R = { kind = "radiation_weighting_factor" }
 
   [formulas.aspect_rules]
-  signal_summary = "consume"
+  w_R = "consume"
