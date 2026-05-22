@@ -22,8 +22,10 @@ Schema
       [formulas.inputs]
       D   = { kind = "absorbed_dose" }
       w_R = { kind = "radiation_weighting_factor" }
-      [formulas.aspect_rules]    # optional, opaque in v1.9.0
-      signal_summary = "consume"
+      [formulas.aspect_rules]    # optional; keys are binding names from
+                                 # [formulas.inputs]. v1.9.1 honors these
+                                 # at apply-time via project_aspects.
+      w_R = "consume"
 """
 
 from __future__ import annotations
@@ -111,12 +113,12 @@ def parse_formulas_payload(
                 f"Formula {name!r} 'aspect_rules' must be a table"
             )
         aspect_rules: dict[str, AspectRule] = {}
-        for facet, rule in aspect_block.items():
+        for binding, rule in aspect_block.items():
             try:
-                aspect_rules[str(facet)] = AspectRule(str(rule))
+                aspect_rules[str(binding)] = AspectRule(str(rule))
             except ValueError as exc:
                 raise ValueError(
-                    f"Formula {name!r} aspect_rules[{facet!r}] has "
+                    f"Formula {name!r} aspect_rules[{binding!r}] has "
                     f"unrecognized value {rule!r}; expected one of "
                     f"{[r.value for r in AspectRule]}"
                 ) from exc

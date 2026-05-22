@@ -47,7 +47,7 @@ def test_load_radiation_weighting_parses_aspect_rules():
         FIXTURES / "radiation_weighting.ucon.toml", lattice=lat
     )
     f = reg.get("radiation_weighting")
-    assert f.aspect_rules == {"signal_summary": AspectRule.CONSUME}
+    assert f.aspect_rules == {"w_R": AspectRule.CONSUME}
 
 
 def test_load_radiation_weighting_commutative_lookup_both_orders():

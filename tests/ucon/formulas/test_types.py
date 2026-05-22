@@ -49,9 +49,9 @@ def test_kindformula_with_aspect_rules():
         expression="D * w_R",
         input_kinds={"D": D, "w_R": wR},
         output_kind=out,
-        aspect_rules={"signal_summary": AspectRule.CONSUME},
+        aspect_rules={"w_R": AspectRule.CONSUME},
     )
-    assert f.aspect_rules == {"signal_summary": AspectRule.CONSUME}
+    assert f.aspect_rules == {"w_R": AspectRule.CONSUME}
 
 
 def test_kindformula_input_kind_tuple_preserves_insertion_order():
