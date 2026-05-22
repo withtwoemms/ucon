@@ -5,7 +5,7 @@
 
 `apply` is the single entry point that composes formula lookup with
 aspect projection. The caller supplies `(kind, aspect_set)` per binding;
-the registry returns `(formula, output_kind, projected_aspects)`.
+the registry returns `(formula, output_kind, projected_aspects, match_kind)`.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from ucon.formulas import (
     FormulaNotFound,
     FormulaRegistry,
     KindFormula,
+    MatchKind,
 )
 from ucon.kinds import Kind
 
@@ -51,7 +52,7 @@ def test_apply_returns_formula_output_kind_and_projected_aspects():
     reg, f, D, wR, H = _equivalent_dose_registry(
         aspect_rules={"w_R": AspectRule.CONSUME}
     )
-    formula, out_kind, out_aspects = reg.apply(
+    formula, out_kind, out_aspects, match_kind = reg.apply(
         {
             "D": (D, frozenset({"signal_summary", "calibrated"})),
             "w_R": (wR, frozenset({"ICRP103"})),
@@ -60,11 +61,12 @@ def test_apply_returns_formula_output_kind_and_projected_aspects():
     assert formula is f
     assert out_kind is H
     assert out_aspects == frozenset({"signal_summary", "calibrated"})
+    assert match_kind == MatchKind.EXACT
 
 
 def test_apply_with_no_rules_unions_all_aspects():
     reg, f, D, wR, H = _equivalent_dose_registry()
-    _, _, out_aspects = reg.apply(
+    _, _, out_aspects, _ = reg.apply(
         {
             "D": (D, frozenset({"a"})),
             "w_R": (wR, frozenset({"b"})),
@@ -80,7 +82,7 @@ def test_apply_with_all_consume_yields_empty_aspects():
             "w_R": AspectRule.CONSUME,
         }
     )
-    _, _, out_aspects = reg.apply(
+    _, _, out_aspects, _ = reg.apply(
         {"D": (D, frozenset({"a"})), "w_R": (wR, frozenset({"b"}))}
     )
     assert out_aspects == frozenset()
@@ -155,7 +157,7 @@ def test_apply_uses_supplied_binding_names_for_projection_only():
     reg, _, D, wR, _ = _equivalent_dose_registry(
         aspect_rules={"D": AspectRule.CARRY, "w_R": AspectRule.CONSUME}
     )
-    _, _, out_aspects = reg.apply(
+    _, _, out_aspects, _ = reg.apply(
         {
             "D": (D, frozenset({"d_aspect"})),
             "w_R": (wR, frozenset({"will_be_consumed"})),

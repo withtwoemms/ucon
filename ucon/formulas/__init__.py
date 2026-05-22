@@ -19,22 +19,26 @@ v1.9.2.
 """
 
 from ucon.formulas.exceptions import (
+    AmbiguousFormula,
     DuplicateFormula,
     FormulaError,
     FormulaNotFound,
 )
 from ucon.formulas.registry import FormulaRegistry
-from ucon.formulas.types import AspectRule, KindFormula
+from ucon.formulas.types import AspectRule, KindFormula, LookupResult, MatchKind
 
 
 __all__ = [
     # Types
     "KindFormula",
     "AspectRule",
+    "LookupResult",
+    "MatchKind",
     # Registry
     "FormulaRegistry",
     # Exceptions
     "FormulaError",
     "FormulaNotFound",
     "DuplicateFormula",
+    "AmbiguousFormula",
 ]

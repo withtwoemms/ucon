@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-05-22
+
+Lookup completeness for `FormulaRegistry`. The `resolve()` method
+implements tiered formula resolution — commutative matching at any arity,
+ancestor-walk generalization via the kind lattice, and opt-in
+dimension-only fallback — completing the lookup surface deferred from
+v1.9.0.
+
+### Added
+
+- **`FormulaRegistry.resolve(*kinds, lattice=, dimension_fallback=)`** —
+  tiered formula resolution returning `LookupResult` with `MatchKind`
+  discriminator. Tiers checked in priority order:
+  1. **EXACT** — exact input-kind tuple match.
+  2. **COMMUTATIVE** — canonical sorted-key match for any arity
+     (replaces the arity-2 special case).
+  3. **GENERALIZED** — ancestor-walk via `KindLattice` at increasing L1
+     distance; requires `lattice=` and `generalizes=True` on the formula.
+  4. **DIMENSIONAL** — dimension-tuple match ignoring kind identity;
+     requires `dimension_fallback=True`.
+
+- **`MatchKind`** enum (`EXACT`, `COMMUTATIVE`, `GENERALIZED`,
+  `DIMENSIONAL`) — discriminator indicating which resolution tier matched.
+
+- **`LookupResult`** frozen dataclass — wraps the matched `KindFormula`,
+  the `MatchKind` tier, and the L1 `distance` (meaningful only for
+  `GENERALIZED`).
+
+- **`AmbiguousFormula`** exception — raised when two or more formulas
+  match at the same L1 distance during ancestor-walk. Carries
+  `candidates` and `distance`.
+
+### Changed
+
+- **`FormulaRegistry.apply()`** — now accepts keyword arguments
+  `lattice: KindLattice | None = None` and
+  `dimension_fallback: bool = False`, and returns a 4-tuple
+  `(formula, output_kind, output_aspects, match_kind)`. The fourth
+  element is the `MatchKind` tier that resolved the formula. Callers
+  destructuring three values will get a clear unpacking error.
+
 ## [1.9.1] - 2026-05-22
 
 Activates the `aspect_rules` field on `KindFormula` that shipped as opaque
@@ -2117,7 +2158,8 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.9.1...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.9.2...HEAD
+[1.9.2]: https://github.com/withtwoemms/ucon/compare/1.9.1...1.9.2
 [1.9.1]: https://github.com/withtwoemms/ucon/compare/1.9.0...1.9.1
 [1.9.0]: https://github.com/withtwoemms/ucon/compare/1.8.3...1.9.0
 [1.8.3]: https://github.com/withtwoemms/ucon/compare/1.8.2...1.8.3

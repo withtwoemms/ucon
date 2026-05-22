@@ -13,6 +13,7 @@ from ucon.formulas import (
     FormulaNotFound,
     FormulaRegistry,
     KindFormula,
+    MatchKind,
 )
 from ucon.kinds import Kind
 
@@ -116,8 +117,9 @@ def test_commutative_with_two_equal_inputs_does_not_duplicate_index():
     assert reg.lookup(mass, mass) is f
 
 
-def test_higher_arity_commutative_not_permuted_in_v190():
-    # v1.9.0 only mirrors 2-input commutative formulas.
+def test_higher_arity_commutative_lookup_only():
+    # lookup() is conservative: exact + arity-2 commutative only.
+    # Higher-arity permutations require resolve().
     a = Kind("a", dimension=LENGTH_DIM)
     b = Kind("b", dimension=MASS)
     c = Kind("c", dimension=TIME_DIM)
@@ -133,6 +135,25 @@ def test_higher_arity_commutative_not_permuted_in_v190():
     assert reg.lookup(a, b, c) is f
     with pytest.raises(FormulaNotFound):
         reg.lookup(c, b, a)
+
+
+def test_higher_arity_commutative_permuted_via_resolve():
+    # resolve() uses canonical sorted key for commutative formulas.
+    a = Kind("a", dimension=LENGTH_DIM)
+    b = Kind("b", dimension=MASS)
+    c = Kind("c", dimension=TIME_DIM)
+    out = Kind("abc", dimension=LENGTH_DIM * MASS * TIME_DIM)
+    f = KindFormula(
+        name="triple_product",
+        expression="a * b * c",
+        input_kinds={"a": a, "b": b, "c": c},
+        output_kind=out,
+        commutative=True,
+    )
+    reg = FormulaRegistry([f])
+    result = reg.resolve(c, b, a)
+    assert result.formula is f
+    assert result.match_kind == MatchKind.COMMUTATIVE
 
 
 def test_registry_contains_len_iter():
@@ -170,7 +191,7 @@ def test_apply_composes_lookup_and_projection():
     # commutativity) lives in `test_registry_apply.py`.
     f, v, i, p = _voltage_current_power_formula()
     reg = FormulaRegistry([f])
-    formula, out_kind, out_aspects = reg.apply(
+    formula, out_kind, out_aspects, match_kind = reg.apply(
         {
             "V": (v, frozenset({"calibrated"})),
             "I": (i, frozenset()),
@@ -179,3 +200,4 @@ def test_apply_composes_lookup_and_projection():
     assert formula is f
     assert out_kind is p
     assert out_aspects == frozenset({"calibrated"})
+    assert match_kind == MatchKind.EXACT

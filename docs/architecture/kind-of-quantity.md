@@ -380,6 +380,30 @@ reg.lookup(D, wR).name  # "radiation_weighting"
 reg.lookup(wR, D).name  # "radiation_weighting" (commutative)
 ```
 
+#### Lookup Tiers
+
+The registry's `resolve()` method checks four match tiers in strict
+priority order — the first to produce a match wins:
+
+| Tier | Name | Gate | Behaviour |
+|------|------|------|-----------|
+| 1 | **EXACT** | always on | Direct input-kind tuple match |
+| 2 | **COMMUTATIVE** | `commutative=True` | Canonical sorted-key match (any arity) |
+| 3 | **GENERALIZED** | `generalizes=True` + `lattice=` | Ancestor-walk at increasing L1 distance |
+| 4 | **DIMENSIONAL** | `dimension_fallback=True` | Dimension-tuple match ignoring kind identity |
+
+The generalized tier uses a bounded integer-composition algorithm: at each
+L1 distance *d*, it enumerates all ways to distribute *d* parent-climbs
+across *n* input positions. If exactly one formula matches at a given
+distance, it wins. If more than one match at the same distance, an
+`AmbiguousFormula` error is raised — the caller must disambiguate.
+
+```python
+result = reg.resolve(kinetic_energy, scale_factor, lattice=lat)
+result.match_kind  # MatchKind.GENERALIZED
+result.distance    # 1 (kinetic_energy → energy = 1 climb)
+```
+
 ### Aspect Propagation
 
 Kinds tell you *what* a quantity is; **aspects** tell you *something about*
@@ -444,12 +468,13 @@ f = KindFormula(
 )
 reg = FormulaRegistry([f])
 
-formula, out_kind, out_aspects = reg.apply({
+formula, out_kind, out_aspects, match_kind = reg.apply({
     "D":   (absorbed_dose,      AspectSet("signal_summary")),
     "w_R": (weighting_factor,   AspectSet("calibrated")),
 })
 # out_kind    == equivalent_dose
 # out_aspects == frozenset({"signal_summary"})  — w_R's aspects consumed
+# match_kind  == MatchKind.EXACT
 ```
 
 #### Lattice Join: AspectJoinPolicy
@@ -535,8 +560,9 @@ Kinds, formulas, and aspects are an **opt-in preview surface**:
   carried only by client code that chooses to participate.
 - The `aspect_rules` field on `KindFormula` gained operational semantics
   in v1.9.1 (see [Aspect Propagation](#aspect-propagation) above).
-- Higher-arity commutative permutation, generalization, and dimension-only
-  registry lookup are scheduled for v1.9.2.
+- v1.9.2 completed lookup completeness: `resolve()` supports full n-ary
+  commutative permutation, generalized ancestor-walk matching, and
+  opt-in dimension-only fallback (see [Lookup Tiers](#lookup-tiers) above).
 - v2.0 wires the lattice into `Number` so the type system can enforce
   refinement constraints automatically.
 

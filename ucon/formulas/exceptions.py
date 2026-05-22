@@ -8,7 +8,7 @@ Exceptions raised by the formula registry.
 from __future__ import annotations
 
 
-__all__ = ["FormulaError", "FormulaNotFound", "DuplicateFormula"]
+__all__ = ["AmbiguousFormula", "FormulaError", "FormulaNotFound", "DuplicateFormula"]
 
 
 class FormulaError(Exception):
@@ -36,3 +36,25 @@ class DuplicateFormula(FormulaError):
     def __init__(self, name: str) -> None:
         self.name = name
         super().__init__(f"Duplicate formula: {name!r}")
+
+
+class AmbiguousFormula(FormulaError):
+    """Two or more formulas match at the same specificity level.
+
+    Raised during ancestor-walk when multiple formulas match at the
+    same L1 distance. Callers must disambiguate by using more specific
+    kinds or by naming the formula explicitly.
+    """
+
+    def __init__(
+        self,
+        candidates: tuple["KindFormula", ...],
+        distance: int,
+    ) -> None:
+        self.candidates = candidates
+        self.distance = distance
+        names = ", ".join(f.name for f in candidates)
+        super().__init__(
+            f"Ambiguous: {len(candidates)} formulas match at distance "
+            f"{distance}: {names}"
+        )
