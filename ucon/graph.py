@@ -1337,13 +1337,20 @@ def get_default_graph() -> ConversionGraph:
     """Get the current conversion graph.
 
     Priority:
-    1. Context-local graph (from `using_graph`)
-    2. Module-level default graph (lazily built)
+    1. Context-local graph (from ``using_conversion_graph``)
+    2. Active :class:`~ucon.system.UnitSystem`'s ``conversion_graph``
+    3. Module-level default graph (lazily built — legacy fallback)
     """
     # Check context first
     graph = _graph_context.get()
     if graph is not None:
         return graph
+
+    # Check active system
+    from ucon.system import _active  # transitional deferred import
+    system = _active.get()
+    if system is not None:
+        return system.conversion_graph
 
     # Fall back to module default
     global _default_graph
@@ -1436,7 +1443,7 @@ def using_graph(graph: ConversionGraph):
         "ucon.using_graph is deprecated; use ucon.using_conversion_graph "
         "for symmetry with using_basis_graph. Scheduled for removal in "
         "ucon 2.0.",
-        PendingDeprecationWarning,
+        DeprecationWarning,
         stacklevel=3,
     )
     with using_conversion_graph(graph) as g:

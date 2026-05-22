@@ -1865,14 +1865,18 @@ class Number:
         >>> length.to("km")
         <0.1 km>
         """
-        # system= wins over graph= when both are given.
-        if system is not None:
+        # Route through UnitSystem: active system is the authority.
+        if system is None:
+            from ucon.system import active  # transitional deferred import (Phase 2 eliminates)
+            system = active()
+
+        # Explicit graph= takes precedence; otherwise use the system's graph.
+        if graph is None:
             graph = system.conversion_graph
 
-        # Resolve string targets via name/alias/prefix/expression lookup
+        # Resolve string targets via the system's resolver
         if isinstance(target, str):
-            from ucon.resolver import parse_unit
-            target = parse_unit(target, system=system)
+            target = system.resolve_unit(target)
 
         # --- Fast path: plain Unit → plain Unit (no UnitProduct wrapping) ---
         src_unit = self.unit
@@ -1894,9 +1898,6 @@ class Number:
                 dst_unit = uf.unit
 
         if src_is_plain and dst_is_plain and src_unit != dst_unit:
-            if graph is None:
-                from ucon.graph import get_default_graph
-                graph = get_default_graph()
             conversion_map = graph.convert(src=src_unit, dst=dst_unit)
             converted = conversion_map(self.quantity)
             new_unc = None
@@ -1923,11 +1924,6 @@ class Number:
             if self.uncertainty is not None:
                 new_uncertainty = self.uncertainty * abs(factor)
             return Number(quantity=self.quantity * factor, unit=target, uncertainty=new_uncertainty)
-
-        # Graph-based conversion (use default graph if none provided)
-        if graph is None:
-            from ucon.graph import get_default_graph
-            graph = get_default_graph()
 
         # Pass raw Units to graph.convert() when possible, so the graph
         # can use _convert_units() which handles cross-basis via rebased units.
