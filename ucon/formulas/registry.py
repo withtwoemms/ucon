@@ -16,11 +16,14 @@ not change.
 
 from __future__ import annotations
 
-from typing import FrozenSet, Iterable, Iterator, Mapping, Tuple
+from typing import TYPE_CHECKING, FrozenSet, Iterable, Iterator, Mapping, Tuple
+
+if TYPE_CHECKING:
+    from ucon.kinds import KindLattice
 
 from ucon.aspects.types import AspectSet
 from ucon.formulas.exceptions import DuplicateFormula, FormulaNotFound
-from ucon.formulas.types import KindFormula
+from ucon.formulas.types import KindFormula, LookupResult, MatchKind
 from ucon.kinds import Kind
 
 
@@ -102,8 +105,9 @@ class FormulaRegistry:
     def lookup(self, *input_kinds: Kind) -> KindFormula:
         """Resolve a formula by exact input-kind tuple.
 
-        v1.9.0 performs exact-match lookup only. Subkind climbing
-        (``generalizes``) lands in v1.9.2.
+        Performs EXACT tier lookup only (including the arity-2
+        commutative mirror in ``_by_inputs``). Callers wanting the
+        richer tiered resolution should use :meth:`resolve`.
 
         Raises
         ------
@@ -115,6 +119,56 @@ class FormulaRegistry:
         if formula is None:
             raise FormulaNotFound(key)
         return formula
+
+    def resolve(
+        self,
+        *input_kinds: Kind,
+        lattice: "KindLattice | None" = None,
+        dimension_fallback: bool = False,
+    ) -> LookupResult:
+        """Resolve a formula through successive match tiers.
+
+        Tiers are checked in strict priority order; the first to
+        produce a match wins:
+
+        1. **EXACT** — exact input-kind tuple match.
+        2. **COMMUTATIVE** — canonical sorted-key match (any arity).
+        3. **GENERALIZED** — ancestor-walk via ``lattice`` at
+           increasing L1 distance (requires ``lattice``; only formulas
+           with ``generalizes=True``).
+        4. **DIMENSIONAL** — dimension-tuple match ignoring kind
+           identity (requires ``dimension_fallback=True``).
+
+        Parameters
+        ----------
+        *input_kinds
+            Kinds to match, in caller-supplied order.
+        lattice
+            When provided, enables GENERALIZED matching via ancestor
+            walk.
+        dimension_fallback
+            When True, enables DIMENSIONAL matching as a last resort.
+
+        Returns
+        -------
+        LookupResult
+            The matched formula and the tier that resolved it.
+
+        Raises
+        ------
+        FormulaNotFound
+            No formula matched at any enabled tier.
+        AmbiguousFormula
+            Multiple formulas matched at the same GENERALIZED distance.
+        """
+        key = tuple(input_kinds)
+
+        # --- Tier 1: EXACT ---
+        formula = self._by_inputs.get(key)
+        if formula is not None:
+            return LookupResult(formula, MatchKind.EXACT)
+
+        raise FormulaNotFound(key)
 
     def apply(
         self,

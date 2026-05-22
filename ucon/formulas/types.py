@@ -25,13 +25,52 @@ wires them into formula lookup.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import FrozenSet, Mapping
 
 from ucon.aspects.types import AspectRule, AspectSet
 from ucon.kinds import Kind
 
 
-__all__ = ["AspectRule", "KindFormula"]
+__all__ = ["AspectRule", "KindFormula", "LookupResult", "MatchKind"]
+
+
+class MatchKind(Enum):
+    """Discriminator indicating which resolution tier matched a formula.
+
+    Used by :class:`LookupResult` to report how a formula was found.
+    Tiers are checked in priority order: EXACT → COMMUTATIVE →
+    GENERALIZED → DIMENSIONAL. The first tier to produce a match wins.
+    """
+
+    EXACT = "exact"
+    COMMUTATIVE = "commutative"
+    GENERALIZED = "generalized"
+    DIMENSIONAL = "dimensional"
+
+
+@dataclass(frozen=True)
+class LookupResult:
+    """Result of :meth:`~ucon.formulas.registry.FormulaRegistry.resolve`.
+
+    Wraps the matched :class:`KindFormula` together with the
+    :class:`MatchKind` tier that resolved the query and, for
+    ``GENERALIZED`` matches, the L1 distance (number of parent-climbs).
+
+    Parameters
+    ----------
+    formula
+        The matched formula.
+    match_kind
+        The tier that produced the match.
+    distance
+        L1 distance for ``GENERALIZED`` matches (sum of parent-climbs
+        across all input positions). Zero for all other tiers.
+    """
+
+    formula: KindFormula
+    match_kind: MatchKind
+    distance: int = 0
 
 
 @dataclass(frozen=True)
