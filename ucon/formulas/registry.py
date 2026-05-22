@@ -5,9 +5,15 @@
 Formula registry.
 
 The :class:`FormulaRegistry` indexes :class:`~ucon.formulas.types.KindFormula`
-instances by name and by input-kind tuple. v1.9.0 supports exact-match
-lookup only; subkind-climb lookup (``generalizes``) and same-level
-ambiguity handling land in v1.9.2.
+instances by name and by input-kind tuple, with tiered resolution via
+:meth:`~FormulaRegistry.resolve`:
+
+1. **EXACT** — direct input-kind tuple match.
+2. **COMMUTATIVE** — canonical sorted-key match (any arity).
+3. **GENERALIZED** — ancestor-walk via a ``KindLattice`` at increasing
+   L1 distance (formulas with ``generalizes=True`` only).
+4. **DIMENSIONAL** — dimension-tuple match ignoring kind identity
+   (opt-in via ``dimension_fallback=True``).
 
 There is no module-level default registry in v1.9.x. In v2.0.0 the
 registry becomes a member of ``UnitSystem``; this module's API does
@@ -65,11 +71,10 @@ class FormulaRegistry:
     :class:`~ucon.formulas.exceptions.DuplicateFormula`.
 
     Input-kind indexing keys by ordered tuple of input kinds. When a
-    formula declares ``commutative=True`` and has exactly two inputs,
-    the registry also indexes the reversed ordering — so
+    formula declares ``commutative=True``, the registry indexes both
+    the original ordering and a canonical sorted key — so
     ``voltage × current`` and ``current × voltage`` both resolve to
-    the same formula. Higher-arity commutativity (full input
-    permutations) lands with v1.9.2's lookup work.
+    the same formula at any arity via :meth:`resolve`.
     """
 
     def __init__(self, formulas: Iterable[KindFormula] = ()) -> None:
