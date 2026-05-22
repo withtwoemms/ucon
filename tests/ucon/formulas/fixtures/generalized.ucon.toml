@@ -1,0 +1,38 @@
+# End-to-end TOML -> resolve coverage for generalized (ancestor-walk) lookup.
+# A parent kind with two children and a formula at the parent level
+# with generalizes=True.
+
+[[kinds]]
+name = "energy"
+dimension = "L^2*M/T^2"
+
+[[kinds]]
+name = "kinetic_energy"
+dimension = "L^2*M/T^2"
+parent = "energy"
+
+[[kinds]]
+name = "thermal_energy"
+dimension = "L^2*M/T^2"
+parent = "energy"
+
+[[kinds]]
+name = "scale_factor"
+dimension = "1"
+
+[[kinds]]
+name = "scaled_energy"
+dimension = "L^2*M/T^2"
+
+
+# Formula at the parent level: applies to all children of energy.
+[[formulas]]
+name = "scale_energy"
+expression = "E * s"
+output_kind = "scaled_energy"
+commutative = true
+generalizes = true
+
+  [formulas.inputs]
+  E = { kind = "energy" }
+  s = { kind = "scale_factor" }
