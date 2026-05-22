@@ -16,7 +16,7 @@ not change.
 
 from __future__ import annotations
 
-from typing import Iterable, Mapping, Tuple
+from typing import FrozenSet, Iterable, Iterator, Mapping, Tuple
 
 from ucon.aspects.types import AspectSet
 from ucon.formulas.exceptions import DuplicateFormula, FormulaNotFound
@@ -79,7 +79,7 @@ class FormulaRegistry:
     def __len__(self) -> int:
         return len(self._by_name)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[KindFormula]:
         return iter(self._by_name.values())
 
     def names(self) -> tuple[str, ...]:
@@ -118,8 +118,8 @@ class FormulaRegistry:
 
     def apply(
         self,
-        inputs: Mapping[str, Tuple[Kind, AspectSet]],
-    ) -> Tuple[KindFormula, Kind, AspectSet]:
+        inputs: Mapping[str, Tuple[Kind, FrozenSet[str]]],
+    ) -> Tuple[KindFormula, Kind, FrozenSet[str]]:
         """Resolve a formula and project operand aspects in one step.
 
         Combines :meth:`lookup` with
@@ -163,7 +163,7 @@ class FormulaRegistry:
         """
         kinds: Tuple[Kind, ...] = tuple(kind for kind, _ in inputs.values())
         formula = self.lookup(*kinds)
-        aspects: dict[str, AspectSet] = {
+        aspects: dict[str, FrozenSet[str]] = {
             name: aspect_set for name, (_, aspect_set) in inputs.items()
         }
         out_aspects = formula.project_aspects(aspects)

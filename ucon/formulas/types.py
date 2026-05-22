@@ -25,7 +25,7 @@ wires them into formula lookup.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping
+from typing import FrozenSet, Mapping
 
 from ucon.aspects.types import AspectRule, AspectSet
 from ucon.kinds import Kind
@@ -105,8 +105,8 @@ class KindFormula:
 
     def project_aspects(
         self,
-        inputs: Mapping[str, AspectSet],
-    ) -> AspectSet:
+        inputs: Mapping[str, FrozenSet[str]],
+    ) -> FrozenSet[str]:
         """Project operand aspect sets through this formula's rules.
 
         For each binding name declared in :attr:`input_kinds`, consult

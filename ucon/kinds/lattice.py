@@ -27,7 +27,7 @@ change.
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from ucon.kinds.exceptions import (
     AliasCollision,
@@ -130,7 +130,7 @@ class KindLattice:
     def __len__(self) -> int:
         return len(self._by_name)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Kind]:
         return iter(self._by_name.values())
 
     def get(self, name: str) -> Kind:

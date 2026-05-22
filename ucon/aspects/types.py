@@ -25,7 +25,7 @@ re-exporting the symbol for backward compatibility.
 from __future__ import annotations
 
 from enum import Enum
-from typing import FrozenSet
+from typing import FrozenSet, Iterable, Iterator
 
 
 __all__ = [
@@ -36,7 +36,7 @@ __all__ = [
 ]
 
 
-class AspectSet(frozenset):
+class AspectSet(frozenset):  # type: ignore[type-arg]
     """An immutable, variadic-friendly set of aspect names.
 
     Aspects are strings by convention; ucon does not validate them
@@ -78,7 +78,7 @@ class AspectSet(frozenset):
     preserved.
     """
 
-    def __new__(cls, *aspects):
+    def __new__(cls, *aspects: str | Iterable[str]) -> AspectSet:
         # Single non-string iterable: AspectSet(some_collection)
         if len(aspects) == 1 and not isinstance(aspects[0], str):
             return super().__new__(cls, aspects[0])
@@ -120,10 +120,10 @@ class AspectJoinPolicy(Enum):
 
 
 def join_aspects(
-    a: AspectSet,
-    b: AspectSet,
+    a: FrozenSet[str],
+    b: FrozenSet[str],
     policy: AspectJoinPolicy = AspectJoinPolicy.INTERSECT,
-) -> AspectSet:
+) -> FrozenSet[str]:
     """Combine two aspect sets under the given policy.
 
     Pure operation. Does not consult a kind lattice; callers compose
