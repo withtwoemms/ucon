@@ -20,7 +20,8 @@ from ucon import (
     using_graph,
 )
 from ucon import Dimension
-from ucon.graph import ConversionGraph, _get_parsing_graph
+from ucon.core._parsing_graph import _get_parsing_graph
+from ucon.graph import ConversionGraph
 from ucon.units import UnknownUnitError
 
 

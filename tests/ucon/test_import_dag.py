@@ -64,7 +64,8 @@ KNOWN_DEFERRED = {
     ("ucon.system", "resolve_unit", "ucon.resolver"),
 
     # --- graph.py deferred imports ---
-    ("ucon.graph", "_build_standard_graph", "ucon._loader"),
+    # _build_standard_graph moved to graph_registry.py in Phase 2c
+    ("ucon.graph_registry", "_build_standard_graph", "ucon._loader"),
     ("ucon.graph", "from_toml", "ucon.serialization"),
     ("ucon.graph", "to_toml", "ucon.serialization"),
     ("ucon.graph", "with_package", "ucon.packages"),
