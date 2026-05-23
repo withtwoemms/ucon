@@ -47,14 +47,11 @@ KNOWN_DEFERRED = {
     # UnitProduct.__call__ defers Number and NumberArray
     ("ucon.core.product", "__call__", "ucon.core.quantity"),
     ("ucon.core.product", "__call__", "ucon.integrations.numpy"),
-    # Number.to() defers system/graph imports
-    ("ucon.core.quantity", "to", "ucon.system"),
-    ("ucon.core.quantity", "to", "ucon.graph"),
 
     # --- system/ deferred imports ---
     # system/__init__.py: base_for() defers DimensionNotCovered
     ("ucon.system", "base_for", "ucon.core"),
-    # system/__init__.py: from_globals() defers high-layer imports
+    # system/__init__.py: from_globals() defers high-layer imports (deprecated)
     ("ucon.system", "from_globals", "ucon._loader"),
     ("ucon.system", "from_globals", "ucon.basis.graph"),
     ("ucon.system", "from_globals", "ucon.dimension"),
@@ -63,8 +60,7 @@ KNOWN_DEFERRED = {
     # system/__init__.py: resolve_unit() defers resolver
     ("ucon.system", "resolve_unit", "ucon.resolver"),
 
-    # --- graph.py deferred imports ---
-    # _build_standard_graph moved to graph_registry.py in Phase 2c
+    # --- graph.py / graph_registry.py deferred imports ---
     ("ucon.graph_registry", "_build_standard_graph", "ucon._loader"),
     ("ucon.graph", "from_toml", "ucon.serialization"),
     ("ucon.graph", "to_toml", "ucon.serialization"),
@@ -72,16 +68,7 @@ KNOWN_DEFERRED = {
     ("ucon.graph", "_package_edge_already_covered", "ucon.resolver"),
 
     # --- _loader.py deferred imports ---
-    ("ucon._loader", "_load_graph", "ucon.graph"),
-    ("ucon._loader", "_load_graph", "ucon.serialization"),
     ("ucon._loader", "_ensure_loaded", "ucon.serialization"),
-
-    # --- serialization.py deferred imports ---
-    # All serialization deferred imports promoted to top-level in Phase 2e.
-
-    # --- resolver.py deferred imports ---
-    ("ucon.resolver", "_lookup_factor", "ucon.units"),
-    ("ucon.resolver", "_lookup_factor", "ucon._loader"),
 
     # --- packages.py deferred imports ---
     ("ucon.packages", "materialize", "ucon.graph"),
@@ -89,18 +76,6 @@ KNOWN_DEFERRED = {
 
     # --- constants.py deferred imports ---
     ("ucon.constants", "_build_constants", "ucon._loader"),
-
-    # --- units.py module-level deferred ---
-    ("ucon.units", "<module>", "ucon._loader"),
-
-    # --- checking.py deferred imports ---
-    ("ucon.checking", "enforce_dimensions", "ucon.dimension"),
-
-    # --- parsing/units.py deferred imports ---
-    # parse() moved to parsing/quantity.py with top-level import (Phase 2f).
-
-    # --- __init__.py deferred imports ---
-    ("ucon", "<module>", "ucon._loader"),
 }
 
 
@@ -248,7 +223,7 @@ class TestDeferredImportAudit(unittest.TestCase):
         eliminated, update this number downward.
         """
         self.assertEqual(
-            len(KNOWN_DEFERRED), 36,
+            len(KNOWN_DEFERRED), 27,
             "Update this count when adding or removing KNOWN_DEFERRED entries"
         )
 

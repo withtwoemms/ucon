@@ -24,6 +24,8 @@ from ucon.core.scale import Scale
 from ucon.core.unit import Unit, UnitFactor
 from ucon.core.product import UnitProduct
 from ucon.dimension import Dimension, NONE
+from ucon.graph_registry import get_default_graph
+from ucon.system import active
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -461,7 +463,6 @@ class Number:
         """
         # Route through UnitSystem: active system is the authority.
         if system is None:
-            from ucon.system import active  # transitional deferred import (Phase 2 eliminates)
             system = active()
 
         # Explicit graph= takes precedence; otherwise use get_default_graph()
@@ -469,7 +470,6 @@ class Number:
         # Using system.conversion_graph directly would bypass context-scoped graphs
         # (from using_context / using_conversion_graph).
         if graph is None:
-            from ucon.graph import get_default_graph  # transitional deferred import (Phase 2 eliminates)
             graph = get_default_graph()
 
         # Resolve string targets via the system's resolver
