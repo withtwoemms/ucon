@@ -1870,9 +1870,13 @@ class Number:
             from ucon.system import active  # transitional deferred import (Phase 2 eliminates)
             system = active()
 
-        # Explicit graph= takes precedence; otherwise use the system's graph.
+        # Explicit graph= takes precedence; otherwise use get_default_graph()
+        # which respects the 3-tier priority: context-local → active system → module default.
+        # Using system.conversion_graph directly would bypass context-scoped graphs
+        # (from using_context / using_conversion_graph).
         if graph is None:
-            graph = system.conversion_graph
+            from ucon.graph import get_default_graph  # transitional deferred import (Phase 2 eliminates)
+            graph = get_default_graph()
 
         # Resolve string targets via the system's resolver
         if isinstance(target, str):

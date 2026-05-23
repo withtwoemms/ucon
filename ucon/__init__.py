@@ -117,6 +117,16 @@ from ucon.resolver import get_unit_by_name, parse_unit, register_unit
 from ucon.parsing import ParseError, parse, parse_dimension
 
 
+# ---------------------------------------------------------------------------
+# Eager system initialization
+# ---------------------------------------------------------------------------
+# Set the active UnitSystem at import time so the active-system tier in
+# get_default_graph() is always hit.  This makes _default_graph dead code
+# and routes all conversions through the UnitSystem authority.
+from ucon.system import _active as _sys_active
+_sys_active.set(UnitSystem.from_globals())
+del _sys_active
+
 __all__ = [
     # Basis abstractions
     'Basis',
