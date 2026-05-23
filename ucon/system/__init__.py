@@ -37,16 +37,17 @@ from __future__ import annotations
 
 import warnings
 from contextlib import contextmanager
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, Iterator, Mapping
 
-from ucon.core import DimensionNotCovered, Unit
-from ucon.dimension import Dimension
+from ucon.system._active import _active
+from ucon.system.algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBRA_CACHE
 
 if TYPE_CHECKING:
     from ucon.basis.graph import BasisGraph
     from ucon.basis.types import Basis
+    from ucon.core import DimensionNotCovered, Unit
+    from ucon.dimension import Dimension
     from ucon.constants import Constant
     from ucon.contexts import ConversionContext
     from ucon.graph import ConversionGraph
@@ -112,6 +113,7 @@ class BaseUnits:
             If this system has no base unit for the dimension.
         """
         if dim not in self.bases:
+            from ucon.core import DimensionNotCovered  # transitional; top-level after 2b
             raise DimensionNotCovered(
                 f"{self.name} has no base unit for {dim.name}"
             )
@@ -131,61 +133,9 @@ class BaseUnits:
         return hash((self.name, tuple(sorted(self.bases.items(), key=lambda x: x[0].name))))
 
 
-# -----------------------------------------------------------------------------
-# Per-instance Dimension algebra cache
-# -----------------------------------------------------------------------------
-
-
-@dataclass
-class AlgebraCache:
-    """Per-instance cache for ``Dimension`` algebraic operations.
-
-    Holds three sub-caches keyed by argument tuples:
-
-    - ``mul``: ``(Dimension, Dimension) -> Dimension``
-    - ``div``: ``(Dimension, Dimension) -> Dimension``
-    - ``pow``: ``(Dimension, exponent) -> Dimension``
-
-    In v1.8 Phase 2 this type exists as a per-``UnitSystem`` field. Later
-    phases will route ``Dimension.__mul__`` / ``__truediv__`` / ``__pow__``
-    through the active system's cache, retiring the module-level caches in
-    ``ucon.dimension``.
-    """
-
-    mul: dict = field(default_factory=dict)
-    div: dict = field(default_factory=dict)
-    pow: dict = field(default_factory=dict)
-
-    def clear(self) -> None:
-        """Empty all three sub-caches."""
-        self.mul.clear()
-        self.div.clear()
-        self.pow.clear()
-
-
-#: Module-level fallback used by ``_get_active_cache`` when no
-#: ``UnitSystem`` has been activated via :func:`use`. This is the v1.8
-#: replacement for the module-level ``_DIM_MUL_CACHE`` / ``_DIM_DIV_CACHE``
-#: / ``_DIM_POW_CACHE`` dicts that previously lived in ``ucon.dimension``.
-_DEFAULT_ALGEBRA_CACHE: 'AlgebraCache' = AlgebraCache()
-
-
-def _get_active_cache() -> 'AlgebraCache':
-    """Return the algebra cache that ``Dimension`` algebra should use now.
-
-    Routes through the active :class:`UnitSystem`'s per-instance cache when
-    one has been set via :func:`use`. Falls back to
-    :data:`_DEFAULT_ALGEBRA_CACHE` otherwise.
-
-    The fallback is intentionally a stable module-level object rather than
-    a fresh ``UnitSystem.from_globals()`` snapshot: that snapshot would
-    construct a new :class:`AlgebraCache` on every call and defeat
-    memoization in the default (no ``use(...)``) state.
-    """
-    system = _active.get()
-    if system is None:
-        return _DEFAULT_ALGEBRA_CACHE
-    return system._algebra_cache
+# AlgebraCache, _get_active_cache, and _DEFAULT_ALGEBRA_CACHE are
+# imported from ucon.system.algebra_cache (Layer 1) and re-exported
+# here for backward compatibility.
 
 
 # -----------------------------------------------------------------------------
@@ -406,12 +356,8 @@ _unitsystem_init_with_conversions_alias.__doc__ = _unitsystem_dataclass_init.__d
 UnitSystem.__init__ = _unitsystem_init_with_conversions_alias
 
 
-# -----------------------------------------------------------------------------
-# Active-system context variable
-# -----------------------------------------------------------------------------
-
-
-_active: ContextVar['UnitSystem | None'] = ContextVar('ucon_active_system', default=None)
+# _active is imported from ucon.system._active (Layer 1) and re-exported
+# here for backward compatibility.
 
 
 def active() -> UnitSystem:

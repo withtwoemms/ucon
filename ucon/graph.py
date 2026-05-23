@@ -58,6 +58,7 @@ from ucon.core import (
     _parsing_graph,
 )
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
+from ucon.system._active import _active as _active_system
 
 __all__ = [
     'ConversionGraph',
@@ -1347,8 +1348,7 @@ def get_default_graph() -> ConversionGraph:
         return graph
 
     # Check active system
-    from ucon.system import _active  # transitional deferred import
-    system = _active.get()
+    system = _active_system.get()
     if system is not None:
         return system.conversion_graph
 
