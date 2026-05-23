@@ -31,16 +31,6 @@ UCON_ROOT = Path(__file__).resolve().parent.parent.parent / "ucon"
 # and will be eliminated in later phases or v2.0.
 # -------------------------------------------------------------------
 KNOWN_DEFERRED = {
-    # --- core/_types.py deferred imports ---
-    # Number.to() / NumberArray.to() defer conversion and system._active
-    # (structural cycles: _types → conversion → core, _types → system → core)
-    ("ucon.core._types", "to", "ucon.conversion"),
-    ("ucon.core._types", "to", "ucon.system._active"),
-
-    # --- system/ deferred imports ---
-    # system/__init__.py: resolve_unit() defers resolver (circular: resolver→core→system)
-    ("ucon.system", "resolve_unit", "ucon.resolver"),
-
     # --- conversion.py deferred imports (deprecated methods, removed in v2.0) ---
     ("ucon.conversion", "from_toml", "ucon.serialization"),
     ("ucon.conversion", "to_toml", "ucon.serialization"),
@@ -192,7 +182,7 @@ class TestDeferredImportAudit(unittest.TestCase):
         eliminated, update this number downward.
         """
         self.assertEqual(
-            len(KNOWN_DEFERRED), 6,
+            len(KNOWN_DEFERRED), 3,
             "Update this count when adding or removing KNOWN_DEFERRED entries"
         )
 

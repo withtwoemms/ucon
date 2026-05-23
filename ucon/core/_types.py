@@ -37,7 +37,9 @@ if sys.version_info < (3, 9):
     from typing_extensions import Annotated  # type: ignore[assignment]  # noqa: F811
 
 from ucon.basis import Basis, BasisGraph
+from ucon.core._parsing_graph import _parsing_graph
 from ucon.dimension import Dimension, NONE
+from ucon.system._active import _active as _sys_active_var
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -1799,19 +1801,20 @@ class Number:
         >>> length.to("km")
         <0.1 km>
         """
-        from ucon.conversion import get_default_graph
-        from ucon.system._active import active as _active_fn
-
-        # Route through UnitSystem: active system is the authority.
+        # Resolve system and graph from ContextVars (no deferred imports).
+        # _sys_active_var and _parsing_graph are Layer-1 leaf modules,
+        # imported at top of this file.
         if system is None:
-            system = _active_fn()
+            system = _sys_active_var.get()
+            if system is None:
+                raise RuntimeError(
+                    "No active UnitSystem. This usually means Number.to() "
+                    "was called before 'import ucon' completed."
+                )
 
-        # Explicit graph= takes precedence; otherwise use get_default_graph()
-        # which respects the 3-tier priority: context-local → active system → module default.
-        # Using system.conversion_graph directly would bypass context-scoped graphs
-        # (from using_context / using_conversion_graph).
+        # Respect the 3-tier priority: context-local → active system → module default.
         if graph is None:
-            graph = get_default_graph()
+            graph = _parsing_graph.get() or system.conversion_graph
 
         # Resolve string targets via the system's resolver
         if isinstance(target, str):
@@ -2826,8 +2829,15 @@ class NumberArray:
 
         # Graph-based conversion
         if graph is None:
-            from ucon.conversion import get_default_graph
-            graph = get_default_graph()
+            graph = _parsing_graph.get()
+            if graph is None:
+                system = _sys_active_var.get()
+                if system is None:
+                    raise RuntimeError(
+                        "No active UnitSystem. This usually means NumberArray.to() "
+                        "was called before 'import ucon' completed."
+                    )
+                graph = system.conversion_graph
 
         conversion_map = graph.convert(src=src, dst=dst)
 

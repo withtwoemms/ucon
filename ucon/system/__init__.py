@@ -55,6 +55,11 @@ if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
 
 
+# Injected by ucon/__init__.py after all modules are loaded.
+# Avoids importing ucon.resolver at module level (resolver → core → system cycle).
+_resolve_unit_impl = None
+
+
 @dataclass(frozen=True)
 class BaseUnits:
     """
@@ -249,6 +254,10 @@ class UnitSystem:
         Delegates to :func:`~ucon.resolver.parse_unit` with ``system=self``
         so the resolver draws from this system's unit registry.
 
+        The resolver function is injected at import time by
+        ``ucon/__init__.py`` into ``_resolve_unit_impl`` to avoid a
+        circular import (resolver → core → system).
+
         Parameters
         ----------
         name : str
@@ -264,9 +273,16 @@ class UnitSystem:
         ------
         UnknownUnitError
             If the string cannot be resolved.
+        RuntimeError
+            If called before the resolver has been injected (i.e. before
+            ``import ucon`` has completed).
         """
-        from ucon.resolver import parse_unit as _parse_unit
-        return _parse_unit(name, system=self)
+        if _resolve_unit_impl is None:
+            raise RuntimeError(
+                "UnitSystem.resolve_unit() called before 'import ucon' "
+                "completed. Import the top-level ucon package first."
+            )
+        return _resolve_unit_impl(name, system=self)
 
     @classmethod
     def from_globals(cls, *, base_units: BaseUnits | None = None, _internal: bool = False) -> 'UnitSystem':

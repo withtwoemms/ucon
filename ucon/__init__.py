@@ -165,7 +165,12 @@ for _const in _init_graph._package_constants:
     _descriptive_constants[_desc] = _const
 constants._constants_cache = _descriptive_constants
 
-del _sys_active_var, _init_graph, _init_constants, _descriptive_constants
+# Inject the resolver into ucon.system so UnitSystem.resolve_unit() works
+# without a deferred import (resolver → core → system cycle).
+import ucon.system as _sys_mod
+_sys_mod._resolve_unit_impl = parse_unit
+
+del _sys_active_var, _init_graph, _init_constants, _descriptive_constants, _sys_mod
 
 __all__ = [
     # Basis abstractions
