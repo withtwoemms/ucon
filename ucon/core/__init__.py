@@ -17,14 +17,20 @@ from ucon.core.exceptions import (
     NonScalableError,
     UnknownUnitError,
 )
-from ucon.core.scale import Exponent, Scale, _ScaleDescriptor
-from ucon.core.unit import BaseForm, RebasedUnit, Unit, UnitFactor
-from ucon.core.product import UnitProduct
-from ucon.core.quantity import (
+from ucon.core._types import (
+    BaseForm,
     DimensionConstraint,
+    Exponent,
     Number,
+    NumberArray,
     Ratio,
+    RebasedUnit,
+    Scale,
+    Unit,
+    UnitFactor,
+    UnitProduct,
     _Quantifiable,
+    _ScaleDescriptor,
     _none,
 )
 
@@ -40,6 +46,7 @@ __all__ = [
     'Exponent',
     'NonScalableError',
     'Number',
+    'NumberArray',
     'Ratio',
     'RebasedUnit',
     'Scale',

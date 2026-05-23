@@ -123,9 +123,34 @@ from ucon.parsing import ParseError, parse, parse_dimension
 # Set the active UnitSystem at import time so the active-system tier in
 # get_default_graph() is always hit.  This makes _default_graph dead code
 # and routes all conversions through the UnitSystem authority.
-from ucon.system import _active as _sys_active
-_sys_active.set(UnitSystem.from_globals(_internal=True))
-del _sys_active
+#
+# All required modules are already imported above, so we construct the
+# UnitSystem directly — no need for from_globals() or deferred imports.
+from ucon.dimension import _DIMENSION_ATTRS
+from ucon.system._active import _active as _sys_active_var
+_init_graph = get_default_graph()
+
+# Build constants dict from the graph's package_constants (same logic as
+# the former _loader.get_constants).
+_init_constants: dict = {}
+for _const in _init_graph._package_constants:
+    _init_constants[_const.symbol] = _const
+    _safe = _const.name.replace(" ", "_").replace("-", "_").lower()
+    _init_constants[_safe] = _const
+    for _alias in getattr(_const, 'aliases', ()):
+        _init_constants[_alias] = _const
+
+_sys_active_var.set(UnitSystem(
+    basis=get_default_basis(),
+    units=units._units,
+    dimensions=_DIMENSION_ATTRS,
+    base_units=units.si,
+    conversion_graph=_init_graph,
+    basis_graph=get_basis_graph(),
+    contexts=getattr(_init_graph, '_contexts', {}),
+    constants=_init_constants,
+))
+del _sys_active_var, _init_graph, _init_constants
 
 __all__ = [
     # Basis abstractions

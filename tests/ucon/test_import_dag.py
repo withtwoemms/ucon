@@ -31,51 +31,28 @@ UCON_ROOT = Path(__file__).resolve().parent.parent.parent / "ucon"
 # and will be eliminated in later phases or v2.0.
 # -------------------------------------------------------------------
 KNOWN_DEFERRED = {
-    # --- core/ intra-package cross-references ---
-    # Scale.__mul__ defers Unit/UnitProduct (cross-module within core/)
-    ("ucon.core.scale", "__mul__", "ucon.core.unit"),
-    ("ucon.core.scale", "__mul__", "ucon.core.product"),
-    # Unit algebra methods defer UnitProduct
-    ("ucon.core.unit", "__mul__", "ucon.core.product"),
-    ("ucon.core.unit", "__truediv__", "ucon.core.product"),
-    ("ucon.core.unit", "__pow__", "ucon.core.product"),
-    ("ucon.core.unit", "__eq__", "ucon.core.product"),
-    # Unit.__call__ defers Number and NumberArray
-    ("ucon.core.unit", "__call__", "ucon.core.product"),
-    ("ucon.core.unit", "__call__", "ucon.core.quantity"),
-    ("ucon.core.unit", "__call__", "ucon.integrations.numpy"),
-    # UnitProduct.__call__ defers Number and NumberArray
-    ("ucon.core.product", "__call__", "ucon.core.quantity"),
-    ("ucon.core.product", "__call__", "ucon.integrations.numpy"),
+    # --- core/_types.py transitional deferred imports ---
+    # Number.to() defers graph_registry and system._active (eliminated in Change #2)
+    ("ucon.core._types", "to", "ucon.graph_registry"),
+    ("ucon.core._types", "to", "ucon.system._active"),
 
     # --- system/ deferred imports ---
-    # system/__init__.py: base_for() defers DimensionNotCovered
-    ("ucon.system", "base_for", "ucon.core"),
-    # system/__init__.py: from_globals() defers high-layer imports (deprecated)
-    ("ucon.system", "from_globals", "ucon._loader"),
-    ("ucon.system", "from_globals", "ucon.basis.graph"),
-    ("ucon.system", "from_globals", "ucon.dimension"),
-    ("ucon.system", "from_globals", "ucon.graph"),
-    ("ucon.system", "from_globals", "ucon"),
-    # system/__init__.py: resolve_unit() defers resolver
+    # system/__init__.py: resolve_unit() defers resolver (circular: resolver→core→system)
     ("ucon.system", "resolve_unit", "ucon.resolver"),
+    # system/__init__.py: active() fallback defers high-layer imports
+    ("ucon.system", "active", "ucon.basis.graph"),
+    ("ucon.system", "active", "ucon.dimension"),
+    ("ucon.system", "active", "ucon.graph"),
+    ("ucon.system", "active", "ucon"),
 
     # --- graph.py / graph_registry.py deferred imports ---
-    ("ucon.graph_registry", "_build_standard_graph", "ucon._loader"),
+    ("ucon.graph_registry", "_build_standard_graph", "ucon.units"),
     ("ucon.graph", "from_toml", "ucon.serialization"),
     ("ucon.graph", "to_toml", "ucon.serialization"),
     ("ucon.graph", "with_package", "ucon.packages"),
-    ("ucon.graph", "_package_edge_already_covered", "ucon.resolver"),
-
-    # --- _loader.py deferred imports ---
-    ("ucon._loader", "_ensure_loaded", "ucon.serialization"),
-
-    # --- packages.py deferred imports ---
-    ("ucon.packages", "materialize", "ucon.graph"),
-    ("ucon.packages", "materialize", "ucon.resolver"),
 
     # --- constants.py deferred imports ---
-    ("ucon.constants", "_build_constants", "ucon._loader"),
+    ("ucon.constants", "_build_constants", "ucon.graph_registry"),
 }
 
 
@@ -223,7 +200,7 @@ class TestDeferredImportAudit(unittest.TestCase):
         eliminated, update this number downward.
         """
         self.assertEqual(
-            len(KNOWN_DEFERRED), 27,
+            len(KNOWN_DEFERRED), 12,
             "Update this count when adding or removing KNOWN_DEFERRED entries"
         )
 

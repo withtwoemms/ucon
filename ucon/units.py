@@ -72,9 +72,11 @@ from ucon.resolver import (
 # Load all units from the canonical TOML file
 # ---------------------------------------------------------------------------
 
-from ucon._loader import get_units as _get_units
+from pathlib import Path as _Path
+from ucon.serialization import from_toml as _from_toml
 
-_units = _get_units()
+_graph = _from_toml(_Path(__file__).parent / "comprehensive.ucon.toml")
+_units = {name: u for name, u in _graph._name_registry_cs.items() if name == u.name}
 globals().update(_units)
 
 # Sentinel unit (no name, no dimension) — not in TOML

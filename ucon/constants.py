@@ -146,14 +146,14 @@ class Constant:
 
 
 def _build_constants():
-    """Load constants from the TOML via the central loader.
+    """Load constants from the TOML via the conversion graph.
 
     Returns a dict keyed by descriptive name (e.g. 'speed_of_light'),
     matching the contract expected by ``all_constants()`` and ``__getattr__``.
     """
-    from ucon._loader import get_graph
+    from ucon.graph_registry import get_default_graph
 
-    graph = get_graph()
+    graph = get_default_graph()
     constants: dict[str, Constant] = {}
     for const in graph._package_constants:
         # Find the short descriptive alias (e.g. "speed_of_light") if available,

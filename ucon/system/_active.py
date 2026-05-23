@@ -22,4 +22,15 @@ from typing import Any
 # The actual value is always ``UnitSystem | None`` at runtime.
 _active: ContextVar[Any] = ContextVar('ucon_active_system', default=None)
 
-__all__ = ['_active']
+
+def active():
+    """Return the currently active UnitSystem, or None.
+
+    This is the **raw** accessor — it returns whatever is stored in the
+    ContextVar without any fallback logic. The :func:`ucon.system.active`
+    wrapper adds a ``from_globals`` fallback for backward compatibility.
+    """
+    return _active.get()
+
+
+__all__ = ['_active', 'active']

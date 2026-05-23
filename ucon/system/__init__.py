@@ -41,12 +41,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, Iterator, Mapping
 
 from ucon.system._active import _active
+from ucon.system._active import active as _raw_active
 from ucon.system.algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBRA_CACHE
+from ucon.core.exceptions import DimensionNotCovered
 
 if TYPE_CHECKING:
     from ucon.basis.graph import BasisGraph
     from ucon.basis.types import Basis
-    from ucon.core import DimensionNotCovered, Unit
+    from ucon.core import Unit
     from ucon.dimension import Dimension
     from ucon.constants import Constant
     from ucon.contexts import ConversionContext
@@ -113,7 +115,6 @@ class BaseUnits:
             If this system has no base unit for the dimension.
         """
         if dim not in self.bases:
-            from ucon.core import DimensionNotCovered  # transitional; top-level after 2b
             raise DimensionNotCovered(
                 f"{self.name} has no base unit for {dim.name}"
             )
@@ -264,8 +265,8 @@ class UnitSystem:
         UnknownUnitError
             If the string cannot be resolved.
         """
-        from ucon.resolver import parse_unit  # transitional deferred import
-        return parse_unit(name, system=self)
+        from ucon.resolver import parse_unit as _parse_unit
+        return _parse_unit(name, system=self)
 
     @classmethod
     def from_globals(cls, *, base_units: BaseUnits | None = None, _internal: bool = False) -> 'UnitSystem':
@@ -278,48 +279,25 @@ class UnitSystem:
            ``active()`` to obtain the current system. Scheduled for
            removal in ucon 2.0.
 
-        Reads the live registries from ``ucon._loader``, ``ucon.dimension``,
-        ``ucon.basis.graph``, and ``ucon.graph``. The registries are passed
-        through *by reference* (not copied) so two snapshots compare equal
-        and share state with the legacy global path.
-
         Parameters
         ----------
         base_units : BaseUnits, optional
-            Override for the ``base_units`` field. Defaults to
-            ``ucon.units.si``.
+            Override for the ``base_units`` field. When provided, returns
+            a copy of the active system with the given base units.
         """
         if not _internal:
-            import warnings
             warnings.warn(
                 "UnitSystem.from_globals() is deprecated; use active() to "
                 "obtain the current system. Scheduled for removal in ucon v2.0.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-        # Deferred imports to avoid a load-time cycle:
-        # ucon.system is imported very early via ucon/__init__.py, before
-        # ucon.graph / ucon._loader / ucon.units have been initialised.
-        from ucon._loader import get_constants, get_units
-        from ucon.basis.graph import get_basis_graph, get_default_basis
-        from ucon.dimension import _DIMENSION_ATTRS
-        from ucon.graph import get_default_graph
-        from ucon import units as _units_module
-
-        if base_units is None:
-            base_units = _units_module.si
-
-        graph = get_default_graph()
-        return cls(
-            basis=get_default_basis(),
-            units=get_units(),
-            dimensions=_DIMENSION_ATTRS,
-            base_units=base_units,
-            conversion_graph=graph,
-            basis_graph=get_basis_graph(),
-            contexts=getattr(graph, '_contexts', {}),
-            constants=get_constants(),
-        )
+        system = active()
+        if base_units is not None:
+            # Return a copy with overridden base_units (frozen dataclass)
+            from dataclasses import replace as _replace
+            return _replace(system, base_units=base_units)
+        return system
 
 
 # -----------------------------------------------------------------------------
@@ -363,12 +341,42 @@ UnitSystem.__init__ = _unitsystem_init_with_conversions_alias
 def active() -> UnitSystem:
     """Return the currently active :class:`UnitSystem`.
 
-    If no system has been activated via :func:`use`, snapshots the current
-    global state via :meth:`UnitSystem.from_globals` and returns that.
+    After ``import ucon``, the active system is always set via eager
+    initialization. The fallback branch below handles the edge case
+    where ``ucon.system`` is imported directly without ``ucon``.
     """
     system = _active.get()
-    if system is None:
-        return UnitSystem.from_globals(_internal=True)
+    if system is not None:
+        return system
+    # Fallback: construct from global registries (deferred imports to
+    # avoid a load-time cycle — ucon.system is imported before the
+    # high-level modules are initialised).
+    from ucon.basis.graph import get_basis_graph, get_default_basis
+    from ucon.dimension import _DIMENSION_ATTRS
+    from ucon.graph import get_default_graph
+    from ucon import units as _units_module
+
+    graph = get_default_graph()
+    # Build constants dict from the graph's package_constants
+    _constants: dict = {}
+    for _const in graph._package_constants:
+        _constants[_const.symbol] = _const
+        _safe = _const.name.replace(" ", "_").replace("-", "_").lower()
+        _constants[_safe] = _const
+        for _alias in getattr(_const, 'aliases', ()):
+            _constants[_alias] = _const
+
+    system = UnitSystem(
+        basis=get_default_basis(),
+        units=_units_module._units,
+        dimensions=_DIMENSION_ATTRS,
+        base_units=_units_module.si,
+        conversion_graph=graph,
+        basis_graph=get_basis_graph(),
+        contexts=getattr(graph, '_contexts', {}),
+        constants=_constants,
+    )
+    _active.set(system)
     return system
 
 

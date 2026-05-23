@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ucon.core.unit import Unit
+    from ucon.core._types import Unit
 
 
 class DimensionNotCovered(Exception):
