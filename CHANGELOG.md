@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-05-22
+
+Routes [`Number.to()`] through the active [`UnitSystem`], establishing
+`UnitSystem` as the authority for unit resolution and graph lookup. This
+is the first step toward retiring module-level global state; all existing
+call sites continue to work without changes.
+
+### Added
+
+- **[`UnitSystem.resolve_unit(name)`]** — resolves a unit name, alias,
+  scale-prefixed name, or composite expression string to a `Unit` or
+  `UnitProduct`, drawing from the system's unit registry. Delegates to
+  [`parse_unit()`] with `system=self`.
+
+- **Top-level exports: [`active()`], [`use()`]** — the active-system
+  accessor and context-manager scoping function are now importable
+  directly from `ucon`. `active()` returns the currently active
+  `UnitSystem`, falling back to `UnitSystem.from_globals()` when none
+  has been set.
+
+- **[`get_default_graph()`] checks active system** — resolution priority
+  is now: context-local graph (from `using_conversion_graph`) →
+  active `UnitSystem`'s `conversion_graph` → module-level default
+  (legacy fallback).
+
+- **`tests/ucon/test_deprecation.py`** — parametrized test coverage for
+  all deprecated symbols emitting `DeprecationWarning`.
+
+### Changed
+
+- **[`Number.to()`] routes through `active()`** — when neither `system=`
+  nor `graph=` is provided, `Number.to()` obtains both the conversion
+  graph and unit resolver from the active `UnitSystem` instead of
+  importing `get_default_graph` and `parse_unit` directly. Callers see
+  no behavioral change; the method signature is unchanged.
+
+- **Deprecation warnings upgraded to `DeprecationWarning`** — the
+  following symbols previously emitted `PendingDeprecationWarning`
+  (introduced in v1.8) and now emit `DeprecationWarning`, the standard
+  signal that removal is forthcoming in v2.0:
+  - [`UnitSystem.conversions`] property (use `conversion_graph`)
+  - `UnitSystem(conversions=...)` constructor kwarg (use `conversion_graph=`)
+  - [`using_graph()`] (use [`using_conversion_graph()`])
+  - [`set_default_basis_graph()`] (use `with use(system): ...`)
+  - [`reset_default_basis_graph()`] (use `with use(system): ...`)
+
+### Notes
+
+- **`UnitSystem` is not yet exported as the real class from `ucon`.** The
+  PEP-562 alias `ucon.UnitSystem → BaseUnits` remains active with a
+  `DeprecationWarning`. The alias will be retired and `UnitSystem`
+  exported directly in v2.0.
+
+- **Module-level globals are still functional.** This release wires
+  `UnitSystem` as the routing authority but does not deprecate
+  `set_default_graph()`, `reset_default_graph()`, or `from_globals()`.
+  Those deprecations land in a subsequent v1.x release once test
+  infrastructure has migrated to `use()` scoping.
+
+[`Number.to()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/core.py
+[`UnitSystem`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
+[`UnitSystem.resolve_unit(name)`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
+[`UnitSystem.conversions`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
+[`parse_unit()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/resolver.py
+[`active()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
+[`use()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
+[`get_default_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/graph.py
+[`using_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/graph.py
+[`using_conversion_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/graph.py
+[`set_default_basis_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/basis/graph.py
+[`reset_default_basis_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/basis/graph.py
+
 ## [1.9.2] - 2026-05-22
 
 Lookup completeness for `FormulaRegistry`. The `resolve()` method
@@ -2158,7 +2230,8 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.9.2...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.10.0...HEAD
+[1.10.0]: https://github.com/withtwoemms/ucon/compare/1.9.2...1.10.0
 [1.9.2]: https://github.com/withtwoemms/ucon/compare/1.9.1...1.9.2
 [1.9.1]: https://github.com/withtwoemms/ucon/compare/1.9.0...1.9.1
 [1.9.0]: https://github.com/withtwoemms/ucon/compare/1.8.3...1.9.0
