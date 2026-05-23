@@ -77,16 +77,7 @@ KNOWN_DEFERRED = {
     ("ucon._loader", "_ensure_loaded", "ucon.serialization"),
 
     # --- serialization.py deferred imports ---
-    ("ucon.serialization", "from_toml", "ucon.resolver"),
-    ("ucon.serialization", "from_toml", "ucon.contexts"),
-    ("ucon.serialization", "from_toml", "ucon.expressions"),
-    ("ucon.serialization", "from_toml", "ucon.graph"),
-    ("ucon.serialization", "from_toml", "ucon.packages"),
-    ("ucon.serialization", "_resolve_base_form", "ucon.resolver"),
-    ("ucon.serialization", "_build_edge_map", "ucon.expressions"),
-    ("ucon.serialization", "_build_edge_map", "ucon.packages"),
-    ("ucon.serialization", "_resolve_context_unit", "ucon.resolver"),
-    ("ucon.serialization", "_resolve_product_expression", "ucon.resolver"),
+    # All serialization deferred imports promoted to top-level in Phase 2e.
 
     # --- resolver.py deferred imports ---
     ("ucon.resolver", "_lookup_factor", "ucon.units"),
@@ -257,7 +248,7 @@ class TestDeferredImportAudit(unittest.TestCase):
         eliminated, update this number downward.
         """
         self.assertEqual(
-            len(KNOWN_DEFERRED), 47,
+            len(KNOWN_DEFERRED), 37,
             "Update this count when adding or removing KNOWN_DEFERRED entries"
         )
 
