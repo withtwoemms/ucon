@@ -94,7 +94,8 @@ from ucon.dimension import (
     resolve as resolve_dimension,
 )
 from ucon.checking import enforce_dimensions
-from ucon.graph import (
+from ucon.conversion import (
+    Graph,
     ConversionGraph,
     ConversionNotFound,
     CyclicInconsistency,
@@ -194,6 +195,7 @@ __all__ = [
     'Constant',
     'ConstantDef',
     'ConversionGraph',
+    'Graph',
     'ConversionNotFound',
     'CyclicInconsistency',
     'DimensionConstraint',

@@ -32,8 +32,8 @@ UCON_ROOT = Path(__file__).resolve().parent.parent.parent / "ucon"
 # -------------------------------------------------------------------
 KNOWN_DEFERRED = {
     # --- core/_types.py transitional deferred imports ---
-    # Number.to() defers graph_registry and system._active (eliminated in Change #2)
-    ("ucon.core._types", "to", "ucon.graph_registry"),
+    # Number.to() defers conversion and system._active
+    ("ucon.core._types", "to", "ucon.conversion"),
     ("ucon.core._types", "to", "ucon.system._active"),
 
     # --- system/ deferred imports ---
@@ -45,14 +45,14 @@ KNOWN_DEFERRED = {
     ("ucon.system", "active", "ucon.graph"),
     ("ucon.system", "active", "ucon"),
 
-    # --- graph.py / graph_registry.py deferred imports ---
-    ("ucon.graph_registry", "_build_standard_graph", "ucon.units"),
-    ("ucon.graph", "from_toml", "ucon.serialization"),
-    ("ucon.graph", "to_toml", "ucon.serialization"),
-    ("ucon.graph", "with_package", "ucon.packages"),
+    # --- conversion.py deferred imports ---
+    ("ucon.conversion", "_build_standard_graph", "ucon.units"),
+    ("ucon.conversion", "from_toml", "ucon.serialization"),
+    ("ucon.conversion", "to_toml", "ucon.serialization"),
+    ("ucon.conversion", "with_package", "ucon.packages"),
 
     # --- constants.py deferred imports ---
-    ("ucon.constants", "_build_constants", "ucon.graph_registry"),
+    ("ucon.constants", "_build_constants", "ucon.conversion"),
 }
 
 

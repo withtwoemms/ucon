@@ -151,7 +151,7 @@ def _build_constants():
     Returns a dict keyed by descriptive name (e.g. 'speed_of_light'),
     matching the contract expected by ``all_constants()`` and ``__getattr__``.
     """
-    from ucon.graph_registry import get_default_graph
+    from ucon.conversion import get_default_graph
 
     graph = get_default_graph()
     constants: dict[str, Constant] = {}
