@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Eagerly initializes the active [`UnitSystem`] at import time, completing
 the globals-retirement effort begun in v1.10.0. The module-level
 `_default_graph` singleton is now dead code — all graph resolution flows
-through the active system. [`set_default_graph()`] and
-[`reset_default_graph()`] are deprecated.
+through the active system. [`set_default_graph()`],
+[`reset_default_graph()`], and [`UnitSystem.from_globals()`] are
+deprecated.
 
 ### Added
 
@@ -47,6 +48,11 @@ through the active system. [`set_default_graph()`] and
   rationale as `set_default_graph()`. Leave the `use(system)` block
   instead of resetting a global. Scheduled for removal in v2.0.
 
+- **[`UnitSystem.from_globals()`] emits `DeprecationWarning`** — with
+  eager initialization, the active system is always available via
+  [`active()`]. Call `active()` instead of snapshotting module-level
+  registries. Scheduled for removal in v2.0.
+
 - **Test suite modernized** — removed 11 `reset_default_graph()` setUp
   calls from `test_default_graph_conversions.py`; rewrote
   `TestDefaultGraphManagement` in `conversion/test_graph.py` to verify
@@ -62,6 +68,8 @@ through the active system. [`set_default_graph()`] and
 [`reset_default_graph()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/graph.py
 [`using_context()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/contexts.py
 [`using_conversion_graph()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/graph.py
+[`UnitSystem.from_globals()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/system/__init__.py
+[`active()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/system/__init__.py
 [`use()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/system/__init__.py
 
 ## [1.10.0] - 2026-05-22
