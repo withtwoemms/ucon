@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 """Tests for the v1.8 canonical :func:`ucon.using_conversion_graph` and its
-:class:`PendingDeprecationWarning` alias :func:`ucon.using_graph`.
+:class:`DeprecationWarning` alias :func:`ucon.using_graph`.
 
 The rename brings the conversion-graph context manager into symmetry with
 :func:`ucon.basis.using_basis_graph` and the planned v2 ``UnitSystem``
@@ -27,7 +27,7 @@ class TestUsingConversionGraph:
     def test_canonical_does_not_warn(self) -> None:
         custom = ConversionGraph()
         with warnings.catch_warnings():
-            warnings.simplefilter("error", PendingDeprecationWarning)
+            warnings.simplefilter("error", DeprecationWarning)
             with using_conversion_graph(custom):
                 assert get_default_graph() is custom
 
@@ -45,11 +45,11 @@ class TestUsingConversionGraph:
 
 
 class TestUsingGraphAlias:
-    """The legacy :func:`using_graph` name is a PendingDeprecationWarning alias."""
+    """The legacy :func:`using_graph` name is a DeprecationWarning alias."""
 
     def test_alias_emits_pending_deprecation(self) -> None:
         custom = ConversionGraph()
-        with pytest.warns(PendingDeprecationWarning, match="using_conversion_graph"):
+        with pytest.warns(DeprecationWarning, match="using_conversion_graph"):
             with using_graph(custom):
                 pass
 
@@ -58,7 +58,7 @@ class TestUsingGraphAlias:
         custom = ConversionGraph()
         default_graph = get_default_graph()
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", PendingDeprecationWarning)
+            warnings.simplefilter("ignore", DeprecationWarning)
             with using_graph(custom):
                 assert get_default_graph() is custom
             assert get_default_graph() is default_graph

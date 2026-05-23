@@ -322,7 +322,7 @@ def set_default_basis_graph(graph: BasisGraph) -> None:
         "default basis graph is being retired in favor of UnitSystem "
         "ownership. Use 'with use(active().with_basis_graph(graph)): ...' "
         "instead. Scheduled for removal in ucon 2.0.",
-        PendingDeprecationWarning,
+        DeprecationWarning,
         stacklevel=2,
     )
     global _default_basis_graph
@@ -347,7 +347,7 @@ def reset_default_basis_graph() -> None:
         "default basis graph is being retired in favor of UnitSystem "
         "ownership. Leave the 'with use(...)' block instead of resetting a "
         "global. Scheduled for removal in ucon 2.0.",
-        PendingDeprecationWarning,
+        DeprecationWarning,
         stacklevel=2,
     )
     global _default_basis_graph

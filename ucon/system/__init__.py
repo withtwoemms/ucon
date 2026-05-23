@@ -287,10 +287,35 @@ class UnitSystem:
         warnings.warn(
             "UnitSystem.conversions is a deprecated alias for "
             "UnitSystem.conversion_graph; it will be removed in ucon v2.0.",
-            PendingDeprecationWarning,
+            DeprecationWarning,
             stacklevel=2,
         )
         return self.conversion_graph
+
+    def resolve_unit(self, name: str):
+        """Resolve a unit name/alias/expression string to a ``Unit`` or ``UnitProduct``.
+
+        Delegates to :func:`~ucon.resolver.parse_unit` with ``system=self``
+        so the resolver draws from this system's unit registry.
+
+        Parameters
+        ----------
+        name : str
+            Unit name, alias, scale-prefixed name, or composite expression
+            (e.g., ``"ft"``, ``"km"``, ``"kg*m/s^2"``).
+
+        Returns
+        -------
+        Unit or UnitProduct
+            The resolved unit.
+
+        Raises
+        ------
+        UnknownUnitError
+            If the string cannot be resolved.
+        """
+        from ucon.resolver import parse_unit  # transitional deferred import
+        return parse_unit(name, system=self)
 
     @classmethod
     def from_globals(cls, *, base_units: BaseUnits | None = None) -> 'UnitSystem':
@@ -355,7 +380,7 @@ def _unitsystem_init_with_conversions_alias(self, *args, **kwargs):
         warnings.warn(
             "UnitSystem(conversions=...) is a deprecated alias for "
             "UnitSystem(conversion_graph=...); it will be removed in ucon v2.0.",
-            PendingDeprecationWarning,
+            DeprecationWarning,
             stacklevel=2,
         )
         kwargs['conversion_graph'] = kwargs.pop('conversions')

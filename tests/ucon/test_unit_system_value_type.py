@@ -723,7 +723,7 @@ class TestConversionsDeprecatedAlias(unittest.TestCase):
     """v1.8.0 named the field ``conversions``. v1.8.1 renamed it to
     ``conversion_graph`` for symmetry with ``basis_graph`` and exposes a
     deprecation shim — both as a constructor kwarg and as a read
-    property. Both emit ``PendingDeprecationWarning`` and are scheduled
+    property. Both emit ``DeprecationWarning`` and are scheduled
     for removal in v2.0."""
 
     def test_conversions_kwarg_warns_and_routes_to_conversion_graph(self):
@@ -742,8 +742,8 @@ class TestConversionsDeprecatedAlias(unittest.TestCase):
             )
         self.assertIs(s.conversion_graph, parent.conversion_graph)
         self.assertTrue(
-            any(issubclass(w.category, PendingDeprecationWarning) for w in captured),
-            f"expected PendingDeprecationWarning; got {[w.category for w in captured]}",
+            any(issubclass(w.category, DeprecationWarning) for w in captured),
+            f"expected DeprecationWarning; got {[w.category for w in captured]}",
         )
 
     def test_conversions_property_warns_and_returns_conversion_graph(self):
@@ -753,8 +753,8 @@ class TestConversionsDeprecatedAlias(unittest.TestCase):
             value = s.conversions
         self.assertIs(value, s.conversion_graph)
         self.assertTrue(
-            any(issubclass(w.category, PendingDeprecationWarning) for w in captured),
-            f"expected PendingDeprecationWarning; got {[w.category for w in captured]}",
+            any(issubclass(w.category, DeprecationWarning) for w in captured),
+            f"expected DeprecationWarning; got {[w.category for w in captured]}",
         )
 
     def test_both_kwargs_raises_typeerror(self):
@@ -787,7 +787,7 @@ class TestConversionsDeprecatedAlias(unittest.TestCase):
                 constants=parent.constants,
             )
         self.assertFalse(
-            any(issubclass(w.category, PendingDeprecationWarning) for w in captured),
+            any(issubclass(w.category, DeprecationWarning) for w in captured),
             "modern kwarg path must not emit a deprecation warning",
         )
 

@@ -87,7 +87,7 @@ from ucon.core import (
     UnitProduct,
     UnknownUnitError,
 )
-from ucon.system import BaseUnits
+from ucon.system import BaseUnits, UnitSystem, active, use
 from ucon.dimension import (
     Dimension,
     all_dimensions,
@@ -155,6 +155,7 @@ __all__ = [
     # Core types
     'BaseForm',
     'BaseUnits',
+    'UnitSystem',
     'Constant',
     'ConstantDef',
     'ConversionGraph',
@@ -179,6 +180,9 @@ __all__ = [
     'UnitPackage',
     'UnitProduct',
     'UnknownUnitError',
+    # System
+    'active',
+    'use',
     # Functions
     'all_dimensions',
     'enforce_dimensions',
@@ -200,25 +204,10 @@ __all__ = [
 
 
 # ---------------------------------------------------------------------------
-# Deprecation aliases (PEP 562)
+# Note on UnitSystem naming
 # ---------------------------------------------------------------------------
 #
-# In v1.8 the small dimension→unit mapping previously called ``UnitSystem``
-# was renamed to :class:`BaseUnits` and moved to :mod:`ucon.system`. The
-# name ``UnitSystem`` is reserved for a richer value type planned for a
-# later phase. Existing callers that import ``UnitSystem`` from the top
-# level continue to work via the alias below, with a
-# ``PendingDeprecationWarning``. The alias will be removed in v2.0.
-
-def __getattr__(name):
-    if name == 'UnitSystem':
-        import warnings
-        warnings.warn(
-            "ucon.UnitSystem is a deprecated alias for ucon.BaseUnits. "
-            "Import BaseUnits from ucon (or ucon.system) directly. "
-            "The alias will be removed in ucon 2.0.",
-            PendingDeprecationWarning,
-            stacklevel=2,
-        )
-        return BaseUnits
-    raise AttributeError(f"module 'ucon' has no attribute {name!r}")
+# Prior to v2.0 ``ucon.UnitSystem`` was a deprecated alias for the simpler
+# ``BaseUnits`` mapping. In v2.0 ``UnitSystem`` is the real system type
+# imported directly from ``ucon.system``. The ``BaseUnits`` class remains
+# available under its own name for the dimension→unit mapping role.
