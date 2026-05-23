@@ -14,6 +14,5 @@ from ucon.conversion import Graph as ConversionGraph  # noqa: F401
 from ucon.conversion import (  # noqa: F401 — private names used by tests
     _default_graph,
     _graph_context,
-    _build_standard_graph,
     _build_standard_edges,
 )

@@ -129,7 +129,7 @@ from ucon.parsing import ParseError, parse, parse_dimension
 # UnitSystem directly — no need for from_globals() or deferred imports.
 from ucon.dimension import _DIMENSION_ATTRS
 from ucon.system._active import _active as _sys_active_var
-_init_graph = get_default_graph()
+_init_graph = units._graph  # Direct reference; get_default_graph() isn't usable yet
 
 # Build constants dict from the graph's package_constants (same logic as
 # the former _loader.get_constants).
@@ -151,7 +151,21 @@ _sys_active_var.set(UnitSystem(
     contexts=getattr(_init_graph, '_contexts', {}),
     constants=_init_constants,
 ))
-del _sys_active_var, _init_graph, _init_constants
+# Pre-populate the constants module cache so it never needs to call
+# _build_constants() (which would require a deferred import).
+_descriptive_constants: dict = {}
+for _const in _init_graph._package_constants:
+    _desc = None
+    for _alias in getattr(_const, 'aliases', ()):
+        if '_' in _alias or _alias.replace('_', '').isalpha():
+            _desc = _alias
+            break
+    if _desc is None:
+        _desc = _const.name.replace(" ", "_").replace("-", "_").lower()
+    _descriptive_constants[_desc] = _const
+constants._constants_cache = _descriptive_constants
+
+del _sys_active_var, _init_graph, _init_constants, _descriptive_constants
 
 __all__ = [
     # Basis abstractions

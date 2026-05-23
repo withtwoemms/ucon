@@ -1356,11 +1356,13 @@ def get_default_graph() -> Graph:
     if system is not None:
         return system.conversion_graph
 
-    # Fall back to module default
-    global _default_graph
-    if _default_graph is None:
-        _default_graph = _build_standard_graph()
-    return _default_graph
+    # Fall back to module default (dead code after eager init in ucon/__init__)
+    if _default_graph is not None:
+        return _default_graph
+    raise RuntimeError(
+        "No conversion graph available. This usually means "
+        "get_default_graph() was called before 'import ucon' completed."
+    )
 
 
 def set_default_graph(graph: Graph) -> None:
@@ -1487,15 +1489,6 @@ def using_graph(graph: Graph):
         yield g
 
 
-def _build_standard_graph() -> Graph:
-    """Load the default conversion graph from comprehensive.ucon.toml."""
-    from ucon.units import _graph
-    return _graph
-
-
 def _build_standard_edges(graph: Graph) -> None:  # pragma: no cover
-    """Legacy stub -- edges are now loaded from TOML via _build_standard_graph().
-
-    Retained as a no-op for any external code that references it.
-    """
+    """Legacy stub — retained as a no-op for external code that references it."""
     return

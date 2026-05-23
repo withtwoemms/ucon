@@ -342,41 +342,21 @@ def active() -> UnitSystem:
     """Return the currently active :class:`UnitSystem`.
 
     After ``import ucon``, the active system is always set via eager
-    initialization. The fallback branch below handles the edge case
-    where ``ucon.system`` is imported directly without ``ucon``.
+    initialization.
+
+    Raises
+    ------
+    RuntimeError
+        If called before ``import ucon`` has completed (i.e. the eager
+        init block in ``ucon/__init__.py`` has not yet run).
     """
     system = _active.get()
-    if system is not None:
-        return system
-    # Fallback: construct from global registries (deferred imports to
-    # avoid a load-time cycle — ucon.system is imported before the
-    # high-level modules are initialised).
-    from ucon.basis.graph import get_basis_graph, get_default_basis
-    from ucon.dimension import _DIMENSION_ATTRS
-    from ucon.graph import get_default_graph
-    from ucon import units as _units_module
-
-    graph = get_default_graph()
-    # Build constants dict from the graph's package_constants
-    _constants: dict = {}
-    for _const in graph._package_constants:
-        _constants[_const.symbol] = _const
-        _safe = _const.name.replace(" ", "_").replace("-", "_").lower()
-        _constants[_safe] = _const
-        for _alias in getattr(_const, 'aliases', ()):
-            _constants[_alias] = _const
-
-    system = UnitSystem(
-        basis=get_default_basis(),
-        units=_units_module._units,
-        dimensions=_DIMENSION_ATTRS,
-        base_units=_units_module.si,
-        conversion_graph=graph,
-        basis_graph=get_basis_graph(),
-        contexts=getattr(graph, '_contexts', {}),
-        constants=_constants,
-    )
-    _active.set(system)
+    if system is None:
+        raise RuntimeError(
+            "No active UnitSystem. This usually means ucon.system.active() "
+            "was called before 'import ucon' completed. Import the top-level "
+            "ucon package first."
+        )
     return system
 
 

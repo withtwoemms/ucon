@@ -145,40 +145,17 @@ class Constant:
             return f"<{self.symbol} = {self.value} ± {self.uncertainty} {unit_str}>"
 
 
-def _build_constants():
-    """Load constants from the TOML via the conversion graph.
-
-    Returns a dict keyed by descriptive name (e.g. 'speed_of_light'),
-    matching the contract expected by ``all_constants()`` and ``__getattr__``.
-    """
-    from ucon.conversion import get_default_graph
-
-    graph = get_default_graph()
-    constants: dict[str, Constant] = {}
-    for const in graph._package_constants:
-        # Find the short descriptive alias (e.g. "speed_of_light") if available,
-        # otherwise derive from the full name.
-        descriptive = None
-        for alias in getattr(const, 'aliases', ()):
-            # Prefer the snake_case descriptive alias (not symbols like "Eh")
-            if '_' in alias or alias.replace('_', '').isalpha():
-                descriptive = alias
-                break
-        if descriptive is None:
-            descriptive = const.name.replace(" ", "_").replace("-", "_").lower()
-        constants[descriptive] = const
-    return constants
-
-
-# Lazy initialization to avoid circular imports
+# Populated eagerly by ucon/__init__.py at import time.
 _constants_cache: dict = {}
 
 
 def _get_constants() -> dict:
-    """Get or build constants cache."""
-    global _constants_cache
+    """Return the constants cache (populated at import time by ``ucon/__init__``)."""
     if not _constants_cache:
-        _constants_cache = _build_constants()
+        raise RuntimeError(
+            "Constants cache not initialized. This usually means "
+            "ucon.constants was accessed before 'import ucon' completed."
+        )
     return _constants_cache
 
 
