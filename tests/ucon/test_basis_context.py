@@ -66,10 +66,6 @@ class TestDefaultBasis:
 class TestBasisGraph:
     """Tests for get_basis_graph() and using_basis_graph()."""
 
-    def teardown_method(self):
-        """Reset basis graph after each test."""
-        reset_default_basis_graph()
-
     def test_default_basis_graph_has_standard_transforms(self):
         """SI/CGS/CGS-ESU connected."""
         graph = get_basis_graph()
@@ -100,21 +96,23 @@ class TestBasisGraph:
             # None in context should still return default
             assert get_basis_graph() is default_graph
 
-    def test_set_default_basis_graph_replaces_singleton(self):
-        """Module replacement works."""
+    def test_set_default_basis_graph_is_masked_by_active_system(self):
+        """v1.11: set_default_basis_graph mutates the module-level variable
+        but the active system takes precedence in get_basis_graph()."""
+        import warnings
+        active_graph = get_basis_graph()
         custom_graph = BasisGraph()
-        original_graph = get_basis_graph()
 
-        set_default_basis_graph(custom_graph)
-        assert get_basis_graph() is custom_graph
-        assert get_basis_graph() is not original_graph
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            set_default_basis_graph(custom_graph)
+        # Active system tier takes precedence
+        assert get_basis_graph() is active_graph
+        assert get_basis_graph() is not custom_graph
 
-        # Reset restores to standard graph (lazily built)
-        reset_default_basis_graph()
-        new_default = get_basis_graph()
-        assert new_default is not custom_graph
-        # New default should have standard transforms
-        assert new_default.are_connected(SI, CGS)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            reset_default_basis_graph()
 
 
 class TestDimensionContextIntegration:
@@ -222,12 +220,13 @@ class TestRetirementWarnings:
             warnings.simplefilter("ignore", DeprecationWarning)
             reset_default_basis_graph()
 
-    def test_set_default_basis_graph_emits_pending_deprecation(self) -> None:
+    def test_set_default_basis_graph_emits_deprecation(self) -> None:
         custom_graph = BasisGraph()
         with pytest.warns(DeprecationWarning, match="set_default_basis_graph"):
             set_default_basis_graph(custom_graph)
-        # Behavior preserved: the mutation still takes effect.
-        assert get_basis_graph() is custom_graph
+        # v1.11: mutation still takes effect at module level, but active
+        # system tier takes precedence in get_basis_graph().
+        # The warning is the important behavior to verify here.
 
     def test_reset_default_basis_graph_emits_pending_deprecation(self) -> None:
         with pytest.warns(DeprecationWarning, match="reset_default_basis_graph"):

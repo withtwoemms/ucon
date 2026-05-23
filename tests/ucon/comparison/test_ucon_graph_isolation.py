@@ -412,15 +412,20 @@ class TestNoGlobalSingleton:
                 except Exception:
                     result_inside["smoot"] = False
 
-        # Set extended as default
-        ucon.set_default_graph(extended)
+        # Set extended as default (deprecated in v1.11)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            ucon.set_default_graph(extended)
 
         # But an explicit using_graph(base) still uses base
         check_in_context()
         assert result_inside["smoot"] is False  # base doesn't have smoot
 
         # Restore
-        ucon.set_default_graph(base)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            ucon.set_default_graph(base)
 
 
 # ─────────────────────────────────────────────────────

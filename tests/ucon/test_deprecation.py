@@ -92,6 +92,29 @@ class TestBasisGraphGlobalsDeprecated:
 
 
 # -----------------------------------------------------------------------
+# set_default_graph / reset_default_graph
+# -----------------------------------------------------------------------
+
+class TestConversionGraphGlobalsDeprecated:
+
+    def teardown_method(self):
+        from ucon.graph import reset_default_graph
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            reset_default_graph()
+
+    def test_set_default_graph_emits_deprecation(self):
+        from ucon.graph import ConversionGraph, set_default_graph
+        with pytest.warns(DeprecationWarning, match="set_default_graph"):
+            set_default_graph(ConversionGraph())
+
+    def test_reset_default_graph_emits_deprecation(self):
+        from ucon.graph import reset_default_graph
+        with pytest.warns(DeprecationWarning, match="reset_default_graph"):
+            reset_default_graph()
+
+
+# -----------------------------------------------------------------------
 # get_unit_by_name (legacy alias for parse_unit)
 # -----------------------------------------------------------------------
 

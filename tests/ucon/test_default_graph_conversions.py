@@ -14,14 +14,10 @@ These tests verify that Number.to() works correctly with the default graph for:
 import unittest
 
 from ucon import units
-from ucon.graph import get_default_graph, reset_default_graph
 
 
 class TestTemperatureConversions(unittest.TestCase):
     """Tests for temperature conversions using AffineMap in the default graph."""
-
-    def setUp(self):
-        reset_default_graph()
 
     def test_celsius_to_kelvin_freezing(self):
         """0°C = 273.15 K"""
@@ -91,8 +87,6 @@ class TestTemperatureConversions(unittest.TestCase):
 class TestPressureConversions(unittest.TestCase):
     """Tests for pressure conversions in the default graph."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_pascal_to_bar(self):
         """100000 Pa = 1 bar"""
@@ -155,8 +149,6 @@ class TestPressureConversions(unittest.TestCase):
 class TestBaseSILengthConversions(unittest.TestCase):
     """Tests for length conversions in the default graph."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_meter_to_foot(self):
         """1 m ≈ 3.28084 ft"""
@@ -217,8 +209,6 @@ class TestBaseSILengthConversions(unittest.TestCase):
 class TestBaseSIMassConversions(unittest.TestCase):
     """Tests for mass conversions in the default graph."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_kilogram_to_gram(self):
         """1 kg = 1000 g"""
@@ -264,8 +254,6 @@ class TestBaseSIMassConversions(unittest.TestCase):
 class TestBaseSITimeConversions(unittest.TestCase):
     """Tests for time conversions in the default graph."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_second_to_minute(self):
         """60 s = 1 min"""
@@ -316,8 +304,6 @@ class TestBaseSITimeConversions(unittest.TestCase):
 class TestBaseSIVolumeConversions(unittest.TestCase):
     """Tests for volume conversions in the default graph."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_liter_to_gallon(self):
         """1 L ≈ 0.264172 gal"""
@@ -333,8 +319,6 @@ class TestBaseSIVolumeConversions(unittest.TestCase):
 class TestBaseSIEnergyConversions(unittest.TestCase):
     """Tests for energy conversions in the default graph."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_joule_to_calorie(self):
         """4.184 J = 1 cal"""
@@ -365,8 +349,6 @@ class TestBaseSIEnergyConversions(unittest.TestCase):
 class TestBaseSIPowerConversions(unittest.TestCase):
     """Tests for power conversions in the default graph."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_watt_to_horsepower(self):
         """745.7 W ≈ 1 hp"""
@@ -382,8 +364,6 @@ class TestBaseSIPowerConversions(unittest.TestCase):
 class TestInformationConversions(unittest.TestCase):
     """Tests for information unit conversions in the default graph."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_byte_to_bit(self):
         """1 B = 8 b"""
@@ -406,8 +386,6 @@ class TestInformationConversions(unittest.TestCase):
 class TestPhotometricConversions(unittest.TestCase):
     """Tests for photometric luminance/illuminance conversions in the default graph."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_stilb_to_nit(self):
         """1 sb = 10000 nt"""
@@ -445,8 +423,6 @@ class TestPhotometricConversions(unittest.TestCase):
 class TestConversionRoundTrips(unittest.TestCase):
     """Tests verifying round-trip conversion accuracy."""
 
-    def setUp(self):
-        reset_default_graph()
 
     def test_length_round_trip(self):
         """meter → foot → meter"""

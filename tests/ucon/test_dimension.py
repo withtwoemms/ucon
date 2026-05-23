@@ -297,22 +297,22 @@ class TestDimensionAlgebraCacheRouting(unittest.TestCase):
     active system's per-instance ``AlgebraCache`` is consulted instead.
     """
 
-    def test_default_state_populates_default_cache(self):
-        from ucon.system import _DEFAULT_ALGEBRA_CACHE
-        _DEFAULT_ALGEBRA_CACHE.clear()
+    def test_default_state_populates_active_system_cache(self):
+        """v1.11: With eager init, algebra always routes through the active system cache."""
+        from ucon.system import active
+        cache = active()._algebra_cache
+        cache.clear()
         _ = Dimension.length * Dimension.time
-        self.assertGreater(len(_DEFAULT_ALGEBRA_CACHE.mul), 0)
+        self.assertGreater(len(cache.mul), 0)
 
     def test_use_block_routes_to_system_cache(self):
-        from ucon.system import UnitSystem, use, _DEFAULT_ALGEBRA_CACHE
-        _DEFAULT_ALGEBRA_CACHE.clear()
+        from ucon.system import UnitSystem, use
         system = UnitSystem.from_globals()
         system._algebra_cache.clear()
         with use(system):
             _ = Dimension.length * Dimension.time
             _ = Dimension.length / Dimension.time
             _ = Dimension.length ** 3
-        self.assertEqual(len(_DEFAULT_ALGEBRA_CACHE.mul), 0)
         self.assertGreater(len(system._algebra_cache.mul), 0)
         self.assertGreater(len(system._algebra_cache.div), 0)
         self.assertGreater(len(system._algebra_cache.pow), 0)
@@ -321,7 +321,7 @@ class TestDimensionAlgebraCacheRouting(unittest.TestCase):
         import warnings
 
         import ucon.dimension as dim_mod
-        from ucon.system import _DEFAULT_ALGEBRA_CACHE
+        from ucon.system import _get_active_cache
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -329,29 +329,29 @@ class TestDimensionAlgebraCacheRouting(unittest.TestCase):
         self.assertTrue(
             any(issubclass(w.category, PendingDeprecationWarning) for w in caught)
         )
-        self.assertIs(alias, _DEFAULT_ALGEBRA_CACHE.mul)
+        self.assertIs(alias, _get_active_cache().mul)
 
     def test_legacy_dim_div_cache_alias_points_at_active_cache(self):
         import warnings
 
         import ucon.dimension as dim_mod
-        from ucon.system import _DEFAULT_ALGEBRA_CACHE
+        from ucon.system import _get_active_cache
 
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             alias = dim_mod._DIM_DIV_CACHE
-        self.assertIs(alias, _DEFAULT_ALGEBRA_CACHE.div)
+        self.assertIs(alias, _get_active_cache().div)
 
     def test_legacy_dim_pow_cache_alias_points_at_active_cache(self):
         import warnings
 
         import ucon.dimension as dim_mod
-        from ucon.system import _DEFAULT_ALGEBRA_CACHE
+        from ucon.system import _get_active_cache
 
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             alias = dim_mod._DIM_POW_CACHE
-        self.assertIs(alias, _DEFAULT_ALGEBRA_CACHE.pow)
+        self.assertIs(alias, _get_active_cache().pow)
 
     def test_unknown_module_attribute_still_raises(self):
         import ucon.dimension as dim_mod
