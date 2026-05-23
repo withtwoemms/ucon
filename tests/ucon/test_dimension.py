@@ -306,8 +306,8 @@ class TestDimensionAlgebraCacheRouting(unittest.TestCase):
         self.assertGreater(len(cache.mul), 0)
 
     def test_use_block_routes_to_system_cache(self):
-        from ucon.system import UnitSystem, use
-        system = UnitSystem.from_globals()
+        from ucon.system import active, use
+        system = active()
         system._algebra_cache.clear()
         with use(system):
             _ = Dimension.length * Dimension.time

@@ -124,7 +124,7 @@ from ucon.parsing import ParseError, parse, parse_dimension
 # get_default_graph() is always hit.  This makes _default_graph dead code
 # and routes all conversions through the UnitSystem authority.
 from ucon.system import _active as _sys_active
-_sys_active.set(UnitSystem.from_globals())
+_sys_active.set(UnitSystem.from_globals(_internal=True))
 del _sys_active
 
 __all__ = [

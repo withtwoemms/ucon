@@ -53,12 +53,23 @@ class TestAlgebraCache(unittest.TestCase):
 
 
 class TestUnitSystemFromGlobals(unittest.TestCase):
+    """Tests for the deprecated ``from_globals()`` construction path.
+
+    ``from_globals()`` emits ``DeprecationWarning`` since v1.11; tests
+    suppress it so the assertions focus on functional behavior.
+    """
+
+    def _from_globals(self, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            return UnitSystem.from_globals(**kwargs)
+
     def test_from_globals_returns_unitsystem(self):
-        system = UnitSystem.from_globals()
+        system = self._from_globals()
         self.assertIsInstance(system, UnitSystem)
 
     def test_from_globals_populates_required_fields(self):
-        system = UnitSystem.from_globals()
+        system = self._from_globals()
         # Type-level checks; the actual concrete types live in modules
         # that import each other in nontrivial ways.
         self.assertIsNotNone(system.basis)
@@ -72,40 +83,40 @@ class TestUnitSystemFromGlobals(unittest.TestCase):
         self.assertIsInstance(system._algebra_cache, AlgebraCache)
 
     def test_base_units_field_is_baseunits(self):
-        system = UnitSystem.from_globals()
+        system = self._from_globals()
         self.assertIsInstance(system.base_units, BaseUnits)
         self.assertEqual(system.base_units.name, "SI")
 
     def test_from_globals_contains_meter_in_units(self):
-        system = UnitSystem.from_globals()
+        system = self._from_globals()
         self.assertIn("meter", system.units)
 
 
 class TestUnitSystemValueSemantics(unittest.TestCase):
     def test_two_snapshots_are_equal(self):
-        s1 = UnitSystem.from_globals()
-        s2 = UnitSystem.from_globals()
+        s1 = active()
+        s2 = active()
         # Same global registries -> equal
         self.assertEqual(s1, s2)
 
     def test_equal_systems_share_hash(self):
-        s1 = UnitSystem.from_globals()
-        s2 = UnitSystem.from_globals()
+        s1 = active()
+        s2 = active()
         self.assertEqual(hash(s1), hash(s2))
 
     def test_hashable(self):
         # Must be usable in a set
-        s = UnitSystem.from_globals()
+        s = active()
         bucket = {s}
         self.assertIn(s, bucket)
 
     def test_frozen_assignment_raises(self):
-        s = UnitSystem.from_globals()
+        s = active()
         with self.assertRaises(Exception):
             s.basis = None
 
     def test_unequal_to_non_unitsystem(self):
-        s = UnitSystem.from_globals()
+        s = active()
         self.assertNotEqual(s, "not a system")
         self.assertNotEqual(s, 42)
 
@@ -122,28 +133,32 @@ class TestActiveAndUse(unittest.TestCase):
         self.assertEqual(s1, s2)
 
     def test_use_sets_active_inside_block(self):
-        custom = UnitSystem.from_globals()
+        custom = active()
         with use(custom):
             self.assertIs(active(), custom)
 
     def test_use_restores_active_on_exit(self):
-        # Outside the block, active() must not return the custom system
-        # (it returns a fresh snapshot).
-        custom = UnitSystem.from_globals()
+        # A custom system set via use() must not leak past the block.
+        import dataclasses
+        custom = dataclasses.replace(active(), _algebra_cache=AlgebraCache())
+        before = active()
         with use(custom):
-            pass
-        # After exit, no custom system is bound: active() yields a snapshot,
-        # not `custom` by identity.
+            self.assertIs(active(), custom)
+        # After exit, the previous active system is restored.
+        self.assertIs(active(), before)
         self.assertIsNot(active(), custom)
 
     def test_use_nested_blocks_unwind_correctly(self):
-        outer = UnitSystem.from_globals()
-        inner = UnitSystem.from_globals()
+        import dataclasses
+        outer = dataclasses.replace(active(), _algebra_cache=AlgebraCache())
+        inner = dataclasses.replace(active(), _algebra_cache=AlgebraCache())
+        before = active()
         with use(outer):
             self.assertIs(active(), outer)
             with use(inner):
                 self.assertIs(active(), inner)
             self.assertIs(active(), outer)
+        self.assertIs(active(), before)
         self.assertIsNot(active(), outer)
 
 
@@ -167,7 +182,7 @@ class TestFromGlobalsOverride(unittest.TestCase):
 
     def test_default_base_units_is_si(self):
         from ucon import units as _units_module
-        system = UnitSystem.from_globals()
+        system = active()
         self.assertIs(system.base_units, _units_module.si)
 
     def test_override_base_units_is_used_verbatim(self):
@@ -175,7 +190,9 @@ class TestFromGlobalsOverride(unittest.TestCase):
         custom = BaseUnits(
             name="length-only", bases={Dimension.length: _units_module.meter}
         )
-        system = UnitSystem.from_globals(base_units=custom)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            system = UnitSystem.from_globals(base_units=custom)
         self.assertIs(system.base_units, custom)
         self.assertEqual(system.base_units.name, "length-only")
 
@@ -184,8 +201,10 @@ class TestFromGlobalsOverride(unittest.TestCase):
         custom = BaseUnits(
             name="length-only", bases={Dimension.length: _units_module.meter}
         )
-        baseline = UnitSystem.from_globals()
-        overridden = UnitSystem.from_globals(base_units=custom)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            baseline = UnitSystem.from_globals()
+            overridden = UnitSystem.from_globals(base_units=custom)
         self.assertIs(overridden.units, baseline.units)
         self.assertIs(overridden.dimensions, baseline.dimensions)
         self.assertIs(overridden.conversion_graph, baseline.conversion_graph)
@@ -210,7 +229,7 @@ class TestUnitSystemDifferentialEquality(unittest.TestCase):
         return UnitSystem(**kwargs)
 
     def test_eq_returns_notimplemented_for_non_unitsystem(self):
-        s = UnitSystem.from_globals()
+        s = active()
         # Direct __eq__ call to confirm the sentinel return; `!=` would
         # collapse it to True via Python's fallback machinery.
         self.assertIs(s.__eq__("not a system"), NotImplemented)
@@ -219,7 +238,7 @@ class TestUnitSystemDifferentialEquality(unittest.TestCase):
 
     def test_different_base_units_not_equal(self):
         from ucon import Dimension, units as _units_module
-        s = UnitSystem.from_globals()
+        s = active()
         twin = self._twin(
             s,
             base_units=BaseUnits(
@@ -230,38 +249,38 @@ class TestUnitSystemDifferentialEquality(unittest.TestCase):
 
     def test_different_basis_not_equal(self):
         from ucon.basis.types import Basis
-        s = UnitSystem.from_globals()
+        s = active()
         twin = self._twin(s, basis=Basis("Synthetic", ["x", "y"]))
         self.assertNotEqual(s, twin)
 
     def test_units_field_uses_identity_not_value(self):
-        s = UnitSystem.from_globals()
+        s = active()
         # Same content, different dict instance -> not equal.
         twin = self._twin(s, units=dict(s.units))
         self.assertNotEqual(s, twin)
 
     def test_dimensions_field_uses_identity_not_value(self):
-        s = UnitSystem.from_globals()
+        s = active()
         twin = self._twin(s, dimensions=dict(s.dimensions))
         self.assertNotEqual(s, twin)
 
     def test_contexts_field_uses_identity_not_value(self):
-        s = UnitSystem.from_globals()
+        s = active()
         twin = self._twin(s, contexts=dict(s.contexts))
         self.assertNotEqual(s, twin)
 
     def test_constants_field_uses_identity_not_value(self):
-        s = UnitSystem.from_globals()
+        s = active()
         twin = self._twin(s, constants=dict(s.constants))
         self.assertNotEqual(s, twin)
 
     def test_conversion_graph_field_uses_identity_not_value(self):
-        s = UnitSystem.from_globals()
+        s = active()
         twin = self._twin(s, conversion_graph=object())
         self.assertNotEqual(s, twin)
 
     def test_basis_graph_field_uses_identity_not_value(self):
-        s = UnitSystem.from_globals()
+        s = active()
         twin = self._twin(s, basis_graph=object())
         self.assertNotEqual(s, twin)
 
@@ -269,14 +288,15 @@ class TestUnitSystemDifferentialEquality(unittest.TestCase):
 class TestUnitSystemAlgebraCacheSemantics(unittest.TestCase):
     """``_algebra_cache`` is a per-instance ledger, excluded from value identity."""
 
-    def test_distinct_snapshots_have_distinct_caches(self):
-        s1 = UnitSystem.from_globals()
-        s2 = UnitSystem.from_globals()
+    def test_distinct_systems_have_distinct_caches(self):
+        import dataclasses
+        s1 = active()
+        s2 = dataclasses.replace(s1, _algebra_cache=AlgebraCache())
         self.assertIsNot(s1._algebra_cache, s2._algebra_cache)
 
     def test_cache_contents_excluded_from_equality(self):
-        s1 = UnitSystem.from_globals()
-        s2 = UnitSystem.from_globals()
+        s1 = active()
+        s2 = active()
         s1._algebra_cache.mul[("a", "b")] = "anything"
         s1._algebra_cache.div[("c", "d")] = "anything"
         s1._algebra_cache.pow[("e", 2)] = "anything"
@@ -285,11 +305,12 @@ class TestUnitSystemAlgebraCacheSemantics(unittest.TestCase):
         self.assertEqual(hash(s1), hash(s2))
 
     def test_cache_excluded_from_repr(self):
-        s = UnitSystem.from_globals()
+        s = active()
         self.assertNotIn("_algebra_cache", repr(s))
 
     def test_cache_starts_empty(self):
-        s = UnitSystem.from_globals()
+        import dataclasses
+        s = dataclasses.replace(active(), _algebra_cache=AlgebraCache())
         self.assertEqual(s._algebra_cache.mul, {})
         self.assertEqual(s._algebra_cache.div, {})
         self.assertEqual(s._algebra_cache.pow, {})
@@ -299,23 +320,27 @@ class TestUseExceptionSafety(unittest.TestCase):
     """``use`` must restore the previous active system on every exit path."""
 
     def test_use_restores_on_exception(self):
+        import dataclasses
+
         class _Boom(RuntimeError):
             pass
 
-        custom = UnitSystem.from_globals()
+        custom = dataclasses.replace(active(), _algebra_cache=AlgebraCache())
+        before = active()
         with self.assertRaises(_Boom):
             with use(custom):
                 self.assertIs(active(), custom)
                 raise _Boom("failure inside use-block")
-        # active() falls back to a snapshot, not the leaked custom system.
+        # The previous active system is restored, not the custom one.
+        self.assertIs(active(), before)
         self.assertIsNot(active(), custom)
 
     def test_nested_use_restores_outer_on_inner_exception(self):
         class _Boom(RuntimeError):
             pass
 
-        outer = UnitSystem.from_globals()
-        inner = UnitSystem.from_globals()
+        outer = active()
+        inner = active()
         with use(outer):
             with self.assertRaises(_Boom):
                 with use(inner):
@@ -354,7 +379,7 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
 
     def test_number_to_accepts_system_kwarg(self):
         from ucon.units import meter
-        system = UnitSystem.from_globals()
+        system = active()
         result = meter(100).to("km", system=system)
         self.assertAlmostEqual(result.quantity, 0.1)
 
@@ -366,14 +391,14 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         from ucon.graph import ConversionGraph
         from ucon.units import meter
         bogus_graph = ConversionGraph()  # empty, would fail conversion
-        system = UnitSystem.from_globals()
+        system = active()
         result = meter(100).to("km", graph=bogus_graph, system=system)
         self.assertAlmostEqual(result.quantity, 0.1)
 
     def test_parse_unit_accepts_system_kwarg(self):
         from ucon.resolver import parse_unit
         from ucon.core import Unit
-        system = UnitSystem.from_globals()
+        system = active()
         unit = parse_unit("meter", system=system)
         self.assertIsInstance(unit, Unit)
 
@@ -405,14 +430,14 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
 
     def test_parse_quantity_threads_system(self):
         from ucon.parsing.units import parse
-        system = UnitSystem.from_globals()
+        system = active()
         n = parse("60 mph", system=system)
         self.assertEqual(n.quantity, 60.0)
 
     def test_parse_dimension_accepts_system_kwarg(self):
         from ucon.parsing.dimensions import parse_dimension
         from ucon.dimension import Dimension as Dim
-        system = UnitSystem.from_globals()
+        system = active()
         result = parse_dimension("length", system=system)
         self.assertEqual(result, Dim.length)
 
@@ -420,7 +445,7 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         # When basis= is omitted, system.basis is used as the default.
         from ucon.parsing.dimensions import parse_dimension
         from ucon.basis.builtin import SI
-        system = UnitSystem.from_globals()
+        system = active()
         # SI basis is the default; verify "M" parses against system.basis.
         self.assertEqual(system.basis, SI)
         result = parse_dimension("M", system=system)
@@ -434,7 +459,7 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         from ucon.core import DimensionConstraint, Number
         from ucon.units import meter, second
 
-        system = UnitSystem.from_globals()
+        system = active()
 
         @enforce_dimensions(system=system)
         def speed(
@@ -452,7 +477,7 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         from ucon.core import DimensionConstraint, Number
         from ucon.units import meter, second
 
-        system = UnitSystem.from_globals()
+        system = active()
 
         @enforce_dimensions(system=system)
         def speed(
@@ -633,7 +658,7 @@ class TestCrossBasisArithmetic(unittest.TestCase):
             BasisTransform(source=SI, target=combined, matrix=si_to_combined)
         )
 
-        sys = dataclasses.replace(UnitSystem.from_globals(), basis_graph=bg)
+        sys = dataclasses.replace(active(), basis_graph=bg)
         return sys, currency, combined
 
     def test_unify_via_common_combined_basis(self):
@@ -674,19 +699,21 @@ class TestCrossBasisArithmetic(unittest.TestCase):
         self.assertEqual(result.unit.dimension.vector.basis, combined)
 
     def test_cross_basis_number_multiply_outside_use_still_raises(self):
-        # Backward-compatibility: with no active system and no transforms
-        # in the default graph, cross-basis multiply still raises.
+        # When the active system's basis_graph has no transform for the
+        # domain basis, cross-basis multiply must still raise.
         from ucon.basis.types import Basis, BasisComponent, BasisMismatch
         from ucon.core import Number, Unit
         from ucon.dimension import Dimension
         from ucon.units import second
 
+        # Use a unique basis name to avoid hits on the algebra cache
+        # populated by earlier tests (e.g. test_cross_basis_number_multiply_inside_use).
         currency = Basis(
-            name="currency",
-            components=(BasisComponent(name="currency", symbol="C"),),
+            name="currency_isolated",
+            components=(BasisComponent(name="currency_isolated", symbol="Ci"),),
         )
-        usd_dim = Dimension.from_components(currency, currency=1)
-        usd = Unit(name="USD", dimension=usd_dim, aliases=("$",))
+        usd_dim = Dimension.from_components(currency, currency_isolated=1)
+        usd = Unit(name="USD_iso", dimension=usd_dim, aliases=("$_iso",))
 
         n1 = Number(100, usd)
         n2 = Number(1, second)
@@ -727,7 +754,7 @@ class TestConversionsDeprecatedAlias(unittest.TestCase):
     for removal in v2.0."""
 
     def test_conversions_kwarg_warns_and_routes_to_conversion_graph(self):
-        parent = UnitSystem.from_globals()
+        parent = active()
         with warnings.catch_warnings(record=True) as captured:
             warnings.simplefilter("always")
             s = UnitSystem(
@@ -747,7 +774,7 @@ class TestConversionsDeprecatedAlias(unittest.TestCase):
         )
 
     def test_conversions_property_warns_and_returns_conversion_graph(self):
-        s = UnitSystem.from_globals()
+        s = active()
         with warnings.catch_warnings(record=True) as captured:
             warnings.simplefilter("always")
             value = s.conversions
@@ -758,7 +785,7 @@ class TestConversionsDeprecatedAlias(unittest.TestCase):
         )
 
     def test_both_kwargs_raises_typeerror(self):
-        parent = UnitSystem.from_globals()
+        parent = active()
         with self.assertRaises(TypeError):
             UnitSystem(
                 basis=parent.basis,
@@ -773,7 +800,7 @@ class TestConversionsDeprecatedAlias(unittest.TestCase):
             )
 
     def test_conversion_graph_kwarg_does_not_warn(self):
-        parent = UnitSystem.from_globals()
+        parent = active()
         with warnings.catch_warnings(record=True) as captured:
             warnings.simplefilter("always")
             UnitSystem(

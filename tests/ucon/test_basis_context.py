@@ -165,10 +165,10 @@ class TestGetBasisGraphActiveSystemHook:
         get_basis_graph returns the system's basis_graph."""
         import dataclasses
 
-        from ucon.system import UnitSystem, use
+        from ucon.system import active, use
 
         custom = BasisGraph()
-        system = dataclasses.replace(UnitSystem.from_globals(), basis_graph=custom)
+        system = dataclasses.replace(active(), basis_graph=custom)
         with use(system):
             assert get_basis_graph() is custom
 
