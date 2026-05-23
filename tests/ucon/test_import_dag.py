@@ -97,7 +97,7 @@ KNOWN_DEFERRED = {
     ("ucon.checking", "enforce_dimensions", "ucon.dimension"),
 
     # --- parsing/units.py deferred imports ---
-    ("ucon.parsing.units", "parse", "ucon.resolver"),
+    # parse() moved to parsing/quantity.py with top-level import (Phase 2f).
 
     # --- __init__.py deferred imports ---
     ("ucon", "<module>", "ucon._loader"),
@@ -248,7 +248,7 @@ class TestDeferredImportAudit(unittest.TestCase):
         eliminated, update this number downward.
         """
         self.assertEqual(
-            len(KNOWN_DEFERRED), 37,
+            len(KNOWN_DEFERRED), 36,
             "Update this count when adding or removing KNOWN_DEFERRED entries"
         )
 
