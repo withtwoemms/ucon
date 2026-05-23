@@ -24,12 +24,14 @@ from ucon.system import UnitSystem
 class TestConversionsPropertyDeprecated:
 
     def test_emits_deprecation_warning(self):
-        s = UnitSystem.from_globals()
+        from ucon.system import active
+        s = active()
         with pytest.warns(DeprecationWarning, match="conversion_graph"):
             _ = s.conversions
 
     def test_returns_conversion_graph(self):
-        s = UnitSystem.from_globals()
+        from ucon.system import active
+        s = active()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             assert s.conversions is s.conversion_graph
@@ -42,7 +44,8 @@ class TestConversionsPropertyDeprecated:
 class TestConversionsKwargDeprecated:
 
     def test_emits_deprecation_warning(self):
-        parent = UnitSystem.from_globals()
+        from ucon.system import active
+        parent = active()
         with pytest.warns(DeprecationWarning, match="conversion_graph"):
             UnitSystem(
                 basis=parent.basis,
@@ -89,6 +92,47 @@ class TestBasisGraphGlobalsDeprecated:
         from ucon.basis.graph import reset_default_basis_graph
         with pytest.warns(DeprecationWarning, match="reset_default_basis_graph"):
             reset_default_basis_graph()
+
+
+# -----------------------------------------------------------------------
+# set_default_graph / reset_default_graph
+# -----------------------------------------------------------------------
+
+class TestConversionGraphGlobalsDeprecated:
+
+    def teardown_method(self):
+        from ucon.graph import reset_default_graph
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            reset_default_graph()
+
+    def test_set_default_graph_emits_deprecation(self):
+        from ucon.graph import ConversionGraph, set_default_graph
+        with pytest.warns(DeprecationWarning, match="set_default_graph"):
+            set_default_graph(ConversionGraph())
+
+    def test_reset_default_graph_emits_deprecation(self):
+        from ucon.graph import reset_default_graph
+        with pytest.warns(DeprecationWarning, match="reset_default_graph"):
+            reset_default_graph()
+
+
+# -----------------------------------------------------------------------
+# UnitSystem.from_globals()
+# -----------------------------------------------------------------------
+
+class TestFromGlobalsDeprecated:
+
+    def test_emits_deprecation_warning(self):
+        with pytest.warns(DeprecationWarning, match="from_globals"):
+            UnitSystem.from_globals()
+
+    def test_internal_flag_suppresses_warning(self):
+        """The _internal=True flag used by active() and __init__.py
+        must not emit the warning."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            UnitSystem.from_globals(_internal=True)
 
 
 # -----------------------------------------------------------------------

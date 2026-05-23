@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-05-23
+
+Eagerly initializes the active [`UnitSystem`] at import time, completing
+the globals-retirement effort begun in v1.10.0. The module-level
+`_default_graph` singleton is now dead code — all graph resolution flows
+through the active system. [`set_default_graph()`],
+[`reset_default_graph()`], and [`UnitSystem.from_globals()`] are
+deprecated.
+
+### Added
+
+- **Eager system initialization** — `ucon.__init__` now calls
+  `_active.set(UnitSystem.from_globals())` at import time, ensuring the
+  active-system tier in [`get_default_graph()`] is always hit. Code that
+  relied on the lazy module-level `_default_graph` singleton continues to
+  work; the active system's `conversion_graph` is functionally identical.
+
+- **Deprecation tests for [`set_default_graph()`] / [`reset_default_graph()`]**
+  — added `TestConversionGraphGlobalsDeprecated` to
+  `tests/ucon/test_deprecation.py`.
+
+### Changed
+
+- **[`Number.to()`] uses [`get_default_graph()`] for graph resolution** —
+  when no explicit `graph=` is provided, `Number.to()` now calls
+  `get_default_graph()` (which respects the 3-tier priority:
+  context-local → active system → module default) instead of reading
+  `system.conversion_graph` directly. This ensures [`using_context()`]
+  and [`using_conversion_graph()`] overrides remain effective under eager
+  initialization.
+
+- **[`set_default_graph()`] emits `DeprecationWarning`** — the
+  module-level default graph is masked by the active system; mutations
+  via this function are invisible to [`get_default_graph()`]. Use
+  [`using_conversion_graph()`] for scoped overrides or [`use()`] to
+  switch the active system. Scheduled for removal in v2.0.
+
+- **[`reset_default_graph()`] emits `DeprecationWarning`** — same
+  rationale as `set_default_graph()`. Leave the `use(system)` block
+  instead of resetting a global. Scheduled for removal in v2.0.
+
+- **[`UnitSystem.from_globals()`] emits `DeprecationWarning`** — with
+  eager initialization, the active system is always available via
+  [`active()`]. Call `active()` instead of snapshotting module-level
+  registries. Scheduled for removal in v2.0.
+
+- **Test suite modernized** — removed 11 `reset_default_graph()` setUp
+  calls from `test_default_graph_conversions.py`; rewrote
+  `TestDefaultGraphManagement` in `conversion/test_graph.py` to verify
+  active-system-takes-precedence behavior; updated dimension cache
+  routing tests to use `active()._algebra_cache` instead of
+  `_DEFAULT_ALGEBRA_CACHE`; suppressed deprecation warnings in remaining
+  call sites.
+
+[`Number.to()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/core.py
+[`UnitSystem`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/system/__init__.py
+[`get_default_graph()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/graph.py
+[`set_default_graph()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/graph.py
+[`reset_default_graph()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/graph.py
+[`using_context()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/contexts.py
+[`using_conversion_graph()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/graph.py
+[`UnitSystem.from_globals()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/system/__init__.py
+[`active()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/system/__init__.py
+[`use()`]: https://github.com/withtwoemms/ucon/blob/1.11.0/ucon/system/__init__.py
+
 ## [1.10.0] - 2026-05-22
 
 Routes [`Number.to()`] through the active [`UnitSystem`], establishing
@@ -66,16 +131,11 @@ call sites continue to work without changes.
   Those deprecations land in a subsequent v1.x release once test
   infrastructure has migrated to `use()` scoping.
 
-[`Number.to()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/core.py
-[`UnitSystem`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
 [`UnitSystem.resolve_unit(name)`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
 [`UnitSystem.conversions`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
 [`parse_unit()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/resolver.py
 [`active()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
-[`use()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/system/__init__.py
-[`get_default_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/graph.py
 [`using_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/graph.py
-[`using_conversion_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/graph.py
 [`set_default_basis_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/basis/graph.py
 [`reset_default_basis_graph()`]: https://github.com/withtwoemms/ucon/blob/1.10.0/ucon/basis/graph.py
 
@@ -2230,7 +2290,8 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.10.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.11.0...HEAD
+[1.11.0]: https://github.com/withtwoemms/ucon/compare/1.10.0...1.11.0
 [1.10.0]: https://github.com/withtwoemms/ucon/compare/1.9.2...1.10.0
 [1.9.2]: https://github.com/withtwoemms/ucon/compare/1.9.1...1.9.2
 [1.9.1]: https://github.com/withtwoemms/ucon/compare/1.9.0...1.9.1

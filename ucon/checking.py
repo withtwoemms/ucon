@@ -226,8 +226,8 @@ def enforce_dimensions(fn=None, *, system: "UnitSystem | None" = None):
     ... def speed(distance: Number[Dimension.length], time: Number[Dimension.time]) -> Number:
     ...     return distance / time
 
-    >>> from ucon.system import UnitSystem
-    >>> @enforce_dimensions(system=UnitSystem.from_globals())
+    >>> from ucon.system import active
+    >>> @enforce_dimensions(system=active())
     ... def kinetic(m: Number[Dimension.mass], v: Number[Dimension.velocity]) -> Number:
     ...     return 0.5 * m * v * v
     """

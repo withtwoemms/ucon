@@ -318,8 +318,15 @@ class UnitSystem:
         return parse_unit(name, system=self)
 
     @classmethod
-    def from_globals(cls, *, base_units: BaseUnits | None = None) -> 'UnitSystem':
+    def from_globals(cls, *, base_units: BaseUnits | None = None, _internal: bool = False) -> 'UnitSystem':
         """Snapshot the current global state into a ``UnitSystem``.
+
+        .. deprecated:: 1.11
+           ``from_globals()`` snapshots module-level registries into a
+           ``UnitSystem``. With eager system initialization, the active
+           system is always available via :func:`active`. Use
+           ``active()`` to obtain the current system. Scheduled for
+           removal in ucon 2.0.
 
         Reads the live registries from ``ucon._loader``, ``ucon.dimension``,
         ``ucon.basis.graph``, and ``ucon.graph``. The registries are passed
@@ -332,6 +339,14 @@ class UnitSystem:
             Override for the ``base_units`` field. Defaults to
             ``ucon.units.si``.
         """
+        if not _internal:
+            import warnings
+            warnings.warn(
+                "UnitSystem.from_globals() is deprecated; use active() to "
+                "obtain the current system. Scheduled for removal in ucon v2.0.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         # Deferred imports to avoid a load-time cycle:
         # ucon.system is imported very early via ucon/__init__.py, before
         # ucon.graph / ucon._loader / ucon.units have been initialised.
@@ -407,7 +422,7 @@ def active() -> UnitSystem:
     """
     system = _active.get()
     if system is None:
-        return UnitSystem.from_globals()
+        return UnitSystem.from_globals(_internal=True)
     return system
 
 
@@ -419,7 +434,7 @@ def use(system: UnitSystem) -> Iterator[UnitSystem]:
 
     Examples
     --------
-    >>> sys = UnitSystem.from_globals()
+    >>> sys = active()
     >>> with use(sys):
     ...     assert active() is sys
     """

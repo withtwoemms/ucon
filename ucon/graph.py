@@ -1362,11 +1362,30 @@ def get_default_graph() -> ConversionGraph:
 def set_default_graph(graph: ConversionGraph) -> None:
     """Replace the module-level default graph.
 
+    .. deprecated:: 1.11
+       The module-level default graph is being retired in favor of
+       :class:`~ucon.system.UnitSystem` ownership.  With eager system
+       initialization the active system's ``conversion_graph`` (tier 2)
+       takes precedence, so mutations via this function are invisible to
+       :func:`get_default_graph`.  Use ``using_conversion_graph(graph)``
+       for scoped overrides or ``use(system)`` to switch the entire
+       active system.  Scheduled for removal in ucon 2.0.
+
     Parameters
     ----------
     graph : ConversionGraph
         The new default conversion graph.
     """
+    import warnings
+    warnings.warn(
+        "ucon.graph.set_default_graph is deprecated; the module-level "
+        "default graph is being retired in favor of UnitSystem ownership. "
+        "Use 'using_conversion_graph(graph)' for scoped overrides or "
+        "'use(system)' to switch the active system. "
+        "Scheduled for removal in ucon 2.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     global _default_graph
     _default_graph = graph
 
@@ -1374,9 +1393,26 @@ def set_default_graph(graph: ConversionGraph) -> None:
 def reset_default_graph() -> None:
     """Reset to the standard graph on next access.
 
+    .. deprecated:: 1.11
+       The module-level default graph is being retired in favor of
+       :class:`~ucon.system.UnitSystem` ownership.  With eager system
+       initialization the active system's ``conversion_graph`` (tier 2)
+       takes precedence, so this function has no visible effect.  Leave
+       the ``use(system)`` block instead of resetting a global.
+       Scheduled for removal in ucon 2.0.
+
     The standard graph (with all built-in unit conversions) is lazily
     rebuilt when :func:`get_default_graph` is next called.
     """
+    import warnings
+    warnings.warn(
+        "ucon.graph.reset_default_graph is deprecated; the module-level "
+        "default graph is being retired in favor of UnitSystem ownership. "
+        "Leave the 'use(system)' block instead of resetting a global. "
+        "Scheduled for removal in ucon 2.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     global _default_graph
     _default_graph = None
 

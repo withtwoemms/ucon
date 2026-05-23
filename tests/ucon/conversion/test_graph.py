@@ -322,13 +322,14 @@ class TestConversionGraphBFSEdgeCases(unittest.TestCase):
 
 
 class TestDefaultGraphManagement(unittest.TestCase):
-    """Tests for default graph management functions."""
+    """Tests for default graph management functions.
 
-    def setUp(self):
-        reset_default_graph()
-
-    def tearDown(self):
-        reset_default_graph()
+    v1.11: With eager system initialization, ``get_default_graph()`` returns
+    the active system's ``conversion_graph`` (tier 2). The module-level
+    ``_default_graph`` (tier 3) is dead code unless ``_active`` is unset.
+    Tests that exercise module-level mutation (``set_default_graph`` /
+    ``reset_default_graph``) are preserved as legacy-path coverage.
+    """
 
     def test_get_default_graph_returns_graph(self):
         """Test that get_default_graph returns a ConversionGraph."""
@@ -341,25 +342,24 @@ class TestDefaultGraphManagement(unittest.TestCase):
         graph2 = get_default_graph()
         self.assertIs(graph1, graph2)
 
-    def test_set_default_graph(self):
-        """Test that set_default_graph replaces the default."""
+    def test_set_default_graph_is_masked_by_active_system(self):
+        """set_default_graph mutates _default_graph but the active system
+        takes precedence in get_default_graph(), so the mutation is invisible."""
+        import warnings
+        active_graph = get_default_graph()
         custom = ConversionGraph()
-        set_default_graph(custom)
-        self.assertIs(get_default_graph(), custom)
-
-    def test_reset_default_graph(self):
-        """Test that reset_default_graph clears the cached graph."""
-        graph1 = get_default_graph()
-        custom = ConversionGraph()
-        set_default_graph(custom)
-        reset_default_graph()
-        graph2 = get_default_graph()
-        self.assertIsNot(graph2, custom)
-        # Should be a fresh standard graph
-        self.assertIsInstance(graph2, ConversionGraph)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            set_default_graph(custom)
+        # Active system tier (2) takes precedence over module default (tier 3)
+        self.assertIs(get_default_graph(), active_graph)
+        self.assertIsNot(get_default_graph(), custom)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            reset_default_graph()  # clean up module-level state
 
     def test_using_graph_context_manager(self):
-        """Test using_graph provides scoped override."""
+        """Test using_graph provides scoped override (tier 1)."""
         default = get_default_graph()
         custom = ConversionGraph()
 
