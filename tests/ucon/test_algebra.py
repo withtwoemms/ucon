@@ -85,6 +85,13 @@ class TestExponent(TestCase):
     def test___repr__(self):
         self.assertIn("Exponent", repr(Exponent(10, -3)))
 
+    def test_dunder_arithmetic_returns_notimplemented_for_non_exponent(self):
+        """``Exponent.__truediv__``/``__mul__``/``__lt__`` defer to other types."""
+        e = Exponent(10, 3)
+        self.assertEqual(e.__truediv__(5), NotImplemented)
+        self.assertEqual(e.__mul__(5), NotImplemented)
+        self.assertEqual(e.__lt__(5), NotImplemented)
+
     def test___str__(self):
         self.assertEqual(str(self.thousand), '10^3')
         self.assertEqual(str(self.thousandth), '10^-3')

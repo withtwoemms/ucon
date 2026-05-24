@@ -242,6 +242,93 @@ class TestNumberArrayConversion(unittest.TestCase):
         expected = np.array([1.0, 2.0, 3.0]) * 3.28084
         np.testing.assert_array_almost_equal(result.quantities, expected, decimal=3)
 
+    def test_is_scale_only_conversion_factor_count_mismatch(self):
+        """Different factor counts return False (length-mismatch fast path)."""
+        from ucon import units
+        from ucon.core import UnitProduct
+        from ucon.integrations.numpy import NumberArray
+        arr = NumberArray([1.0], unit=self.meter)
+        src = UnitProduct.from_unit(self.meter)
+        # Build a composite (meter * second) — 2 factors, vs src with 1.
+        composite = UnitProduct.from_unit(self.meter) * UnitProduct.from_unit(units.second)
+        self.assertFalse(arr._is_scale_only_conversion(src, composite))
+
+    def test_is_scale_only_conversion_dimension_mismatch(self):
+        """Same factor count but different dimensions returns False."""
+        from ucon import units
+        from ucon.core import UnitProduct
+        from ucon.integrations.numpy import NumberArray
+        arr = NumberArray([1.0], unit=self.meter)
+        src = UnitProduct.from_unit(self.meter)
+        dst = UnitProduct.from_unit(units.second)
+        self.assertFalse(arr._is_scale_only_conversion(src, dst))
+
+    def test_graph_based_conversion_with_uncertainty(self):
+        """Covers uncertainty propagation through ``conversion_map.derivative``."""
+        from ucon.integrations.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
+        result = arr.to(self.foot)
+        # δ propagates by the conversion derivative (~3.28084).
+        self.assertIsNotNone(result.uncertainty)
+        np.testing.assert_array_almost_equal(
+            result.uncertainty, np.array([0.1, 0.1]) * 3.28084, decimal=3
+        )
+
+    def test_cache_hit_propagates_uncertainty(self):
+        """Cache-hit fast path scales uncertainty by ``abs(factor)``."""
+        from ucon.core._types import _scale_factor_cache
+        from ucon.integrations.numpy import NumberArray
+        # Seed the cache with a known factor so the next ``.to()`` call
+        # exercises the cache-hit branch (including uncertainty scaling).
+        cache_key = (self.meter, self.foot)
+        prev = _scale_factor_cache.get(cache_key)
+        _scale_factor_cache[cache_key] = 3.28084
+        try:
+            arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.05)
+            result = arr.to(self.foot)
+            np.testing.assert_array_almost_equal(
+                result.quantities, np.array([1.0, 2.0]) * 3.28084
+            )
+            np.testing.assert_array_almost_equal(
+                result.uncertainty, np.array([0.05, 0.05]) * 3.28084
+            )
+        finally:
+            if prev is None:
+                _scale_factor_cache.pop(cache_key, None)
+            else:
+                _scale_factor_cache[cache_key] = prev
+
+    def test_to_raises_runtime_error_when_no_active_system(self):
+        """``NumberArray.to()`` raises ``RuntimeError`` when no graph is reachable.
+
+        Mirrors the defensive branch covered for ``ucon.system.active()``: when
+        both the parsing-graph ContextVar and the active-system ContextVar
+        hold ``None``, conversion has no graph to consult.
+        """
+        from ucon.core._types import (
+            _parsing_graph,
+            _scale_factor_cache,
+            _sys_active_var,
+        )
+        from ucon.integrations.numpy import NumberArray
+
+        arr = NumberArray([1.0], unit=self.meter)
+        # Make sure the scale-only fast path can't satisfy the request and
+        # that no stale cache entry short-circuits us before the graph lookup.
+        cache_key = (self.meter, self.foot)
+        prev = _scale_factor_cache.pop(cache_key, None)
+        parsing_token = _parsing_graph.set(None)
+        active_token = _sys_active_var.set(None)
+        try:
+            with self.assertRaises(RuntimeError) as ctx:
+                arr.to(self.foot)
+            self.assertIn("No active UnitSystem", str(ctx.exception))
+        finally:
+            _sys_active_var.reset(active_token)
+            _parsing_graph.reset(parsing_token)
+            if prev is not None:
+                _scale_factor_cache[cache_key] = prev
+
 
 @unittest.skipUnless(HAS_NUMPY, "NumPy not installed")
 class TestNumberArrayUncertaintyPropagation(unittest.TestCase):
@@ -276,6 +363,50 @@ class TestNumberArrayUncertaintyPropagation(unittest.TestCase):
         expected_unc = math.sqrt(0.1**2 + 0.2**2)
         np.testing.assert_array_almost_equal(
             result.uncertainty, np.array([expected_unc, expected_unc])
+        )
+
+    def test_addition_uncertainty_only_on_left(self):
+        """``δa + None`` propagates ``δa`` through (covers None-ub branch)."""
+        from ucon.integrations.numpy import NumberArray
+        a = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
+        b = NumberArray([1.0, 2.0], unit=self.meter)  # no uncertainty
+        result = a + b
+        np.testing.assert_array_almost_equal(
+            result.uncertainty, np.array([0.1, 0.1])
+        )
+
+    def test_addition_uncertainty_only_on_right(self):
+        """``None + δb`` propagates ``δb`` through (covers None-ua branch)."""
+        from ucon.integrations.numpy import NumberArray
+        a = NumberArray([1.0, 2.0], unit=self.meter)  # no uncertainty
+        b = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.2)
+        result = a + b
+        np.testing.assert_array_almost_equal(
+            result.uncertainty, np.array([0.2, 0.2])
+        )
+
+    def test_multiplication_uncertainty_only_on_left(self):
+        """``δa * None`` covers the ``rel_b = zeros_like`` branch."""
+        from ucon.integrations.numpy import NumberArray
+        from ucon.quantity import Number
+        arr = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
+        scalar = Number(quantity=2.0, unit=self.meter)  # no uncertainty
+        result = arr * scalar
+        # δ(a*b) reduces to |b| * δa when δb = 0
+        np.testing.assert_array_almost_equal(
+            result.uncertainty, np.array([2.0, 2.0])
+        )
+
+    def test_multiplication_uncertainty_only_on_right(self):
+        """``None * δb`` covers the ``rel_a = zeros_like`` branch."""
+        from ucon.integrations.numpy import NumberArray
+        from ucon.quantity import Number
+        arr = NumberArray([10.0, 20.0], unit=self.meter)  # no uncertainty
+        scalar = Number(quantity=2.0, unit=self.meter, uncertainty=0.1)
+        result = arr * scalar
+        # δ(a*b) reduces to |a| * δb when δa = 0
+        np.testing.assert_array_almost_equal(
+            result.uncertainty, np.array([1.0, 2.0])
         )
 
 
@@ -428,6 +559,80 @@ class TestNumberArrayComparison(unittest.TestCase):
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = arr >= 2.0
         np.testing.assert_array_equal(result, np.array([False, True, True]))
+
+    def test_ne_with_number(self):
+        from ucon.integrations.numpy import NumberArray
+        from ucon.quantity import Number
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        np.testing.assert_array_equal(arr != n, np.array([True, False, True]))
+
+    def test_ne_with_numberarray(self):
+        from ucon.integrations.numpy import NumberArray
+        a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        b = NumberArray([1.0, 5.0, 3.0], unit=self.meter)
+        np.testing.assert_array_equal(a != b, np.array([False, True, False]))
+
+    def test_lt_with_number(self):
+        from ucon.integrations.numpy import NumberArray
+        from ucon.quantity import Number
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        np.testing.assert_array_equal(arr < n, np.array([True, False, False]))
+
+    def test_lt_with_numberarray(self):
+        from ucon.integrations.numpy import NumberArray
+        a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        b = NumberArray([2.0, 2.0, 2.0], unit=self.meter)
+        np.testing.assert_array_equal(a < b, np.array([True, False, False]))
+
+    def test_le_with_number(self):
+        from ucon.integrations.numpy import NumberArray
+        from ucon.quantity import Number
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        np.testing.assert_array_equal(arr <= n, np.array([True, True, False]))
+
+    def test_le_with_numberarray(self):
+        from ucon.integrations.numpy import NumberArray
+        a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        b = NumberArray([2.0, 2.0, 2.0], unit=self.meter)
+        np.testing.assert_array_equal(a <= b, np.array([True, True, False]))
+
+    def test_gt_with_number(self):
+        from ucon.integrations.numpy import NumberArray
+        from ucon.quantity import Number
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        np.testing.assert_array_equal(arr > n, np.array([False, False, True]))
+
+    def test_gt_with_numberarray(self):
+        from ucon.integrations.numpy import NumberArray
+        a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        b = NumberArray([2.0, 2.0, 2.0], unit=self.meter)
+        np.testing.assert_array_equal(a > b, np.array([False, False, True]))
+
+    def test_ge_with_number(self):
+        from ucon.integrations.numpy import NumberArray
+        from ucon.quantity import Number
+        arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        n = Number(quantity=2.0, unit=self.meter)
+        np.testing.assert_array_equal(arr >= n, np.array([False, True, True]))
+
+    def test_ge_with_numberarray(self):
+        from ucon.integrations.numpy import NumberArray
+        a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
+        b = NumberArray([2.0, 2.0, 2.0], unit=self.meter)
+        np.testing.assert_array_equal(a >= b, np.array([False, True, True]))
+
+    def test_comparison_returns_notimplemented_for_unsupported_type(self):
+        from ucon.integrations.numpy import NumberArray
+        arr = NumberArray([1.0, 2.0], unit=self.meter)
+        self.assertEqual(arr.__ne__("string"), NotImplemented)
+        self.assertEqual(arr.__lt__("string"), NotImplemented)
+        self.assertEqual(arr.__le__("string"), NotImplemented)
+        self.assertEqual(arr.__gt__("string"), NotImplemented)
+        self.assertEqual(arr.__ge__("string"), NotImplemented)
 
     def test_comparison_different_unit_raises(self):
         from ucon.integrations.numpy import NumberArray
