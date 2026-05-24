@@ -25,7 +25,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from ucon.core import Unit
 from ucon.system import BaseUnits
 import ucon.units as units_module
-from ucon._loader import get_units
 
 
 HEADER = '''\
@@ -73,7 +72,7 @@ def generate_unit_stubs() -> list[str]:
     lines = []
     lines.append("# Unit instances loaded from comprehensive.ucon.toml")
 
-    units = get_units()
+    units = units_module._units
     for name in sorted(units.keys()):
         if name and name.isidentifier():
             lines.append(f"{name}: Unit")
