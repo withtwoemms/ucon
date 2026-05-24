@@ -22,8 +22,8 @@ Internal layout
 ---------------
 - :mod:`ucon.parsing.lexer` — shared tokenizer (``_Tokenizer``,
   ``_TokenType``, ``_Token``, ``ParseError``).
-- :mod:`ucon.parsing.units` — unit-expression grammar plus the
-  quantity-string :func:`parse` entry point.
+- :mod:`ucon.parsing.quantity` — quantity-string :func:`parse` entry point.
+- :mod:`ucon.parsing.units` — unit-expression grammar.
 - :mod:`ucon.parsing.dimensions` — dimension-expression grammar.
 
 The dimensions submodule is loaded lazily (PEP 562 ``__getattr__``)
@@ -42,13 +42,11 @@ from ucon.parsing.lexer import (
     _TokenType,
     _Tokenizer,
 )
-from ucon.parsing.units import (
-    parse,
-    parse_unit_expression,
-)
+from ucon.parsing.units import parse_unit_expression
 
 
 _LAZY = {
+    "parse": ("ucon.parsing.quantity", "parse"),
     "parse_dimension": ("ucon.parsing.dimensions", "parse_dimension"),
     "parse_kinds_payload": ("ucon.parsing.kinds", "parse_kinds_payload"),
     "load_kinds_file": ("ucon.parsing.kinds", "load_kinds_file"),

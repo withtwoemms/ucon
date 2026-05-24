@@ -1,42 +1,53 @@
-# © 2025 The Radiativity Company
+# © 2026 The Radiativity Company
 # Licensed under the Apache License, Version 2.0
 # See the LICENSE file for details.
 
 """
-ucon.core
-==========
+ucon.core._types
+================
 
-Implements the **ontological core** of the *ucon* system — the machinery that
-defines the algebra of physical dimensions, magnitude prefixes, and units.
+Colocated core types for the ucon unit system.
 
-Classes
--------
-- :class:`Dimension` — Physical dimensions with algebraic closure over *, /, and **
-- :class:`Scale` — Enumerates SI and binary magnitude prefixes with algebraic closure over *, /
-  and with nearest-prefix lookup.
-- :class:`Unit` — Measurable quantity descriptor with algebraic closure over *, /.
-- :class:`UnitProduct` — Product/quotient of Units with simplification and readable rendering.
+This module contains all core types that previously lived in separate
+submodules (``scale``, ``unit``, ``product``, ``quantity``). Colocation
+eliminates 11 deferred (function-body) imports that existed solely to
+break circular import cycles between these tightly coupled classes.
+
+Class definition order follows the dependency DAG::
+
+    Exponent → _ScaleDescriptor → Scale
+      → BaseForm → Unit → RebasedUnit → UnitFactor
+        → UnitProduct
+          → DimensionConstraint → Number → Ratio
+            → NumberArray
+
+External consumers should import from :mod:`ucon.core` (the re-export
+facade) rather than from this private module directly.
 """
 from __future__ import annotations
 
-from contextvars import ContextVar
-from fractions import Fraction
 import math
+import sys
+from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
-from dataclasses import dataclass, field
-import sys
-from typing import TYPE_CHECKING, Dict, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Iterator, Tuple, Union, Any
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
 else:
-    from typing_extensions import Annotated
+    from typing_extensions import Annotated  # type: ignore[assignment]
+
+from ucon._active import _active as _sys_active_var
+from ucon.basis import Basis, BasisGraph
+from ucon.core._parsing_graph import _parsing_graph
+from ucon.dimension import Dimension, NONE
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
     from ucon.system import UnitSystem
 
+# --- soft numpy dependency ---
 try:
     import numpy as np
     _HAS_NUMPY = True
@@ -44,100 +55,14 @@ except ImportError:
     np = None  # type: ignore[assignment]
     _HAS_NUMPY = False
 
-from ucon.basis import Basis, BasisGraph
-from ucon.dimension import Dimension, NONE
+if TYPE_CHECKING:
+    import numpy as np  # noqa: F811
+    from numpy.typing import ArrayLike, NDArray
 
 
-__all__ = [
-    'BaseForm',
-    'DimensionConstraint',
-    'DimensionNotCovered',
-    'Exponent',
-    'NonScalableError',
-    'Number',
-    'Ratio',
-    'RebasedUnit',
-    'Scale',
-    'Unit',
-    'UnitFactor',
-    'UnitProduct',
-    'UnknownUnitError',
-]
-
-
-# --------------------------------------------------------------------------------------
-# Exceptions
-# --------------------------------------------------------------------------------------
-
-class DimensionNotCovered(Exception):
-    """Raised when a BaseUnits mapping doesn't cover a requested dimension."""
-    pass
-
-
-class UnknownUnitError(Exception):
-    """Raised when a unit string cannot be resolved to a known unit."""
-
-    def __init__(self, name: str):
-        self.name = name
-        super().__init__(f"Unknown unit: {name!r}")
-
-
-class NonScalableError(UnknownUnitError):
-    """Raised when a scale prefix is applied to a unit marked non-scalable.
-
-    Subclass of :class:`UnknownUnitError` so that callers that catch the
-    parent class continue to work. Callers that want the richer diagnostic
-    can catch :class:`NonScalableError` directly and inspect :attr:`base`
-    and :attr:`prefix`.
-
-    Attributes
-    ----------
-    attempted : str
-        The full unit string that failed to parse (e.g. ``"Pflop"``).
-    base : Unit
-        The base unit that was found but is marked non-scalable.
-    prefix : str
-        The prefix shorthand that was attempted (e.g. ``"P"`` for peta).
-    """
-
-    def __init__(self, attempted: str, base: 'Unit', prefix: str):
-        self.attempted = attempted
-        self.base = base
-        self.prefix = prefix
-        # Bypass UnknownUnitError.__init__ to install a precise message.
-        Exception.__init__(
-            self,
-            f"Unit {attempted!r} not found: base unit {base.name!r} is "
-            f"registered but marked non-scalable, so prefix {prefix!r} "
-            f"cannot be applied.",
-        )
-        self.name = attempted
-
-
-# --------------------------------------------------------------------------------------
-# Parsing Graph ContextVar (shared between graph.py and units.py)
-# --------------------------------------------------------------------------------------
-
-_parsing_graph: ContextVar = ContextVar("parsing_graph", default=None)
-
-
-def _get_parsing_graph():
-    """Get the graph to use for name resolution during parsing.
-
-    Returns the context-local parsing graph if set, otherwise None.
-    Used by _lookup_factor() to check graph-local registry first.
-
-    Returns
-    -------
-    ConversionGraph | None
-        The parsing graph, or None if not in a using_graph() context.
-    """
-    return _parsing_graph.get()
-
-
-# --------------------------------------------------------------------------------------
+# =====================================================================
 # Exponent
-# --------------------------------------------------------------------------------------
+# =====================================================================
 
 @total_ordering
 class Exponent:
@@ -244,9 +169,9 @@ class Exponent:
         return f"{self.base}^{self.power}"
 
 
-# --------------------------------------------------------------------------------------
+# =====================================================================
 # Scale (with descriptor)
-# --------------------------------------------------------------------------------------
+# =====================================================================
 
 @dataclass(frozen=True)
 class _ScaleDescriptor:
@@ -414,6 +339,46 @@ class Scale(Enum):
         include_binary = self.value.base == 2
         return Scale.nearest(float(result), include_binary=include_binary)
 
+
+# =====================================================================
+# BaseForm
+# =====================================================================
+
+@dataclass(frozen=True)
+class BaseForm:
+    """Definitional decomposition of a unit into canonical base units of its basis.
+
+    A unit's ``base_form`` answers: "in terms of the basis's canonical base units,
+    what does 1 of this unit equal?" Mathematically:
+
+        1 U  ≡  prefactor × b₁^e₁ × b₂^e₂ × ... × bₙ^eₙ
+
+    Examples (SI basis):
+        kilogram: BaseForm(prefactor=1.0, factors=((kilogram, 1.0),))
+        gram:     BaseForm(prefactor=0.001, factors=((kilogram, 1.0),))
+        newton:   BaseForm(prefactor=1.0,
+                           factors=((kilogram, 1.0), (meter, 1.0), (second, -2.0)))
+        bar:      BaseForm(prefactor=100000.0,
+                           factors=((kilogram, 1.0), (meter, -1.0), (second, -2.0)))
+        foot:     BaseForm(prefactor=0.3048, factors=((meter, 1.0),))
+
+    Invariants:
+        - ``prefactor`` is positive and finite
+        - ``factors`` references only base units of the unit's own basis
+        - dimensionally consistent with the parent Unit's ``dimension``
+        - immutable; set at Unit construction; never mutated
+
+    Affine units (kelvin/celsius/fahrenheit) and logarithmic units (dB, Np)
+    cannot be represented as a single (prefactor, factors) pair and have
+    ``base_form = None``.
+    """
+    factors: tuple  # tuple[tuple[Unit, float], ...]
+    prefactor: float = 1.0
+
+
+# =====================================================================
+# Unit
+# =====================================================================
 
 @dataclass(frozen=True)
 class Unit:
@@ -724,15 +689,14 @@ class Unit:
             isinstance(quantity, np.ndarray)
             or (isinstance(quantity, (list, tuple)) and len(quantity) > 0)
         ):
-            from ucon.integrations.numpy import NumberArray
             return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
 
         return Number(quantity=quantity, unit=UnitProduct.from_unit(self), uncertainty=uncertainty)
 
 
-# --------------------------------------------------------------------------------------
+# =====================================================================
 # RebasedUnit
-# --------------------------------------------------------------------------------------
+# =====================================================================
 
 @dataclass(frozen=True)
 class RebasedUnit:
@@ -777,6 +741,10 @@ class RebasedUnit:
         """Return the name of the original unit."""
         return self.original.name
 
+
+# =====================================================================
+# UnitFactor
+# =====================================================================
 
 @dataclass(frozen=True)
 class UnitFactor:
@@ -857,37 +825,9 @@ class UnitFactor:
         return NotImplemented
 
 
-@dataclass(frozen=True)
-class BaseForm:
-    """Definitional decomposition of a unit into canonical base units of its basis.
-
-    A unit's ``base_form`` answers: "in terms of the basis's canonical base units,
-    what does 1 of this unit equal?" Mathematically:
-
-        1 U  ≡  prefactor × b₁^e₁ × b₂^e₂ × ... × bₙ^eₙ
-
-    Examples (SI basis):
-        kilogram: BaseForm(prefactor=1.0, factors=((kilogram, 1.0),))
-        gram:     BaseForm(prefactor=0.001, factors=((kilogram, 1.0),))
-        newton:   BaseForm(prefactor=1.0,
-                           factors=((kilogram, 1.0), (meter, 1.0), (second, -2.0)))
-        bar:      BaseForm(prefactor=100000.0,
-                           factors=((kilogram, 1.0), (meter, -1.0), (second, -2.0)))
-        foot:     BaseForm(prefactor=0.3048, factors=((meter, 1.0),))
-
-    Invariants:
-        - ``prefactor`` is positive and finite
-        - ``factors`` references only base units of the unit's own basis
-        - dimensionally consistent with the parent Unit's ``dimension``
-        - immutable; set at Unit construction; never mutated
-
-    Affine units (kelvin/celsius/fahrenheit) and logarithmic units (dB, Np)
-    cannot be represented as a single (prefactor, factors) pair and have
-    ``base_form = None``.
-    """
-    factors: tuple  # tuple[tuple[Unit, float], ...]
-    prefactor: float = 1.0
-
+# =====================================================================
+# UnitProduct
+# =====================================================================
 
 class UnitProduct:
     """
@@ -1023,7 +963,7 @@ class UnitProduct:
         # Step 4 — Resolve groups while preserving user scale
         # -----------------------------------------------------
         final: dict[UnitFactor, float] = {}
-        
+
         # Track residual scale NUMERICALLY from cancelled units.
         # This accumulates scale factors when units cancel dimensionally
         # but have different scales (e.g., gram / decagram = factor of 0.1).
@@ -1424,19 +1364,17 @@ class UnitProduct:
             isinstance(quantity, np.ndarray)
             or (isinstance(quantity, (list, tuple)) and len(quantity) > 0)
         ):
-            from ucon.integrations.numpy import NumberArray
             return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
 
         return Number(quantity=quantity, unit=self, uncertainty=uncertainty)
 
 
-# --------------------------------------------------------------------------------------
-# Quantity Layer (merged from ucon.quantity)
-# --------------------------------------------------------------------------------------
+# =====================================================================
+# Quantity types: Number, Ratio, DimensionConstraint
+# =====================================================================
 
 # Dimensionless unit for use as default in Number
 _none = Unit()
-
 
 _Quantifiable = Union['Number', 'Ratio']
 
@@ -1865,18 +1803,20 @@ class Number:
         >>> length.to("km")
         <0.1 km>
         """
-        # Route through UnitSystem: active system is the authority.
+        # Resolve system and graph from ContextVars (no deferred imports).
+        # _sys_active_var and _parsing_graph are Layer-1 leaf modules,
+        # imported at top of this file.
         if system is None:
-            from ucon.system import active  # transitional deferred import (Phase 2 eliminates)
-            system = active()
+            system = _sys_active_var.get()
+            if system is None:
+                raise RuntimeError(
+                    "No active UnitSystem. This usually means Number.to() "
+                    "was called before 'import ucon' completed."
+                )
 
-        # Explicit graph= takes precedence; otherwise use get_default_graph()
-        # which respects the 3-tier priority: context-local → active system → module default.
-        # Using system.conversion_graph directly would bypass context-scoped graphs
-        # (from using_context / using_conversion_graph).
+        # Respect the 3-tier priority: context-local → active system → module default.
         if graph is None:
-            from ucon.graph import get_default_graph  # transitional deferred import (Phase 2 eliminates)
-            graph = get_default_graph()
+            graph = _parsing_graph.get() or system.conversion_graph
 
         # Resolve string targets via the system's resolver
         if isinstance(target, str):
@@ -2260,3 +2200,736 @@ class Ratio:
 
     def __repr__(self):
         return f'{self.evaluate()}' if self.numerator == self.denominator else f'{self.numerator} / {self.denominator}'
+
+
+# =====================================================================
+# NumberArray (soft numpy dependency)
+# =====================================================================
+
+# Module-level cache for scale factors: (src_unit, dst_unit) -> factor
+_scale_factor_cache: dict[tuple, float] = {}
+
+# Module-level cache for unit multiplication: (unit_a, unit_b) -> result_unit
+_unit_mul_cache: dict[tuple, 'UnitProduct'] = {}
+
+# Module-level cache for unit division: (unit_a, unit_b) -> result_unit
+_unit_div_cache: dict[tuple, 'UnitProduct'] = {}
+
+
+def _require_numpy() -> None:
+    """Raise ImportError if numpy is not available."""
+    if not _HAS_NUMPY:
+        raise ImportError(
+            "NumPy is required for NumberArray. "
+            "Install with: pip install ucon[numpy]"
+        )
+
+
+class NumberArray:
+    """
+    A collection of quantities with a shared unit.
+
+    Combines a numpy array of magnitudes with a unit, enabling vectorized
+    arithmetic and conversion.
+
+    Parameters
+    ----------
+    quantities : array-like
+        The numeric values (will be converted to numpy array).
+    unit : Unit or UnitProduct, optional
+        The unit for all quantities. Defaults to dimensionless.
+    uncertainty : float or array-like, optional
+        Uncertainty value(s). If scalar, applies uniformly to all elements.
+        If array-like, must match the shape of quantities.
+
+    Examples
+    --------
+    >>> from ucon import units
+    >>> from ucon.numpy import NumberArray
+
+    Create from list:
+
+    >>> heights = NumberArray([1.7, 1.8, 1.9], unit=units.meter)
+    >>> len(heights)
+    3
+
+    Vectorized conversion:
+
+    >>> heights_ft = heights.to(units.foot)
+    >>> heights_ft[0].quantity  # doctest: +ELLIPSIS
+    5.577...
+
+    With uniform uncertainty:
+
+    >>> temps = NumberArray([20, 21, 22], unit=units.celsius, uncertainty=0.5)
+
+    With per-element uncertainty:
+
+    >>> measurements = NumberArray([1.0, 2.0, 3.0], unit=units.meter,
+    ...                            uncertainty=[0.01, 0.02, 0.015])
+    """
+
+    __slots__ = ('_quantities', '_unit', '_uncertainty')
+
+    def __init__(
+        self,
+        quantities: 'ArrayLike',
+        unit: Union[Unit, UnitProduct, None] = None,
+        uncertainty: Union[float, 'ArrayLike', None] = None,
+    ):
+        _require_numpy()
+
+        self._quantities: NDArray[np.floating] = np.asarray(quantities, dtype=float)
+        self._unit = unit if unit is not None else _none
+
+        if uncertainty is not None:
+            if isinstance(uncertainty, (int, float)):
+                self._uncertainty: Union[float, NDArray[np.floating], None] = float(uncertainty)
+            else:
+                self._uncertainty = np.asarray(uncertainty, dtype=float)
+                if self._uncertainty.shape != self._quantities.shape:
+                    raise ValueError(
+                        f"Uncertainty shape {self._uncertainty.shape} does not match "
+                        f"quantities shape {self._quantities.shape}"
+                    )
+        else:
+            self._uncertainty = None
+
+    @property
+    def quantities(self) -> 'NDArray[np.floating]':
+        """The array of numeric values."""
+        return self._quantities
+
+    @property
+    def unit(self) -> Union[Unit, UnitProduct]:
+        """The unit shared by all quantities."""
+        return self._unit
+
+    @property
+    def uncertainty(self) -> Union[float, 'NDArray[np.floating]', None]:
+        """The uncertainty (scalar or per-element array)."""
+        return self._uncertainty
+
+    def __len__(self) -> int:
+        """Return the number of elements."""
+        return len(self._quantities)
+
+    @property
+    def shape(self) -> tuple:
+        """Shape of the quantities array."""
+        return self._quantities.shape
+
+    @property
+    def ndim(self) -> int:
+        """Number of dimensions."""
+        return self._quantities.ndim
+
+    @property
+    def dtype(self) -> 'np.dtype':
+        """Data type of the quantities array."""
+        return self._quantities.dtype
+
+    @property
+    def dimension(self):
+        """The physical dimension of the quantities."""
+        if hasattr(self._unit, 'dimension'):
+            return self._unit.dimension
+        return None
+
+    def __getitem__(self, key) -> Union[Number, 'NumberArray']:
+        """Index or slice the array.
+
+        Returns Number for scalar index, NumberArray for slice.
+        """
+        q = self._quantities[key]
+
+        # Determine uncertainty for the slice
+        if self._uncertainty is None:
+            unc = None
+        elif isinstance(self._uncertainty, float):
+            unc = self._uncertainty
+        else:
+            unc = self._uncertainty[key]
+
+        # Return Number for scalar index, NumberArray for slice
+        if np.ndim(q) == 0:
+            unc_val = float(unc) if unc is not None and not isinstance(unc, float) else unc
+            return Number(quantity=float(q), unit=self._unit, uncertainty=unc_val)
+        else:
+            return NumberArray(quantities=q, unit=self._unit, uncertainty=unc)
+
+    def __iter__(self) -> Iterator[Number]:
+        """Iterate as Number instances."""
+        for i in range(len(self)):
+            yield self[i]  # type: ignore
+
+    def __repr__(self) -> str:
+        """String representation with truncation for large arrays."""
+        # Format quantities with truncation for large arrays
+        if len(self._quantities) <= 6:
+            q_str = np.array2string(
+                self._quantities,
+                separator=', ',
+                precision=4,
+                suppress_small=True,
+            )
+        else:
+            # Show first 3 and last 3
+            head = ', '.join(f'{x:.4g}' for x in self._quantities[:3])
+            tail = ', '.join(f'{x:.4g}' for x in self._quantities[-3:])
+            q_str = f'[{head}, ..., {tail}]'
+
+        # Format unit
+        unit_str = self._format_unit()
+
+        # Format uncertainty
+        if self._uncertainty is None:
+            return f'<{q_str} {unit_str}>'
+        elif isinstance(self._uncertainty, float):
+            return f'<{q_str} \u00b1 {self._uncertainty:.4g} {unit_str}>'
+        else:
+            # Per-element uncertainty - show shape indicator
+            return f'<{q_str} \u00b1 [...] {unit_str}>'
+
+    def _format_unit(self) -> str:
+        """Format the unit for display."""
+        if hasattr(self._unit, 'shorthand') and self._unit.shorthand:
+            return self._unit.shorthand
+        elif hasattr(self._unit, 'name'):
+            return self._unit.name
+        else:
+            return str(self._unit)
+
+    # -------------------------------------------------------------------------
+    # Arithmetic Operations
+    # -------------------------------------------------------------------------
+
+    def __mul__(self, other) -> 'NumberArray':
+        """Multiply by scalar, Number, or NumberArray."""
+        if isinstance(other, (int, float)):
+            new_unc = None
+            if self._uncertainty is not None:
+                new_unc = self._uncertainty * abs(other)
+            return NumberArray(
+                quantities=self._quantities * other,
+                unit=self._unit,
+                uncertainty=new_unc,
+            )
+
+        if isinstance(other, Number):
+            result_q = self._quantities * other.quantity
+            result_unit = self._unit * other.unit
+
+            new_unc = self._propagate_mul_uncertainty(
+                self._quantities, self._uncertainty,
+                other.quantity, other.uncertainty
+            )
+            return NumberArray(quantities=result_q, unit=result_unit, uncertainty=new_unc)
+
+        if isinstance(other, NumberArray):
+            # Allow numpy broadcasting - shapes must be broadcast-compatible
+            try:
+                result_q = self._quantities * other._quantities
+            except ValueError as e:
+                raise ValueError(
+                    f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
+                ) from e
+
+            # Cache unit multiplication (expensive due to UnitProduct.__init__)
+            unit_key = (self._unit, other._unit)
+            if unit_key in _unit_mul_cache:
+                result_unit = _unit_mul_cache[unit_key]
+            else:
+                result_unit = self._unit * other._unit
+                _unit_mul_cache[unit_key] = result_unit
+
+            new_unc = self._propagate_mul_uncertainty(
+                self._quantities, self._uncertainty,
+                other._quantities, other._uncertainty
+            )
+            return NumberArray(quantities=result_q, unit=result_unit, uncertainty=new_unc)
+
+        return NotImplemented
+
+    def __rmul__(self, other) -> 'NumberArray':
+        """Right multiplication."""
+        return self.__mul__(other)
+
+    def __truediv__(self, other) -> 'NumberArray':
+        """Divide by scalar, Number, or NumberArray."""
+        if isinstance(other, (int, float)):
+            new_unc = None
+            if self._uncertainty is not None:
+                new_unc = self._uncertainty / abs(other)
+            return NumberArray(
+                quantities=self._quantities / other,
+                unit=self._unit,
+                uncertainty=new_unc,
+            )
+
+        if isinstance(other, Number):
+            result_q = self._quantities / other.quantity
+            result_unit = self._unit / other.unit
+
+            new_unc = self._propagate_div_uncertainty(
+                self._quantities, self._uncertainty,
+                other.quantity, other.uncertainty
+            )
+            return NumberArray(quantities=result_q, unit=result_unit, uncertainty=new_unc)
+
+        if isinstance(other, NumberArray):
+            # Allow numpy broadcasting - shapes must be broadcast-compatible
+            try:
+                result_q = self._quantities / other._quantities
+            except ValueError as e:
+                raise ValueError(
+                    f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
+                ) from e
+
+            # Cache unit division (expensive due to UnitProduct.__init__)
+            unit_key = (self._unit, other._unit)
+            if unit_key in _unit_div_cache:
+                result_unit = _unit_div_cache[unit_key]
+            else:
+                result_unit = self._unit / other._unit
+                _unit_div_cache[unit_key] = result_unit
+
+            new_unc = self._propagate_div_uncertainty(
+                self._quantities, self._uncertainty,
+                other._quantities, other._uncertainty
+            )
+            return NumberArray(quantities=result_q, unit=result_unit, uncertainty=new_unc)
+
+        return NotImplemented
+
+    def __rtruediv__(self, other) -> 'NumberArray':
+        """Right division (other / self)."""
+        if isinstance(other, (int, float)):
+            result_q = other / self._quantities
+
+            new_unc = None
+            if self._uncertainty is not None:
+                # For c = a/x, δc = |c| * |δx/x|
+                rel_unc = np.where(
+                    self._quantities != 0,
+                    np.abs(self._uncertainty / self._quantities),
+                    0
+                )
+                new_unc = np.abs(result_q) * rel_unc
+
+            # Unit is 1/self.unit
+            inv_unit = _none / self._unit
+            return NumberArray(quantities=result_q, unit=inv_unit, uncertainty=new_unc)
+
+        return NotImplemented
+
+    def __add__(self, other) -> 'NumberArray':
+        """Add NumberArray or Number (same unit required)."""
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            result_q = self._quantities + other.quantity
+            new_unc = self._propagate_add_uncertainty(
+                self._uncertainty, other.uncertainty
+            )
+            return NumberArray(quantities=result_q, unit=self._unit, uncertainty=new_unc)
+
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            # Allow numpy broadcasting - shapes must be broadcast-compatible
+            try:
+                result_q = self._quantities + other._quantities
+            except ValueError as e:
+                raise ValueError(
+                    f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
+                ) from e
+
+            new_unc = self._propagate_add_uncertainty(
+                self._uncertainty, other._uncertainty
+            )
+            return NumberArray(quantities=result_q, unit=self._unit, uncertainty=new_unc)
+
+        return NotImplemented
+
+    def __radd__(self, other) -> 'NumberArray':
+        """Right addition."""
+        return self.__add__(other)
+
+    def __sub__(self, other) -> 'NumberArray':
+        """Subtract NumberArray or Number (same unit required)."""
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            result_q = self._quantities - other.quantity
+            new_unc = self._propagate_add_uncertainty(
+                self._uncertainty, other.uncertainty
+            )
+            return NumberArray(quantities=result_q, unit=self._unit, uncertainty=new_unc)
+
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            # Allow numpy broadcasting - shapes must be broadcast-compatible
+            try:
+                result_q = self._quantities - other._quantities
+            except ValueError as e:
+                raise ValueError(
+                    f"Shapes {self.shape} and {other.shape} are not broadcast-compatible"
+                ) from e
+
+            new_unc = self._propagate_add_uncertainty(
+                self._uncertainty, other._uncertainty
+            )
+            return NumberArray(quantities=result_q, unit=self._unit, uncertainty=new_unc)
+
+        return NotImplemented
+
+    def __rsub__(self, other) -> 'NumberArray':
+        """Right subtraction (other - self)."""
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            result_q = other.quantity - self._quantities
+            new_unc = self._propagate_add_uncertainty(
+                other.uncertainty, self._uncertainty
+            )
+            return NumberArray(quantities=result_q, unit=self._unit, uncertainty=new_unc)
+
+        return NotImplemented
+
+    def __neg__(self) -> 'NumberArray':
+        """Negation."""
+        return NumberArray(
+            quantities=-self._quantities,
+            unit=self._unit,
+            uncertainty=self._uncertainty,
+        )
+
+    def __pos__(self) -> 'NumberArray':
+        """Unary positive (returns copy)."""
+        return NumberArray(
+            quantities=self._quantities.copy(),
+            unit=self._unit,
+            uncertainty=self._uncertainty if isinstance(self._uncertainty, float)
+                        else self._uncertainty.copy() if self._uncertainty is not None
+                        else None,
+        )
+
+    def __abs__(self) -> 'NumberArray':
+        """Absolute value."""
+        return NumberArray(
+            quantities=np.abs(self._quantities),
+            unit=self._unit,
+            uncertainty=self._uncertainty,
+        )
+
+    # -------------------------------------------------------------------------
+    # Comparison Operators
+    # -------------------------------------------------------------------------
+
+    def __eq__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise equality comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities == other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities == other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities == other
+        return NotImplemented
+
+    def __ne__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise inequality comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities != other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities != other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities != other
+        return NotImplemented
+
+    def __lt__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise less-than comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities < other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities < other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities < other
+        return NotImplemented
+
+    def __le__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise less-than-or-equal comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities <= other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities <= other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities <= other
+        return NotImplemented
+
+    def __gt__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise greater-than comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities > other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities > other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities > other
+        return NotImplemented
+
+    def __ge__(self, other) -> 'NDArray[np.bool_]':
+        """Element-wise greater-than-or-equal comparison. Returns boolean array."""
+        if isinstance(other, NumberArray):
+            self._check_same_unit(other._unit)
+            return self._quantities >= other._quantities
+        if isinstance(other, Number):
+            self._check_same_unit(other.unit)
+            return self._quantities >= other.quantity
+        if isinstance(other, (int, float)):
+            return self._quantities >= other
+        return NotImplemented
+
+    def _check_same_unit(self, other_unit) -> None:
+        """Raise ValueError if units don't match for addition/subtraction."""
+        if self._unit != other_unit:
+            raise ValueError(
+                f"Cannot add/subtract quantities with different units: "
+                f"{self._format_unit()} vs {other_unit}"
+            )
+
+    def _propagate_mul_uncertainty(
+        self,
+        a: 'NDArray',
+        ua: Union[float, 'NDArray', None],
+        b: Union[float, 'NDArray'],
+        ub: Union[float, None],
+    ) -> Union[float, 'NDArray', None]:
+        """Propagate uncertainty through multiplication."""
+        if ua is None and ub is None:
+            return None
+
+        # Convert to arrays for uniform handling
+        a_arr = np.asarray(a)
+        b_arr = np.asarray(b)
+
+        # Relative uncertainties
+        if ua is not None:
+            rel_a = np.where(a_arr != 0, np.abs(ua) / np.abs(a_arr), 0.0)
+        else:
+            rel_a = np.zeros_like(a_arr)
+
+        if ub is not None:
+            rel_b = np.where(b_arr != 0, np.abs(ub) / np.abs(b_arr), 0.0)
+        else:
+            rel_b = np.zeros_like(b_arr)
+
+        rel_c = np.sqrt(rel_a**2 + rel_b**2)
+        result = np.abs(a_arr * b_arr) * rel_c
+
+        # Return scalar if result is uniform and both inputs were scalar uncertainty
+        if isinstance(ua, (float, type(None))) and isinstance(ub, (float, type(None))):
+            if result.size == 1:
+                return float(result.flat[0])
+            if np.allclose(result, result.flat[0]):
+                return float(result.flat[0])
+
+        return result
+
+    def _propagate_div_uncertainty(
+        self,
+        a: 'NDArray',
+        ua: Union[float, 'NDArray', None],
+        b: Union[float, 'NDArray'],
+        ub: Union[float, None],
+    ) -> Union[float, 'NDArray', None]:
+        """Propagate uncertainty through division (same as multiplication)."""
+        return self._propagate_mul_uncertainty(a, ua, b, ub)
+
+    def _propagate_add_uncertainty(
+        self,
+        ua: Union[float, 'NDArray', None],
+        ub: Union[float, 'NDArray', None],
+    ) -> Union[float, 'NDArray', None]:
+        """Propagate uncertainty through addition/subtraction."""
+        if ua is None and ub is None:
+            return None
+
+        if ua is None:
+            return ub
+        if ub is None:
+            return ua
+
+        # Quadrature addition
+        result = np.sqrt(np.asarray(ua)**2 + np.asarray(ub)**2)
+
+        # Return scalar if both inputs were scalar
+        if isinstance(ua, float) and isinstance(ub, float):
+            return float(result)
+
+        return result
+
+    # -------------------------------------------------------------------------
+    # Conversion
+    # -------------------------------------------------------------------------
+
+    def to(self, target: Union[Unit, UnitProduct], graph=None) -> 'NumberArray':
+        """Convert all quantities to a different unit.
+
+        Parameters
+        ----------
+        target : Unit or UnitProduct
+            The target unit to convert to.
+        graph : ConversionGraph, optional
+            The conversion graph to use. Defaults to the global default graph.
+
+        Returns
+        -------
+        NumberArray
+            A new NumberArray with converted quantities.
+
+        Examples
+        --------
+        >>> from ucon import units
+        >>> heights = NumberArray([1, 2, 3], unit=units.meter)
+        >>> heights_ft = heights.to(units.foot)
+        """
+        # Check scale factor cache first
+        cache_key = (self._unit, target)
+        if cache_key in _scale_factor_cache:
+            factor = _scale_factor_cache[cache_key]
+            new_unc = None
+            if self._uncertainty is not None:
+                new_unc = self._uncertainty * abs(factor)
+            return NumberArray(
+                quantities=self._quantities * factor,
+                unit=target,
+                uncertainty=new_unc,
+            )
+
+        # Normalize to UnitProduct
+        src = self._unit if isinstance(self._unit, UnitProduct) else UnitProduct.from_unit(self._unit)
+        dst = target if isinstance(target, UnitProduct) else UnitProduct.from_unit(target)
+
+        # Scale-only conversion (no graph needed)
+        if self._is_scale_only_conversion(src, dst):
+            factor = src.fold_scale() / dst.fold_scale()
+            _scale_factor_cache[cache_key] = factor  # Cache it
+            new_unc = None
+            if self._uncertainty is not None:
+                new_unc = self._uncertainty * abs(factor)
+            return NumberArray(
+                quantities=self._quantities * factor,
+                unit=target,
+                uncertainty=new_unc,
+            )
+
+        # Graph-based conversion
+        if graph is None:
+            graph = _parsing_graph.get()
+            if graph is None:
+                system = _sys_active_var.get()
+                if system is None:
+                    raise RuntimeError(
+                        "No active UnitSystem. This usually means NumberArray.to() "
+                        "was called before 'import ucon' completed."
+                    )
+                graph = system.conversion_graph
+
+        conversion_map = graph.convert(src=src, dst=dst)
+
+        # Apply map to array
+        converted = conversion_map(self._quantities)
+
+        # Propagate uncertainty through conversion
+        new_unc = None
+        if self._uncertainty is not None:
+            derivative = np.abs(conversion_map.derivative(self._quantities))
+            new_unc = derivative * self._uncertainty
+
+        return NumberArray(quantities=converted, unit=target, uncertainty=new_unc)
+
+    def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
+        """Check if conversion is just a scale change (same base units)."""
+        if len(src.factors) != len(dst.factors):
+            return False
+
+        src_by_dim = {}
+        dst_by_dim = {}
+        for f, exp in src.factors.items():
+            src_by_dim[f.unit.dimension] = (f.unit, exp)
+        for f, exp in dst.factors.items():
+            dst_by_dim[f.unit.dimension] = (f.unit, exp)
+
+        if src_by_dim.keys() != dst_by_dim.keys():
+            return False
+
+        for dim in src_by_dim:
+            src_unit, src_exp = src_by_dim[dim]
+            dst_unit, dst_exp = dst_by_dim[dim]
+            if src_unit != dst_unit or abs(src_exp - dst_exp) > 1e-12:
+                return False
+
+        return True
+
+    # -------------------------------------------------------------------------
+    # NumPy Integration
+    # -------------------------------------------------------------------------
+
+    def __array__(self, dtype=None) -> 'NDArray':
+        """Support np.asarray(number_array)."""
+        if dtype is None:
+            return self._quantities
+        return self._quantities.astype(dtype)
+
+    def sum(self) -> Number:
+        """Sum all quantities."""
+        total = float(np.sum(self._quantities))
+
+        # Uncertainty propagation for sum
+        unc = None
+        if self._uncertainty is not None:
+            if isinstance(self._uncertainty, float):
+                # Uniform uncertainty: σ_sum = σ * sqrt(n)
+                unc = self._uncertainty * math.sqrt(len(self))
+            else:
+                # Per-element: σ_sum = sqrt(Σσᵢ²)
+                unc = float(np.sqrt(np.sum(self._uncertainty**2)))
+
+        return Number(quantity=total, unit=self._unit, uncertainty=unc)
+
+    def mean(self) -> Number:
+        """Compute the mean."""
+        avg = float(np.mean(self._quantities))
+
+        # Uncertainty propagation for mean
+        unc = None
+        if self._uncertainty is not None:
+            if isinstance(self._uncertainty, float):
+                # Uniform uncertainty: σ_mean = σ / sqrt(n)
+                unc = self._uncertainty / math.sqrt(len(self))
+            else:
+                # Per-element: σ_mean = sqrt(Σσᵢ²) / n
+                unc = float(np.sqrt(np.sum(self._uncertainty**2)) / len(self))
+
+        return Number(quantity=avg, unit=self._unit, uncertainty=unc)
+
+    def std(self, ddof: int = 0) -> Number:
+        """Compute the standard deviation."""
+        s = float(np.std(self._quantities, ddof=ddof))
+        return Number(quantity=s, unit=self._unit, uncertainty=None)
+
+    def min(self) -> Number:
+        """Return the minimum value."""
+        idx = np.argmin(self._quantities)
+        return self[idx]  # type: ignore
+
+    def max(self) -> Number:
+        """Return the maximum value."""
+        idx = np.argmax(self._quantities)
+        return self[idx]  # type: ignore

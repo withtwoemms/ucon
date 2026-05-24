@@ -33,7 +33,13 @@ Requires Pydantic v2. Install with::
 
 """
 
-from typing import Annotated, Any, Generic, Optional, TypeVar, _AnnotatedAlias
+import sys
+from typing import Any, Generic, Optional, TypeVar
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated, _AnnotatedAlias
+else:
+    from typing_extensions import Annotated, _AnnotatedAlias  # type: ignore[attr-defined]
 
 try:
     from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler

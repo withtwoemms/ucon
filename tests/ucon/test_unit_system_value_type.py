@@ -429,7 +429,7 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         self.assertIsNotNone(result)
 
     def test_parse_quantity_threads_system(self):
-        from ucon.parsing.units import parse
+        from ucon.parsing.quantity import parse
         system = active()
         n = parse("60 mph", system=system)
         self.assertEqual(n.quantity, 60.0)

@@ -94,7 +94,8 @@ from ucon.dimension import (
     resolve as resolve_dimension,
 )
 from ucon.checking import enforce_dimensions
-from ucon.graph import (
+from ucon.conversion import (
+    Graph,
     ConversionGraph,
     ConversionNotFound,
     CyclicInconsistency,
@@ -123,9 +124,32 @@ from ucon.parsing import ParseError, parse, parse_dimension
 # Set the active UnitSystem at import time so the active-system tier in
 # get_default_graph() is always hit.  This makes _default_graph dead code
 # and routes all conversions through the UnitSystem authority.
-from ucon.system import _active as _sys_active
-_sys_active.set(UnitSystem.from_globals(_internal=True))
-del _sys_active
+#
+# All required modules are already imported above, so we construct the
+# UnitSystem directly — no need for from_globals() or deferred imports.
+from ucon.dimension import _DIMENSION_ATTRS
+from ucon._active import _active as _sys_active_var
+_init_graph = units._graph  # Direct reference; get_default_graph() isn't usable yet
+
+# Symbol/name/alias lookup used by ``UnitSystem.constants``; descriptive
+# lookup feeds ``ucon.constants`` module-level attribute access. Both
+# builders live in ``ucon.constants`` so no cross-module attribute
+# assignment is required here.
+_init_constants = constants._build_symbol_lookup(_init_graph._package_constants)
+
+_sys_active_var.set(UnitSystem(
+    basis=get_default_basis(),
+    units=units._units,
+    dimensions=_DIMENSION_ATTRS,
+    base_units=units.si,
+    conversion_graph=_init_graph,
+    basis_graph=get_basis_graph(),
+    contexts=getattr(_init_graph, '_contexts', {}),
+    constants=_init_constants,
+))
+constants._populate_cache(_init_graph._package_constants)
+
+del _sys_active_var, _init_graph, _init_constants
 
 __all__ = [
     # Basis abstractions
@@ -169,6 +193,7 @@ __all__ = [
     'Constant',
     'ConstantDef',
     'ConversionGraph',
+    'Graph',
     'ConversionNotFound',
     'CyclicInconsistency',
     'DimensionConstraint',

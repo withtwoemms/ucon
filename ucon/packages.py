@@ -52,7 +52,9 @@ import operator
 from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
+from ucon.graph import using_conversion_graph
 from ucon.maps import AffineMap, LinearMap, Map
+from ucon.resolver import parse_unit
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -346,8 +348,6 @@ class EdgeDef:
             If source or destination unit cannot be resolved.
         """
         # Resolve units within graph context
-        from ucon.resolver import parse_unit
-        from ucon.graph import using_conversion_graph
         with using_conversion_graph(graph):
             try:
                 src_unit = parse_unit(self.src)
@@ -414,8 +414,6 @@ class ConstantDef:
         PackageLoadError
             If the unit string cannot be resolved.
         """
-        from ucon.resolver import parse_unit
-        from ucon.graph import using_conversion_graph
         with using_conversion_graph(graph):
             try:
                 resolved_unit = parse_unit(self.unit)

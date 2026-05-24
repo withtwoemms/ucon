@@ -7,6 +7,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-05-23
+
+Finishes the cycle-break work begun on the
+`refactor-avoiding-most-cycles` branch **structurally** rather than at
+runtime. The transitional `_resolve_unit_impl` module-level
+dependency-injection scaffold and the `constants._constants_cache`
+cross-module attribute assignment are both retired. A static AST audit
+guards against future regressions.
+
+No public API is added, removed, renamed, or repositioned. No
+deprecated APIs are removed (those land in v2.0 per
+[`docs/internal/ucon-roadmap-after-v04x.md`]).
+
+### Changed
+
+- **`_active` ContextVar relocated to `ucon._active`** — the canonical
+  location of the active-system ContextVar moves from
+  `ucon.system._active` to the package root `ucon._active`. This is a
+  true Layer-0 leaf with zero intra-ucon imports, allowing
+  `ucon.core._types` to consult the active system without forcing
+  `ucon.system/__init__.py` to execute mid-init of `ucon.core`. The
+  earlier shim at `ucon.system._active` was deleted (it had no
+  out-of-tree callers).
+
+- **`UnitSystem.resolve_unit()` restored as an orthodox method** —
+  previously implemented via a module-level `_resolve_unit_impl = None`
+  sentinel that `ucon/__init__.py` populated by attribute assignment
+  after all modules loaded. With the `_active` relocation removing the
+  underlying cycle, `ucon.system/__init__.py` now imports
+  `parse_unit` at the top of the file and the method body calls it
+  directly. The sentinel, its `RuntimeError` guard, and the injection
+  block in `ucon/__init__.py` are all deleted.
+
+- **`AlgebraCache` relocated to `ucon._algebra_cache`** — for the same
+  parent-package-init reason as `_active`. Public access via
+  `from ucon.system import AlgebraCache` is unchanged; the
+  `ucon.system` re-export is preserved.
+
+- **`constants` cache population is now orthodox** — the previous
+  `ucon/__init__.py` block that did
+  `constants._constants_cache = _descriptive_constants` (cross-module
+  attribute assignment) is replaced by two helpers exposed by
+  `ucon.constants`: `_build_symbol_lookup(package_constants)` produces
+  the dict consumed by `UnitSystem(constants=...)`, and
+  `_populate_cache(package_constants)` populates the module-internal
+  cache used by `ucon.constants` PEP-562 attribute access.
+  `ucon/__init__.py` now calls those helpers and never reaches into a
+  sibling module's namespace.
+
+### Added
+
+- **`tests/ucon/test_no_cross_module_injection.py`** — static AST audit
+  that scans every file under `ucon/` and fails if any top-level
+  attribute assignment targets a `ucon.*` module imported by the
+  current file. Complements the existing
+  `tests/ucon/test_import_dag.py` deferred-import audit by closing the
+  loophole where a cycle break manifests as cross-module mutation
+  rather than as a function-body deferred import.
+
+- **`KNOWN_DEFERRED` annotations** — each of the three remaining
+  deferred imports (`from_toml`, `to_toml`, `with_package` in
+  `ucon.conversion`) now carries an inline comment confirming "v2.0
+  removal — deprecated method". The audit count stays at 3.
+
+### Notes for downstream integrators
+
+v1.12.0 makes no change to the public API surface, but the cumulative
+internals churn since v1.10.x retires several private symbols that
+some downstream packages (notably `ucon-tools`) had reached into. If
+you import from a module path beginning with an underscore, expect to
+migrate. Known impacts:
+
+- **`ucon._loader` is gone** (removed during the TOML-takeover work
+  that landed in earlier 1.x releases; surfaced now as ucon-tools'
+  test suite goes red against v1.12.0). The previous
+  `from ucon._loader import get_units, get_constants` entry points
+  no longer exist.
+
+  Recommended replacements use the active :class:`UnitSystem`:
+
+  ```python
+  from ucon import active
+  sys = active()
+  units = sys.units            # Mapping[str, Unit]
+  constants = sys.constants    # Mapping[str, Constant]
+  ```
+
+  Or, for the raw module-level dicts (private, but stable through
+  v1.x): ``ucon.units._units`` and ``ucon.constants.all_constants()``.
+
+- **`ucon.system._active` is gone** — the active-system ContextVar
+  moved to the package root at `ucon._active`. Direct importers of
+  the old path must update to `from ucon._active import _active`, or
+  preferably use the public `ucon.system.active()` / `ucon.use()`.
+
+- **`UnitSystem._resolve_unit_impl` is gone** — the v1.10/1.11
+  module-level injection sentinel is deleted. Callers should use
+  `UnitSystem.resolve_unit()` directly; the underscore-prefixed
+  sentinel was never public.
+
+A `v1.12.0a1` alpha is published ahead of the final tag so downstream
+packages can land their patches against a real artifact before
+`v1.12.0` is promoted.
+
+[`docs/internal/ucon-roadmap-after-v04x.md`]: docs/internal/ucon-roadmap-after-v04x.md
+
 ## [1.11.0] - 2026-05-23
 
 Eagerly initializes the active [`UnitSystem`] at import time, completing

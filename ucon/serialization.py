@@ -40,13 +40,18 @@ from ucon.basis import (
 )
 from ucon.basis.transforms import ConstantBoundBasisTransform, ConstantBinding
 from ucon.constants import Constant
+from ucon.contexts import ConversionContext, ContextEdge
 from ucon.core import BaseForm, RebasedUnit, Scale, Unit, UnitFactor, UnitProduct
 from ucon.dimension import Dimension, resolve, _DIMENSION_ATTRS
+from ucon.expressions import ExprResult, evaluate
+from ucon.graph import ConversionGraph, using_conversion_graph
 from ucon.maps import (
     AffineMap,
     LinearMap,
     Map,
 )
+from ucon.packages import _build_map, _parse_factor
+from ucon.resolver import parse_unit
 
 __all__ = [
     "FORMAT_VERSION",
@@ -609,8 +614,6 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     ConversionGraph
         The reconstructed graph.
     """
-    from ucon.graph import ConversionGraph, using_conversion_graph
-    from ucon.packages import _build_map
 
     path = Path(path)
     with open(path, "rb") as f:
@@ -812,8 +815,6 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
 
     # 7. Materialize constants (before edges so expression factors can
     #    resolve constant symbols like "1 / Eh").
-    from ucon.resolver import parse_unit
-
     constants = []
     with using_conversion_graph(graph):
         for i, const_spec in enumerate(doc.get("constants", [])):
@@ -853,7 +854,6 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
 
     # 8. Build constant lookup table (symbol → ExprResult) for expression
     #    factors in edges.
-    from ucon.expressions import ExprResult
     import unicodedata
     constant_table: dict[str, ExprResult] = {}
     for const in constants:
@@ -944,8 +944,6 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     graph._loaded_packages = frozenset(loaded)
 
     # 12. Materialize contexts
-    from ucon.contexts import ConversionContext, ContextEdge
-
     with using_conversion_graph(graph):
         for ctx_name, ctx_spec in doc.get("contexts", {}).items():
             description = ctx_spec.get("description", "")
@@ -1005,8 +1003,6 @@ def _resolve_context_unit(
     Tries the full ``parse_unit`` resolver first (which handles
     composite and scaled names), then falls back to local resolution.
     """
-    from ucon.resolver import parse_unit
-
     try:
         return parse_unit(name)
     except Exception:
@@ -1032,13 +1028,10 @@ def _build_edge_map(edge_spec: dict, build_map_fn, constant_table=None) -> Map:
     if "map" in edge_spec:
         return build_map_fn(edge_spec["map"])
 
-    from ucon.packages import _parse_factor
-
     raw_factor = edge_spec.get("factor", 1.0)
 
     if isinstance(raw_factor, str) and constant_table and _has_alpha(raw_factor):
         # Expression with constant references
-        from ucon.expressions import evaluate
         result = evaluate(raw_factor, constant_table)
         factor = result.value
         # Auto-derive rel_uncertainty unless explicitly overridden
@@ -1076,8 +1069,6 @@ def _resolve_product_expression(
     Always returns a ``UnitProduct`` (wrapping bare ``Unit`` results)
     or ``None`` when resolution fails.
     """
-    from ucon.resolver import parse_unit
-
     expr = expr.strip()
     if not expr:
         return None

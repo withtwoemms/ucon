@@ -37,16 +37,19 @@ from __future__ import annotations
 
 import warnings
 from contextlib import contextmanager
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, Iterator, Mapping
 
-from ucon.core import DimensionNotCovered, Unit
-from ucon.dimension import Dimension
+from ucon._active import _active
+from ucon.core.exceptions import DimensionNotCovered
+from ucon.resolver import parse_unit as _parse_unit
+from ucon._algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBRA_CACHE
 
 if TYPE_CHECKING:
     from ucon.basis.graph import BasisGraph
     from ucon.basis.types import Basis
+    from ucon.core import Unit
+    from ucon.dimension import Dimension
     from ucon.constants import Constant
     from ucon.contexts import ConversionContext
     from ucon.graph import ConversionGraph
@@ -131,61 +134,10 @@ class BaseUnits:
         return hash((self.name, tuple(sorted(self.bases.items(), key=lambda x: x[0].name))))
 
 
-# -----------------------------------------------------------------------------
-# Per-instance Dimension algebra cache
-# -----------------------------------------------------------------------------
-
-
-@dataclass
-class AlgebraCache:
-    """Per-instance cache for ``Dimension`` algebraic operations.
-
-    Holds three sub-caches keyed by argument tuples:
-
-    - ``mul``: ``(Dimension, Dimension) -> Dimension``
-    - ``div``: ``(Dimension, Dimension) -> Dimension``
-    - ``pow``: ``(Dimension, exponent) -> Dimension``
-
-    In v1.8 Phase 2 this type exists as a per-``UnitSystem`` field. Later
-    phases will route ``Dimension.__mul__`` / ``__truediv__`` / ``__pow__``
-    through the active system's cache, retiring the module-level caches in
-    ``ucon.dimension``.
-    """
-
-    mul: dict = field(default_factory=dict)
-    div: dict = field(default_factory=dict)
-    pow: dict = field(default_factory=dict)
-
-    def clear(self) -> None:
-        """Empty all three sub-caches."""
-        self.mul.clear()
-        self.div.clear()
-        self.pow.clear()
-
-
-#: Module-level fallback used by ``_get_active_cache`` when no
-#: ``UnitSystem`` has been activated via :func:`use`. This is the v1.8
-#: replacement for the module-level ``_DIM_MUL_CACHE`` / ``_DIM_DIV_CACHE``
-#: / ``_DIM_POW_CACHE`` dicts that previously lived in ``ucon.dimension``.
-_DEFAULT_ALGEBRA_CACHE: 'AlgebraCache' = AlgebraCache()
-
-
-def _get_active_cache() -> 'AlgebraCache':
-    """Return the algebra cache that ``Dimension`` algebra should use now.
-
-    Routes through the active :class:`UnitSystem`'s per-instance cache when
-    one has been set via :func:`use`. Falls back to
-    :data:`_DEFAULT_ALGEBRA_CACHE` otherwise.
-
-    The fallback is intentionally a stable module-level object rather than
-    a fresh ``UnitSystem.from_globals()`` snapshot: that snapshot would
-    construct a new :class:`AlgebraCache` on every call and defeat
-    memoization in the default (no ``use(...)``) state.
-    """
-    system = _active.get()
-    if system is None:
-        return _DEFAULT_ALGEBRA_CACHE
-    return system._algebra_cache
+# AlgebraCache, _get_active_cache, and _DEFAULT_ALGEBRA_CACHE are
+# imported from ucon._algebra_cache (Layer 0/1) and re-exported
+# here for backward compatibility with ``from ucon.system import
+# AlgebraCache``.
 
 
 # -----------------------------------------------------------------------------
@@ -314,8 +266,7 @@ class UnitSystem:
         UnknownUnitError
             If the string cannot be resolved.
         """
-        from ucon.resolver import parse_unit  # transitional deferred import
-        return parse_unit(name, system=self)
+        return _parse_unit(name, system=self)
 
     @classmethod
     def from_globals(cls, *, base_units: BaseUnits | None = None, _internal: bool = False) -> 'UnitSystem':
@@ -328,48 +279,25 @@ class UnitSystem:
            ``active()`` to obtain the current system. Scheduled for
            removal in ucon 2.0.
 
-        Reads the live registries from ``ucon._loader``, ``ucon.dimension``,
-        ``ucon.basis.graph``, and ``ucon.graph``. The registries are passed
-        through *by reference* (not copied) so two snapshots compare equal
-        and share state with the legacy global path.
-
         Parameters
         ----------
         base_units : BaseUnits, optional
-            Override for the ``base_units`` field. Defaults to
-            ``ucon.units.si``.
+            Override for the ``base_units`` field. When provided, returns
+            a copy of the active system with the given base units.
         """
         if not _internal:
-            import warnings
             warnings.warn(
                 "UnitSystem.from_globals() is deprecated; use active() to "
                 "obtain the current system. Scheduled for removal in ucon v2.0.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-        # Deferred imports to avoid a load-time cycle:
-        # ucon.system is imported very early via ucon/__init__.py, before
-        # ucon.graph / ucon._loader / ucon.units have been initialised.
-        from ucon._loader import get_constants, get_units
-        from ucon.basis.graph import get_basis_graph, get_default_basis
-        from ucon.dimension import _DIMENSION_ATTRS
-        from ucon.graph import get_default_graph
-        from ucon import units as _units_module
-
-        if base_units is None:
-            base_units = _units_module.si
-
-        graph = get_default_graph()
-        return cls(
-            basis=get_default_basis(),
-            units=get_units(),
-            dimensions=_DIMENSION_ATTRS,
-            base_units=base_units,
-            conversion_graph=graph,
-            basis_graph=get_basis_graph(),
-            contexts=getattr(graph, '_contexts', {}),
-            constants=get_constants(),
-        )
+        system = active()
+        if base_units is not None:
+            # Return a copy with overridden base_units (frozen dataclass)
+            from dataclasses import replace as _replace
+            return _replace(system, base_units=base_units)
+        return system
 
 
 # -----------------------------------------------------------------------------
@@ -406,23 +334,29 @@ _unitsystem_init_with_conversions_alias.__doc__ = _unitsystem_dataclass_init.__d
 UnitSystem.__init__ = _unitsystem_init_with_conversions_alias
 
 
-# -----------------------------------------------------------------------------
-# Active-system context variable
-# -----------------------------------------------------------------------------
-
-
-_active: ContextVar['UnitSystem | None'] = ContextVar('ucon_active_system', default=None)
+# _active is imported from ucon._active (Layer 0) and re-exported
+# here for backward compatibility.
 
 
 def active() -> UnitSystem:
     """Return the currently active :class:`UnitSystem`.
 
-    If no system has been activated via :func:`use`, snapshots the current
-    global state via :meth:`UnitSystem.from_globals` and returns that.
+    After ``import ucon``, the active system is always set via eager
+    initialization.
+
+    Raises
+    ------
+    RuntimeError
+        If called before ``import ucon`` has completed (i.e. the eager
+        init block in ``ucon/__init__.py`` has not yet run).
     """
     system = _active.get()
     if system is None:
-        return UnitSystem.from_globals(_internal=True)
+        raise RuntimeError(
+            "No active UnitSystem. This usually means ucon.system.active() "
+            "was called before 'import ucon' completed. Import the top-level "
+            "ucon package first."
+        )
     return system
 
 
