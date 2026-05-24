@@ -71,6 +71,46 @@ deprecated APIs are removed (those land in v2.0 per
   `ucon.conversion`) now carries an inline comment confirming "v2.0
   removal — deprecated method". The audit count stays at 3.
 
+### Notes for downstream integrators
+
+v1.12.0 makes no change to the public API surface, but the cumulative
+internals churn since v1.10.x retires several private symbols that
+some downstream packages (notably `ucon-tools`) had reached into. If
+you import from a module path beginning with an underscore, expect to
+migrate. Known impacts:
+
+- **`ucon._loader` is gone** (removed during the TOML-takeover work
+  that landed in earlier 1.x releases; surfaced now as ucon-tools'
+  test suite goes red against v1.12.0). The previous
+  `from ucon._loader import get_units, get_constants` entry points
+  no longer exist.
+
+  Recommended replacements use the active :class:`UnitSystem`:
+
+  ```python
+  from ucon import active
+  sys = active()
+  units = sys.units            # Mapping[str, Unit]
+  constants = sys.constants    # Mapping[str, Constant]
+  ```
+
+  Or, for the raw module-level dicts (private, but stable through
+  v1.x): ``ucon.units._units`` and ``ucon.constants.all_constants()``.
+
+- **`ucon.system._active` is gone** — the active-system ContextVar
+  moved to the package root at `ucon._active`. Direct importers of
+  the old path must update to `from ucon._active import _active`, or
+  preferably use the public `ucon.system.active()` / `ucon.use()`.
+
+- **`UnitSystem._resolve_unit_impl` is gone** — the v1.10/1.11
+  module-level injection sentinel is deleted. Callers should use
+  `UnitSystem.resolve_unit()` directly; the underscore-prefixed
+  sentinel was never public.
+
+A `v1.12.0a1` alpha is published ahead of the final tag so downstream
+packages can land their patches against a real artifact before
+`v1.12.0` is promoted.
+
 [`docs/internal/ucon-roadmap-after-v04x.md`]: docs/internal/ucon-roadmap-after-v04x.md
 
 ## [1.11.0] - 2026-05-23
