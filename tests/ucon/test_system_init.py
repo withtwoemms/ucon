@@ -9,6 +9,9 @@ Replaces the former ``test__loader.py`` after elimination of ``ucon._loader``.
 """
 from __future__ import annotations
 
+import pytest
+
+from ucon._active import _active
 from ucon.constants import Constant
 from ucon.core import Unit
 from ucon.graph import ConversionGraph
@@ -89,6 +92,24 @@ class TestActiveSystemConstants:
         constants = active().constants
         for key, val in constants.items():
             assert isinstance(val, Constant), f"constants[{key!r}] is {type(val)}, expected Constant"
+
+
+class TestActiveErrors:
+    """Behaviors of ``ucon.system.active`` when no system is set."""
+
+    def test_raises_runtime_error_when_no_active_system(self):
+        """``active()`` raises ``RuntimeError`` if ``_active`` holds ``None``.
+
+        Eager initialization in ``ucon/__init__.py`` normally guarantees a
+        non-None active system. This test exercises the defensive branch by
+        temporarily blanking the ContextVar.
+        """
+        token = _active.set(None)
+        try:
+            with pytest.raises(RuntimeError, match="No active UnitSystem"):
+                active()
+        finally:
+            _active.reset(token)
 
 
 class TestObjectIdentity:
