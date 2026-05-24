@@ -31,10 +31,21 @@ UCON_ROOT = Path(__file__).resolve().parent.parent.parent / "ucon"
 # and will be eliminated in later phases or v2.0.
 # -------------------------------------------------------------------
 KNOWN_DEFERRED = {
-    # --- conversion.py deferred imports (deprecated methods, removed in v2.0) ---
-    ("ucon.conversion", "from_toml", "ucon.serialization"),
-    ("ucon.conversion", "to_toml", "ucon.serialization"),
-    ("ucon.conversion", "with_package", "ucon.packages"),
+    # ------------------------------------------------------------------
+    # ucon.conversion — three deferred imports on deprecated methods.
+    #
+    # Each method is scheduled for v2.0 removal. The imported modules
+    # (``ucon.serialization``, ``ucon.packages``) sit *above*
+    # ``ucon.conversion`` in the import DAG, so promoting these imports
+    # to top-level would close a cycle. Because the methods themselves
+    # disappear in v2.0, no structural fix is warranted in v1.12.0 —
+    # they evaporate with their owners.
+    #
+    # Each entry: (module_path, function_name, imported_module).
+    # ------------------------------------------------------------------
+    ("ucon.conversion", "from_toml", "ucon.serialization"),    # v2.0 removal — deprecated method
+    ("ucon.conversion", "to_toml", "ucon.serialization"),      # v2.0 removal — deprecated method
+    ("ucon.conversion", "with_package", "ucon.packages"),      # v2.0 removal — deprecated method
 }
 
 

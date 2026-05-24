@@ -57,7 +57,7 @@ from ucon.core import (
 from ucon.core._parsing_graph import _parsing_graph
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
 from ucon.resolver import parse_unit as _parse_unit
-from ucon.system._active import _active as _active_system
+from ucon._active import _active as _active_system
 
 __all__ = [
     'Graph',

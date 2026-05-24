@@ -3,21 +3,26 @@
 # See the LICENSE file for details.
 
 """
-ucon.system.algebra_cache
-=========================
+ucon._algebra_cache
+===================
 
 Per-instance cache for Dimension algebraic operations and the accessor
 that routes through the active UnitSystem.
 
-This module imports only :mod:`ucon.system._active`, placing it at Layer 1
+This module imports only :mod:`ucon._active`, placing it at Layer 0/1
 in the import DAG — below :mod:`ucon.dimension` (Layer 2).
+
+It lives at the package root rather than inside ``ucon.system`` so that
+:mod:`ucon.dimension` can import it without triggering
+``ucon.system/__init__.py`` execution, which would close cycles back
+through ``resolver`` → ``core``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ucon.system._active import _active
+from ucon._active import _active
 
 
 @dataclass

@@ -36,10 +36,10 @@ from typing import TYPE_CHECKING, Annotated, Dict, Iterator, Tuple, Union, Any
 if sys.version_info < (3, 9):
     from typing_extensions import Annotated  # type: ignore[assignment]  # noqa: F811
 
+from ucon._active import _active as _sys_active_var
 from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
 from ucon.dimension import Dimension, NONE
-from ucon.system._active import _active as _sys_active_var
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph

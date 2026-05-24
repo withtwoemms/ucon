@@ -3,14 +3,16 @@
 # See the LICENSE file for details.
 
 """
-ucon.system._active
-====================
+ucon._active
+============
 
 The ``_active`` ContextVar that tracks the currently active UnitSystem.
 
 This module has **zero** intra-ucon imports, placing it at the bottom of the
-import DAG (Layer 1). Any module that needs to check or set the active system
-can import from here without risk of circular imports.
+import DAG (Layer 0). It lives at the package root rather than inside
+``ucon.system`` so that low-level modules (e.g. ``ucon.core._types``) can
+import it without triggering ``ucon.system/__init__.py`` execution, which
+would close cycles back through ``resolver`` → ``core``.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from typing import Any
 
-# Typed as Any to avoid importing UnitSystem (which lives at Layer 5).
+# Typed as Any to avoid importing UnitSystem (which lives at a higher layer).
 # The actual value is always ``UnitSystem | None`` at runtime.
 _active: ContextVar[Any] = ContextVar('ucon_active_system', default=None)
 

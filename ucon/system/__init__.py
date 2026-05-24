@@ -40,10 +40,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, Iterator, Mapping
 
-from ucon.system._active import _active
-from ucon.system._active import active as _raw_active
-from ucon.system.algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBRA_CACHE
+from ucon._active import _active
+from ucon._active import active as _raw_active
 from ucon.core.exceptions import DimensionNotCovered
+from ucon.resolver import parse_unit as _parse_unit
+from ucon._algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBRA_CACHE
 
 if TYPE_CHECKING:
     from ucon.basis.graph import BasisGraph
@@ -53,11 +54,6 @@ if TYPE_CHECKING:
     from ucon.constants import Constant
     from ucon.contexts import ConversionContext
     from ucon.graph import ConversionGraph
-
-
-# Injected by ucon/__init__.py after all modules are loaded.
-# Avoids importing ucon.resolver at module level (resolver → core → system cycle).
-_resolve_unit_impl = None
 
 
 @dataclass(frozen=True)
@@ -140,8 +136,9 @@ class BaseUnits:
 
 
 # AlgebraCache, _get_active_cache, and _DEFAULT_ALGEBRA_CACHE are
-# imported from ucon.system.algebra_cache (Layer 1) and re-exported
-# here for backward compatibility.
+# imported from ucon._algebra_cache (Layer 0/1) and re-exported
+# here for backward compatibility with ``from ucon.system import
+# AlgebraCache``.
 
 
 # -----------------------------------------------------------------------------
@@ -254,10 +251,6 @@ class UnitSystem:
         Delegates to :func:`~ucon.resolver.parse_unit` with ``system=self``
         so the resolver draws from this system's unit registry.
 
-        The resolver function is injected at import time by
-        ``ucon/__init__.py`` into ``_resolve_unit_impl`` to avoid a
-        circular import (resolver → core → system).
-
         Parameters
         ----------
         name : str
@@ -273,16 +266,8 @@ class UnitSystem:
         ------
         UnknownUnitError
             If the string cannot be resolved.
-        RuntimeError
-            If called before the resolver has been injected (i.e. before
-            ``import ucon`` has completed).
         """
-        if _resolve_unit_impl is None:
-            raise RuntimeError(
-                "UnitSystem.resolve_unit() called before 'import ucon' "
-                "completed. Import the top-level ucon package first."
-            )
-        return _resolve_unit_impl(name, system=self)
+        return _parse_unit(name, system=self)
 
     @classmethod
     def from_globals(cls, *, base_units: BaseUnits | None = None, _internal: bool = False) -> 'UnitSystem':
@@ -350,7 +335,7 @@ _unitsystem_init_with_conversions_alias.__doc__ = _unitsystem_dataclass_init.__d
 UnitSystem.__init__ = _unitsystem_init_with_conversions_alias
 
 
-# _active is imported from ucon.system._active (Layer 1) and re-exported
+# _active is imported from ucon._active (Layer 0) and re-exported
 # here for backward compatibility.
 
 

@@ -145,8 +145,61 @@ class Constant:
             return f"<{self.symbol} = {self.value} ± {self.uncertainty} {unit_str}>"
 
 
-# Populated eagerly by ucon/__init__.py at import time.
+# Populated eagerly by ``_populate_cache`` during ``import ucon``.
 _constants_cache: dict = {}
+
+
+def _build_symbol_lookup(package_constants) -> dict:
+    """Build a symbol/name/alias → :class:`Constant` lookup.
+
+    Used for :attr:`UnitSystem.constants`: every short symbol, the
+    safe-cased name, and each registered alias maps to the same constant.
+
+    Parameters
+    ----------
+    package_constants : Iterable[Constant]
+        Constants discovered on the active conversion graph's
+        ``_package_constants`` list.
+    """
+    result: dict = {}
+    for const in package_constants:
+        result[const.symbol] = const
+        safe = const.name.replace(" ", "_").replace("-", "_").lower()
+        result[safe] = const
+        for alias in getattr(const, 'aliases', ()):
+            result[alias] = const
+    return result
+
+
+def _build_descriptive_lookup(package_constants) -> dict:
+    """Build a descriptive-name → :class:`Constant` lookup.
+
+    Used for ``ucon.constants`` module-level attribute access
+    (``ucon.constants.speed_of_light``). Picks the first underscore-bearing
+    alias, falling back to a safe-cased version of ``name``.
+    """
+    result: dict = {}
+    for const in package_constants:
+        desc = None
+        for alias in getattr(const, 'aliases', ()):
+            if '_' in alias or alias.replace('_', '').isalpha():
+                desc = alias
+                break
+        if desc is None:
+            desc = const.name.replace(" ", "_").replace("-", "_").lower()
+        result[desc] = const
+    return result
+
+
+def _populate_cache(package_constants) -> None:
+    """Populate :data:`_constants_cache` from a list of constants.
+
+    Called by :mod:`ucon`'s package init after the active
+    :class:`~ucon.system.UnitSystem` is set. Idempotent: subsequent calls
+    overwrite the cache contents without rebinding the dict object.
+    """
+    _constants_cache.clear()
+    _constants_cache.update(_build_descriptive_lookup(package_constants))
 
 
 def _get_constants() -> dict:

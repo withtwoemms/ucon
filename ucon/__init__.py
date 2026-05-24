@@ -128,18 +128,14 @@ from ucon.parsing import ParseError, parse, parse_dimension
 # All required modules are already imported above, so we construct the
 # UnitSystem directly — no need for from_globals() or deferred imports.
 from ucon.dimension import _DIMENSION_ATTRS
-from ucon.system._active import _active as _sys_active_var
+from ucon._active import _active as _sys_active_var
 _init_graph = units._graph  # Direct reference; get_default_graph() isn't usable yet
 
-# Build constants dict from the graph's package_constants (same logic as
-# the former _loader.get_constants).
-_init_constants: dict = {}
-for _const in _init_graph._package_constants:
-    _init_constants[_const.symbol] = _const
-    _safe = _const.name.replace(" ", "_").replace("-", "_").lower()
-    _init_constants[_safe] = _const
-    for _alias in getattr(_const, 'aliases', ()):
-        _init_constants[_alias] = _const
+# Symbol/name/alias lookup used by ``UnitSystem.constants``; descriptive
+# lookup feeds ``ucon.constants`` module-level attribute access. Both
+# builders live in ``ucon.constants`` so no cross-module attribute
+# assignment is required here.
+_init_constants = constants._build_symbol_lookup(_init_graph._package_constants)
 
 _sys_active_var.set(UnitSystem(
     basis=get_default_basis(),
@@ -151,26 +147,9 @@ _sys_active_var.set(UnitSystem(
     contexts=getattr(_init_graph, '_contexts', {}),
     constants=_init_constants,
 ))
-# Pre-populate the constants module cache so it never needs to call
-# _build_constants() (which would require a deferred import).
-_descriptive_constants: dict = {}
-for _const in _init_graph._package_constants:
-    _desc = None
-    for _alias in getattr(_const, 'aliases', ()):
-        if '_' in _alias or _alias.replace('_', '').isalpha():
-            _desc = _alias
-            break
-    if _desc is None:
-        _desc = _const.name.replace(" ", "_").replace("-", "_").lower()
-    _descriptive_constants[_desc] = _const
-constants._constants_cache = _descriptive_constants
+constants._populate_cache(_init_graph._package_constants)
 
-# Inject the resolver into ucon.system so UnitSystem.resolve_unit() works
-# without a deferred import (resolver → core → system cycle).
-import ucon.system as _sys_mod
-_sys_mod._resolve_unit_impl = parse_unit
-
-del _sys_active_var, _init_graph, _init_constants, _descriptive_constants, _sys_mod
+del _sys_active_var, _init_graph, _init_constants
 
 __all__ = [
     # Basis abstractions

@@ -48,7 +48,7 @@ from ucon.basis.transforms import (
     ConstantBoundBasisTransform,
 )
 from ucon.basis.types import Basis, NoTransformPath
-from ucon.system._active import _active as _active_system
+from ucon._active import _active as _active_system
 
 _Transform = Union[BasisTransform, ConstantBoundBasisTransform]
 
@@ -287,7 +287,7 @@ def get_basis_graph() -> BasisGraph:
         return ctx_graph
 
     # Active UnitSystem: _active is imported at top level from the
-    # low-level ucon.system._active module (Layer 1), which has zero
+    # low-level ucon._active module (Layer 0), which has zero
     # intra-ucon imports.
     sys = _active_system.get()
     if sys is not None:

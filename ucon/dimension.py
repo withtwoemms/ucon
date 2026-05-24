@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING
 from ucon.basis import Basis, BasisComponent, Vector, get_default_basis
 from ucon.basis.builtin import SI
 from ucon.basis.ops import divide_via, multiply_via
-from ucon.system.algebra_cache import _get_active_cache
+from ucon._algebra_cache import _get_active_cache
 
 if TYPE_CHECKING:
     from ucon.basis import BasisTransform
