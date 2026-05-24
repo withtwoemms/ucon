@@ -130,6 +130,71 @@ def _find_deferred_imports(source: str, module_name: str) -> list[tuple[str, str
     return results
 
 
+class TestLayer0Leaves(unittest.TestCase):
+    """Layer-0 leaves must contain zero intra-ucon imports.
+
+    A Layer-0 leaf is a module whose role is to host primitive state
+    (e.g. a ``ContextVar``) that higher layers consume. To stay at the
+    bottom of the import DAG it must not import anything from
+    ``ucon.*`` at module load time.
+
+    This property is what makes the v1.12.0 cycle-break durable: any
+    contributor who adds ``from ucon.units import ...`` to ``ucon/_active.py``
+    re-closes the cycle through ``resolver`` → ``core``. The test below
+    catches the addition statically, before import time.
+    """
+
+    LAYER_0_LEAVES: set[str] = {"ucon._active"}
+
+    def test_no_intra_ucon_imports(self):
+        """Each declared Layer-0 leaf must not reference ``ucon.*``."""
+        violations: list[str] = []
+
+        for modname in self.LAYER_0_LEAVES:
+            rel_parts = modname.split(".")
+            py_file = UCON_ROOT.parent.joinpath(*rel_parts).with_suffix(".py")
+            if not py_file.exists():
+                py_file = UCON_ROOT.parent.joinpath(*rel_parts, "__init__.py")
+            if not py_file.exists():
+                violations.append(
+                    f"  {modname}: source file not found at expected path"
+                )
+                continue
+
+            source = py_file.read_text()
+            try:
+                tree = ast.parse(source)
+            except SyntaxError as exc:
+                violations.append(f"  {modname}: parse error: {exc}")
+                continue
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    if node.module and (
+                        node.module == "ucon" or node.module.startswith("ucon.")
+                    ):
+                        violations.append(
+                            f"  {modname}:{node.lineno} → "
+                            f"from {node.module} import ..."
+                        )
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name == "ucon" or alias.name.startswith("ucon."):
+                            violations.append(
+                                f"  {modname}:{node.lineno} → "
+                                f"import {alias.name}"
+                            )
+
+        if violations:
+            self.fail(
+                f"{len(violations)} Layer-0 leaf invariant violation(s):\n"
+                + "\n".join(sorted(set(violations)))
+                + "\n\nA Layer-0 leaf must have zero intra-ucon imports. "
+                "Either remove the import or remove the module from "
+                "LAYER_0_LEAVES with justification."
+            )
+
+
 class TestModuleImportability(unittest.TestCase):
     """Every ucon.* module should be individually importable without error."""
 

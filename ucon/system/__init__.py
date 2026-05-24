@@ -41,7 +41,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, Iterator, Mapping
 
 from ucon._active import _active
-from ucon._active import active as _raw_active
 from ucon.core.exceptions import DimensionNotCovered
 from ucon.resolver import parse_unit as _parse_unit
 from ucon._algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBRA_CACHE
