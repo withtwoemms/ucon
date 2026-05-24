@@ -31,10 +31,12 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
-from typing import TYPE_CHECKING, Annotated, Dict, Iterator, Tuple, Union, Any
+from typing import TYPE_CHECKING, Dict, Iterator, Tuple, Union, Any
 
-if sys.version_info < (3, 9):
-    from typing_extensions import Annotated  # type: ignore[assignment]  # noqa: F811
+if sys.version_info >= (3, 9):
+    from typing import Annotated
+else:
+    from typing_extensions import Annotated  # type: ignore[assignment]
 
 from ucon._active import _active as _sys_active_var
 from ucon.basis import Basis, BasisGraph
