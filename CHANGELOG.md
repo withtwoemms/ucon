@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `UnitSystem.extend`, `restrict`, `merge`, and `with_unit` /
+  `with_conversion` / `with_basis` / `with_basis_graph` incremental
+  constructors (v2.0 §3.1).
+- `UnitSystem.subsystem_of`, `compatible_with`, `diff`, `shared_units`,
+  `shared_dimensions` relation methods (v2.0 §3.2).
+- `ConflictPolicy` enum (`RAISE`, `PREFER_SELF`, `PREFER_OTHER`),
+  `ExtendConflict`, `RegistryDiff`, `SystemDiff` — exported from
+  `ucon.system` and re-exported from `ucon`.
+- Tests under `tests/ucon/system/`: `test_algebra.py`,
+  `test_algebra_laws.py`, `test_relations.py`.
+
 ## [1.12.0] - 2026-05-23
 
 Finishes the cycle-break work begun on the
