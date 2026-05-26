@@ -11,14 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `UnitSystem.extend`, `restrict`, `merge`, and `with_unit` /
   `with_conversion` / `with_basis` / `with_basis_graph` incremental
-  constructors (v2.0 §3.1).
+  constructors.
 - `UnitSystem.subsystem_of`, `compatible_with`, `diff`, `shared_units`,
-  `shared_dimensions` relation methods (v2.0 §3.2).
+  `shared_dimensions` relation methods.
 - `ConflictPolicy` enum (`RAISE`, `PREFER_SELF`, `PREFER_OTHER`),
   `ExtendConflict`, `RegistryDiff`, `SystemDiff` — exported from
   `ucon.system` and re-exported from `ucon`.
+- `UnitSystem.adopt(n)` cross-system value rebinding and `Bridge`
+  dataclass (`src`, `dst`, `rename`, `basis_transform`) with `apply`,
+  `inverse`, `__matmul__`; synonym-only `rename` validated at
+  construction via `InvalidRename`.
 - Tests under `tests/ucon/system/`: `test_algebra.py`,
-  `test_algebra_laws.py`, `test_relations.py`.
+  `test_algebra_laws.py`, `test_relations.py`, `test_adopt.py`,
+  `test_bridge.py`.
 
 ## [1.12.0] - 2026-05-23
 
