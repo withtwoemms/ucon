@@ -35,10 +35,28 @@ value type is reachable only via ``from ucon.system import UnitSystem``.
 
 from __future__ import annotations
 
+import sys
 import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, Iterator, Mapping
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+)
+
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:  # pragma: no cover - py37 fallback
+    from typing_extensions import Literal  # type: ignore[assignment]
 
 from ucon._active import _active
 from ucon.core.exceptions import DimensionNotCovered
@@ -47,12 +65,93 @@ from ucon._algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBR
 
 if TYPE_CHECKING:
     from ucon.basis.graph import BasisGraph
+    from ucon.basis.transforms import BasisTransform, ConstantBoundBasisTransform
     from ucon.basis.types import Basis
-    from ucon.core import Unit
+    from ucon.core import Unit, UnitProduct
     from ucon.dimension import Dimension
     from ucon.constants import Constant
-    from ucon.contexts import ConversionContext
-    from ucon.graph import ConversionGraph
+    from ucon.contexts import ContextEdge, ConversionContext
+    from ucon.conversion import Graph as ConversionGraph
+    from ucon.maps import Map
+
+
+# -----------------------------------------------------------------------------
+# Algebra-level types
+# -----------------------------------------------------------------------------
+
+
+#: Policy for resolving name collisions when combining two ``UnitSystem`` values.
+#:
+#: - ``"raise"`` (default): raise :class:`ExtendConflict` on any collision.
+#: - ``"prefer-self"``: keep the LHS definition; ignore the RHS.
+#: - ``"prefer-other"``: replace the LHS definition with the RHS.
+ConflictPolicy = Literal["raise", "prefer-self", "prefer-other"]
+
+_CONFLICT_POLICIES: Tuple[str, ...] = ("raise", "prefer-self", "prefer-other")
+
+
+class ExtendConflict(ValueError):
+    """Raised when :meth:`UnitSystem.extend` finds a name collision under
+    ``on_conflict="raise"`` policy.
+
+    The ``registry`` attribute names the registry in which the conflict
+    occurred (``"units"``, ``"dimensions"``, ``"base_units"``,
+    ``"conversions"``, ``"contexts"``, or ``"constants"``); ``key`` is the
+    colliding name.
+    """
+
+    def __init__(self, registry: str, key: str, message: str = "") -> None:
+        super().__init__(message or f"conflict in {registry!r} on key {key!r}")
+        self.registry = registry
+        self.key = key
+
+
+@dataclass(frozen=True)
+class RegistryDiff:
+    """Per-registry diff payload for :class:`SystemDiff`.
+
+    Attributes
+    ----------
+    added : frozenset[str]
+        Keys present in ``other`` but not in ``self``.
+    removed : frozenset[str]
+        Keys present in ``self`` but not in ``other``.
+    redefined : frozenset[str]
+        Keys present in both with non-equal values.
+    """
+
+    added: FrozenSet[str] = field(default_factory=frozenset)
+    removed: FrozenSet[str] = field(default_factory=frozenset)
+    redefined: FrozenSet[str] = field(default_factory=frozenset)
+
+    def is_empty(self) -> bool:
+        return not (self.added or self.removed or self.redefined)
+
+
+@dataclass(frozen=True)
+class SystemDiff:
+    """Structured difference between two :class:`UnitSystem` values.
+
+    Returned by :meth:`UnitSystem.diff`. Each field is a
+    :class:`RegistryDiff` describing additions, removals, and
+    redefinitions in that registry as ``self -> other``.
+    """
+
+    units: RegistryDiff = field(default_factory=RegistryDiff)
+    dimensions: RegistryDiff = field(default_factory=RegistryDiff)
+    base_units: RegistryDiff = field(default_factory=RegistryDiff)
+    conversions: RegistryDiff = field(default_factory=RegistryDiff)
+    contexts: RegistryDiff = field(default_factory=RegistryDiff)
+    constants: RegistryDiff = field(default_factory=RegistryDiff)
+
+    def is_empty(self) -> bool:
+        return all(
+            getattr(self, name).is_empty()
+            for name in (
+                "units", "dimensions", "base_units",
+                "conversions", "contexts", "constants",
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -268,6 +367,376 @@ class UnitSystem:
         """
         return _parse_unit(name, system=self)
 
+    # -------------------------------------------------------------------
+    # Algebra — pure functions returning new ``UnitSystem`` values.
+    # -------------------------------------------------------------------
+
+    def extend(
+        self,
+        other: 'UnitSystem',
+        *,
+        on_conflict: ConflictPolicy = "raise",
+    ) -> 'UnitSystem':
+        """Return a new system combining ``self`` and ``other``.
+
+        Unions each registry (units, dimensions, base_units, conversion
+        edges, contexts, constants). Name collisions are resolved by
+        ``on_conflict``:
+
+        - ``"raise"`` (default): raise :class:`ExtendConflict` if any
+          registry has two non-equal definitions for the same name.
+          Identical values do not trigger the error.
+        - ``"prefer-self"``: keep the LHS value on conflict; the RHS value
+          is silently discarded.
+        - ``"prefer-other"``: replace the LHS value with the RHS value.
+
+        ``self.basis`` and ``self.basis_graph`` are preserved unchanged.
+        Use :meth:`with_basis` / :meth:`with_basis_graph` to change them
+        explicitly.
+        """
+        _validate_conflict_policy(on_conflict)
+
+        merged_units = _merge_mapping(
+            self.units, other.units, "units", on_conflict
+        )
+        merged_dimensions = _merge_mapping(
+            self.dimensions, other.dimensions, "dimensions", on_conflict
+        )
+        merged_base_units = _merge_base_units(
+            self.base_units, other.base_units, on_conflict
+        )
+        merged_contexts = _merge_mapping(
+            self.contexts, other.contexts, "contexts", on_conflict
+        )
+        merged_constants = _merge_mapping(
+            self.constants, other.constants, "constants", on_conflict
+        )
+        merged_graph = _merge_conversion_graphs(
+            self.conversion_graph,
+            other.conversion_graph,
+            merged_units,
+            on_conflict,
+        )
+
+        return UnitSystem(
+            basis=self.basis,
+            units=merged_units,
+            dimensions=merged_dimensions,
+            base_units=merged_base_units,
+            conversion_graph=merged_graph,
+            basis_graph=self.basis_graph,
+            contexts=merged_contexts,
+            constants=merged_constants,
+        )
+
+    def restrict(
+        self,
+        *,
+        dimensions: Optional[Iterable['Dimension']] = None,
+        units: Optional[Iterable[str]] = None,
+    ) -> 'UnitSystem':
+        """Return a new system retaining only the named dimensions and units.
+
+        Either filter may be ``None`` to leave that registry unrestricted.
+        Filters compose: a unit survives only if both filters admit it.
+
+        The conversion graph is filtered to edges whose endpoints survive.
+        ``base_units`` is filtered to entries whose dimension and unit
+        survive. ``basis``, ``basis_graph``, ``contexts``, and
+        ``constants`` are preserved unchanged.
+        """
+        # Resolve dimensions filter to a frozenset of dimension objects.
+        if dimensions is None:
+            kept_dims: Optional[FrozenSet['Dimension']] = None
+        else:
+            kept_dims = frozenset(dimensions)
+
+        kept_unit_names: Optional[FrozenSet[str]] = (
+            frozenset(units) if units is not None else None
+        )
+
+        def _keep_unit(name: str, unit_obj: 'Unit') -> bool:
+            if kept_unit_names is not None and name not in kept_unit_names:
+                return False
+            if kept_dims is not None and unit_obj.dimension not in kept_dims:
+                return False
+            return True
+
+        new_units: Dict[str, 'Unit'] = {
+            name: u for name, u in self.units.items() if _keep_unit(name, u)
+        }
+        kept_unit_name_set = frozenset(new_units.keys())
+
+        if kept_dims is None:
+            new_dimensions: Mapping[str, 'Dimension'] = dict(self.dimensions)
+        else:
+            new_dimensions = {
+                name: d for name, d in self.dimensions.items() if d in kept_dims
+            }
+
+        new_base_units = _restrict_base_units(
+            self.base_units, kept_dims, kept_unit_name_set
+        )
+
+        new_graph = _restrict_conversion_graph(
+            self.conversion_graph, kept_unit_name_set
+        )
+
+        return UnitSystem(
+            basis=self.basis,
+            units=new_units,
+            dimensions=new_dimensions,
+            base_units=new_base_units,
+            conversion_graph=new_graph,
+            basis_graph=self.basis_graph,
+            contexts=dict(self.contexts),
+            constants=dict(self.constants),
+        )
+
+    def merge(
+        self,
+        other: 'UnitSystem',
+        resolver: Callable[['Unit', 'Unit'], 'Unit'],
+    ) -> 'UnitSystem':
+        """Return a new system combining ``self`` and ``other`` with a
+        callable resolver for unit-name conflicts.
+
+        For every unit name shared between ``self.units`` and
+        ``other.units`` whose values are non-equal, the resolver is invoked
+        as ``resolver(self_unit, other_unit)`` and must return one of the
+        two units (or a structurally-equal alternative). All other
+        registries (dimensions, base_units, conversion edges, contexts,
+        constants) use ``"prefer-self"`` semantics on conflict.
+
+        The resolver is *not* called for keys present in only one side or
+        for keys whose values are already equal.
+        """
+        merged_units: Dict[str, 'Unit'] = dict(self.units)
+        for name, unit in other.units.items():
+            if name not in merged_units:
+                merged_units[name] = unit
+                continue
+            existing = merged_units[name]
+            if existing == unit:
+                continue
+            merged_units[name] = resolver(existing, unit)
+
+        merged_dimensions = _merge_mapping(
+            self.dimensions, other.dimensions, "dimensions", "prefer-self"
+        )
+        merged_base_units = _merge_base_units(
+            self.base_units, other.base_units, "prefer-self"
+        )
+        merged_contexts = _merge_mapping(
+            self.contexts, other.contexts, "contexts", "prefer-self"
+        )
+        merged_constants = _merge_mapping(
+            self.constants, other.constants, "constants", "prefer-self"
+        )
+        merged_graph = _merge_conversion_graphs(
+            self.conversion_graph,
+            other.conversion_graph,
+            merged_units,
+            "prefer-self",
+        )
+
+        return UnitSystem(
+            basis=self.basis,
+            units=merged_units,
+            dimensions=merged_dimensions,
+            base_units=merged_base_units,
+            conversion_graph=merged_graph,
+            basis_graph=self.basis_graph,
+            contexts=merged_contexts,
+            constants=merged_constants,
+        )
+
+    # -------------------------------------------------------------------
+    # Incremental construction
+    # -------------------------------------------------------------------
+
+    def with_unit(self, unit: 'Unit') -> 'UnitSystem':
+        """Return a new system with ``unit`` added to the units registry.
+
+        If a unit with the same name already exists and is structurally
+        equal, returns ``self`` unchanged. Otherwise raises
+        :class:`ExtendConflict` on a non-equal collision.
+        """
+        existing = self.units.get(unit.name)
+        if existing is not None:
+            if existing == unit:
+                return self
+            raise ExtendConflict(
+                "units",
+                unit.name,
+                f"with_unit: name {unit.name!r} already registered with a "
+                f"different definition",
+            )
+
+        new_units: Dict[str, 'Unit'] = dict(self.units)
+        new_units[unit.name] = unit
+
+        new_graph = self.conversion_graph.copy()
+        new_graph.register_unit(unit)
+
+        return UnitSystem(
+            basis=self.basis,
+            units=new_units,
+            dimensions=dict(self.dimensions),
+            base_units=self.base_units,
+            conversion_graph=new_graph,
+            basis_graph=self.basis_graph,
+            contexts=dict(self.contexts),
+            constants=dict(self.constants),
+        )
+
+    def with_conversion(self, edge: 'ContextEdge') -> 'UnitSystem':
+        """Return a new system with ``edge`` added to the conversion graph.
+
+        Accepts the existing :class:`ucon.contexts.ContextEdge` value type
+        (``src``, ``dst``, ``map``). Edges are bidirectional; the inverse is
+        registered automatically by :meth:`Graph.add_edge`. Re-adding an
+        identical edge is a no-op.
+        """
+        new_graph = self.conversion_graph.copy()
+        new_graph.add_edge(
+            src=edge.src,
+            dst=edge.dst,
+            map=edge.map,
+        )
+        return UnitSystem(
+            basis=self.basis,
+            units=dict(self.units),
+            dimensions=dict(self.dimensions),
+            base_units=self.base_units,
+            conversion_graph=new_graph,
+            basis_graph=self.basis_graph,
+            contexts=dict(self.contexts),
+            constants=dict(self.constants),
+        )
+
+    def with_basis(self, basis: 'Basis') -> 'UnitSystem':
+        """Return a new system whose ``basis`` is replaced.
+
+        ``basis_graph`` is preserved as-is; callers are responsible for
+        ensuring it contains the new basis (otherwise cross-basis
+        operations from this system will fail at use time, not at
+        construction).
+        """
+        if basis == self.basis:
+            return self
+        return UnitSystem(
+            basis=basis,
+            units=dict(self.units),
+            dimensions=dict(self.dimensions),
+            base_units=self.base_units,
+            conversion_graph=self.conversion_graph,
+            basis_graph=self.basis_graph,
+            contexts=dict(self.contexts),
+            constants=dict(self.constants),
+        )
+
+    def with_basis_graph(self, graph: 'BasisGraph') -> 'UnitSystem':
+        """Return a new system whose ``basis_graph`` is replaced."""
+        if graph is self.basis_graph:
+            return self
+        return UnitSystem(
+            basis=self.basis,
+            units=dict(self.units),
+            dimensions=dict(self.dimensions),
+            base_units=self.base_units,
+            conversion_graph=self.conversion_graph,
+            basis_graph=graph,
+            contexts=dict(self.contexts),
+            constants=dict(self.constants),
+        )
+
+    # -------------------------------------------------------------------
+    # Relations — pure queries.
+    # -------------------------------------------------------------------
+
+    def subsystem_of(self, other: 'UnitSystem') -> bool:
+        """Return True iff every unit, dimension, base-unit mapping, and
+        conversion edge in ``self`` exists with the same definition in
+        ``other``.
+
+        ``basis`` and ``basis_graph`` are not compared; subsystem is a
+        registry-content relation.
+        """
+        for name, unit in self.units.items():
+            if other.units.get(name) != unit:
+                return False
+        for name, dim in self.dimensions.items():
+            if other.dimensions.get(name) != dim:
+                return False
+        for dim, unit in self.base_units.bases.items():
+            if other.base_units.bases.get(dim) != unit:
+                return False
+        # Conversion edges
+        self_edges = _enumerate_unit_edges(self.conversion_graph)
+        other_edges = _enumerate_unit_edges(other.conversion_graph)
+        for key, map_obj in self_edges.items():
+            if other_edges.get(key) != map_obj:
+                return False
+        return True
+
+    def compatible_with(self, other: 'UnitSystem') -> bool:
+        """Return True iff ``self`` and ``other`` agree wherever they
+        overlap.
+
+        Every shared unit name maps to equal :class:`Unit` definitions;
+        every shared dimension name maps to equal :class:`Dimension`
+        definitions; every shared base-unit dimension maps to equal
+        :class:`Unit`; every shared conversion edge (by endpoint-name)
+        maps to the same :class:`Map`. Non-overlapping registry entries
+        are ignored.
+        """
+        for name in self.units.keys() & other.units.keys():
+            if self.units[name] != other.units[name]:
+                return False
+        for name in self.dimensions.keys() & other.dimensions.keys():
+            if self.dimensions[name] != other.dimensions[name]:
+                return False
+        for dim in self.base_units.bases.keys() & other.base_units.bases.keys():
+            if self.base_units.bases[dim] != other.base_units.bases[dim]:
+                return False
+        self_edges = _enumerate_unit_edges(self.conversion_graph)
+        other_edges = _enumerate_unit_edges(other.conversion_graph)
+        for key in self_edges.keys() & other_edges.keys():
+            if self_edges[key] != other_edges[key]:
+                return False
+        return True
+
+    def diff(self, other: 'UnitSystem') -> SystemDiff:
+        """Return a :class:`SystemDiff` describing ``self -> other``.
+
+        Each registry contributes a :class:`RegistryDiff` with ``added``
+        (in ``other`` but not ``self``), ``removed`` (in ``self`` but not
+        ``other``), and ``redefined`` (in both with non-equal values).
+        """
+        return SystemDiff(
+            units=_mapping_diff(self.units, other.units),
+            dimensions=_mapping_diff(self.dimensions, other.dimensions),
+            base_units=_base_units_diff(self.base_units, other.base_units),
+            conversions=_conversion_diff(
+                self.conversion_graph, other.conversion_graph
+            ),
+            contexts=_mapping_diff(self.contexts, other.contexts),
+            constants=_mapping_diff(self.constants, other.constants),
+        )
+
+    def shared_units(self, other: 'UnitSystem') -> FrozenSet[str]:
+        """Return the set of unit names defined in both systems."""
+        return frozenset(self.units.keys() & other.units.keys())
+
+    def shared_dimensions(self, other: 'UnitSystem') -> FrozenSet[str]:
+        """Return the set of dimension names defined in both systems."""
+        return frozenset(self.dimensions.keys() & other.dimensions.keys())
+
+    # -------------------------------------------------------------------
+    # Deprecated construction surface (kept for v1.x compatibility).
+    # -------------------------------------------------------------------
+
     @classmethod
     def from_globals(cls, *, base_units: BaseUnits | None = None, _internal: bool = False) -> 'UnitSystem':
         """Snapshot the current global state into a ``UnitSystem``.
@@ -379,10 +848,252 @@ def use(system: UnitSystem) -> Iterator[UnitSystem]:
         _active.reset(token)
 
 
+# -----------------------------------------------------------------------------
+# Algebra & relation helpers — module-private. Keep at bottom so they sit
+# under the public surface and only run when a method calls them.
+# -----------------------------------------------------------------------------
+
+
+def _validate_conflict_policy(policy: str) -> None:
+    if policy not in _CONFLICT_POLICIES:
+        raise ValueError(
+            f"on_conflict={policy!r} is not one of {_CONFLICT_POLICIES!r}"
+        )
+
+
+def _merge_mapping(
+    a: Mapping[str, Any],
+    b: Mapping[str, Any],
+    registry: str,
+    on_conflict: str,
+) -> Dict[str, Any]:
+    """Combine two name→value mappings under the given conflict policy.
+
+    Used for ``units``, ``dimensions``, ``contexts``, and ``constants``.
+    """
+    merged: Dict[str, Any] = dict(a)
+    for name, value in b.items():
+        if name not in merged:
+            merged[name] = value
+            continue
+        existing = merged[name]
+        if existing == value:
+            continue
+        if on_conflict == "raise":
+            raise ExtendConflict(
+                registry,
+                name,
+                f"extend: {registry}[{name!r}] has incompatible definitions",
+            )
+        if on_conflict == "prefer-other":
+            merged[name] = value
+        # "prefer-self": leave existing in place
+    return merged
+
+
+def _merge_base_units(
+    a: BaseUnits, b: BaseUnits, on_conflict: str
+) -> BaseUnits:
+    merged: Dict['Dimension', 'Unit'] = dict(a.bases)
+    for dim, unit in b.bases.items():
+        if dim not in merged:
+            merged[dim] = unit
+            continue
+        existing = merged[dim]
+        if existing == unit:
+            continue
+        if on_conflict == "raise":
+            raise ExtendConflict(
+                "base_units",
+                dim.name,
+                f"extend: base_units[{dim.name!r}] differs between systems",
+            )
+        if on_conflict == "prefer-other":
+            merged[dim] = unit
+        # "prefer-self": leave existing in place
+    # Preserve self.name; the result is a strict superset (modulo policy).
+    return BaseUnits(name=a.name, bases=merged)
+
+
+def _enumerate_unit_edges(
+    graph: 'ConversionGraph',
+) -> Dict[Tuple[str, str], 'Map']:
+    """Flatten a graph's ``_unit_edges`` into a ``(src.name, dst.name) -> Map``
+    dict, suitable for set-style comparison.
+    """
+    edges: Dict[Tuple[str, str], 'Map'] = {}
+    for _dim, srcs in graph._unit_edges.items():
+        for src, dsts in srcs.items():
+            for dst, m in dsts.items():
+                edges[(src.name, dst.name)] = m
+    return edges
+
+
+def _merge_conversion_graphs(
+    a: 'ConversionGraph',
+    b: 'ConversionGraph',
+    units: Mapping[str, 'Unit'],
+    on_conflict: str,
+) -> 'ConversionGraph':
+    """Return a new graph holding the union of edges from ``a`` and ``b``.
+
+    Conflicts on the same ``(src.name, dst.name)`` pair are resolved by
+    ``on_conflict``. Units already registered on ``a`` are preserved; any
+    unit in ``units`` that isn't yet registered on the copied graph is
+    registered via :meth:`Graph.register_unit`.
+    """
+    new = a.copy()
+    a_edges = _enumerate_unit_edges(a)
+
+    for _dim, srcs in b._unit_edges.items():
+        for src, dsts in srcs.items():
+            for dst, m in dsts.items():
+                key = (src.name, dst.name)
+                if key in a_edges:
+                    if a_edges[key] == m:
+                        continue
+                    if on_conflict == "raise":
+                        raise ExtendConflict(
+                            "conversions",
+                            f"{src.name}->{dst.name}",
+                            "extend: conversion edges differ between systems",
+                        )
+                    if on_conflict == "prefer-self":
+                        continue
+                    # prefer-other: fall through to overwrite via add_edge.
+                # Adding an edge requires the destination dimension to be
+                # consistent; ``add_edge`` itself raises on inconsistency.
+                new.add_edge(src=src, dst=dst, map=m)
+
+    # Ensure every chosen unit is registered for name lookup. ``copy``
+    # already carried over ``a``'s name registry; pick up b-only units.
+    for name, unit_obj in units.items():
+        if name not in new._name_registry_cs:
+            new.register_unit(unit_obj)
+
+    return new
+
+
+def _restrict_base_units(
+    base_units: BaseUnits,
+    kept_dims: Optional[FrozenSet['Dimension']],
+    kept_unit_names: FrozenSet[str],
+) -> BaseUnits:
+    """Return a copy of ``base_units`` with entries pruned to those whose
+    dimension survives ``kept_dims`` (if not None) and whose unit name
+    survives ``kept_unit_names``.
+
+    If pruning would empty the mapping, a sentinel ``bases`` of size one
+    cannot be constructed under the v1.x ``BaseUnits`` invariant; in that
+    case the caller has restricted away the whole system. We retain the
+    intersection if any survives; otherwise we raise ``ValueError`` via
+    ``BaseUnits``'s own constructor.
+    """
+    pruned: Dict['Dimension', 'Unit'] = {}
+    for dim, unit in base_units.bases.items():
+        if kept_dims is not None and dim not in kept_dims:
+            continue
+        if unit.name not in kept_unit_names:
+            continue
+        pruned[dim] = unit
+    if not pruned:
+        # Preserve at least one base unit when possible by relaxing the
+        # unit-name filter; otherwise let BaseUnits raise.
+        for dim, unit in base_units.bases.items():
+            if kept_dims is None or dim in kept_dims:
+                pruned[dim] = unit
+                break
+    return BaseUnits(name=base_units.name, bases=pruned)
+
+
+def _restrict_conversion_graph(
+    graph: 'ConversionGraph',
+    kept_unit_names: FrozenSet[str],
+) -> 'ConversionGraph':
+    """Return a copy of ``graph`` pruned to edges whose endpoints are both
+    in ``kept_unit_names``. Product edges and rebased entries are dropped
+    conservatively when they reference any pruned unit.
+    """
+    new = graph.copy()
+
+    for dim in list(new._unit_edges.keys()):
+        srcs = new._unit_edges[dim]
+        for src in list(srcs.keys()):
+            if src.name not in kept_unit_names:
+                del srcs[src]
+                continue
+            dsts = srcs[src]
+            for dst in list(dsts.keys()):
+                if dst.name not in kept_unit_names:
+                    del dsts[dst]
+            if not dsts:
+                del srcs[src]
+        if not srcs:
+            del new._unit_edges[dim]
+
+    # Product edges: drop pessimistically. Product edges represent
+    # composite conversions that are reconstructed by the path-finder on
+    # demand; dropping them is correct but may force recomputation.
+    new._product_edges.clear()
+
+    # Rebased: keep entries whose base unit survives.
+    for base in list(new._rebased.keys()):
+        if base.name not in kept_unit_names:
+            del new._rebased[base]
+
+    # Name registries.
+    new._name_registry = {
+        k: v for k, v in new._name_registry.items()
+        if v.name in kept_unit_names
+    }
+    new._name_registry_cs = {
+        k: v for k, v in new._name_registry_cs.items()
+        if v.name in kept_unit_names
+    }
+
+    new._conversion_cache.clear()
+    return new
+
+
+def _mapping_diff(
+    a: Mapping[str, Any], b: Mapping[str, Any]
+) -> RegistryDiff:
+    """``self -> other`` diff for a string-keyed mapping."""
+    a_keys = set(a.keys())
+    b_keys = set(b.keys())
+    return RegistryDiff(
+        added=frozenset(b_keys - a_keys),
+        removed=frozenset(a_keys - b_keys),
+        redefined=frozenset(
+            k for k in (a_keys & b_keys) if a[k] != b[k]
+        ),
+    )
+
+
+def _base_units_diff(a: BaseUnits, b: BaseUnits) -> RegistryDiff:
+    """Diff two :class:`BaseUnits` mappings by dimension name."""
+    a_pairs = {dim.name: unit for dim, unit in a.bases.items()}
+    b_pairs = {dim.name: unit for dim, unit in b.bases.items()}
+    return _mapping_diff(a_pairs, b_pairs)
+
+
+def _conversion_diff(
+    a: 'ConversionGraph', b: 'ConversionGraph'
+) -> RegistryDiff:
+    """Diff two conversion graphs by ``"src->dst"`` edge labels."""
+    a_edges = {f"{s}->{d}": m for (s, d), m in _enumerate_unit_edges(a).items()}
+    b_edges = {f"{s}->{d}": m for (s, d), m in _enumerate_unit_edges(b).items()}
+    return _mapping_diff(a_edges, b_edges)
+
+
 __all__ = [
-    'BaseUnits',
-    'UnitSystem',
     'AlgebraCache',
+    'BaseUnits',
+    'ConflictPolicy',
+    'ExtendConflict',
+    'RegistryDiff',
+    'SystemDiff',
+    'UnitSystem',
+    'active',
     'use',
-    'active'
 ]
