@@ -21,6 +21,7 @@ import ucon
 from ucon import ContextEdge
 from ucon.maps import LinearMap
 from ucon.system import (
+    ConflictPolicy,
     ExtendConflict,
     UnitSystem,
 )
@@ -75,7 +76,7 @@ class TestExtend(unittest.TestCase):
 
     def test_extend_self_under_prefer_self_preserves_registries(self):
         s = _active()
-        result = s.extend(s, on_conflict="prefer-self")
+        result = s.extend(s, on_conflict=ConflictPolicy.PREFER_SELF)
         self.assertEqual(set(result.units.keys()), set(s.units.keys()))
         self.assertEqual(set(result.dimensions.keys()), set(s.dimensions.keys()))
 
@@ -101,7 +102,7 @@ class TestExtend(unittest.TestCase):
         )
         other = _with_unit_replaced(s, "meter", clashing)
         with self.assertRaises(ExtendConflict) as cm:
-            s.extend(other, on_conflict="raise")
+            s.extend(other, on_conflict=ConflictPolicy.RAISE)
         self.assertEqual(cm.exception.registry, "units")
         self.assertEqual(cm.exception.key, "meter")
 
@@ -115,7 +116,7 @@ class TestExtend(unittest.TestCase):
             aliases=("foo",),
         )
         other = _with_unit_replaced(s, "meter", clashing)
-        result = s.extend(other, on_conflict="prefer-self")
+        result = s.extend(other, on_conflict=ConflictPolicy.PREFER_SELF)
         self.assertEqual(result.units["meter"], meter)
 
     def test_extend_prefer_other_takes_rhs(self):
@@ -128,23 +129,27 @@ class TestExtend(unittest.TestCase):
             aliases=("bar",),
         )
         other = _with_unit_replaced(s, "meter", clashing)
-        result = s.extend(other, on_conflict="prefer-other")
+        result = s.extend(other, on_conflict=ConflictPolicy.PREFER_OTHER)
         self.assertEqual(result.units["meter"], clashing)
         self.assertNotEqual(result.units["meter"], meter)
 
     def test_extend_returns_new_unitsystem(self):
         s = _active()
-        out = s.extend(s, on_conflict="prefer-self")
+        out = s.extend(s, on_conflict=ConflictPolicy.PREFER_SELF)
         self.assertIsInstance(out, UnitSystem)
 
-    def test_invalid_conflict_policy_rejected(self):
+    def test_non_enum_conflict_policy_rejected(self):
         s = _active()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
+            s.extend(s, on_conflict="prefer-self")  # type: ignore[arg-type]
+        with self.assertRaises(TypeError):
             s.extend(s, on_conflict="bogus")  # type: ignore[arg-type]
+        with self.assertRaises(TypeError):
+            s.extend(s, on_conflict=None)  # type: ignore[arg-type]
 
     def test_extend_preserves_self_basis(self):
         s = _active()
-        out = s.extend(s, on_conflict="prefer-self")
+        out = s.extend(s, on_conflict=ConflictPolicy.PREFER_SELF)
         self.assertEqual(out.basis, s.basis)
         self.assertIs(out.basis_graph, s.basis_graph)
 
