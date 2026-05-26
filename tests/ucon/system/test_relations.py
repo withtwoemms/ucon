@@ -20,10 +20,13 @@ helper that constructs conflict scenarios without monkey-patching the
 production type.
 """
 
+import dataclasses
 import unittest
 
 import ucon
-from ucon.system import RegistryDiff, SystemDiff, UnitSystem
+from ucon import ContextEdge
+from ucon.maps import LinearMap
+from ucon.system import BaseUnits, RegistryDiff, SystemDiff, UnitSystem
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +57,37 @@ def _with_unit_replaced(system: UnitSystem, name: str, new_unit) -> UnitSystem:
         dimensions=dict(system.dimensions),
         base_units=system.base_units,
         conversion_graph=new_graph,
+        basis_graph=system.basis_graph,
+        contexts=dict(system.contexts),
+        constants=dict(system.constants),
+    )
+
+
+def _with_dimension_replaced(system: UnitSystem, name: str, new_dim) -> UnitSystem:
+    """Build a derivative system whose ``dimensions[name]`` is replaced by
+    ``new_dim``. Useful for constructing dimension-mismatch scenarios.
+    """
+    new_dims = dict(system.dimensions)
+    new_dims[name] = new_dim
+    return UnitSystem(
+        basis=system.basis,
+        units=dict(system.units),
+        dimensions=new_dims,
+        base_units=system.base_units,
+        conversion_graph=system.conversion_graph.copy(),
+        basis_graph=system.basis_graph,
+        contexts=dict(system.contexts),
+        constants=dict(system.constants),
+    )
+
+
+def _with_base_units_replaced(system: UnitSystem, new_base_units) -> UnitSystem:
+    return UnitSystem(
+        basis=system.basis,
+        units=dict(system.units),
+        dimensions=dict(system.dimensions),
+        base_units=new_base_units,
+        conversion_graph=system.conversion_graph.copy(),
         basis_graph=system.basis_graph,
         contexts=dict(system.contexts),
         constants=dict(system.constants),
@@ -96,6 +130,40 @@ class TestSubsystemOf(unittest.TestCase):
         # so s is not a subsystem of other.
         self.assertFalse(s.subsystem_of(other))
 
+    def test_redefined_dimension_breaks_subsystem(self):
+        s = _active()
+        length = s.dimensions["length"]
+        # Re-tag the dimension so name matches but the value does not.
+        retagged = dataclasses.replace(length, tag="alt_tag")
+        other = _with_dimension_replaced(s, "length", retagged)
+        self.assertFalse(s.subsystem_of(other))
+
+    def test_redefined_base_units_breaks_subsystem(self):
+        s = _active()
+        length = s.dimensions["length"]
+        foot = s.units["foot"]
+        new_bases = dict(s.base_units.bases)
+        new_bases[length] = foot
+        other = _with_base_units_replaced(
+            s, BaseUnits(name=s.base_units.name, bases=new_bases)
+        )
+        # Same units and dimensions, but length's base unit differs.
+        self.assertFalse(s.subsystem_of(other))
+
+    def test_missing_conversion_edge_breaks_subsystem(self):
+        from ucon.core import Unit as _Unit
+        s = _active()
+        length = s.dimensions["length"]
+        a = _Unit(name="ucon_rel_a", dimension=length, aliases=())
+        b = _Unit(name="ucon_rel_b", dimension=length, aliases=())
+        staged = s.with_unit(a).with_unit(b)
+        with_edge = staged.with_conversion(
+            ContextEdge(src=a, dst=b, map=LinearMap(2.0))
+        )
+        # ``with_edge`` carries an edge that ``staged`` lacks → not a
+        # subsystem of ``staged``.
+        self.assertFalse(with_edge.subsystem_of(staged))
+
 
 # ---------------------------------------------------------------------------
 # compatible_with
@@ -133,6 +201,39 @@ class TestCompatibleWith(unittest.TestCase):
         other = _with_unit_replaced(s, "meter", rebadged)
         self.assertFalse(s.compatible_with(other))
         self.assertFalse(other.compatible_with(s))
+
+    def test_redefined_dimension_makes_incompatible(self):
+        s = _active()
+        length = s.dimensions["length"]
+        retagged = dataclasses.replace(length, tag="alt_tag")
+        other = _with_dimension_replaced(s, "length", retagged)
+        self.assertFalse(s.compatible_with(other))
+        self.assertFalse(other.compatible_with(s))
+
+    def test_redefined_base_units_makes_incompatible(self):
+        s = _active()
+        length = s.dimensions["length"]
+        foot = s.units["foot"]
+        new_bases = dict(s.base_units.bases)
+        new_bases[length] = foot
+        other = _with_base_units_replaced(
+            s, BaseUnits(name=s.base_units.name, bases=new_bases)
+        )
+        self.assertFalse(s.compatible_with(other))
+        self.assertFalse(other.compatible_with(s))
+
+    def test_disagreeing_conversion_edge_makes_incompatible(self):
+        from ucon.core import Unit as _Unit
+        s = _active()
+        length = s.dimensions["length"]
+        a = _Unit(name="ucon_rel_compat_a", dimension=length, aliases=())
+        b = _Unit(name="ucon_rel_compat_b", dimension=length, aliases=())
+        staged = s.with_unit(a).with_unit(b)
+        lhs = staged.with_conversion(ContextEdge(src=a, dst=b, map=LinearMap(2.0)))
+        rhs = staged.with_conversion(ContextEdge(src=a, dst=b, map=LinearMap(3.0)))
+        # Same (src, dst) pair, different maps → not compatible.
+        self.assertFalse(lhs.compatible_with(rhs))
+        self.assertFalse(rhs.compatible_with(lhs))
 
 
 # ---------------------------------------------------------------------------
