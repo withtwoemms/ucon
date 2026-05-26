@@ -87,7 +87,16 @@ from ucon.core import (
     UnitProduct,
     UnknownUnitError,
 )
-from ucon.system import BaseUnits, UnitSystem, active, use
+from ucon.system import (
+    BaseUnits,
+    ConflictPolicy,
+    ExtendConflict,
+    RegistryDiff,
+    SystemDiff,
+    UnitSystem,
+    active,
+    use,
+)
 from ucon.dimension import (
     Dimension,
     all_dimensions,
@@ -189,6 +198,10 @@ __all__ = [
     # Core types
     'BaseForm',
     'BaseUnits',
+    'ConflictPolicy',
+    'ExtendConflict',
+    'RegistryDiff',
+    'SystemDiff',
     'UnitSystem',
     'Constant',
     'ConstantDef',
