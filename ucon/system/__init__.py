@@ -35,10 +35,10 @@ value type is reachable only via ``from ucon.system import UnitSystem``.
 
 from __future__ import annotations
 
-import sys
 import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -52,11 +52,6 @@ from typing import (
     Tuple,
     Union,
 )
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:  # pragma: no cover - py37 fallback
-    from typing_extensions import Literal  # type: ignore[assignment]
 
 from ucon._active import _active
 from ucon.core.exceptions import DimensionNotCovered
@@ -80,19 +75,24 @@ if TYPE_CHECKING:
 # -----------------------------------------------------------------------------
 
 
-#: Policy for resolving name collisions when combining two ``UnitSystem`` values.
-#:
-#: - ``"raise"`` (default): raise :class:`ExtendConflict` on any collision.
-#: - ``"prefer-self"``: keep the LHS definition; ignore the RHS.
-#: - ``"prefer-other"``: replace the LHS definition with the RHS.
-ConflictPolicy = Literal["raise", "prefer-self", "prefer-other"]
+class ConflictPolicy(Enum):
+    """Policy for resolving name collisions when combining two
+    :class:`UnitSystem` values.
 
-_CONFLICT_POLICIES: Tuple[str, ...] = ("raise", "prefer-self", "prefer-other")
+    - :attr:`RAISE` (default): raise :class:`ExtendConflict` on any
+      collision.
+    - :attr:`PREFER_SELF`: keep the LHS definition; ignore the RHS.
+    - :attr:`PREFER_OTHER`: replace the LHS definition with the RHS.
+    """
+
+    RAISE = "raise"
+    PREFER_SELF = "prefer-self"
+    PREFER_OTHER = "prefer-other"
 
 
 class ExtendConflict(ValueError):
     """Raised when :meth:`UnitSystem.extend` finds a name collision under
-    ``on_conflict="raise"`` policy.
+    :attr:`ConflictPolicy.RAISE` policy.
 
     The ``registry`` attribute names the registry in which the conflict
     occurred (``"units"``, ``"dimensions"``, ``"base_units"``,
@@ -375,20 +375,22 @@ class UnitSystem:
         self,
         other: 'UnitSystem',
         *,
-        on_conflict: ConflictPolicy = "raise",
+        on_conflict: ConflictPolicy = ConflictPolicy.RAISE,
     ) -> 'UnitSystem':
         """Return a new system combining ``self`` and ``other``.
 
         Unions each registry (units, dimensions, base_units, conversion
         edges, contexts, constants). Name collisions are resolved by
-        ``on_conflict``:
+        ``on_conflict`` (a :class:`ConflictPolicy` member):
 
-        - ``"raise"`` (default): raise :class:`ExtendConflict` if any
-          registry has two non-equal definitions for the same name.
-          Identical values do not trigger the error.
-        - ``"prefer-self"``: keep the LHS value on conflict; the RHS value
-          is silently discarded.
-        - ``"prefer-other"``: replace the LHS value with the RHS value.
+        - :attr:`ConflictPolicy.RAISE` (default): raise
+          :class:`ExtendConflict` if any registry has two non-equal
+          definitions for the same name. Identical values do not trigger
+          the error.
+        - :attr:`ConflictPolicy.PREFER_SELF`: keep the LHS value on
+          conflict; the RHS value is silently discarded.
+        - :attr:`ConflictPolicy.PREFER_OTHER`: replace the LHS value with
+          the RHS value.
 
         ``self.basis`` and ``self.basis_graph`` are preserved unchanged.
         Use :meth:`with_basis` / :meth:`with_basis_graph` to change them
@@ -506,7 +508,8 @@ class UnitSystem:
         as ``resolver(self_unit, other_unit)`` and must return one of the
         two units (or a structurally-equal alternative). All other
         registries (dimensions, base_units, conversion edges, contexts,
-        constants) use ``"prefer-self"`` semantics on conflict.
+        constants) use :attr:`ConflictPolicy.PREFER_SELF` semantics on
+        conflict.
 
         The resolver is *not* called for keys present in only one side or
         for keys whose values are already equal.
@@ -522,22 +525,25 @@ class UnitSystem:
             merged_units[name] = resolver(existing, unit)
 
         merged_dimensions = _merge_mapping(
-            self.dimensions, other.dimensions, "dimensions", "prefer-self"
+            self.dimensions, other.dimensions, "dimensions",
+            ConflictPolicy.PREFER_SELF,
         )
         merged_base_units = _merge_base_units(
-            self.base_units, other.base_units, "prefer-self"
+            self.base_units, other.base_units, ConflictPolicy.PREFER_SELF
         )
         merged_contexts = _merge_mapping(
-            self.contexts, other.contexts, "contexts", "prefer-self"
+            self.contexts, other.contexts, "contexts",
+            ConflictPolicy.PREFER_SELF,
         )
         merged_constants = _merge_mapping(
-            self.constants, other.constants, "constants", "prefer-self"
+            self.constants, other.constants, "constants",
+            ConflictPolicy.PREFER_SELF,
         )
         merged_graph = _merge_conversion_graphs(
             self.conversion_graph,
             other.conversion_graph,
             merged_units,
-            "prefer-self",
+            ConflictPolicy.PREFER_SELF,
         )
 
         return UnitSystem(
@@ -854,10 +860,10 @@ def use(system: UnitSystem) -> Iterator[UnitSystem]:
 # -----------------------------------------------------------------------------
 
 
-def _validate_conflict_policy(policy: str) -> None:
-    if policy not in _CONFLICT_POLICIES:
-        raise ValueError(
-            f"on_conflict={policy!r} is not one of {_CONFLICT_POLICIES!r}"
+def _validate_conflict_policy(policy: ConflictPolicy) -> None:
+    if not isinstance(policy, ConflictPolicy):
+        raise TypeError(
+            f"on_conflict must be a ConflictPolicy member, got {policy!r}"
         )
 
 
@@ -865,7 +871,7 @@ def _merge_mapping(
     a: Mapping[str, Any],
     b: Mapping[str, Any],
     registry: str,
-    on_conflict: str,
+    on_conflict: ConflictPolicy,
 ) -> Dict[str, Any]:
     """Combine two name→value mappings under the given conflict policy.
 
@@ -879,20 +885,20 @@ def _merge_mapping(
         existing = merged[name]
         if existing == value:
             continue
-        if on_conflict == "raise":
+        if on_conflict is ConflictPolicy.RAISE:
             raise ExtendConflict(
                 registry,
                 name,
                 f"extend: {registry}[{name!r}] has incompatible definitions",
             )
-        if on_conflict == "prefer-other":
+        if on_conflict is ConflictPolicy.PREFER_OTHER:
             merged[name] = value
-        # "prefer-self": leave existing in place
+        # PREFER_SELF: leave existing in place
     return merged
 
 
 def _merge_base_units(
-    a: BaseUnits, b: BaseUnits, on_conflict: str
+    a: BaseUnits, b: BaseUnits, on_conflict: ConflictPolicy
 ) -> BaseUnits:
     merged: Dict['Dimension', 'Unit'] = dict(a.bases)
     for dim, unit in b.bases.items():
@@ -902,15 +908,15 @@ def _merge_base_units(
         existing = merged[dim]
         if existing == unit:
             continue
-        if on_conflict == "raise":
+        if on_conflict is ConflictPolicy.RAISE:
             raise ExtendConflict(
                 "base_units",
                 dim.name,
                 f"extend: base_units[{dim.name!r}] differs between systems",
             )
-        if on_conflict == "prefer-other":
+        if on_conflict is ConflictPolicy.PREFER_OTHER:
             merged[dim] = unit
-        # "prefer-self": leave existing in place
+        # PREFER_SELF: leave existing in place
     # Preserve self.name; the result is a strict superset (modulo policy).
     return BaseUnits(name=a.name, bases=merged)
 
@@ -933,7 +939,7 @@ def _merge_conversion_graphs(
     a: 'ConversionGraph',
     b: 'ConversionGraph',
     units: Mapping[str, 'Unit'],
-    on_conflict: str,
+    on_conflict: ConflictPolicy,
 ) -> 'ConversionGraph':
     """Return a new graph holding the union of edges from ``a`` and ``b``.
 
@@ -952,15 +958,15 @@ def _merge_conversion_graphs(
                 if key in a_edges:
                     if a_edges[key] == m:
                         continue
-                    if on_conflict == "raise":
+                    if on_conflict is ConflictPolicy.RAISE:
                         raise ExtendConflict(
                             "conversions",
                             f"{src.name}->{dst.name}",
                             "extend: conversion edges differ between systems",
                         )
-                    if on_conflict == "prefer-self":
+                    if on_conflict is ConflictPolicy.PREFER_SELF:
                         continue
-                    # prefer-other: fall through to overwrite via add_edge.
+                    # PREFER_OTHER: fall through to overwrite via add_edge.
                 # Adding an edge requires the destination dimension to be
                 # consistent; ``add_edge`` itself raises on inconsistency.
                 new.add_edge(src=src, dst=dst, map=m)
