@@ -33,7 +33,7 @@ from ucon.basis import (
 )
 from ucon.basis.builtin import SI
 from ucon.basis.graph import get_basis_graph
-from ucon.system import UnitSystem, active
+from ucon.system import UnitSystem, active_system
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +238,7 @@ class TestGraphResolution:
 
     def test_system_basis_graph_used_when_no_explicit_graph(self) -> None:
         """``system=`` kwarg supplies the graph when ``graph=`` is omitted."""
-        system = dataclasses.replace(active(), basis_graph=self.extended_graph)
+        system = dataclasses.replace(active_system(), basis_graph=self.extended_graph)
         usd = _vec(self.economic, currency=1)
         s = _vec(SI, time=1)
         # Active graph again deliberately empty so it cannot mediate.
@@ -258,7 +258,7 @@ class TestGraphResolution:
     def test_explicit_graph_beats_system(self) -> None:
         """Explicit ``graph=`` overrides ``system.basis_graph``."""
         # System has the working graph; we force a useless one through graph=.
-        system = dataclasses.replace(active(), basis_graph=self.extended_graph)
+        system = dataclasses.replace(active_system(), basis_graph=self.extended_graph)
         usd = _vec(self.economic, currency=1)
         s = _vec(SI, time=1)
         with pytest.raises(BasisMismatch):

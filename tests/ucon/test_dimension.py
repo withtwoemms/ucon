@@ -299,15 +299,15 @@ class TestDimensionAlgebraCacheRouting(unittest.TestCase):
 
     def test_default_state_populates_active_system_cache(self):
         """v1.11: With eager init, algebra always routes through the active system cache."""
-        from ucon.system import active
-        cache = active()._algebra_cache
+        from ucon.system import active_system
+        cache = active_system()._algebra_cache
         cache.clear()
         _ = Dimension.length * Dimension.time
         self.assertGreater(len(cache.mul), 0)
 
     def test_use_block_routes_to_system_cache(self):
-        from ucon.system import active, use
-        system = active()
+        from ucon.system import active_system, use
+        system = active_system()
         system._algebra_cache.clear()
         with use(system):
             _ = Dimension.length * Dimension.time

@@ -34,7 +34,7 @@ from ucon.system import (
 
 
 def _active():
-    return ucon.active()
+    return ucon.active_system()
 
 
 def _length_only(system):

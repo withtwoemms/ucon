@@ -35,7 +35,7 @@ from ucon.system import BaseUnits, RegistryDiff, SystemDiff, UnitSystem
 
 
 def _active() -> UnitSystem:
-    return ucon.active()
+    return ucon.active_system()
 
 
 def _restrict_to(system: UnitSystem, dim_name: str) -> UnitSystem:

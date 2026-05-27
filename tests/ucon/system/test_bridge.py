@@ -30,7 +30,7 @@ from ucon.system import UnitSystem
 
 
 def _active() -> UnitSystem:
-    return ucon.active()
+    return ucon.active_system()
 
 
 def _system_with_metre_synonym() -> UnitSystem:
