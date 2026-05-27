@@ -409,6 +409,66 @@ class TestDefaultGraphManagement(unittest.TestCase):
         self.assertAlmostEqual(m(1), 2.20462, places=4)
 
 
+class TestGetDefaultGraphTierFallthrough(unittest.TestCase):
+    """Exercise the tier-2 → tier-3 fall-through inside ``get_default_graph``.
+
+    As of v2.0.0a1 ``_active`` holds an :class:`~ucon.system.ActiveContext`
+    rather than a bare :class:`UnitSystem`; ``get_default_graph`` resolves
+    the conversion graph via ``ctx.system.conversion_graph``.  Eager init
+    keeps the truthy branch hot, so these tests temporarily clear
+    ``_active`` to drive the falsy branch and the tier-3 fallback that
+    follows it (lines 1360–1362).
+    """
+
+    def test_falls_through_to_module_default_when_no_active_context(self):
+        """``ctx is None`` → returns ``_default_graph`` (tier 3)."""
+        import ucon.conversion as conv_mod
+        from ucon._active import _active
+
+        # Inject a sentinel into tier 3 so we can prove the fall-through
+        # actually returned it rather than something else.
+        sentinel = ConversionGraph()
+        saved_module_default = conv_mod._default_graph
+        token = _active.set(None)
+        try:
+            conv_mod._default_graph = sentinel
+            self.assertIs(get_default_graph(), sentinel)
+        finally:
+            conv_mod._default_graph = saved_module_default
+            _active.reset(token)
+
+    def test_raises_when_no_active_context_and_no_module_default(self):
+        """``ctx is None`` and ``_default_graph is None`` → ``RuntimeError``."""
+        import ucon.conversion as conv_mod
+        from ucon._active import _active
+
+        saved_module_default = conv_mod._default_graph
+        token = _active.set(None)
+        try:
+            conv_mod._default_graph = None
+            with self.assertRaises(RuntimeError) as cm:
+                get_default_graph()
+            self.assertIn("No conversion graph available", str(cm.exception))
+        finally:
+            conv_mod._default_graph = saved_module_default
+            _active.reset(token)
+
+    def test_active_context_payload_unwraps_to_conversion_graph(self):
+        """Truthy ``ctx`` branch returns ``ctx.system.conversion_graph``.
+
+        Confirms the v2.0 ``ActiveContext`` payload is unwrapped via
+        ``ctx.system.conversion_graph`` rather than treated as a
+        ``UnitSystem`` directly.
+        """
+        from ucon import active
+        ctx = active()
+        # Sanity: payload is the ActiveContext bundle, not a UnitSystem.
+        self.assertFalse(hasattr(ctx, "conversion_graph"))
+        self.assertTrue(hasattr(ctx, "system"))
+        # And ``get_default_graph`` returns the wrapped graph.
+        self.assertIs(get_default_graph(), ctx.system.conversion_graph)
+
+
 class TestConversionGraphCrossDimension(unittest.TestCase):
     """Tests for cross-dimension conversions (volume↔length³)."""
 
