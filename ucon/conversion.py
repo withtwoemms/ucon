@@ -1351,10 +1351,10 @@ def get_default_graph() -> Graph:
     if graph is not None:
         return graph
 
-    # Check active system
-    system = _active_system.get()
-    if system is not None:
-        return system.conversion_graph
+    # Check active system (payload is an ucon.system.ActiveContext bundle)
+    ctx = _active_system.get()
+    if ctx is not None:
+        return ctx.system.conversion_graph
 
     # Fall back to module default (dead code after eager init in ucon/__init__)
     if _default_graph is not None:

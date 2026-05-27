@@ -288,10 +288,11 @@ def get_basis_graph() -> BasisGraph:
 
     # Active UnitSystem: _active is imported at top level from the
     # low-level ucon._active module (Layer 0), which has zero
-    # intra-ucon imports.
-    sys = _active_system.get()
-    if sys is not None:
-        return sys.basis_graph
+    # intra-ucon imports. Payload is an ucon.system.ActiveContext
+    # bundling system + formulas + kinds + strict.
+    ctx = _active_system.get()
+    if ctx is not None:
+        return ctx.system.basis_graph
 
     if _default_basis_graph is None:
         _default_basis_graph = _build_standard_basis_graph()
