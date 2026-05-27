@@ -54,7 +54,8 @@ from typing import (
 )
 
 from ucon._active import _active
-from ucon.core.exceptions import DimensionNotCovered
+from ucon.core import Number, Unit, UnitFactor, UnitProduct
+from ucon.core.exceptions import DimensionNotCovered, UnknownUnitError
 from ucon.resolver import parse_unit as _parse_unit
 from ucon._algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBRA_CACHE
 
@@ -62,7 +63,6 @@ if TYPE_CHECKING:
     from ucon.basis.graph import BasisGraph
     from ucon.basis.transforms import BasisTransform, ConstantBoundBasisTransform
     from ucon.basis.types import Basis
-    from ucon.core import Unit, UnitProduct
     from ucon.dimension import Dimension
     from ucon.constants import Constant
     from ucon.contexts import ContextEdge, ConversionContext
@@ -104,6 +104,37 @@ class ExtendConflict(ValueError):
         super().__init__(message or f"conflict in {registry!r} on key {key!r}")
         self.registry = registry
         self.key = key
+
+
+class InvalidRename(ValueError):
+    """Raised when :class:`Bridge` is constructed with a rename pair that
+    is not synonym-equivalent.
+
+    A pair ``(src_name, dst_name)`` is synonym-equivalent only when
+    ``src.units[src_name]`` and ``dst.units[dst_name]`` represent the
+    same physical unit -- same dimension (under ``basis_transform`` when
+    one is supplied) and identical base form. Definitional differences
+    must be expressed via ``basis_transform`` or a custom conversion
+    edge, not via rename.
+
+    Attributes
+    ----------
+    src_name : str
+        The source-side rename key.
+    dst_name : str
+        The destination-side rename value.
+    reason : str
+        Why the pair is not synonym-equivalent.
+    """
+
+    def __init__(self, src_name: str, dst_name: str, reason: str = "") -> None:
+        super().__init__(
+            f"invalid rename {src_name!r} -> {dst_name!r}"
+            + (f": {reason}" if reason else "")
+        )
+        self.src_name = src_name
+        self.dst_name = dst_name
+        self.reason = reason
 
 
 @dataclass(frozen=True)
@@ -740,6 +771,75 @@ class UnitSystem:
         return frozenset(self.dimensions.keys() & other.dimensions.keys())
 
     # -------------------------------------------------------------------
+    # Cross-system value movement.
+    # -------------------------------------------------------------------
+
+    def adopt(self, n: 'Number') -> 'Number':
+        """Rebind ``n`` to use this system's :class:`Unit` objects.
+
+        Walks ``n.unit`` (a :class:`Unit` or :class:`UnitProduct`) and
+        checks that every component-unit name resolves in
+        ``self.units``. Returns a new :class:`Number` whose unit
+        references point at the objects owned by this system; the
+        numeric quantity and uncertainty are unchanged.
+
+        ``adopt`` performs **no conversion**. It is the trivial value-
+        movement primitive for the case where unit names already match
+        between systems. When names diverge or numeric correction is
+        needed, use :class:`Bridge`.
+
+        Parameters
+        ----------
+        n : Number
+            The value to re-bind.
+
+        Returns
+        -------
+        Number
+            A :class:`Number` whose ``unit`` references this system's
+            :class:`Unit` objects.
+
+        Raises
+        ------
+        UnknownUnitError
+            If any component unit name is not defined in ``self.units``.
+        """
+        unit = n.unit
+        if isinstance(unit, UnitFactor):
+            if unit.unit.name not in self.units:
+                raise UnknownUnitError(unit.unit.name)
+            rebound = UnitFactor(self.units[unit.unit.name], unit.scale)
+            return Number(
+                quantity=n.quantity, unit=rebound, uncertainty=n.uncertainty
+            )
+        if isinstance(unit, Unit):
+            if unit.name not in self.units:
+                raise UnknownUnitError(unit.name)
+            return Number(
+                quantity=n.quantity,
+                unit=self.units[unit.name],
+                uncertainty=n.uncertainty,
+            )
+        if isinstance(unit, UnitProduct):
+            rebound_factors: Dict['UnitFactor', float] = {}
+            for factor, exponent in unit.factors.items():
+                if factor.unit.name not in self.units:
+                    raise UnknownUnitError(factor.unit.name)
+                rebound_factor = UnitFactor(
+                    self.units[factor.unit.name], factor.scale
+                )
+                rebound_factors[rebound_factor] = exponent
+            return Number(
+                quantity=n.quantity,
+                unit=UnitProduct(rebound_factors),
+                uncertainty=n.uncertainty,
+            )
+        # Number with no unit — return as-is.
+        return Number(
+            quantity=n.quantity, unit=unit, uncertainty=n.uncertainty
+        )
+
+    # -------------------------------------------------------------------
     # Deprecated construction surface (kept for v1.x compatibility).
     # -------------------------------------------------------------------
 
@@ -852,6 +952,220 @@ def use(system: UnitSystem) -> Iterator[UnitSystem]:
         yield system
     finally:
         _active.reset(token)
+
+
+# -----------------------------------------------------------------------------
+# Cross-system value movement -- Bridge.
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Bridge:
+    """Sanctioned cross-system value movement.
+
+    A ``Bridge`` carries a :class:`~ucon.core.Number` from ``src`` to
+    ``dst``, applying optional unit-name renames (synonym-equivalent
+    pairs only) and an optional :class:`~ucon.basis.BasisTransform` for
+    cross-basis rebasing.
+
+    Rename is **synonym-only**: each ``(a, b)`` in ``rename`` must
+    satisfy ``src.units[a]`` and ``dst.units[b]`` representing the same
+    physical unit. Definitional remapping (two systems naming distinct
+    units identically) must be expressed via ``basis_transform`` or a
+    custom conversion edge; it is rejected at construction with
+    :class:`InvalidRename`.
+
+    Apply order is rename → ``basis_transform`` → identity-bind to dst
+    :class:`Unit`. Under the synonym constraint the two layers commute;
+    the order is pinned for trace-readability.
+
+    Attributes
+    ----------
+    src : UnitSystem
+        The source system.
+    dst : UnitSystem
+        The destination system.
+    rename : Mapping[str, str]
+        Synonym-equivalent unit-name pairs.
+    basis_transform : BasisTransform, optional
+        Optional coordinate change for cross-basis values.
+    """
+
+    src: UnitSystem
+    dst: UnitSystem
+    rename: Mapping[str, str] = field(default_factory=dict)
+    basis_transform: Optional['BasisTransform'] = None
+
+    def __post_init__(self) -> None:
+        for a, b in self.rename.items():
+            if a not in self.src.units:
+                raise InvalidRename(a, b, f"{a!r} not in src.units")
+            if b not in self.dst.units:
+                raise InvalidRename(a, b, f"{b!r} not in dst.units")
+            self._validate_synonym(a, b, self.src.units[a], self.dst.units[b])
+
+    def _validate_synonym(
+        self, a: str, b: str, src_unit: 'Unit', dst_unit: 'Unit'
+    ) -> None:
+        """Verify ``src_unit`` and ``dst_unit`` are the same physical unit.
+
+        Trivial case (``basis_transform is None``): dimensions must be
+        equal, and base forms must agree. Cross-basis case: the
+        transform maps ``src_unit.dimension.vector`` to
+        ``dst_unit.dimension.vector``, and base forms must agree.
+        """
+        if self.basis_transform is None:
+            if src_unit.dimension != dst_unit.dimension:
+                raise InvalidRename(
+                    a, b,
+                    f"dimensions differ ({src_unit.dimension!r} vs "
+                    f"{dst_unit.dimension!r}); supply basis_transform if "
+                    f"systems live in different bases",
+                )
+        else:
+            src_vec = src_unit.dimension.vector
+            dst_vec = dst_unit.dimension.vector
+            if src_vec.basis != self.basis_transform.source:
+                raise InvalidRename(
+                    a, b,
+                    f"src_unit basis does not match basis_transform.source",
+                )
+            if dst_vec.basis != self.basis_transform.target:
+                raise InvalidRename(
+                    a, b,
+                    f"dst_unit basis does not match basis_transform.target",
+                )
+            if self.basis_transform(src_vec) != dst_vec:
+                raise InvalidRename(
+                    a, b,
+                    f"transformed src dimension does not equal dst dimension",
+                )
+        if src_unit.base_form != dst_unit.base_form:
+            raise InvalidRename(
+                a, b,
+                f"base forms differ ({src_unit.base_form!r} vs "
+                f"{dst_unit.base_form!r}); rename is for synonyms, not "
+                f"definitional differences",
+            )
+
+    def apply(self, n: 'Number') -> 'Number':
+        """Move ``n`` from :attr:`src` to :attr:`dst`.
+
+        Order: rename (name layer) → ``basis_transform`` (numeric
+        layer; no-op under the synonym constraint) → identity-bind to
+        :attr:`dst`'s :class:`Unit` objects. The result is a new
+        :class:`Number` whose units reference :attr:`dst`'s registry.
+
+        Raises
+        ------
+        UnknownUnitError
+            If a component-unit name (after rename) is not in
+            ``self.dst.units``.
+        """
+        def _rebind_name(name: str) -> str:
+            return self.rename.get(name, name)
+
+        unit = n.unit
+        if isinstance(unit, UnitFactor):
+            target_name = _rebind_name(unit.unit.name)
+            if target_name not in self.dst.units:
+                raise UnknownUnitError(target_name)
+            rebound = UnitFactor(self.dst.units[target_name], unit.scale)
+            return Number(
+                quantity=n.quantity, unit=rebound, uncertainty=n.uncertainty
+            )
+        if isinstance(unit, Unit):
+            target_name = _rebind_name(unit.name)
+            if target_name not in self.dst.units:
+                raise UnknownUnitError(target_name)
+            return Number(
+                quantity=n.quantity,
+                unit=self.dst.units[target_name],
+                uncertainty=n.uncertainty,
+            )
+        if isinstance(unit, UnitProduct):
+            rebound_factors: Dict['UnitFactor', float] = {}
+            for factor, exponent in unit.factors.items():
+                target_name = _rebind_name(factor.unit.name)
+                if target_name not in self.dst.units:
+                    raise UnknownUnitError(target_name)
+                rebound_factor = UnitFactor(
+                    self.dst.units[target_name], factor.scale
+                )
+                rebound_factors[rebound_factor] = exponent
+            return Number(
+                quantity=n.quantity,
+                unit=UnitProduct(rebound_factors),
+                uncertainty=n.uncertainty,
+            )
+        return Number(
+            quantity=n.quantity, unit=unit, uncertainty=n.uncertainty
+        )
+
+    def inverse(self) -> 'Bridge':
+        """Return the reverse bridge ``dst → src``.
+
+        Renames are reversed; ``basis_transform`` is inverted; the
+        result is re-validated by :meth:`__post_init__`.
+        """
+        return Bridge(
+            src=self.dst,
+            dst=self.src,
+            rename={b: a for a, b in self.rename.items()},
+            basis_transform=(
+                self.basis_transform.inverse()
+                if self.basis_transform is not None
+                else None
+            ),
+        )
+
+    def __matmul__(self, other: 'Bridge') -> 'Bridge':
+        """Compose ``self @ other``: apply ``other`` first, then ``self``.
+
+        Requires ``other.dst is self.src`` (registry identity). The
+        composed rename chains source names through ``other`` to
+        ``self``; the composed ``basis_transform`` is
+        ``self.basis_transform @ other.basis_transform`` when both are
+        present.
+
+        The resulting :class:`Bridge` is re-validated by
+        :meth:`__post_init__` so that pairs valid individually but not
+        jointly are caught (per §8 of the v2.0 plan).
+        """
+        if other.dst is not self.src:
+            raise ValueError(
+                "Bridge composition requires other.dst is self.src"
+            )
+        composed_rename: Dict[str, str] = {}
+        # Names renamed by other: forward through self.
+        for a, b in other.rename.items():
+            c = self.rename.get(b, b)
+            if c != a:
+                composed_rename[a] = c
+        # Names identity-passed through other and renamed by self: only
+        # meaningful if the name also exists in other.src.
+        other_targets = set(other.rename.values())
+        for b, c in self.rename.items():
+            if b in other_targets:
+                continue
+            if b in other.src.units and b != c:
+                composed_rename[b] = c
+
+        if self.basis_transform is None and other.basis_transform is None:
+            composed_transform = None
+        elif self.basis_transform is None:
+            composed_transform = other.basis_transform
+        elif other.basis_transform is None:
+            composed_transform = self.basis_transform
+        else:
+            composed_transform = self.basis_transform @ other.basis_transform
+
+        return Bridge(
+            src=other.src,
+            dst=self.dst,
+            rename=composed_rename,
+            basis_transform=composed_transform,
+        )
 
 
 # -----------------------------------------------------------------------------
@@ -1095,8 +1409,10 @@ def _conversion_diff(
 __all__ = [
     'AlgebraCache',
     'BaseUnits',
+    'Bridge',
     'ConflictPolicy',
     'ExtendConflict',
+    'InvalidRename',
     'RegistryDiff',
     'SystemDiff',
     'UnitSystem',

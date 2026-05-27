@@ -89,8 +89,10 @@ from ucon.core import (
 )
 from ucon.system import (
     BaseUnits,
+    Bridge,
     ConflictPolicy,
     ExtendConflict,
+    InvalidRename,
     RegistryDiff,
     SystemDiff,
     UnitSystem,
@@ -198,8 +200,10 @@ __all__ = [
     # Core types
     'BaseForm',
     'BaseUnits',
+    'Bridge',
     'ConflictPolicy',
     'ExtendConflict',
+    'InvalidRename',
     'RegistryDiff',
     'SystemDiff',
     'UnitSystem',
