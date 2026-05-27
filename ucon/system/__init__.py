@@ -56,6 +56,8 @@ from typing import (
 from ucon._active import _active
 from ucon.core import Number, Unit, UnitFactor, UnitProduct
 from ucon.core.exceptions import DimensionNotCovered, UnknownUnitError
+from ucon.formulas import FormulaRegistry
+from ucon.kinds import KindLattice
 from ucon.resolver import parse_unit as _parse_unit
 from ucon._algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBRA_CACHE
 
@@ -862,12 +864,13 @@ class UnitSystem:
         """
         if not _internal:
             warnings.warn(
-                "UnitSystem.from_globals() is deprecated; use active() to "
-                "obtain the current system. Scheduled for removal in ucon v2.0.",
+                "UnitSystem.from_globals() is deprecated; use active_system() "
+                "to obtain the current system. Scheduled for removal in ucon "
+                "v2.0.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-        system = active()
+        system = active_system()
         if base_units is not None:
             # Return a copy with overridden base_units (frozen dataclass)
             from dataclasses import replace as _replace
@@ -913,11 +916,52 @@ UnitSystem.__init__ = _unitsystem_init_with_conversions_alias
 # here for backward compatibility.
 
 
-def active() -> UnitSystem:
-    """Return the currently active :class:`UnitSystem`.
+@dataclass(frozen=True)
+class ActiveContext:
+    """The ambient state bundle consulted by ucon's runtime.
 
-    After ``import ucon``, the active system is always set via eager
+    A single :class:`~contextvars.ContextVar` (``ucon._active``) carries
+    one :class:`ActiveContext` at a time. The payload bundles the
+    :class:`UnitSystem` (units, dimensions, graphs) with the
+    :class:`~ucon.formulas.FormulaRegistry` (kind-aware arithmetic
+    dispatch table), the :class:`~ucon.kinds.KindLattice` (kind taxonomy
+    consulted by ``Number.bound_to`` etc.), and ``strict`` (source-unit
+    resolution mode for :meth:`Number.to` and arithmetic).
+
+    Keeping ``formulas`` and ``kinds`` off :class:`UnitSystem` is
+    deliberate: a system does not own its formulas, and an
+    :class:`ActiveContext` lets the caller swap the dispatch table
+    without rebuilding the system.
+
+    Attributes
+    ----------
+    system : UnitSystem
+        The active unit system.
+    formulas : FormulaRegistry
+        Kind-aware arithmetic dispatch table.
+    kinds : KindLattice
+        Kind taxonomy.
+    strict : bool
+        Whether source-unit resolution is identity-based (``True``,
+        v2.0 default) or falls back to name-based lookup (``False``,
+        v1.x ergonomics).
+    """
+
+    system: 'UnitSystem'
+    formulas: FormulaRegistry
+    kinds: KindLattice
+    strict: bool = True
+
+
+def active() -> ActiveContext:
+    """Return the currently active :class:`ActiveContext`.
+
+    After ``import ucon``, the active context is always set via eager
     initialization.
+
+    .. versionchanged:: 2.0
+       Returns :class:`ActiveContext` instead of :class:`UnitSystem`.
+       Use :func:`active_system` for the prior semantics.
 
     Raises
     ------
@@ -925,31 +969,105 @@ def active() -> UnitSystem:
         If called before ``import ucon`` has completed (i.e. the eager
         init block in ``ucon/__init__.py`` has not yet run).
     """
-    system = _active.get()
-    if system is None:
+    ctx = _active.get()
+    if ctx is None:
         raise RuntimeError(
             "No active UnitSystem. This usually means ucon.system.active() "
             "was called before 'import ucon' completed. Import the top-level "
             "ucon package first."
         )
-    return system
+    return ctx
+
+
+def active_system() -> 'UnitSystem':
+    """Return the active :class:`UnitSystem`.
+
+    Convenience accessor equivalent to ``active().system``. Replaces the
+    pre-v2.0 ``active()`` semantics.
+    """
+    return active().system
+
+
+def active_formulas() -> FormulaRegistry:
+    """Return the active :class:`~ucon.formulas.FormulaRegistry`.
+
+    Convenience accessor equivalent to ``active().formulas``.
+    """
+    return active().formulas
+
+
+def active_kinds() -> KindLattice:
+    """Return the active :class:`~ucon.kinds.KindLattice`.
+
+    Convenience accessor equivalent to ``active().kinds``.
+    """
+    return active().kinds
+
+
+def active_strict() -> bool:
+    """Return the active source-unit resolution mode.
+
+    Convenience accessor equivalent to ``active().strict``.
+    """
+    return active().strict
 
 
 @contextmanager
-def use(system: UnitSystem) -> Iterator[UnitSystem]:
-    """Set ``system`` as the active :class:`UnitSystem` for the with-block.
+def use(
+    system: 'UnitSystem',
+    *,
+    formulas: Optional[FormulaRegistry] = None,
+    kinds: Optional[KindLattice] = None,
+    strict: Optional[bool] = None,
+) -> Iterator[ActiveContext]:
+    """Set the active :class:`ActiveContext` for the with-block.
 
-    On exit the previous active system (or ``None``) is restored.
+    Constructs an :class:`ActiveContext` with the given ``system`` and
+    inherits ``formulas``, ``kinds``, and ``strict`` from the enclosing
+    context when those kwargs are not supplied. On exit the prior
+    context is restored.
+
+    Parameters
+    ----------
+    system : UnitSystem
+        The system to activate for the duration of the with-block.
+    formulas : FormulaRegistry, optional
+        Override the formulas registry. Inherits from the enclosing
+        context when ``None``.
+    kinds : KindLattice, optional
+        Override the kind lattice. Inherits from the enclosing context
+        when ``None``.
+    strict : bool, optional
+        Override source-unit resolution mode. Inherits from the
+        enclosing context when ``None``.
 
     Examples
     --------
-    >>> sys = active()
-    >>> with use(sys):
-    ...     assert active() is sys
+    >>> sys = active_system()
+    >>> with use(sys) as ctx:
+    ...     assert ctx.system is sys
     """
-    token = _active.set(system)
+    current = _active.get()
+    if current is None:
+        # No enclosing context — fall back to empty defaults for the
+        # kind-side fields. The eager init in ``ucon/__init__.py``
+        # normally ensures ``current`` is set before any ``use()`` call.
+        ctx = ActiveContext(
+            system=system,
+            formulas=formulas if formulas is not None else FormulaRegistry(),
+            kinds=kinds if kinds is not None else KindLattice(),
+            strict=strict if strict is not None else True,
+        )
+    else:
+        ctx = ActiveContext(
+            system=system,
+            formulas=formulas if formulas is not None else current.formulas,
+            kinds=kinds if kinds is not None else current.kinds,
+            strict=strict if strict is not None else current.strict,
+        )
+    token = _active.set(ctx)
     try:
-        yield system
+        yield ctx
     finally:
         _active.reset(token)
 
@@ -1407,6 +1525,7 @@ def _conversion_diff(
 
 
 __all__ = [
+    'ActiveContext',
     'AlgebraCache',
     'BaseUnits',
     'Bridge',
@@ -1417,5 +1536,9 @@ __all__ = [
     'SystemDiff',
     'UnitSystem',
     'active',
+    'active_formulas',
+    'active_kinds',
+    'active_strict',
+    'active_system',
     'use',
 ]

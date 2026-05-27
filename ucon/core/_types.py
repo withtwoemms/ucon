@@ -1805,14 +1805,16 @@ class Number:
         """
         # Resolve system and graph from ContextVars (no deferred imports).
         # _sys_active_var and _parsing_graph are Layer-1 leaf modules,
-        # imported at top of this file.
+        # imported at top of this file. _sys_active_var holds an
+        # ucon.system.ActiveContext; ``.system`` is the UnitSystem.
         if system is None:
-            system = _sys_active_var.get()
-            if system is None:
+            ctx = _sys_active_var.get()
+            if ctx is None:
                 raise RuntimeError(
                     "No active UnitSystem. This usually means Number.to() "
                     "was called before 'import ucon' completed."
                 )
+            system = ctx.system
 
         # Respect the 3-tier priority: context-local → active system → module default.
         if graph is None:
@@ -2833,13 +2835,13 @@ class NumberArray:
         if graph is None:
             graph = _parsing_graph.get()
             if graph is None:
-                system = _sys_active_var.get()
-                if system is None:
+                ctx = _sys_active_var.get()
+                if ctx is None:
                     raise RuntimeError(
                         "No active UnitSystem. This usually means NumberArray.to() "
                         "was called before 'import ucon' completed."
                     )
-                graph = system.conversion_graph
+                graph = ctx.system.conversion_graph
 
         conversion_map = graph.convert(src=src, dst=dst)
 

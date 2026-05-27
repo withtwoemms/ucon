@@ -24,14 +24,14 @@ from ucon.system import UnitSystem
 class TestConversionsPropertyDeprecated:
 
     def test_emits_deprecation_warning(self):
-        from ucon.system import active
-        s = active()
+        from ucon.system import active_system
+        s = active_system()
         with pytest.warns(DeprecationWarning, match="conversion_graph"):
             _ = s.conversions
 
     def test_returns_conversion_graph(self):
-        from ucon.system import active
-        s = active()
+        from ucon.system import active_system
+        s = active_system()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             assert s.conversions is s.conversion_graph
@@ -44,8 +44,8 @@ class TestConversionsPropertyDeprecated:
 class TestConversionsKwargDeprecated:
 
     def test_emits_deprecation_warning(self):
-        from ucon.system import active
-        parent = active()
+        from ucon.system import active_system
+        parent = active_system()
         with pytest.warns(DeprecationWarning, match="conversion_graph"):
             UnitSystem(
                 basis=parent.basis,

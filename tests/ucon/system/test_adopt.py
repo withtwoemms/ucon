@@ -22,7 +22,7 @@ from ucon.system import UnitSystem
 
 
 def _active() -> UnitSystem:
-    return ucon.active()
+    return ucon.active_system()
 
 
 class TestAdoptSuccess(unittest.TestCase):

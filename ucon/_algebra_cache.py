@@ -60,17 +60,17 @@ def _get_active_cache() -> AlgebraCache:
     """Return the algebra cache that ``Dimension`` algebra should use now.
 
     Routes through the active :class:`UnitSystem`'s per-instance cache when
-    one has been set via :func:`use`. Falls back to
-    :data:`_DEFAULT_ALGEBRA_CACHE` otherwise.
+    an :class:`~ucon.system.ActiveContext` has been pushed via :func:`use`.
+    Falls back to :data:`_DEFAULT_ALGEBRA_CACHE` otherwise.
 
     The fallback is intentionally a stable module-level object rather than
     a fresh snapshot: that would construct a new :class:`AlgebraCache` on
     every call and defeat memoization.
     """
-    system = _active.get()
-    if system is None:
+    ctx = _active.get()
+    if ctx is None:
         return _DEFAULT_ALGEBRA_CACHE
-    return system._algebra_cache
+    return ctx.system._algebra_cache
 
 
 __all__ = ['AlgebraCache', '_get_active_cache', '_DEFAULT_ALGEBRA_CACHE']

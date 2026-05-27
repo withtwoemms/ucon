@@ -21,9 +21,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dataclass (`src`, `dst`, `rename`, `basis_transform`) with `apply`,
   `inverse`, `__matmul__`; synonym-only `rename` validated at
   construction via `InvalidRename`.
+- **`ActiveContext` substrate (v2.0 §3.4)** — frozen dataclass that
+  bundles the active `UnitSystem` with a `FormulaRegistry` (kind-aware
+  arithmetic dispatch table), a `KindLattice` (kind taxonomy), and a
+  `strict` flag. This is the payload now carried by the
+  `ucon._active` ContextVar. Keeping `formulas` and `kinds` off
+  `UnitSystem` is deliberate: a system does not own its formulas, and
+  the substrate lets callers swap the dispatch table without
+  rebuilding the system. Single-ContextVar discipline is preserved —
+  the bundle ships as one payload rather than spawning sibling
+  ContextVars for each field.
+- Typed accessors `active_system`, `active_formulas`, `active_kinds`,
+  `active_strict` — the only sanctioned read paths for the bundled
+  fields. Exported from `ucon.system` and re-exported from `ucon`.
+- `ActiveContext`, `FormulaRegistry`, `Kind`, `KindLattice` re-exported
+  from the top-level `ucon` package.
 - Tests under `tests/ucon/system/`: `test_algebra.py`,
   `test_algebra_laws.py`, `test_relations.py`, `test_adopt.py`,
-  `test_bridge.py`.
+  `test_bridge.py`, `test_active_context.py`.
+
+### Changed
+
+- **BREAKING: `ucon.active()` now returns `ActiveContext`** rather
+  than `UnitSystem`. Migration: call `active_system()` where the
+  previous code wanted the `UnitSystem`, or access `active().system`
+  explicitly. The renaming is mechanical at call sites; the type
+  change is the breaking surface. This BREAKING change is
+  v2.0-gated and consistent with the `[Unreleased]` lineup.
+- **`use(system, *, formulas=None, kinds=None, strict=None)`** —
+  the context-manager now accepts optional overrides for each
+  `ActiveContext` field. Unset fields inherit from the enclosing
+  context, so nested `use(...)` blocks compose without forcing
+  callers to re-specify untouched fields. Outermost-block inheritance
+  defaults are `FormulaRegistry()`, `KindLattice()`, `strict=True`.
+- **Eager init in `ucon/__init__.py`** now constructs an
+  `ActiveContext(system=..., formulas=FormulaRegistry(),
+  kinds=KindLattice(), strict=True)` and pushes it onto
+  `ucon._active` at import time. The active-system tier in
+  `get_default_graph()` and `get_basis_graph()` is therefore always
+  hit, and the legacy module-level fallback path is dead code.
+- Internal sites that previously read `_active.get()` directly and
+  treated the payload as a `UnitSystem` (`Number.to`, `NumberArray.to`,
+  `BasisGraph` accessor, `ConversionGraph` accessor,
+  `_get_active_cache`) now extract `.system` from the `ActiveContext`
+  payload. The cascade is invisible to public callers; existing
+  user code that only goes through public entry points is unaffected.
+- `UnitSystem.from_globals(...)` deprecation message updated to point
+  at `active_system()` instead of the (now-breaking) `active()`.
 
 ## [1.12.0] - 2026-05-23
 

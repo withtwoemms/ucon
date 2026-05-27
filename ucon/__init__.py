@@ -88,6 +88,7 @@ from ucon.core import (
     UnknownUnitError,
 )
 from ucon.system import (
+    ActiveContext,
     BaseUnits,
     Bridge,
     ConflictPolicy,
@@ -97,8 +98,14 @@ from ucon.system import (
     SystemDiff,
     UnitSystem,
     active,
+    active_formulas,
+    active_kinds,
+    active_strict,
+    active_system,
     use,
 )
+from ucon.formulas import FormulaRegistry
+from ucon.kinds import Kind, KindLattice
 from ucon.dimension import (
     Dimension,
     all_dimensions,
@@ -148,7 +155,7 @@ _init_graph = units._graph  # Direct reference; get_default_graph() isn't usable
 # assignment is required here.
 _init_constants = constants._build_symbol_lookup(_init_graph._package_constants)
 
-_sys_active_var.set(UnitSystem(
+_init_system = UnitSystem(
     basis=get_default_basis(),
     units=units._units,
     dimensions=_DIMENSION_ATTRS,
@@ -157,10 +164,16 @@ _sys_active_var.set(UnitSystem(
     basis_graph=get_basis_graph(),
     contexts=getattr(_init_graph, '_contexts', {}),
     constants=_init_constants,
+)
+_sys_active_var.set(ActiveContext(
+    system=_init_system,
+    formulas=FormulaRegistry(),
+    kinds=KindLattice(),
+    strict=True,
 ))
 constants._populate_cache(_init_graph._package_constants)
 
-del _sys_active_var, _init_graph, _init_constants
+del _sys_active_var, _init_graph, _init_constants, _init_system
 
 __all__ = [
     # Basis abstractions
@@ -198,12 +211,16 @@ __all__ = [
     'spectroscopy',
     'using_context',
     # Core types
+    'ActiveContext',
     'BaseForm',
     'BaseUnits',
     'Bridge',
     'ConflictPolicy',
     'ExtendConflict',
+    'FormulaRegistry',
     'InvalidRename',
+    'Kind',
+    'KindLattice',
     'RegistryDiff',
     'SystemDiff',
     'UnitSystem',
@@ -234,6 +251,10 @@ __all__ = [
     'UnknownUnitError',
     # System
     'active',
+    'active_formulas',
+    'active_kinds',
+    'active_strict',
+    'active_system',
     'use',
     # Functions
     'all_dimensions',
