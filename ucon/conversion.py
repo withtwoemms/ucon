@@ -498,6 +498,57 @@ class Graph:
 
         return None
 
+    def contains_unit_by_identity(self, unit: Union[Unit, UnitProduct]) -> bool:
+        """Return ``True`` iff ``unit`` is registered in this graph by identity.
+
+        For a plain :class:`Unit`, returns ``True`` iff the exact object
+        (``is``-equal) appears as a node in any per-dimension edge map.
+        For a :class:`UnitProduct`, returns ``True`` iff every factor's
+        unit satisfies the same condition.
+
+        Unlike value-based dict lookup (which uses ``__eq__`` / ``__hash__``),
+        this method iterates with ``is``-comparison so that two
+        structurally-equal :class:`Unit` instances with the same
+        ``(name, dimension, aliases)`` are *not* considered the same node.
+
+        This is the semantics required by ``strict=True`` source-unit
+        resolution in :meth:`ucon.Number.to`: a :class:`Number` whose
+        ``unit`` is value-equal but identity-distinct from any node in the
+        active graph must surface a :exc:`UnitDefinitionMismatch` rather
+        than silently re-resolve via name.
+
+        Parameters
+        ----------
+        unit : Unit or UnitProduct
+            The unit expression to check.
+
+        Returns
+        -------
+        bool
+            ``True`` iff every constituent :class:`Unit` is ``is``-equal
+            to a node already registered in ``_unit_edges``.
+        """
+        if isinstance(unit, UnitProduct):
+            return all(
+                self.contains_unit_by_identity(factor.unit)
+                for factor in unit.factors
+            )
+        # Units that participate in plain Unit→Unit edges live in
+        # ``_unit_edges`` (as both src and dst nodes are stored there).
+        for per_dim in self._unit_edges.values():
+            for node in per_dim:
+                if node is unit:
+                    return True
+        # Units that participate only in product edges (e.g. ``pH`` with
+        # ``mole/liter ↔ pH``) are still registered in
+        # ``_name_registry_cs`` via ``register_unit``. That registry is
+        # the canonical "this graph blessed this Unit instance" surface,
+        # so an identity hit there is just as authoritative.
+        for node in self._name_registry_cs.values():
+            if node is unit:
+                return True
+        return False
+
     def copy(self) -> 'Graph':
         """Return a deep copy suitable for extension.
 

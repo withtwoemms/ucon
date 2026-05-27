@@ -15,6 +15,7 @@ from ucon.core._parsing_graph import _get_parsing_graph, _parsing_graph
 from ucon.core.exceptions import (
     DimensionNotCovered,
     NonScalableError,
+    UnitDefinitionMismatch,
     UnknownUnitError,
 )
 from ucon.core._types import (
@@ -51,6 +52,7 @@ __all__ = [
     'RebasedUnit',
     'Scale',
     'Unit',
+    'UnitDefinitionMismatch',
     'UnitFactor',
     'UnitProduct',
     'UnknownUnitError',

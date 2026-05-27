@@ -41,6 +41,7 @@ else:
 from ucon._active import _active as _sys_active_var
 from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
+from ucon.core.exceptions import UnitDefinitionMismatch
 from ucon.dimension import Dimension, NONE
 
 if TYPE_CHECKING:
@@ -1844,6 +1845,14 @@ class Number:
                 dst_unit = uf.unit
 
         if src_is_plain and dst_is_plain and src_unit != dst_unit:
+            # Strict source-unit resolution (v2.0 §3.4): under strict=True
+            # (the default), require `src_unit` to be in `graph` by object
+            # identity. Strict is a scope property, not a system property,
+            # so the flag is read from the active context regardless of
+            # whether `system=` / `graph=` was passed explicitly.
+            _ctx = _sys_active_var.get()
+            if _ctx is not None and _ctx.strict and not graph.contains_unit_by_identity(src_unit):
+                raise UnitDefinitionMismatch(src_unit, graph=graph)
             conversion_map = graph.convert(src=src_unit, dst=dst_unit)
             converted = conversion_map(self.quantity)
             new_unc = None
@@ -1884,6 +1893,13 @@ class Number:
             uf, exp = next(iter(dst.factors.items()))
             if exp == 1.0 and uf.scale == Scale.one:
                 graph_dst = uf.unit
+
+        # Strict source-unit resolution (v2.0 §3.4) — mirror of fast-path
+        # guard for general / UnitProduct sources. `contains_unit_by_identity`
+        # descends into UnitProduct factors.
+        _ctx = _sys_active_var.get()
+        if _ctx is not None and _ctx.strict and not graph.contains_unit_by_identity(graph_src):
+            raise UnitDefinitionMismatch(graph_src, graph=graph)
 
         conversion_map = graph.convert(src=graph_src, dst=graph_dst)
         # Use raw quantity - the conversion map handles scale via factorwise decomposition
@@ -2842,6 +2858,11 @@ class NumberArray:
                         "was called before 'import ucon' completed."
                     )
                 graph = ctx.system.conversion_graph
+
+        # Strict source-unit resolution (v2.0 §3.4): mirror of Number.to.
+        _ctx = _sys_active_var.get()
+        if _ctx is not None and _ctx.strict and not graph.contains_unit_by_identity(src):
+            raise UnitDefinitionMismatch(src, graph=graph)
 
         conversion_map = graph.convert(src=src, dst=dst)
 

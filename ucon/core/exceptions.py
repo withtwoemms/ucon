@@ -13,7 +13,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ucon.core._types import Unit
+    from ucon.conversion import Graph as ConversionGraph
+    from ucon.core._types import Unit, UnitProduct
 
 
 class DimensionNotCovered(Exception):
@@ -59,3 +60,39 @@ class NonScalableError(UnknownUnitError):
             f"cannot be applied.",
         )
         self.name = attempted
+
+
+class UnitDefinitionMismatch(Exception):
+    """Source unit not in the active conversion graph by identity.
+
+    Raised by :meth:`ucon.Number.to` (and :meth:`ucon.NumberArray.to`)
+    under ``strict=True`` (the v2.0 default) when ``self.unit`` is not
+    registered in the resolution graph by object identity. The most common
+    cause is using a :class:`Number` constructed under one
+    :class:`UnitSystem` against another. Re-bind via ``system.adopt(n)`` if
+    the unit names match across systems, or
+    ``Bridge(src, dst, ...).apply(n)`` when names or bases diverge.
+
+    Attributes
+    ----------
+    unit : Unit | UnitProduct
+        The source unit that failed identity-based resolution.
+    graph : ConversionGraph
+        The active conversion graph that did not contain ``unit`` by
+        identity.
+    """
+
+    def __init__(
+        self,
+        unit: 'Unit | UnitProduct',
+        *,
+        graph: 'ConversionGraph',
+    ) -> None:
+        self.unit = unit
+        self.graph = graph
+        name = getattr(unit, "name", None) or repr(unit)
+        super().__init__(
+            f"Unit {name!r} is not in the active conversion graph by "
+            f"identity. Use system.adopt(n) or "
+            f"Bridge(src, dst, ...).apply(n) to rebind."
+        )
