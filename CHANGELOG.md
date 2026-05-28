@@ -49,6 +49,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   descending into `UnitProduct` factors. This is the lookup semantics
   required by strict source-unit resolution; it is intentionally
   distinct from value-based `__contains__` and `resolve_unit`.
+- **`Number.kind` field (v2.0 §3.4)** — optional `Kind | None = None`
+  slot on `Number`, validated against the unit's dimension at
+  construction (raises `KindDimensionMismatch` on mismatch) and
+  preserved through every `Number.to(...)` conversion path (fast,
+  scale-only, general). Backward-compatible: existing `Number(...)`
+  constructions without `kind=` are unaffected, and equality is
+  unchanged in this slice — `kind` is carried as metadata alongside
+  `uncertainty` and does not participate in `__eq__`. Kind-aware
+  equality and arithmetic dispatch are reserved for the follow-on
+  §3.4 slices.
+- **`KindDimensionMismatch`** — new public exception raised at
+  `Number.__post_init__` when a supplied `kind`'s dimension does not
+  match the unit's dimension. Carries the offending `kind` and `unit`.
+  Exported from `ucon.core` and re-exported from `ucon`.
 
 ### Changed
 
