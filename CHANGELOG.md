@@ -39,6 +39,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests under `tests/ucon/system/`: `test_algebra.py`,
   `test_algebra_laws.py`, `test_relations.py`, `test_adopt.py`,
   `test_bridge.py`, `test_active_context.py`.
+- **`UnitDefinitionMismatch`** — new public exception raised by
+  `Number.to` and `NumberArray.to` under `strict=True` when the source
+  unit is not in the active conversion graph by object identity.
+  Carries the offending `unit` and the `graph` that did not contain it.
+  Exported from `ucon.core` and re-exported from `ucon`.
+- `ConversionGraph.contains_unit_by_identity(unit)` — new public method
+  that performs `is`-comparison against every node in `_unit_edges`,
+  descending into `UnitProduct` factors. This is the lookup semantics
+  required by strict source-unit resolution; it is intentionally
+  distinct from value-based `__contains__` and `resolve_unit`.
 
 ### Changed
 
@@ -68,6 +78,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   user code that only goes through public entry points is unaffected.
 - `UnitSystem.from_globals(...)` deprecation message updated to point
   at `active_system()` instead of the (now-breaking) `active()`.
+- **BREAKING (v2.0 §3.4): `Number.to` and `NumberArray.to` enforce
+  identity-based source-unit resolution under `strict=True` (the v2.0
+  default).** A `Number` whose `unit` is not in the active conversion
+  graph by object identity now raises `ucon.UnitDefinitionMismatch`
+  instead of being silently re-resolved by name. Remediation:
+  `system.adopt(n)` when systems share unit names, or
+  `Bridge(src, dst, ...).apply(n)` when names or bases diverge.
+  Per-scope opt-out: `with use(system, strict=False): ...` preserves
+  v1.x name-based ergonomics. The common case (a single active
+  `UnitSystem`, or systems derived via `extend` / `restrict` / `with_*`
+  that share `Unit` objects by reference) is unaffected. This makes
+  `Bridge` structurally load-bearing at the `Number` layer, mirroring
+  what §3.5 already did at the `Vector` layer with `BasisMismatch`.
 
 ## [1.12.0] - 2026-05-23
 
