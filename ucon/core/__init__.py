@@ -14,6 +14,7 @@ backward compatibility. ``from ucon.core import Unit`` continues to work.
 from ucon.core._parsing_graph import _get_parsing_graph, _parsing_graph
 from ucon.core.exceptions import (
     DimensionNotCovered,
+    KindDimensionMismatch,
     NonScalableError,
     UnitDefinitionMismatch,
     UnknownUnitError,
@@ -45,6 +46,7 @@ __all__ = [
     'DimensionConstraint',
     'DimensionNotCovered',
     'Exponent',
+    'KindDimensionMismatch',
     'NonScalableError',
     'Number',
     'NumberArray',

@@ -24,8 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from ucon import Number
-from ucon.core.exceptions import KindDimensionMismatch
+from ucon import KindDimensionMismatch, Number
 from ucon.dimension import ENERGY, LENGTH
 from ucon.kinds import Kind
 from ucon.units import joule, meter
