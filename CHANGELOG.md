@@ -66,6 +66,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`Number.__repr__` extended for `kind`.** A bound `kind` now renders
+  as a bracketed tag after the unit shorthand:
+  `<500 J [kinetic_energy]>` (or `<500 ± 0.5 J [kinetic_energy]>` with
+  uncertainty). Existing `kind`-less reprs are byte-identical to the
+  prior release. The repr is now assembled from an optional-parts list
+  so the forthcoming aspects channel can append `#aspect` tokens
+  without restructuring the existing channels.
+
 - **BREAKING: `ucon.active()` now returns `ActiveContext`** rather
   than `UnitSystem`. Migration: call `active_system()` where the
   previous code wanted the `UnitSystem`, or access `active().system`
