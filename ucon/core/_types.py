@@ -2142,13 +2142,22 @@ class Number:
         )
 
     def __repr__(self):
+        # Build the repr from optional parts so each metadata channel
+        # (uncertainty, kind, and — forthcoming — aspects) can be added
+        # or removed without restructuring the others. Channel layout:
+        #
+        #     <{q} [± {u}] [{shorthand}] [[kind_name]] [#aspect ...]>
+        #
+        # Aspects will append `#name` tokens once they become a Number
+        # field; the current scaffold already accommodates that shape.
+        parts: list[str] = [str(self.quantity)]
         if self.uncertainty is not None:
-            if not self.unit.dimension:
-                return f"<{self.quantity} ± {self.uncertainty}>"
-            return f"<{self.quantity} ± {self.uncertainty} {self.unit.shorthand}>"
-        if not self.unit.dimension:
-            return f"<{self.quantity}>"
-        return f"<{self.quantity} {self.unit.shorthand}>"
+            parts += ["±", str(self.uncertainty)]
+        if self.unit.dimension:
+            parts.append(self.unit.shorthand)
+        if self.kind is not None:
+            parts.append(f"[{self.kind.name}]")
+        return f"<{' '.join(parts)}>"
 
 
 class Ratio:

@@ -113,3 +113,35 @@ class TestNumberKindConversionPreservation:
         n = Number(1, meter, kind=LENGTH_KIND)
         m = n.to("cm")
         assert m.kind is LENGTH_KIND
+
+
+class TestNumberKindRepr:
+    """``repr(Number)`` surfaces ``kind`` as a bracketed tag.
+
+    Channel layout:
+
+        <{q} [± {u}] [{shorthand}] [[kind_name]] [#aspect ...]>
+
+    Aspect (``#name``) tokens are reserved for the forthcoming aspects
+    slice and are not exercised here.
+    """
+
+    def test_repr_without_kind_is_unchanged(self) -> None:
+        assert repr(Number(500, joule)) == "<500 J>"
+
+    def test_repr_without_kind_dimensionless_is_unchanged(self) -> None:
+        assert repr(Number(5)) == "<5>"
+
+    def test_repr_with_uncertainty_and_no_kind_is_unchanged(self) -> None:
+        assert repr(Number(500, joule, uncertainty=0.5)) == "<500 ± 0.5 J>"
+
+    def test_repr_with_kind_appends_bracketed_name(self) -> None:
+        n = Number(500, joule, kind=KINETIC_ENERGY)
+        assert repr(n) == "<500 J [kinetic_energy]>"
+
+    def test_repr_with_uncertainty_and_kind_orders_uncertainty_first(self) -> None:
+        n = Number(500, joule, uncertainty=0.5, kind=KINETIC_ENERGY)
+        assert repr(n) == "<500 ± 0.5 J [kinetic_energy]>"
+
+    def test_repr_dimensionless_with_uncertainty_unchanged(self) -> None:
+        assert repr(Number(5, uncertainty=0.1)) == "<5 ± 0.1>"
