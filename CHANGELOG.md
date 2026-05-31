@@ -77,6 +77,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   '_residual_scale_factor', 1.0)`; the field starts with no underscore
   and the default behavior is preserved.
 
+- **`UnitProduct.__init__` canonical-form contract tightened.** The
+  constructor now (1) accepts an optional second positional argument,
+  `canonical_scale: float = 1.0`, which is composed into the final
+  `canonical_scale` of the constructed product; (2) accesses
+  `key.canonical_scale` directly on flattened nested products instead
+  of going through `getattr(..., 1.0)`; and (3) **absorbs** the scale
+  of any dimensionless (NONE-dim) factor into `canonical_scale` before
+  dropping the factor, where previously such factors' scales were
+  silently discarded. Single-argument call sites are unaffected
+  (default `1.0` for the new parameter, default `1.0` absorption when
+  no NONE-dim factors are present). The new parameter enables the
+  idempotence guarantee `UnitProduct(u.factors, u.canonical_scale)`
+  is structurally equal to `u`. Property tests live in
+  `tests/ucon/core/test_unitproduct_canonical.py`.
+
 - **`Number.__repr__` extended for `kind`.** A bound `kind` now renders
   as a bracketed tag after the unit shorthand:
   `<500 J [kinetic_energy]>` (or `<500 ± 0.5 J [kinetic_energy]>` with

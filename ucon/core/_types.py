@@ -848,9 +848,34 @@ class UnitProduct:
 
     _SUPERSCRIPTS = str.maketrans("0123456789-.", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻·")
 
-    def __init__(self, factors: dict[Unit, float]):
+    def __init__(self, factors: dict[Unit, float], canonical_scale: float = 1.0):
         """
-        Build a UnitProduct with UnitFactor keys, preserving user-provided scales.
+        Build a canonical UnitProduct with UnitFactor keys, preserving
+        user-provided scales.
+
+        Parameters
+        ----------
+        factors
+            Mapping of Unit / UnitFactor / nested UnitProduct keys to
+            exponents. Canonicalized in place: dimensionless factors are
+            absorbed into ``canonical_scale``, zero-exponent factors are
+            dropped, scaled variants of the same unit collapse per the
+            Step 4 rules below.
+        canonical_scale
+            Seed value composed into the final canonical_scale. Defaults
+            to ``1.0`` so existing single-argument call sites are
+            unaffected. Passing the canonical_scale of an already-built
+            product (``UnitProduct(u.factors, u.canonical_scale)``)
+            yields a structurally equal product (idempotence).
+
+        Canonical form
+        --------------
+        On return, ``factors`` contains no dimensionless factor, no
+        zero-exponent factor, and at most one entry per
+        ``(unit_name, dimension, aliases, scale)`` group. The
+        ``canonical_scale`` field is ``1.0`` whenever ``factors`` is
+        non-empty; a non-1.0 value is permitted only on fully-cancelled
+        dimensionless products.
 
         Key principles:
         - Never canonicalize scale (no implicit preference for Scale.one).
@@ -871,7 +896,10 @@ class UnitProduct:
                     key = UnitFactor(key, Scale.one)
                 if isinstance(key, UnitFactor) and key.dimension != NONE and abs(exp) > 1e-12:
                     self.factors = {key: exp}
-                    self.canonical_scale = 1.0
+                    # canonical_scale must be 1.0 when factors is non-empty
+                    # (canonical-form invariant); seed values are not absorbed
+                    # into surviving factors.
+                    self.canonical_scale = canonical_scale
                     self.dimension = key.dimension ** exp
                     return
 
@@ -890,7 +918,7 @@ class UnitProduct:
                         and abs(e0) > 1e-12 and abs(e1) > 1e-12
                         and k0 != k1):
                     self.factors = {k0: e0, k1: e1}
-                    self.canonical_scale = 1.0
+                    self.canonical_scale = canonical_scale
                     self.dimension = (k0.dimension ** e0) * (k1.dimension ** e1)
                     return
 
@@ -928,21 +956,29 @@ class UnitProduct:
                 for inner_fu, inner_exp in key.factors.items():
                     merge_fu(inner_fu, inner_exp * exp)
                 # Capture residual scale from the nested product
-                # (e.g., from mg/kg cancellation)
-                inner_residual = getattr(key, 'canonical_scale', 1.0)
+                # (e.g., from mg/kg cancellation). The nested product
+                # has already passed through __init__ so canonical_scale
+                # is always present; direct attribute access suffices.
+                inner_residual = key.canonical_scale
                 if inner_residual != 1.0:
                     inherited_residual *= inner_residual ** exp
             else:
                 merge_fu(to_factored(key), exp)
 
         # -----------------------------------------------------
-        # Step 2 — Remove exponent-zero & dimensionless UnitFactors
+        # Step 2 — Drop exponent-zero factors; absorb dimensionless ones
         # -----------------------------------------------------
+        # Dimensionless factors carry no dimensional content but may carry
+        # a non-unit scale (e.g., a scaled ``Scale.one`` placeholder). The
+        # canonical contract treats them as composing into
+        # ``canonical_scale`` rather than being silently discarded.
+        absorbed_dimensionless_scale: float = 1.0
         simplified: dict[UnitFactor, float] = {}
         for fu, exp in merged.items():
             if abs(exp) < 1e-12:
                 continue
             if fu.dimension == NONE:
+                absorbed_dimensionless_scale *= fu.scale.value.evaluated ** exp
                 continue
             simplified[fu] = exp
 
@@ -1009,9 +1045,23 @@ class UnitProduct:
 
         self.factors = final
 
-        # Store the residual scale factor from cancellations (numeric)
-        # Include inherited residual from nested UnitProducts
-        self.canonical_scale = residual_scale_factor * inherited_residual
+        # Compose the canonical_scale from four sources:
+        #   - ``residual_scale_factor`` — scale carried out of Step-4
+        #     cancellations within this construction
+        #   - ``inherited_residual``    — scale carried in from already-
+        #     canonical nested UnitProducts flattened in Step 1
+        #   - ``absorbed_dimensionless_scale`` — scale of dim=NONE
+        #     factors absorbed in Step 2 (rather than silently dropped)
+        #   - ``canonical_scale``       — caller-supplied seed; defaults
+        #     to ``1.0`` so single-arg call sites are unaffected, and
+        #     enables idempotence (``UnitProduct(u.factors,
+        #     u.canonical_scale) == u``).
+        self.canonical_scale = (
+            residual_scale_factor
+            * inherited_residual
+            * absorbed_dimensionless_scale
+            * canonical_scale
+        )
 
         # -----------------------------------------------------
         # Step 5 — Derive dimension via exponent algebra
