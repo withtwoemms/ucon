@@ -41,8 +41,9 @@ else:
 from ucon._active import _active as _sys_active_var
 from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
-from ucon.core.exceptions import UnitDefinitionMismatch
+from ucon.core.exceptions import KindDimensionMismatch, UnitDefinitionMismatch
 from ucon.dimension import Dimension, NONE
+from ucon.kinds.types import Kind
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -1426,10 +1427,13 @@ class Number:
     quantity: Union[float, int] = 1.0
     unit: Union[Unit, UnitProduct] = None
     uncertainty: Union[float, None] = None
+    kind: Union[Kind, None] = None
 
     def __post_init__(self):
         if self.unit is None:
             object.__setattr__(self, 'unit', _none)
+        if self.kind is not None and self.kind.dimension != self.unit.dimension:
+            raise KindDimensionMismatch(kind=self.kind, unit=self.unit)
 
     def __class_getitem__(cls, dim):
         """Enable Number[Dimension.X] syntax for type annotations.
@@ -1866,7 +1870,7 @@ class Number:
                 new_unc = math.sqrt(dy_meas**2 + dy_factor**2)
                 if new_unc == 0.0:
                     new_unc = None
-            return Number(quantity=converted, unit=target, uncertainty=new_unc)
+            return Number(quantity=converted, unit=target, uncertainty=new_unc, kind=self.kind)
 
         # --- General path: wrap into UnitProducts ---
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
@@ -1878,7 +1882,7 @@ class Number:
             new_uncertainty = None
             if self.uncertainty is not None:
                 new_uncertainty = self.uncertainty * abs(factor)
-            return Number(quantity=self.quantity * factor, unit=target, uncertainty=new_uncertainty)
+            return Number(quantity=self.quantity * factor, unit=target, uncertainty=new_uncertainty, kind=self.kind)
 
         # Pass raw Units to graph.convert() when possible, so the graph
         # can use _convert_units() which handles cross-basis via rebased units.
@@ -1930,7 +1934,7 @@ class Number:
             if new_uncertainty == 0.0:
                 new_uncertainty = None
 
-        return Number(quantity=converted_quantity, unit=target, uncertainty=new_uncertainty)
+        return Number(quantity=converted_quantity, unit=target, uncertainty=new_uncertainty, kind=self.kind)
 
     def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
         """Check if conversion is just a scale change (same base units)."""
@@ -2138,13 +2142,22 @@ class Number:
         )
 
     def __repr__(self):
+        # Build the repr from optional parts so each metadata channel
+        # (uncertainty, kind, and — forthcoming — aspects) can be added
+        # or removed without restructuring the others. Channel layout:
+        #
+        #     <{q} [± {u}] [{shorthand}] [[kind_name]] [#aspect ...]>
+        #
+        # Aspects will append `#name` tokens once they become a Number
+        # field; the current scaffold already accommodates that shape.
+        parts: list[str] = [str(self.quantity)]
         if self.uncertainty is not None:
-            if not self.unit.dimension:
-                return f"<{self.quantity} ± {self.uncertainty}>"
-            return f"<{self.quantity} ± {self.uncertainty} {self.unit.shorthand}>"
-        if not self.unit.dimension:
-            return f"<{self.quantity}>"
-        return f"<{self.quantity} {self.unit.shorthand}>"
+            parts += ["±", str(self.uncertainty)]
+        if self.unit.dimension:
+            parts.append(self.unit.shorthand)
+        if self.kind is not None:
+            parts.append(f"[{self.kind.name}]")
+        return f"<{' '.join(parts)}>"
 
 
 class Ratio:

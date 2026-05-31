@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ucon.conversion import Graph as ConversionGraph
     from ucon.core._types import Unit, UnitProduct
+    from ucon.kinds.types import Kind
 
 
 class DimensionNotCovered(Exception):
@@ -95,4 +96,30 @@ class UnitDefinitionMismatch(Exception):
             f"Unit {name!r} is not in the active conversion graph by "
             f"identity. Use system.adopt(n) or "
             f"Bridge(src, dst, ...).apply(n) to rebind."
+        )
+
+
+class KindDimensionMismatch(Exception):
+    """Kind's dimension does not match the Number's unit dimension.
+
+    Raised at :meth:`ucon.Number.__post_init__` when ``kind`` is supplied
+    and ``kind.dimension != unit.dimension``. A Number's kind must refine
+    the same dimensional equivalence class its unit lives in (v2.0 §3.4).
+
+    Attributes
+    ----------
+    kind : Kind
+        The kind whose dimension did not match.
+    unit : Unit | UnitProduct
+        The unit the Number was constructed with.
+    """
+
+    def __init__(self, *, kind: 'Kind', unit: 'Unit | UnitProduct') -> None:
+        self.kind = kind
+        self.unit = unit
+        unit_name = getattr(unit, "name", None) or repr(unit)
+        super().__init__(
+            f"Kind {kind.name!r} has dimension {kind.dimension!r}, "
+            f"but unit {unit_name!r} has dimension {unit.dimension!r}. "
+            f"A Number's kind must refine the dimension of its unit."
         )
