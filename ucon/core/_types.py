@@ -871,7 +871,7 @@ class UnitProduct:
                     key = UnitFactor(key, Scale.one)
                 if isinstance(key, UnitFactor) and key.dimension != NONE and abs(exp) > 1e-12:
                     self.factors = {key: exp}
-                    self._residual_scale_factor = 1.0
+                    self.canonical_scale = 1.0
                     self.dimension = key.dimension ** exp
                     return
 
@@ -890,7 +890,7 @@ class UnitProduct:
                         and abs(e0) > 1e-12 and abs(e1) > 1e-12
                         and k0 != k1):
                     self.factors = {k0: e0, k1: e1}
-                    self._residual_scale_factor = 1.0
+                    self.canonical_scale = 1.0
                     self.dimension = (k0.dimension ** e0) * (k1.dimension ** e1)
                     return
 
@@ -929,7 +929,7 @@ class UnitProduct:
                     merge_fu(inner_fu, inner_exp * exp)
                 # Capture residual scale from the nested product
                 # (e.g., from mg/kg cancellation)
-                inner_residual = getattr(key, '_residual_scale_factor', 1.0)
+                inner_residual = getattr(key, 'canonical_scale', 1.0)
                 if inner_residual != 1.0:
                     inherited_residual *= inner_residual ** exp
             else:
@@ -1011,7 +1011,7 @@ class UnitProduct:
 
         # Store the residual scale factor from cancellations (numeric)
         # Include inherited residual from nested UnitProducts
-        self._residual_scale_factor = residual_scale_factor * inherited_residual
+        self.canonical_scale = residual_scale_factor * inherited_residual
 
         # -----------------------------------------------------
         # Step 5 — Derive dimension via exponent algebra
@@ -1090,7 +1090,7 @@ class UnitProduct:
         if cached is not None:
             return cached
 
-        result = getattr(self, '_residual_scale_factor', 1.0)
+        result = getattr(self, 'canonical_scale', 1.0)
         for factor, power in self.factors.items():
             result *= factor.scale.value.evaluated ** power
 
@@ -1111,7 +1111,7 @@ class UnitProduct:
             return cached
 
         base_factors: dict = {}
-        prefactor = getattr(self, '_residual_scale_factor', 1.0)
+        prefactor = getattr(self, 'canonical_scale', 1.0)
 
         for uf, exp in self.factors.items():
             prefactor *= uf.scale.value.evaluated ** exp
@@ -1221,7 +1221,7 @@ class UnitProduct:
             combined[other] = combined.get(other, 0.0) + 1.0
             result = UnitProduct(combined)
             # Propagate residual scale factor from self
-            result._residual_scale_factor *= self._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
             return result
 
         if isinstance(other, UnitProduct):
@@ -1230,8 +1230,8 @@ class UnitProduct:
                 combined[u] = combined.get(u, 0.0) + exp
             result = UnitProduct(combined)
             # Propagate residual scale factors from both operands
-            result._residual_scale_factor *= self._residual_scale_factor
-            result._residual_scale_factor *= other._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
+            result.canonical_scale *= other.canonical_scale
             return result
 
         if isinstance(other, Scale):
@@ -1285,7 +1285,7 @@ class UnitProduct:
 
             result = UnitProduct(combined)
             # Propagate residual scale factor from self
-            result._residual_scale_factor *= self._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
             return result
 
         if isinstance(other, Unit):
@@ -1294,7 +1294,7 @@ class UnitProduct:
                 combined[u] = combined.get(u, 0.0) + e
             result = UnitProduct(combined)
             # Propagate residual scale factor from self
-            result._residual_scale_factor *= self._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
             return result
 
         return NotImplemented
@@ -1305,7 +1305,7 @@ class UnitProduct:
             combined[other] = combined.get(other, 0.0) - 1.0
             result = UnitProduct(combined)
             # Propagate residual scale factor from self
-            result._residual_scale_factor *= self._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
             return result
 
         if isinstance(other, UnitProduct):
@@ -1314,8 +1314,8 @@ class UnitProduct:
                 combined[u] = combined.get(u, 0.0) - exp
             result = UnitProduct(combined)
             # Propagate residual: self's residual divided by other's residual
-            result._residual_scale_factor *= self._residual_scale_factor
-            result._residual_scale_factor /= other._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
+            result.canonical_scale /= other.canonical_scale
             return result
 
         return NotImplemented
@@ -1462,7 +1462,7 @@ class Number:
         Pure function of (self.quantity, self.unit). Does NOT consult any graph.
         """
         if isinstance(self.unit, UnitProduct):
-            result = self.quantity * getattr(self.unit, '_residual_scale_factor', 1.0)
+            result = self.quantity * getattr(self.unit, 'canonical_scale', 1.0)
             for uf, exp in self.unit.factors.items():
                 result *= uf.scale.value.evaluated ** exp
                 bf = uf.unit.base_form
@@ -1558,7 +1558,7 @@ class Number:
                     and abs(bf.factors[0][1] - 1.0) < 1e-12)
 
         if isinstance(self.unit, UnitProduct):
-            if getattr(self.unit, '_residual_scale_factor', 1.0) != 1.0:
+            if getattr(self.unit, 'canonical_scale', 1.0) != 1.0:
                 return False
             for uf in self.unit.factors:
                 if uf.scale is not Scale.one:
@@ -1910,11 +1910,11 @@ class Number:
         converted_quantity = conversion_map(self.quantity)
 
         # Account for residual scale factors from cancelled dimensions.
-        # When units cancel (e.g., mcg/kg), the scale ratio goes into _residual_scale_factor.
+        # When units cancel (e.g., mcg/kg), the scale ratio goes into canonical_scale.
         # The graph conversion only sees the remaining dimensions, so we must apply
         # the residual ratio here: src_residual / dst_residual.
-        src_residual = getattr(src, '_residual_scale_factor', 1.0)
-        dst_residual = getattr(dst, '_residual_scale_factor', 1.0)
+        src_residual = getattr(src, 'canonical_scale', 1.0)
+        dst_residual = getattr(dst, 'canonical_scale', 1.0)
         if src_residual != 1.0 or dst_residual != 1.0:
             converted_quantity *= (src_residual / dst_residual)
 

@@ -198,7 +198,7 @@ class _UnitParser:
 
         Explicitly accumulates factors to:
         1. Handle equal operands correctly (second*second → s²)
-        2. Propagate _residual_scale_factor from both operands
+        2. Propagate canonical_scale from both operands
         """
         # Accumulate factors from both operands
         combined = {}
@@ -210,10 +210,10 @@ class _UnitParser:
         result = self.unit_product_cls(combined)
 
         # Propagate residual scale factors from both operands
-        left_residual = getattr(left, '_residual_scale_factor', 1.0)
-        right_residual = getattr(right, '_residual_scale_factor', 1.0)
+        left_residual = getattr(left, 'canonical_scale', 1.0)
+        right_residual = getattr(right, 'canonical_scale', 1.0)
         if left_residual != 1.0 or right_residual != 1.0:
-            result._residual_scale_factor = result._residual_scale_factor * left_residual * right_residual
+            result.canonical_scale = result.canonical_scale * left_residual * right_residual
 
         return result
 
@@ -222,7 +222,7 @@ class _UnitParser:
 
         Explicitly accumulates factors to:
         1. Handle equal operands correctly
-        2. Propagate _residual_scale_factor from both operands
+        2. Propagate canonical_scale from both operands
         """
         # Accumulate factors: left at +exp, right at -exp
         combined = {}
@@ -234,11 +234,11 @@ class _UnitParser:
         result = self.unit_product_cls(combined)
 
         # Propagate residual scale factors (right is inverted, so its residual is raised to -1)
-        left_residual = getattr(left, '_residual_scale_factor', 1.0)
-        right_residual = getattr(right, '_residual_scale_factor', 1.0)
+        left_residual = getattr(left, 'canonical_scale', 1.0)
+        right_residual = getattr(right, 'canonical_scale', 1.0)
         if left_residual != 1.0 or right_residual != 1.0:
             # right's residual is inverted since we're dividing
-            result._residual_scale_factor = result._residual_scale_factor * left_residual / right_residual
+            result.canonical_scale = result.canonical_scale * left_residual / right_residual
 
         return result
 

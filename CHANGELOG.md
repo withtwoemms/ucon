@@ -66,6 +66,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Internal rename: `UnitProduct._residual_scale_factor` →
+  `UnitProduct.canonical_scale`.** Same semantics, same default (`1.0`),
+  same propagation algebra. The rename is preparatory work for the v2
+  canonical-identity contract on `UnitProduct`
+  (`docs/internal/tickets/v2x-unitproduct-canonical-identity.md`): the
+  field is becoming a contract-bearing piece of the canonical form
+  rather than a defensively-accessed implementation cache. Affects
+  downstream code that reads `getattr(unit_product,
+  '_residual_scale_factor', 1.0)`; the field starts with no underscore
+  and the default behavior is preserved.
+
 - **`Number.__repr__` extended for `kind`.** A bound `kind` now renders
   as a bracketed tag after the unit shorthand:
   `<500 J [kinetic_energy]>` (or `<500 ± 0.5 J [kinetic_energy]>` with
