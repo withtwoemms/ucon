@@ -196,9 +196,7 @@ class _UnitParser:
     def _multiply(self, left: 'UnitProduct', right: 'UnitProduct') -> 'UnitProduct':
         """Multiply two UnitProducts.
 
-        Explicitly accumulates factors to:
-        1. Handle equal operands correctly (second*second → s²)
-        2. Propagate canonical_scale from both operands
+        Accumulates factors and composes canonical_scale from both operands.
         """
         # Accumulate factors from both operands
         combined = {}
@@ -209,20 +207,15 @@ class _UnitParser:
 
         result = self.unit_product_cls(combined)
 
-        # Propagate residual scale factors from both operands
-        left_residual = getattr(left, 'canonical_scale', 1.0)
-        right_residual = getattr(right, 'canonical_scale', 1.0)
-        if left_residual != 1.0 or right_residual != 1.0:
-            result.canonical_scale = result.canonical_scale * left_residual * right_residual
+        # Compose canonical_scale from both operands
+        result.canonical_scale *= left.canonical_scale * right.canonical_scale
 
         return result
 
     def _divide(self, left: 'UnitProduct', right: 'UnitProduct') -> 'UnitProduct':
         """Divide left by right (negate right's exponents).
 
-        Explicitly accumulates factors to:
-        1. Handle equal operands correctly
-        2. Propagate canonical_scale from both operands
+        Accumulates factors and composes canonical_scale from both operands.
         """
         # Accumulate factors: left at +exp, right at -exp
         combined = {}
@@ -233,12 +226,8 @@ class _UnitParser:
 
         result = self.unit_product_cls(combined)
 
-        # Propagate residual scale factors (right is inverted, so its residual is raised to -1)
-        left_residual = getattr(left, 'canonical_scale', 1.0)
-        right_residual = getattr(right, 'canonical_scale', 1.0)
-        if left_residual != 1.0 or right_residual != 1.0:
-            # right's residual is inverted since we're dividing
-            result.canonical_scale = result.canonical_scale * left_residual / right_residual
+        # Compose canonical_scale from both operands (right inverted)
+        result.canonical_scale *= left.canonical_scale / right.canonical_scale
 
         return result
 
