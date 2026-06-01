@@ -143,6 +143,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Bridge` structurally load-bearing at the `Number` layer, mirroring
   what §3.5 already did at the `Vector` layer with `BasisMismatch`.
 
+### Removed
+
+- **`_none` sentinel retired.** The module-level `_none = Unit()` in
+  `ucon.core._types` is deleted. All sites that returned or defaulted
+  to `_none` now use `UnitProduct({})` — the multiplicative identity
+  whose contract was established in Phase 2. External code that
+  imported `_none` from `ucon.core` or `ucon.quantity` should migrate
+  to structural checks: `unit == UnitProduct({})` or
+  `unit.factors == {}`.
+
 ## [1.12.0] - 2026-05-23
 
 Finishes the cycle-break work begun on the
