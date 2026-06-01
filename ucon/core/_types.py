@@ -1431,8 +1431,6 @@ class UnitProduct:
 # Quantity types: Number, Ratio, DimensionConstraint
 # =====================================================================
 
-# Dimensionless unit for use as default in Number
-_none = Unit()
 
 _Quantifiable = Union['Number', 'Ratio']
 
@@ -1487,7 +1485,7 @@ class Number:
 
     def __post_init__(self):
         if self.unit is None:
-            object.__setattr__(self, 'unit', _none)
+            object.__setattr__(self, 'unit', UnitProduct({}))
         if self.kind is not None and self.kind.dimension != self.unit.dimension:
             raise KindDimensionMismatch(kind=self.kind, unit=self.unit)
 
@@ -2145,7 +2143,7 @@ class Number:
             num = self._canonical_magnitude
             den = other._canonical_magnitude
             result = num / den
-            return Number(quantity=result, unit=_none, uncertainty=compute_uncertainty(result))
+            return Number(quantity=result, unit=UnitProduct({}), uncertainty=compute_uncertainty(result))
 
         # --- Case 2: Dimensionful result -----------------------------------
         # For "real" physical results like g/mL, m/s², etc., preserve the
@@ -2252,7 +2250,7 @@ class Ratio:
         if not unit.dimension:
             num = self.numerator._canonical_magnitude
             den = self.denominator._canonical_magnitude
-            return Number(quantity=num / den, unit=_none)
+            return Number(quantity=num / den, unit=UnitProduct({}))
 
         # Dimensionful result: preserve user's chosen scales symbolically
         numeric = self.numerator.quantity / self.denominator.quantity
@@ -2367,7 +2365,7 @@ class NumberArray:
         _require_numpy()
 
         self._quantities: NDArray[np.floating] = np.asarray(quantities, dtype=float)
-        self._unit = unit if unit is not None else _none
+        self._unit = unit if unit is not None else UnitProduct({})
 
         if uncertainty is not None:
             if isinstance(uncertainty, (int, float)):
@@ -2605,7 +2603,7 @@ class NumberArray:
                 new_unc = np.abs(result_q) * rel_unc
 
             # Unit is 1/self.unit
-            inv_unit = _none / self._unit
+            inv_unit = UnitProduct({}) / self._unit
             return NumberArray(quantities=result_q, unit=inv_unit, uncertainty=new_unc)
 
         return NotImplemented

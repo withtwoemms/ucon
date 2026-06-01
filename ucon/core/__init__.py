@@ -33,7 +33,6 @@ from ucon.core._types import (
     UnitProduct,
     _Quantifiable,
     _ScaleDescriptor,
-    _none,
 )
 
 # Re-export Dimension for backward compatibility — several modules do
@@ -60,7 +59,6 @@ __all__ = [
     'UnknownUnitError',
     '_ScaleDescriptor',
     '_get_parsing_graph',
-    '_none',
     '_parsing_graph',
     '_Quantifiable',
 ]

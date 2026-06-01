@@ -5,6 +5,8 @@
 import unittest
 import math
 
+from ucon import UnitProduct
+
 try:
     import polars as pl
     HAS_POLARS = True
@@ -37,9 +39,8 @@ class TestNumberColumnBasic(unittest.TestCase):
 
     def test_default_unit_is_dimensionless(self):
         from ucon.integrations.polars import NumberColumn
-        from ucon.quantity import _none
         nc = NumberColumn(pl.Series([1.0, 2.0]))
-        self.assertEqual(nc.unit, _none)
+        self.assertEqual(nc.unit, UnitProduct({}))
 
     def test_uniform_uncertainty(self):
         from ucon.integrations.polars import NumberColumn

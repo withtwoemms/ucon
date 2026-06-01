@@ -158,7 +158,7 @@ class TestNumberEdgeCases(unittest.TestCase):
     def test_default_number_is_dimensionless_one(self):
         """Default Number() is dimensionless with quantity=1."""
         n = Number()
-        self.assertEqual(n.unit, units.none)
+        self.assertEqual(n.unit, UnitProduct({}))
         self.assertEqual(n.quantity, 1)
         self.assertAlmostEqual(n.value, 1.0)
         self.assertIn("1", repr(n))
@@ -308,8 +308,8 @@ class TestRatioEdgeCases(unittest.TestCase):
 
     def test_default_ratio_is_dimensionless_one(self):
         r = Ratio()
-        self.assertEqual(r.numerator.unit, units.none)
-        self.assertEqual(r.denominator.unit, units.none)
+        self.assertEqual(r.numerator.unit, UnitProduct({}))
+        self.assertEqual(r.denominator.unit, UnitProduct({}))
         self.assertAlmostEqual(r.evaluate().value, 1.0)
 
     def test_reciprocal_swaps_numerator_and_denominator(self):

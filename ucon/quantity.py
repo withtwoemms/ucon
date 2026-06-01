@@ -7,6 +7,6 @@ ucon.quantity — backwards-compatibility shim.
 
 All types moved to :mod:`ucon.core`.
 """
-from ucon.core import DimensionConstraint, Number, Ratio, _none, _Quantifiable
+from ucon.core import DimensionConstraint, Number, Ratio, _Quantifiable
 
 __all__ = ['DimensionConstraint', 'Number', 'Ratio']

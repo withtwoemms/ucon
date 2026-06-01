@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     import polars as pl
 
 from ucon.core import Unit, UnitProduct, UnitFactor, Scale
-from ucon.core import Number, _none
+from ucon.core import Number
 from ucon.graph import get_default_graph
 
 
@@ -96,7 +96,7 @@ class NumberColumn:
             series = pl.Series(series)
 
         self._series: pl.Series = series.cast(pl.Float64)
-        self._unit = unit if unit is not None else _none
+        self._unit = unit if unit is not None else UnitProduct({})
 
         if uncertainty is not None:
             if isinstance(uncertainty, (int, float)):
