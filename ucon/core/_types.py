@@ -859,8 +859,9 @@ class UnitProduct:
             Mapping of Unit / UnitFactor / nested UnitProduct keys to
             exponents. Canonicalized in place: dimensionless factors are
             absorbed into ``canonical_scale``, zero-exponent factors are
-            dropped, scaled variants of the same unit collapse per the
-            Step 4 rules below.
+            dropped, same-scale variants collapse per the Step 4 rules
+            below. Cross-scale variants (e.g. ``mg`` and ``kg``) are
+            distinct UnitFactors and both survive.
         canonical_scale
             Seed value composed into the final canonical_scale. Defaults
             to ``1.0`` so existing single-argument call sites are
@@ -868,21 +869,26 @@ class UnitProduct:
             product (``UnitProduct(u.factors, u.canonical_scale)``)
             yields a structurally equal product (idempotence).
 
-        Canonical form
-        --------------
-        On return, ``factors`` contains no dimensionless factor, no
-        zero-exponent factor, and at most one entry per
-        ``(unit_name, dimension, aliases, scale)`` group. The
+        Canonical form (per-UnitFactor grain)
+        --------------------------------------
+        On return, ``factors`` contains at most one entry per distinct
+        ``UnitFactor`` — i.e. per ``(unit_name, dimension, aliases,
+        scale)`` tuple. No dimensionless factor survives (absorbed into
+        ``canonical_scale``), no zero-exponent factor survives. The
         ``canonical_scale`` field is ``1.0`` whenever ``factors`` is
         non-empty; a non-1.0 value is permitted only on fully-cancelled
         dimensionless products.
 
+        Cross-scale variants of the same base unit (e.g. ``mg`` and
+        ``kg``) are distinct UnitFactors and both survive. This
+        preserves downstream composition (``mg/kg * kg == mg``) and
+        display fidelity (shorthand renders ``"mg/kg"``). The numeric
+        ratio is recoverable via ``fold_scale()``.
+
         Key principles:
         - Never canonicalize scale (no implicit preference for Scale.one).
-        - Only collapse scaled variants of the same base unit when total exponent == 0.
-        - If only one scale variant exists in a group, preserve it exactly.
-        - If multiple variants exist and the group exponent != 0, preserve the FIRST
-        encountered UnitFactor (keeps user-intent scale).
+        - Same-scale duplicates collapse; cross-scale variants survive.
+        - Scale is part of the identity of a UnitFactor, not metadata.
         """
 
         self.name = ""
