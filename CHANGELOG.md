@@ -95,6 +95,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   collapse normally. Property tests live in
   `tests/ucon/core/test_unitproduct_canonical.py`.
 
+- **Parsing layer composes `canonical_scale` unconditionally.**
+  `_multiply` and `_divide` in `ucon/parsing/units.py` now access
+  `canonical_scale` directly and compose it unconditionally, replacing
+  the defensive `getattr(..., 1.0)` fallbacks and conditional guards
+  that existed before the field was contract-bearing.
+
 - **`Number.__repr__` extended for `kind`.** A bound `kind` now renders
   as a bracketed tag after the unit shorthand:
   `<500 J [kinetic_energy]>` (or `<500 ± 0.5 J [kinetic_energy]>` with
