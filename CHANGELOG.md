@@ -68,28 +68,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Internal rename: `UnitProduct._residual_scale_factor` →
   `UnitProduct.canonical_scale`.** Same semantics, same default (`1.0`),
-  same propagation algebra. The rename is preparatory work for the v2
-  canonical-identity contract on `UnitProduct`
-  (`docs/internal/tickets/v2x-unitproduct-canonical-identity.md`): the
-  field is becoming a contract-bearing piece of the canonical form
-  rather than a defensively-accessed implementation cache. Affects
-  downstream code that reads `getattr(unit_product,
-  '_residual_scale_factor', 1.0)`; the field starts with no underscore
-  and the default behavior is preserved.
+  same propagation algebra. The field is becoming a contract-bearing
+  piece of the canonical form rather than a defensively-accessed
+  implementation cache. Affects downstream code that reads
+  `getattr(unit_product, '_residual_scale_factor', 1.0)`; the field
+  starts with no underscore and the default behavior is preserved.
 
-- **`UnitProduct.__init__` canonical-form contract tightened.** The
-  constructor now (1) accepts an optional second positional argument,
-  `canonical_scale: float = 1.0`, which is composed into the final
-  `canonical_scale` of the constructed product; (2) accesses
-  `key.canonical_scale` directly on flattened nested products instead
-  of going through `getattr(..., 1.0)`; and (3) **absorbs** the scale
-  of any dimensionless (NONE-dim) factor into `canonical_scale` before
-  dropping the factor, where previously such factors' scales were
-  silently discarded. Single-argument call sites are unaffected
-  (default `1.0` for the new parameter, default `1.0` absorption when
-  no NONE-dim factors are present). The new parameter enables the
-  idempotence guarantee `UnitProduct(u.factors, u.canonical_scale)`
-  is structurally equal to `u`. Property tests live in
+- **`UnitProduct.__init__` canonical-form contract codified
+  (per-UnitFactor grain).** The constructor now (1) accepts an optional
+  second positional argument, `canonical_scale: float = 1.0`, which is
+  composed into the final `canonical_scale` of the constructed product;
+  (2) accesses `key.canonical_scale` directly on flattened nested
+  products instead of going through `getattr(..., 1.0)`; and (3)
+  **absorbs** the scale of any dimensionless (NONE-dim) factor into
+  `canonical_scale` before dropping the factor, where previously such
+  factors' scales were silently discarded. Single-argument call sites
+  are unaffected (default `1.0` for the new parameter, default `1.0`
+  absorption when no NONE-dim factors are present). The new parameter
+  enables the idempotence guarantee: `UnitProduct(u.factors,
+  u.canonical_scale)` is structurally equal to `u`.
+
+  The canonical form is per-UnitFactor grain: cross-scale variants of
+  the same base unit (e.g. `mg` and `kg`) are distinct UnitFactors and
+  both survive, preserving downstream composition (`mg/kg * kg == mg`)
+  and display fidelity (shorthand `"mg/kg"`). Same-scale duplicates
+  collapse normally. Property tests live in
   `tests/ucon/core/test_unitproduct_canonical.py`.
 
 - **`Number.__repr__` extended for `kind`.** A bound `kind` now renders
