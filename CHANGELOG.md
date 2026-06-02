@@ -74,6 +74,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Pydantic kind integration (v2.0 §3.4).** The `ucon.pydantic` adapter
+  now supports `Kind` constraints alongside `Dimension` constraints.
+  `Number[kind]`, `Number[Dimension.X, kind]`, and `Number[kind, Dimension.X]`
+  subscripts work as Pydantic field types. Kind survives JSON round-trip
+  via a new `"kind"` key in the wire format (`null` when absent).
+  Kind-constrained fields validate kind identity with lattice descendancy.
+  JSON schema generation includes the `kind` property and describes kind
+  constraints in the `description` field. Unknown kind strings raise
+  `ValueError` during deserialization.
 - **`@enforce_dimensions` extended with kind validation (v2.0 §3.4).**
   Parameters annotated as `Number[kind]` are validated for kind identity
   (or lattice descendancy via the active `KindLattice`). Joint
