@@ -1535,13 +1535,12 @@ class Number:
                     dim = item
                 elif isinstance(item, Kind):
                     kind = item
-            markers: list = []
+            if dim is not None and kind is not None:
+                return Annotated[cls, DimensionConstraint(dim), KindConstraint(kind)]
             if dim is not None:
-                markers.append(DimensionConstraint(dim))
+                return Annotated[cls, DimensionConstraint(dim)]
             if kind is not None:
-                markers.append(KindConstraint(kind))
-            if markers:
-                return Annotated.__class_getitem__(tuple([cls] + markers))
+                return Annotated[cls, KindConstraint(kind)]
         return cls
 
     @property
