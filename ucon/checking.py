@@ -25,10 +25,11 @@ else:
     # to ensure get_origin() correctly identifies typing_extensions.Annotated
     from typing_extensions import Annotated, get_type_hints, get_args, get_origin
 
+from ucon._active import _active as _sys_active_var
 from ucon.basis import NoTransformPath
 from ucon.basis.builtin import SI
 from ucon.basis.graph import get_basis_graph
-from ucon.core import Dimension, DimensionConstraint, Number, RebasedUnit, Unit, UnitProduct
+from ucon.core import Dimension, DimensionConstraint, KindConstraint, Number, RebasedUnit, Unit, UnitProduct
 from ucon.graph import ConversionNotFound, get_default_graph
 
 if TYPE_CHECKING:
@@ -182,20 +183,23 @@ def _coerce_via_graph(value: Number, *, system: "UnitSystem | None" = None) -> N
 
 
 def enforce_dimensions(fn=None, *, system: "UnitSystem | None" = None):
-    """Validate and coerce Number arguments against their Number[Dimension] annotations.
+    """Validate and coerce Number arguments against their annotations.
 
     Usable as a bare decorator (``@enforce_dimensions``) or as a factory
     (``@enforce_dimensions(system=sys)``).
 
-    Only parameters annotated as Number[Dimension.X] are checked.
-    Plain Number parameters and non-Number parameters are ignored.
+    Parameters annotated as ``Number[Dimension.X]`` are validated for
+    dimensional compatibility. Parameters annotated as ``Number[kind]``
+    are validated for kind identity (or lattice descendancy). Joint
+    annotations ``Number[Dimension.X, kind]`` check both. Plain
+    ``Number`` parameters and non-Number parameters are ignored.
 
     Cross-basis inputs (e.g. CGS dyne for an SI force constraint) are
     automatically coerced to their SI equivalents so that arithmetic
     inside the function body does not raise on mixed bases.
 
     Checks are precomputed at decoration time. Per-call overhead is
-    one dict lookup and one dimension comparison per constrained parameter.
+    one dict lookup and one comparison per constrained parameter.
 
     Parameters
     ----------
@@ -218,7 +222,8 @@ def enforce_dimensions(fn=None, *, system: "UnitSystem | None" = None):
     TypeError
         If a constrained argument is not a Number instance.
     ValueError
-        If a Number's dimension does not match the annotated constraint.
+        If a Number's dimension or kind does not match the annotated
+        constraint.
 
     Example
     -------
@@ -240,8 +245,9 @@ def enforce_dimensions(fn=None, *, system: "UnitSystem | None" = None):
     hints = get_type_hints(fn, include_extras=True)
     sig = inspect.signature(fn)
 
-    # Precompute: which params have DimensionConstraint annotations?
+    # Precompute: which params have DimensionConstraint / KindConstraint annotations?
     checks: dict[str, DimensionConstraint] = {}
+    kind_checks: dict[str, KindConstraint] = {}
     for name, hint in hints.items():
         if name == "return":
             continue
@@ -250,10 +256,11 @@ def enforce_dimensions(fn=None, *, system: "UnitSystem | None" = None):
         for metadata in get_args(hint)[1:]:
             if isinstance(metadata, DimensionConstraint):
                 checks[name] = metadata
-                break
+            elif isinstance(metadata, KindConstraint):
+                kind_checks[name] = metadata
 
     # Fast path: no constrained params → return unwrapped
-    if not checks:
+    if not checks and not kind_checks:
         return fn
 
     @functools.wraps(fn)
@@ -275,6 +282,30 @@ def enforce_dimensions(fn=None, *, system: "UnitSystem | None" = None):
                     f"{name}: expected dimension '{constraint.dimension.name}', "
                     f"got '{actual.name}'"
                 )
+
+        # Kind validation (after dimension check, before coercion).
+        for name, constraint in kind_checks.items():
+            value = bound.arguments.get(name)
+            if value is None:
+                continue
+            if not isinstance(value, Number):
+                raise TypeError(
+                    f"{name}: expected Number, got {type(value).__name__}"
+                )
+            if value.kind is None:
+                raise ValueError(
+                    f"{name}: expected kind '{constraint.kind.name}', "
+                    f"got unkinded Number"
+                )
+            if value.kind != constraint.kind:
+                # Descendant check via active lattice
+                ctx = _sys_active_var.get()
+                lattice = ctx.kinds if ctx is not None else None
+                if lattice is None or not lattice.is_descendant(value.kind, constraint.kind):
+                    raise ValueError(
+                        f"{name}: expected kind '{constraint.kind.name}', "
+                        f"got '{value.kind.name}'"
+                    )
 
         # Coerce cross-basis arguments to SI base units so that
         # arithmetic inside the function body does not raise.
