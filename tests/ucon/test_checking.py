@@ -13,10 +13,13 @@ if sys.version_info >= (3, 9):
 else:
     from typing_extensions import Annotated
 
-from ucon import Dimension, Number, units, enforce_dimensions, DimensionConstraint
+from ucon import Dimension, Number, units, enforce_dimensions, DimensionConstraint, KindConstraint
 from ucon.basis import Basis, Vector
 from ucon.basis.builtin import SI, CGS
 from ucon.core import Unit, UnitProduct, UnitFactor, Scale, BaseForm
+from ucon.dimension import ENERGY
+from ucon.kinds import Kind, KindLattice
+from ucon.system import active_system, use
 
 
 class TestEnforceDimensions(unittest.TestCase):
@@ -587,6 +590,201 @@ class TestDimensionConstraint(unittest.TestCase):
     def test_repr(self):
         c = DimensionConstraint(Dimension.time)
         self.assertEqual(repr(c), "DimensionConstraint(time)")
+
+
+class TestKindConstraint(unittest.TestCase):
+    """Tests for the KindConstraint marker class."""
+
+    def test_equality(self):
+        k = Kind("energy", dimension=ENERGY)
+        c1 = KindConstraint(k)
+        c2 = KindConstraint(k)
+        self.assertEqual(c1, c2)
+
+    def test_inequality(self):
+        k1 = Kind("energy_a", dimension=ENERGY)
+        k2 = Kind("energy_b", dimension=ENERGY)
+        self.assertNotEqual(KindConstraint(k1), KindConstraint(k2))
+
+    def test_hash(self):
+        k = Kind("energy", dimension=ENERGY)
+        c1 = KindConstraint(k)
+        c2 = KindConstraint(k)
+        self.assertEqual(hash(c1), hash(c2))
+        self.assertIn(c1, {c2})
+
+    def test_repr(self):
+        k = Kind("energy", dimension=ENERGY)
+        c = KindConstraint(k)
+        self.assertEqual(repr(c), "KindConstraint('energy')")
+
+
+class TestEnforceDimensionsKind(unittest.TestCase):
+    """Tests for @enforce_dimensions with Kind constraints."""
+
+    def test_kind_constraint_passes(self):
+        """Matching kind is accepted."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions
+            def energy_fn(e: Number[ke]) -> Number:
+                return e
+
+            n = Number(100, units.joule, kind=ke)
+            result = energy_fn(n)
+            self.assertEqual(result.quantity, 100)
+
+    def test_kind_constraint_wrong_kind_raises(self):
+        """Wrong kind raises ValueError."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        pe = Kind("potential_energy", dimension=ENERGY)
+        lattice = KindLattice([ke, pe])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions
+            def energy_fn(e: Number[ke]) -> Number:
+                return e
+
+            n = Number(100, units.joule, kind=pe)
+            with self.assertRaises(ValueError) as ctx:
+                energy_fn(n)
+            self.assertIn("kinetic_energy", str(ctx.exception))
+            self.assertIn("potential_energy", str(ctx.exception))
+
+    def test_kind_constraint_unkinded_raises(self):
+        """Unkinded Number raises ValueError."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions
+            def energy_fn(e: Number[ke]) -> Number:
+                return e
+
+            n = Number(100, units.joule)  # no kind
+            with self.assertRaises(ValueError) as ctx:
+                energy_fn(n)
+            self.assertIn("kinetic_energy", str(ctx.exception))
+            self.assertIn("unkinded", str(ctx.exception))
+
+    def test_kind_constraint_descendant_passes(self):
+        """Child kind accepted for parent constraint via active lattice."""
+        energy = Kind("energy", dimension=ENERGY)
+        ke = Kind("kinetic_energy", dimension=ENERGY, parent=energy)
+        lattice = KindLattice([energy, ke])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions
+            def energy_fn(e: Number[energy]) -> Number:
+                return e
+
+            n = Number(100, units.joule, kind=ke)
+            result = energy_fn(n)
+            self.assertEqual(result.quantity, 100)
+
+    def test_kind_constraint_ancestor_rejected(self):
+        """Parent kind rejected for child constraint."""
+        energy = Kind("energy", dimension=ENERGY)
+        ke = Kind("kinetic_energy", dimension=ENERGY, parent=energy)
+        lattice = KindLattice([energy, ke])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions
+            def ke_fn(e: Number[ke]) -> Number:
+                return e
+
+            n = Number(100, units.joule, kind=energy)
+            with self.assertRaises(ValueError) as ctx:
+                ke_fn(n)
+            self.assertIn("kinetic_energy", str(ctx.exception))
+
+    def test_joint_dimension_and_kind_constraint(self):
+        """Number[Dimension, Kind] checks both."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions
+            def energy_fn(e: Number[Dimension.energy, ke]) -> Number:
+                return e
+
+            # Correct dimension + correct kind → passes
+            n = Number(100, units.joule, kind=ke)
+            result = energy_fn(n)
+            self.assertEqual(result.quantity, 100)
+
+            # Wrong dimension → ValueError from dimension check
+            with self.assertRaises(ValueError) as ctx:
+                energy_fn(Number(100, units.meter))
+            self.assertIn("energy", str(ctx.exception))
+
+    def test_joint_constraint_order_insensitive(self):
+        """Number[Kind, Dimension] produces same annotation as Number[Dimension, Kind]."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions
+            def energy_fn(e: Number[ke, Dimension.energy]) -> Number:
+                return e
+
+            n = Number(100, units.joule, kind=ke)
+            result = energy_fn(n)
+            self.assertEqual(result.quantity, 100)
+
+    def test_kind_only_constraint(self):
+        """Number[kind] without dimension checks only kind."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        pe = Kind("potential_energy", dimension=ENERGY)
+        lattice = KindLattice([ke, pe])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions
+            def energy_fn(e: Number[ke]) -> Number:
+                return e
+
+            # Correct kind passes (no dimension constraint to fail)
+            n = Number(100, units.joule, kind=ke)
+            result = energy_fn(n)
+            self.assertEqual(result.quantity, 100)
+
+            # Wrong kind raises
+            with self.assertRaises(ValueError):
+                energy_fn(Number(100, units.joule, kind=pe))
+
+    def test_kind_constraint_optional_none_skipped(self):
+        """None default for kind-constrained param is skipped."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions
+            def energy_fn(e: Number[Dimension.energy], k: Number[ke] = None) -> Number:
+                return e
+
+            result = energy_fn(Number(100, units.joule))
+            self.assertEqual(result.quantity, 100)
+
+    def test_no_kind_no_dim_still_unwrapped(self):
+        """Fast path: no constraints at all returns the unwrapped function."""
+        @enforce_dimensions
+        def plain(x: Number) -> Number:
+            return x
+
+        # The fast path returns fn directly (not a wrapper)
+        result = plain(Number(42, units.meter))
+        self.assertEqual(result.quantity, 42)
 
 
 if __name__ == "__main__":
