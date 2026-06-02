@@ -786,6 +786,35 @@ class TestEnforceDimensionsKind(unittest.TestCase):
         result = plain(Number(42, units.meter))
         self.assertEqual(result.quantity, 42)
 
+    def test_kind_constraint_non_number_raises_type_error(self):
+        """Non-Number value for kind-constrained param raises TypeError."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+
+        @enforce_dimensions
+        def energy_fn(e: Number[ke]) -> Number:
+            return e
+
+        with self.assertRaises(TypeError) as ctx:
+            energy_fn(42)
+        self.assertIn("e", str(ctx.exception))
+        self.assertIn("expected Number", str(ctx.exception))
+        self.assertIn("got int", str(ctx.exception))
+
+    def test_kind_constraint_with_system_factory(self):
+        """@enforce_dimensions(system=sys) factory form with kind constraint."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+        sys = active_system()
+
+        with use(sys, kinds=lattice):
+            @enforce_dimensions(system=sys)
+            def energy_fn(e: Number[ke]) -> Number:
+                return e
+
+            n = Number(100, units.joule, kind=ke)
+            result = energy_fn(n)
+            self.assertEqual(result.quantity, 100)
+
 
 if __name__ == "__main__":
     unittest.main()
