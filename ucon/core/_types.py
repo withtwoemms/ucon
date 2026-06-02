@@ -1459,6 +1459,29 @@ class DimensionConstraint:
         return hash(("DimensionConstraint", self.dimension))
 
 
+class KindConstraint:
+    """Annotation marker: constrains a Number to a specific Kind.
+
+    Used with typing.Annotated to enable ``Number[kind]`` and
+    ``Number[Dimension.X, kind]`` syntax. The decorator
+    ``@enforce_dimensions`` introspects this marker at runtime.
+    """
+
+    __slots__ = ("kind",)
+
+    def __init__(self, kind: Kind):
+        self.kind = kind
+
+    def __repr__(self) -> str:
+        return f"KindConstraint({self.kind.name!r})"
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, KindConstraint) and self.kind == other.kind
+
+    def __hash__(self) -> int:
+        return hash(("KindConstraint", self.kind))
+
+
 @dataclass
 class Number:
     """
@@ -1491,14 +1514,34 @@ class Number:
         if self.kind is not None and self.kind.dimension != self.unit.dimension:
             raise KindDimensionMismatch(kind=self.kind, unit=self.unit)
 
-    def __class_getitem__(cls, dim):
-        """Enable Number[Dimension.X] syntax for type annotations.
+    def __class_getitem__(cls, key):
+        """Enable ``Number[Dimension]``, ``Number[Kind]``, and
+        ``Number[Dimension, Kind]`` syntax for type annotations.
 
-        Returns Annotated[Number, DimensionConstraint(dim)] for runtime introspection
-        by @enforce_dimensions decorator.
+        Returns ``Annotated[Number, ...]`` with the appropriate
+        constraint markers for runtime introspection by
+        ``@enforce_dimensions``.  Tuple subscripts are
+        order-insensitive: ``Number[dim, kind]`` and
+        ``Number[kind, dim]`` produce the same annotation.
         """
-        if isinstance(dim, Dimension):
-            return Annotated[cls, DimensionConstraint(dim)]
+        if isinstance(key, Dimension):
+            return Annotated[cls, DimensionConstraint(key)]
+        if isinstance(key, Kind):
+            return Annotated[cls, KindConstraint(key)]
+        if isinstance(key, tuple) and len(key) == 2:
+            dim, kind = None, None
+            for item in key:
+                if isinstance(item, Dimension):
+                    dim = item
+                elif isinstance(item, Kind):
+                    kind = item
+            markers: list = []
+            if dim is not None:
+                markers.append(DimensionConstraint(dim))
+            if kind is not None:
+                markers.append(KindConstraint(kind))
+            if markers:
+                return Annotated.__class_getitem__(tuple([cls] + markers))
         return cls
 
     @property
