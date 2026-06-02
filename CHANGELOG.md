@@ -83,6 +83,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   JSON schema generation includes the `kind` property and describes kind
   constraints in the `description` field. Unknown kind strings raise
   `ValueError` during deserialization.
+- **TOML kind round-trip on `Constant` (v2.0 §3.4).** The `Constant`
+  dataclass gains an optional `kind: Kind | None = None` field.
+  `Constant.as_number()` now passes `kind` through to `Number`.
+  `_serialize_constant()` writes `kind = "<canonical>"` when set
+  (omitted when `None` for backward compatibility). `from_toml()`
+  reads the optional `kind` key from constant specs and resolves it
+  via `active_kinds()`; unknown kind names raise `GraphLoadError`.
+  `ConstantDef` in `ucon.packages` gains a parallel `kind: str | None`
+  field, and `load_package()` parses the `kind` key from TOML constant
+  definitions. Existing TOML files without `kind` keys are unaffected.
 - **`@enforce_dimensions` extended with kind validation (v2.0 §3.4).**
   Parameters annotated as `Number[kind]` are validated for kind identity
   (or lattice descendancy via the active `KindLattice`). Joint
