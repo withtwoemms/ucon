@@ -53,8 +53,10 @@ from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
 from ucon.graph import using_conversion_graph
+from ucon.kinds.exceptions import KindNotFound
 from ucon.maps import AffineMap, LinearMap, Map
 from ucon.resolver import parse_unit
+from ucon.system import active_kinds
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -387,6 +389,9 @@ class ConstantDef:
         Data source reference.
     category : str
         Category: "exact", "derived", "measured", or "session".
+    kind : str | None
+        Optional canonical kind name. Resolved via the active
+        ``KindLattice`` during materialization.
     """
     symbol: str
     name: str
@@ -395,6 +400,7 @@ class ConstantDef:
     uncertainty: float | None = None
     source: str = "user-defined"
     category: str = "session"
+    kind: str | None = None
 
     def materialize(self, graph: 'ConversionGraph') -> Constant:
         """Resolve unit string and create a Constant.
@@ -412,7 +418,7 @@ class ConstantDef:
         Raises
         ------
         PackageLoadError
-            If the unit string cannot be resolved.
+            If the unit string or kind name cannot be resolved.
         """
         with using_conversion_graph(graph):
             try:
@@ -420,6 +426,16 @@ class ConstantDef:
             except UnknownUnitError:
                 raise PackageLoadError(
                     f"Cannot resolve unit '{self.unit}' for constant '{self.symbol}'"
+                )
+
+        # Resolve kind name if provided
+        resolved_kind = None
+        if self.kind is not None:
+            try:
+                resolved_kind = active_kinds().get(self.kind)
+            except KindNotFound:
+                raise PackageLoadError(
+                    f"Cannot resolve kind '{self.kind}' for constant '{self.symbol}'"
                 )
 
         return Constant(
@@ -430,6 +446,7 @@ class ConstantDef:
             uncertainty=self.uncertainty,
             source=self.source,
             category=self.category,
+            kind=resolved_kind,
         )
 
 
@@ -552,6 +569,7 @@ def load_package(path: str | Path) -> UnitPackage:
             uncertainty=c.get("uncertainty"),
             source=c.get("source", "user-defined"),
             category=c.get("category", "session"),
+            kind=c.get("kind"),
         )
         for c in data.get("constants", [])
     )

@@ -45,6 +45,7 @@ from ucon.core import BaseForm, RebasedUnit, Scale, Unit, UnitFactor, UnitProduc
 from ucon.dimension import Dimension, resolve, _DIMENSION_ATTRS
 from ucon.expressions import ExprResult, evaluate
 from ucon.graph import ConversionGraph, using_conversion_graph
+from ucon.kinds.exceptions import KindNotFound
 from ucon.maps import (
     AffineMap,
     LinearMap,
@@ -52,6 +53,7 @@ from ucon.maps import (
 )
 from ucon.packages import _build_map, _parse_factor
 from ucon.resolver import parse_unit
+from ucon.system import active_kinds
 
 __all__ = [
     "FORMAT_VERSION",
@@ -396,6 +398,8 @@ def _serialize_constant(const: Constant) -> dict:
         d["source"] = const.source
     if const.aliases:
         d["aliases"] = list(const.aliases)
+    if const.kind is not None:
+        d["kind"] = const.kind.name
     return d
 
 
@@ -838,6 +842,18 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                     name="unknown", dimension=dim_map.get("none", Dimension.none),
                 )
 
+            # Resolve optional kind
+            kind_str = const_spec.get("kind")
+            kind = None
+            if kind_str:
+                try:
+                    kind = active_kinds().get(kind_str)
+                except KindNotFound:
+                    raise GraphLoadError(
+                        f"[{section}]: unknown kind '{kind_str}' "
+                        f"for constant '{sym}'"
+                    )
+
             const = Constant(
                 symbol=sym,
                 name=cname,
@@ -847,6 +863,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                 source=const_spec.get("source", "CODATA 2022"),
                 category=const_spec.get("category", "measured"),
                 aliases=tuple(const_spec.get("aliases", ())),
+                kind=kind,
             )
             constants.append(const)
 

@@ -2337,3 +2337,177 @@ class TestImplicitMapDiscovery:
 
         assert _resolve_value(3.14) == 3.14
         assert _resolve_value("hello") == "hello"
+
+
+# ---------------------------------------------------------------------------
+# Constant kind serialization round-trip
+# ---------------------------------------------------------------------------
+
+class TestConstantKindSerialization:
+    """Tests for kind field on Constant in TOML serialization."""
+
+    def test_serialize_constant_with_kind(self):
+        """_serialize_constant includes kind when set."""
+        from ucon.constants import Constant
+        from ucon import units
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        c = Constant(
+            symbol="KE", name="kinetic energy",
+            value=100.0, unit=units.joule,
+            uncertainty=None, kind=ke,
+        )
+        d = _serialize_constant(c)
+        assert d["kind"] == "kinetic_energy"
+
+    def test_serialize_constant_without_kind(self):
+        """_serialize_constant omits kind when None."""
+        from ucon.constants import Constant
+        from ucon import units
+
+        c = Constant(
+            symbol="c", name="speed of light",
+            value=3e8, unit=units.meter,
+            uncertainty=None,
+        )
+        d = _serialize_constant(c)
+        assert "kind" not in d
+
+    def test_constant_kind_missing_tolerant(self, tmp_path):
+        """TOML without kind key deserializes constant with kind=None."""
+        doc = {
+            "package": {"format_version": FORMAT_VERSION},
+            "units": [{"name": "meter", "dimension": "length"}],
+            "constants": [{
+                "symbol": "x", "name": "test", "value": 42.0, "unit": "m",
+            }],
+        }
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path)
+        assert len(g._package_constants) == 1
+        assert g._package_constants[0].kind is None
+
+    def test_constant_kind_unknown_raises(self, tmp_path):
+        """TOML with unknown kind raises GraphLoadError."""
+        doc = {
+            "package": {"format_version": FORMAT_VERSION},
+            "units": [{"name": "meter", "dimension": "length"}],
+            "constants": [{
+                "symbol": "x", "name": "test", "value": 42.0,
+                "unit": "m", "kind": "bogus_kind",
+            }],
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="unknown kind 'bogus_kind'"):
+            from_toml(path)
+
+    def test_constant_kind_roundtrip(self, tmp_path):
+        """Kind survives export → reimport round-trip on a Constant."""
+        from ucon.constants import Constant
+        from ucon import units
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+        from ucon.system import active_system, use
+
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+
+        graph = get_default_graph()
+
+        # Add a kinded constant to the graph
+        kinded_const = Constant(
+            symbol="KE_test", name="test kinetic energy",
+            value=100.0, unit=units.joule,
+            uncertainty=None, category="session", kind=ke,
+        )
+        graph._package_constants = graph._package_constants + (kinded_const,)
+
+        path = tmp_path / "kind_rt.ucon.toml"
+        graph.to_toml(path)
+
+        # Reimport with the kind lattice active
+        sys = active_system()
+        with use(sys, kinds=lattice):
+            restored = from_toml(path)
+
+        # Find our constant
+        restored_const = None
+        for c in restored._package_constants:
+            if c.symbol == "KE_test":
+                restored_const = c
+                break
+        assert restored_const is not None
+        assert restored_const.kind is not None
+        assert restored_const.kind.name == "kinetic_energy"
+
+    def test_constant_as_number_preserves_kind(self):
+        """Constant.as_number() passes kind through."""
+        from ucon.constants import Constant
+        from ucon import units
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        c = Constant(
+            symbol="KE", name="kinetic energy",
+            value=100.0, unit=units.joule,
+            uncertainty=None, kind=ke,
+        )
+        n = c.as_number()
+        assert n.kind is ke
+
+
+class TestConstantDefKind:
+    """Tests for kind field on ConstantDef in packages.py."""
+
+    def test_constant_def_with_kind(self):
+        """ConstantDef with kind materializes with resolved Kind."""
+        from ucon.packages import ConstantDef
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+        from ucon.system import active_system, use
+
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+        sys = active_system()
+
+        cdef = ConstantDef(
+            symbol="KE", name="kinetic energy",
+            value=100.0, unit="J",
+            kind="kinetic_energy",
+        )
+
+        graph = get_default_graph()
+        with use(sys, kinds=lattice):
+            c = cdef.materialize(graph)
+        assert c.kind is not None
+        assert c.kind.name == "kinetic_energy"
+
+    def test_constant_def_without_kind(self):
+        """ConstantDef without kind materializes with kind=None."""
+        from ucon.packages import ConstantDef
+
+        cdef = ConstantDef(
+            symbol="c", name="speed of light",
+            value=3e8, unit="m/s",
+        )
+
+        graph = get_default_graph()
+        c = cdef.materialize(graph)
+        assert c.kind is None
+
+    def test_constant_def_unknown_kind_raises(self):
+        """ConstantDef with unknown kind raises PackageLoadError."""
+        from ucon.packages import ConstantDef, PackageLoadError
+
+        cdef = ConstantDef(
+            symbol="x", name="test",
+            value=42.0, unit="m",
+            kind="bogus_kind",
+        )
+
+        graph = get_default_graph()
+        with pytest.raises(PackageLoadError, match="Cannot resolve kind 'bogus_kind'"):
+            cdef.materialize(graph)
