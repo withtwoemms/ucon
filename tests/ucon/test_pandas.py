@@ -5,6 +5,8 @@
 import unittest
 import math
 
+from ucon import UnitProduct
+
 try:
     import pandas as pd
     import numpy as np
@@ -38,9 +40,8 @@ class TestNumberSeriesBasic(unittest.TestCase):
 
     def test_default_unit_is_dimensionless(self):
         from ucon.integrations.pandas import NumberSeries
-        from ucon.quantity import _none
         ns = NumberSeries(pd.Series([1.0, 2.0]))
-        self.assertEqual(ns.unit, _none)
+        self.assertEqual(ns.unit, UnitProduct({}))
 
     def test_uniform_uncertainty(self):
         from ucon.integrations.pandas import NumberSeries

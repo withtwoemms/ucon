@@ -5,6 +5,8 @@
 import unittest
 import math
 
+from ucon import UnitProduct
+
 try:
     import numpy as np
     HAS_NUMPY = True
@@ -37,9 +39,8 @@ class TestNumberArrayBasic(unittest.TestCase):
 
     def test_default_unit_is_dimensionless(self):
         from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import _none
         arr = NumberArray([1.0, 2.0])
-        self.assertEqual(arr.unit, _none)
+        self.assertEqual(arr.unit, UnitProduct({}))
 
     def test_uniform_uncertainty(self):
         from ucon.integrations.numpy import NumberArray

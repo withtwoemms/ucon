@@ -66,6 +66,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Internal rename: `UnitProduct._residual_scale_factor` →
+  `UnitProduct.canonical_scale`.** Same semantics, same default (`1.0`),
+  same propagation algebra. The field is becoming a contract-bearing
+  piece of the canonical form rather than a defensively-accessed
+  implementation cache. Affects downstream code that reads
+  `getattr(unit_product, '_residual_scale_factor', 1.0)`; the field
+  starts with no underscore and the default behavior is preserved.
+
+- **`UnitProduct.__init__` canonical-form contract codified
+  (per-UnitFactor grain).** The constructor now (1) accepts an optional
+  second positional argument, `canonical_scale: float = 1.0`, which is
+  composed into the final `canonical_scale` of the constructed product;
+  (2) accesses `key.canonical_scale` directly on flattened nested
+  products instead of going through `getattr(..., 1.0)`; and (3)
+  **absorbs** the scale of any dimensionless (NONE-dim) factor into
+  `canonical_scale` before dropping the factor, where previously such
+  factors' scales were silently discarded. Single-argument call sites
+  are unaffected (default `1.0` for the new parameter, default `1.0`
+  absorption when no NONE-dim factors are present). The new parameter
+  enables the idempotence guarantee: `UnitProduct(u.factors,
+  u.canonical_scale)` is structurally equal to `u`.
+
+  The canonical form is per-UnitFactor grain: cross-scale variants of
+  the same base unit (e.g. `mg` and `kg`) are distinct UnitFactors and
+  both survive, preserving downstream composition (`mg/kg * kg == mg`)
+  and display fidelity (shorthand `"mg/kg"`). Same-scale duplicates
+  collapse normally. Property tests live in
+  `tests/ucon/core/test_unitproduct_canonical.py`.
+
+- **Parsing layer composes `canonical_scale` unconditionally.**
+  `_multiply` and `_divide` in `ucon/parsing/units.py` now access
+  `canonical_scale` directly and compose it unconditionally, replacing
+  the defensive `getattr(..., 1.0)` fallbacks and conditional guards
+  that existed before the field was contract-bearing.
+
 - **`Number.__repr__` extended for `kind`.** A bound `kind` now renders
   as a bracketed tag after the unit shorthand:
   `<500 J [kinetic_energy]>` (or `<500 ± 0.5 J [kinetic_energy]>` with
@@ -113,6 +148,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that share `Unit` objects by reference) is unaffected. This makes
   `Bridge` structurally load-bearing at the `Number` layer, mirroring
   what §3.5 already did at the `Vector` layer with `BasisMismatch`.
+
+### Removed
+
+- **`_none` sentinel retired.** The module-level `_none = Unit()` in
+  `ucon.core._types` is deleted. All sites that returned or defaulted
+  to `_none` now use `UnitProduct({})` — the multiplicative identity
+  whose contract was established in Phase 2. External code that
+  imported `_none` from `ucon.core` or `ucon.quantity` should migrate
+  to structural checks: `unit == UnitProduct({})` or
+  `unit.factors == {}`.
 
 ## [1.12.0] - 2026-05-23
 

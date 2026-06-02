@@ -848,16 +848,47 @@ class UnitProduct:
 
     _SUPERSCRIPTS = str.maketrans("0123456789-.", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻·")
 
-    def __init__(self, factors: dict[Unit, float]):
+    def __init__(self, factors: dict[Unit, float], canonical_scale: float = 1.0):
         """
-        Build a UnitProduct with UnitFactor keys, preserving user-provided scales.
+        Build a canonical UnitProduct with UnitFactor keys, preserving
+        user-provided scales.
+
+        Parameters
+        ----------
+        factors
+            Mapping of Unit / UnitFactor / nested UnitProduct keys to
+            exponents. Canonicalized in place: dimensionless factors are
+            absorbed into ``canonical_scale``, zero-exponent factors are
+            dropped, same-scale variants collapse per the Step 4 rules
+            below. Cross-scale variants (e.g. ``mg`` and ``kg``) are
+            distinct UnitFactors and both survive.
+        canonical_scale
+            Seed value composed into the final canonical_scale. Defaults
+            to ``1.0`` so existing single-argument call sites are
+            unaffected. Passing the canonical_scale of an already-built
+            product (``UnitProduct(u.factors, u.canonical_scale)``)
+            yields a structurally equal product (idempotence).
+
+        Canonical form (per-UnitFactor grain)
+        --------------------------------------
+        On return, ``factors`` contains at most one entry per distinct
+        ``UnitFactor`` — i.e. per ``(unit_name, dimension, aliases,
+        scale)`` tuple. No dimensionless factor survives (absorbed into
+        ``canonical_scale``), no zero-exponent factor survives. The
+        ``canonical_scale`` field is ``1.0`` whenever ``factors`` is
+        non-empty; a non-1.0 value is permitted only on fully-cancelled
+        dimensionless products.
+
+        Cross-scale variants of the same base unit (e.g. ``mg`` and
+        ``kg``) are distinct UnitFactors and both survive. This
+        preserves downstream composition (``mg/kg * kg == mg``) and
+        display fidelity (shorthand renders ``"mg/kg"``). The numeric
+        ratio is recoverable via ``fold_scale()``.
 
         Key principles:
         - Never canonicalize scale (no implicit preference for Scale.one).
-        - Only collapse scaled variants of the same base unit when total exponent == 0.
-        - If only one scale variant exists in a group, preserve it exactly.
-        - If multiple variants exist and the group exponent != 0, preserve the FIRST
-        encountered UnitFactor (keeps user-intent scale).
+        - Same-scale duplicates collapse; cross-scale variants survive.
+        - Scale is part of the identity of a UnitFactor, not metadata.
         """
 
         self.name = ""
@@ -871,7 +902,10 @@ class UnitProduct:
                     key = UnitFactor(key, Scale.one)
                 if isinstance(key, UnitFactor) and key.dimension != NONE and abs(exp) > 1e-12:
                     self.factors = {key: exp}
-                    self._residual_scale_factor = 1.0
+                    # canonical_scale must be 1.0 when factors is non-empty
+                    # (canonical-form invariant); seed values are not absorbed
+                    # into surviving factors.
+                    self.canonical_scale = canonical_scale
                     self.dimension = key.dimension ** exp
                     return
 
@@ -890,7 +924,7 @@ class UnitProduct:
                         and abs(e0) > 1e-12 and abs(e1) > 1e-12
                         and k0 != k1):
                     self.factors = {k0: e0, k1: e1}
-                    self._residual_scale_factor = 1.0
+                    self.canonical_scale = canonical_scale
                     self.dimension = (k0.dimension ** e0) * (k1.dimension ** e1)
                     return
 
@@ -928,21 +962,29 @@ class UnitProduct:
                 for inner_fu, inner_exp in key.factors.items():
                     merge_fu(inner_fu, inner_exp * exp)
                 # Capture residual scale from the nested product
-                # (e.g., from mg/kg cancellation)
-                inner_residual = getattr(key, '_residual_scale_factor', 1.0)
+                # (e.g., from mg/kg cancellation). The nested product
+                # has already passed through __init__ so canonical_scale
+                # is always present; direct attribute access suffices.
+                inner_residual = key.canonical_scale
                 if inner_residual != 1.0:
                     inherited_residual *= inner_residual ** exp
             else:
                 merge_fu(to_factored(key), exp)
 
         # -----------------------------------------------------
-        # Step 2 — Remove exponent-zero & dimensionless UnitFactors
+        # Step 2 — Drop exponent-zero factors; absorb dimensionless ones
         # -----------------------------------------------------
+        # Dimensionless factors carry no dimensional content but may carry
+        # a non-unit scale (e.g., a scaled ``Scale.one`` placeholder). The
+        # canonical contract treats them as composing into
+        # ``canonical_scale`` rather than being silently discarded.
+        absorbed_dimensionless_scale: float = 1.0
         simplified: dict[UnitFactor, float] = {}
         for fu, exp in merged.items():
             if abs(exp) < 1e-12:
                 continue
             if fu.dimension == NONE:
+                absorbed_dimensionless_scale *= fu.scale.value.evaluated ** exp
                 continue
             simplified[fu] = exp
 
@@ -1009,9 +1051,23 @@ class UnitProduct:
 
         self.factors = final
 
-        # Store the residual scale factor from cancellations (numeric)
-        # Include inherited residual from nested UnitProducts
-        self._residual_scale_factor = residual_scale_factor * inherited_residual
+        # Compose the canonical_scale from four sources:
+        #   - ``residual_scale_factor`` — scale carried out of Step-4
+        #     cancellations within this construction
+        #   - ``inherited_residual``    — scale carried in from already-
+        #     canonical nested UnitProducts flattened in Step 1
+        #   - ``absorbed_dimensionless_scale`` — scale of dim=NONE
+        #     factors absorbed in Step 2 (rather than silently dropped)
+        #   - ``canonical_scale``       — caller-supplied seed; defaults
+        #     to ``1.0`` so single-arg call sites are unaffected, and
+        #     enables idempotence (``UnitProduct(u.factors,
+        #     u.canonical_scale) == u``).
+        self.canonical_scale = (
+            residual_scale_factor
+            * inherited_residual
+            * absorbed_dimensionless_scale
+            * canonical_scale
+        )
 
         # -----------------------------------------------------
         # Step 5 — Derive dimension via exponent algebra
@@ -1090,7 +1146,7 @@ class UnitProduct:
         if cached is not None:
             return cached
 
-        result = getattr(self, '_residual_scale_factor', 1.0)
+        result = getattr(self, 'canonical_scale', 1.0)
         for factor, power in self.factors.items():
             result *= factor.scale.value.evaluated ** power
 
@@ -1111,7 +1167,7 @@ class UnitProduct:
             return cached
 
         base_factors: dict = {}
-        prefactor = getattr(self, '_residual_scale_factor', 1.0)
+        prefactor = getattr(self, 'canonical_scale', 1.0)
 
         for uf, exp in self.factors.items():
             prefactor *= uf.scale.value.evaluated ** exp
@@ -1221,7 +1277,7 @@ class UnitProduct:
             combined[other] = combined.get(other, 0.0) + 1.0
             result = UnitProduct(combined)
             # Propagate residual scale factor from self
-            result._residual_scale_factor *= self._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
             return result
 
         if isinstance(other, UnitProduct):
@@ -1230,8 +1286,8 @@ class UnitProduct:
                 combined[u] = combined.get(u, 0.0) + exp
             result = UnitProduct(combined)
             # Propagate residual scale factors from both operands
-            result._residual_scale_factor *= self._residual_scale_factor
-            result._residual_scale_factor *= other._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
+            result.canonical_scale *= other.canonical_scale
             return result
 
         if isinstance(other, Scale):
@@ -1285,7 +1341,7 @@ class UnitProduct:
 
             result = UnitProduct(combined)
             # Propagate residual scale factor from self
-            result._residual_scale_factor *= self._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
             return result
 
         if isinstance(other, Unit):
@@ -1294,7 +1350,7 @@ class UnitProduct:
                 combined[u] = combined.get(u, 0.0) + e
             result = UnitProduct(combined)
             # Propagate residual scale factor from self
-            result._residual_scale_factor *= self._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
             return result
 
         return NotImplemented
@@ -1305,7 +1361,7 @@ class UnitProduct:
             combined[other] = combined.get(other, 0.0) - 1.0
             result = UnitProduct(combined)
             # Propagate residual scale factor from self
-            result._residual_scale_factor *= self._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
             return result
 
         if isinstance(other, UnitProduct):
@@ -1314,8 +1370,8 @@ class UnitProduct:
                 combined[u] = combined.get(u, 0.0) - exp
             result = UnitProduct(combined)
             # Propagate residual: self's residual divided by other's residual
-            result._residual_scale_factor *= self._residual_scale_factor
-            result._residual_scale_factor /= other._residual_scale_factor
+            result.canonical_scale *= self.canonical_scale
+            result.canonical_scale /= other.canonical_scale
             return result
 
         return NotImplemented
@@ -1375,8 +1431,6 @@ class UnitProduct:
 # Quantity types: Number, Ratio, DimensionConstraint
 # =====================================================================
 
-# Dimensionless unit for use as default in Number
-_none = Unit()
 
 _Quantifiable = Union['Number', 'Ratio']
 
@@ -1431,7 +1485,7 @@ class Number:
 
     def __post_init__(self):
         if self.unit is None:
-            object.__setattr__(self, 'unit', _none)
+            object.__setattr__(self, 'unit', UnitProduct({}))
         if self.kind is not None and self.kind.dimension != self.unit.dimension:
             raise KindDimensionMismatch(kind=self.kind, unit=self.unit)
 
@@ -1462,7 +1516,7 @@ class Number:
         Pure function of (self.quantity, self.unit). Does NOT consult any graph.
         """
         if isinstance(self.unit, UnitProduct):
-            result = self.quantity * getattr(self.unit, '_residual_scale_factor', 1.0)
+            result = self.quantity * getattr(self.unit, 'canonical_scale', 1.0)
             for uf, exp in self.unit.factors.items():
                 result *= uf.scale.value.evaluated ** exp
                 bf = uf.unit.base_form
@@ -1558,7 +1612,7 @@ class Number:
                     and abs(bf.factors[0][1] - 1.0) < 1e-12)
 
         if isinstance(self.unit, UnitProduct):
-            if getattr(self.unit, '_residual_scale_factor', 1.0) != 1.0:
+            if getattr(self.unit, 'canonical_scale', 1.0) != 1.0:
                 return False
             for uf in self.unit.factors:
                 if uf.scale is not Scale.one:
@@ -1910,11 +1964,11 @@ class Number:
         converted_quantity = conversion_map(self.quantity)
 
         # Account for residual scale factors from cancelled dimensions.
-        # When units cancel (e.g., mcg/kg), the scale ratio goes into _residual_scale_factor.
+        # When units cancel (e.g., mcg/kg), the scale ratio goes into canonical_scale.
         # The graph conversion only sees the remaining dimensions, so we must apply
         # the residual ratio here: src_residual / dst_residual.
-        src_residual = getattr(src, '_residual_scale_factor', 1.0)
-        dst_residual = getattr(dst, '_residual_scale_factor', 1.0)
+        src_residual = getattr(src, 'canonical_scale', 1.0)
+        dst_residual = getattr(dst, 'canonical_scale', 1.0)
         if src_residual != 1.0 or dst_residual != 1.0:
             converted_quantity *= (src_residual / dst_residual)
 
@@ -2089,7 +2143,7 @@ class Number:
             num = self._canonical_magnitude
             den = other._canonical_magnitude
             result = num / den
-            return Number(quantity=result, unit=_none, uncertainty=compute_uncertainty(result))
+            return Number(quantity=result, unit=UnitProduct({}), uncertainty=compute_uncertainty(result))
 
         # --- Case 2: Dimensionful result -----------------------------------
         # For "real" physical results like g/mL, m/s², etc., preserve the
@@ -2196,7 +2250,7 @@ class Ratio:
         if not unit.dimension:
             num = self.numerator._canonical_magnitude
             den = self.denominator._canonical_magnitude
-            return Number(quantity=num / den, unit=_none)
+            return Number(quantity=num / den, unit=UnitProduct({}))
 
         # Dimensionful result: preserve user's chosen scales symbolically
         numeric = self.numerator.quantity / self.denominator.quantity
@@ -2311,7 +2365,7 @@ class NumberArray:
         _require_numpy()
 
         self._quantities: NDArray[np.floating] = np.asarray(quantities, dtype=float)
-        self._unit = unit if unit is not None else _none
+        self._unit = unit if unit is not None else UnitProduct({})
 
         if uncertainty is not None:
             if isinstance(uncertainty, (int, float)):
@@ -2549,7 +2603,7 @@ class NumberArray:
                 new_unc = np.abs(result_q) * rel_unc
 
             # Unit is 1/self.unit
-            inv_unit = _none / self._unit
+            inv_unit = UnitProduct({}) / self._unit
             return NumberArray(quantities=result_q, unit=inv_unit, uncertainty=new_unc)
 
         return NotImplemented

@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 from ucon.core import Unit, UnitProduct, UnitFactor, Scale
-from ucon.core import Number, _none
+from ucon.core import Number
 from ucon.graph import get_default_graph
 
 
@@ -107,7 +107,7 @@ class NumberSeries:
             series = pd.Series(series)
 
         self._series: pd.Series = series.astype(float)
-        self._unit = unit if unit is not None else _none
+        self._unit = unit if unit is not None else UnitProduct({})
 
         if uncertainty is not None:
             if isinstance(uncertainty, (int, float)):
