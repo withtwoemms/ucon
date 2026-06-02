@@ -15,6 +15,7 @@ from ucon.core._parsing_graph import _get_parsing_graph, _parsing_graph
 from ucon.core.exceptions import (
     DimensionNotCovered,
     KindDimensionMismatch,
+    KindMismatch,
     NonScalableError,
     UnitDefinitionMismatch,
     UnknownUnitError,
@@ -46,6 +47,7 @@ __all__ = [
     'DimensionNotCovered',
     'Exponent',
     'KindDimensionMismatch',
+    'KindMismatch',
     'NonScalableError',
     'Number',
     'NumberArray',

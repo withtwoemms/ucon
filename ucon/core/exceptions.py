@@ -99,6 +99,30 @@ class UnitDefinitionMismatch(Exception):
         )
 
 
+class KindMismatch(Exception):
+    """Kinded and unkinded Numbers combined under strict mode.
+
+    Raised by ``Number.__add__`` / ``Number.__sub__`` when one operand
+    has ``kind`` set and the other does not, and the active context has
+    ``strict=True``.
+
+    Attributes
+    ----------
+    kinded : Kind
+        The kind present on the annotated operand.
+    unkinded_side : str
+        Which operand was unkinded (``"left"`` or ``"right"``).
+    """
+
+    def __init__(self, *, kinded: 'Kind', unkinded_side: str) -> None:
+        self.kinded = kinded
+        self.unkinded_side = unkinded_side
+        super().__init__(
+            f"Cannot combine kinded ({kinded.name!r}) and unkinded "
+            f"Numbers in strict mode ({unkinded_side} operand is unkinded)"
+        )
+
+
 class KindDimensionMismatch(Exception):
     """Kind's dimension does not match the Number's unit dimension.
 

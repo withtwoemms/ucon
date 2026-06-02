@@ -63,8 +63,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Number.__post_init__` when a supplied `kind`'s dimension does not
   match the unit's dimension. Carries the offending `kind` and `unit`.
   Exported from `ucon.core` and re-exported from `ucon`.
+- **`KindMismatch`** — new public exception raised when kinded and
+  unkinded `Number`s are added or subtracted under `strict=True`.
+  Carries the `kinded` kind and the `unkinded_side` (`"left"` or
+  `"right"`). Exported from `ucon.core` and re-exported from `ucon`.
 
 ### Changed
+
+- **Kind-aware arithmetic dispatch (v2.0 §4.3, §4.4, §4.9).**
+  `Number.__mul__` and `Number.__truediv__` consult the active
+  `FormulaRegistry` when both operands carry a `kind`; the matched
+  `KindFormula`'s `output_kind` stamps the result. `Number.__add__`
+  and `Number.__sub__` consult the active `KindLattice`: same-kind
+  preserves, different-kind joins at LCA or raises `JoinRefused`.
+  Scalar operations preserve kind (S1); same-kind division yields
+  `kind=None` (S2). Strict mode refuses kinded + unkinded addition
+  (`KindMismatch`); permissive mode warns and inherits the present
+  kind. Fast path: when both operands have `kind=None`, no registry
+  or lattice is consulted.
 
 - **Internal rename: `UnitProduct._residual_scale_factor` →
   `UnitProduct.canonical_scale`.** Same semantics, same default (`1.0`),

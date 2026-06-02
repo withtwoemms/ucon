@@ -41,7 +41,9 @@ else:
 from ucon._active import _active as _sys_active_var
 from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
-from ucon.core.exceptions import KindDimensionMismatch, UnitDefinitionMismatch
+from ucon.core.exceptions import KindDimensionMismatch, KindMismatch, UnitDefinitionMismatch
+from ucon.formulas.exceptions import FormulaNotFound
+from ucon.kinds.exceptions import JoinRefused
 from ucon.dimension import Dimension, NONE
 from ucon.kinds.types import Kind
 
@@ -2022,6 +2024,68 @@ class Number:
     def as_ratio(self):
         return Ratio(self)
 
+    # --- Kind dispatch helpers (§4.3, §4.4, §4.9) ---
+
+    def _resolve_mul_kind(self, other: 'Number') -> 'Kind | None':
+        """Resolve the result kind for multiplication or division.
+
+        Consults the active ``FormulaRegistry`` when both operands
+        carry a ``kind`` (Q19). Returns the formula's ``output_kind``,
+        or ``None`` if no formula matches or either operand is unkinded.
+        """
+        if self.kind is None or other.kind is None:
+            return None
+        ctx = _sys_active_var.get()
+        if ctx is None:
+            return None
+        try:
+            _, result_kind, _, _ = ctx.formulas.apply(
+                {"left": (self.kind, frozenset()),
+                 "right": (other.kind, frozenset())},
+                lattice=ctx.kinds,
+            )
+            return result_kind
+        except FormulaNotFound:
+            return None
+
+    def _resolve_add_kind(self, other: 'Number') -> 'Kind | None':
+        """Resolve the result kind for addition or subtraction.
+
+        Consults the active ``KindLattice`` (§4.3). Same-kind
+        preserves; different-kind joins at LCA or raises
+        ``JoinRefused``. Under ``strict=True``, kinded + unkinded
+        raises ``KindMismatch``; under permissive mode, warns and
+        inherits the present kind.
+        """
+        if self.kind is not None and other.kind is not None:
+            if self.kind == other.kind:
+                return self.kind
+            ctx = _sys_active_var.get()
+            if ctx is not None:
+                return ctx.kinds.join(self.kind, other.kind)
+            raise TypeError(
+                f"Cannot add Numbers with different kinds "
+                f"({self.kind.name!r} vs {other.kind.name!r}) "
+                f"without an active context"
+            )
+        if self.kind is not None or other.kind is not None:
+            ctx = _sys_active_var.get()
+            if ctx is not None and ctx.strict:
+                present = self.kind if self.kind is not None else other.kind
+                side = "right" if self.kind is not None else "left"
+                raise KindMismatch(kinded=present, unkinded_side=side)
+            # permissive: inherit present kind, warn
+            result_kind = self.kind or other.kind
+            if _sys_active_var.get() is not None:
+                import warnings
+                warnings.warn(
+                    f"Adding kinded ({result_kind.name!r}) and unkinded "
+                    f"Numbers; kind={result_kind.name!r} assumed",
+                    stacklevel=3,
+                )
+            return result_kind
+        return None
+
     def __mul__(self, other: _Quantifiable) -> 'Number':
         if isinstance(other, Ratio):
             other = other.evaluate()
@@ -2035,6 +2099,7 @@ class Number:
                 quantity=self.quantity * other,
                 unit=self.unit,
                 uncertainty=new_uncertainty,
+                kind=self.kind,  # S1: scalar preserves kind
             )
 
         if not isinstance(other, Number):
@@ -2054,6 +2119,7 @@ class Number:
             quantity=result_quantity,
             unit=self.unit * other.unit,
             uncertainty=new_uncertainty,
+            kind=self._resolve_mul_kind(other),
         )
 
     def __add__(self, other: 'Number') -> 'Number':
@@ -2067,6 +2133,9 @@ class Number:
                 f"{self.unit.dimension} vs {other.unit.dimension}"
             )
 
+        # Kind lattice dispatch (§4.3)
+        result_kind = self._resolve_add_kind(other)
+
         # Uncertainty propagation for addition: δc = sqrt(δa² + δb²)
         new_uncertainty = None
         if self.uncertainty is not None or other.uncertainty is not None:
@@ -2078,6 +2147,7 @@ class Number:
             quantity=self.quantity + other.quantity,
             unit=self.unit,
             uncertainty=new_uncertainty,
+            kind=result_kind,
         )
 
     def __sub__(self, other: 'Number') -> 'Number':
@@ -2091,6 +2161,9 @@ class Number:
                 f"{self.unit.dimension} vs {other.unit.dimension}"
             )
 
+        # Kind lattice dispatch (§4.3) — same rules as addition
+        result_kind = self._resolve_add_kind(other)
+
         # Uncertainty propagation for subtraction: δc = sqrt(δa² + δb²)
         new_uncertainty = None
         if self.uncertainty is not None or other.uncertainty is not None:
@@ -2102,6 +2175,7 @@ class Number:
             quantity=self.quantity - other.quantity,
             unit=self.unit,
             uncertainty=new_uncertainty,
+            kind=result_kind,
         )
 
     def __truediv__(self, other: _Quantifiable) -> "Number":
@@ -2109,7 +2183,7 @@ class Number:
         if isinstance(other, Ratio):
             other = other.evaluate()
 
-        # Scalar division
+        # Scalar division — S1: preserves kind
         if isinstance(other, (int, float)):
             new_uncertainty = None
             if self.uncertainty is not None:
@@ -2118,6 +2192,7 @@ class Number:
                 quantity=self.quantity / other,
                 unit=self.unit,
                 uncertainty=new_uncertainty,
+                kind=self.kind,  # S1: scalar preserves kind
             )
 
         if not isinstance(other, Number):
@@ -2137,19 +2212,21 @@ class Number:
             return abs(result_quantity) * rel_c if rel_c > 0 else None
 
         # --- Case 1: Dimensionless result ----------------------------------
-        # If the net dimension is none, we want a pure scalar:
-        # fold *all* scale factors into the numeric magnitude.
+        # S2: same-kind division yields kind=None (dimensionless ratio).
         if not unit_quot.dimension:
             num = self._canonical_magnitude
             den = other._canonical_magnitude
             result = num / den
-            return Number(quantity=result, unit=UnitProduct({}), uncertainty=compute_uncertainty(result))
+            return Number(quantity=result, unit=UnitProduct({}),
+                          uncertainty=compute_uncertainty(result), kind=None)
 
         # --- Case 2: Dimensionful result -----------------------------------
         # For "real" physical results like g/mL, m/s², etc., preserve the
         # user's chosen unit scales symbolically. Only divide the raw quantities.
         new_quantity = self.quantity / other.quantity
-        return Number(quantity=new_quantity, unit=unit_quot, uncertainty=compute_uncertainty(new_quantity))
+        return Number(quantity=new_quantity, unit=unit_quot,
+                      uncertainty=compute_uncertainty(new_quantity),
+                      kind=self._resolve_mul_kind(other))
 
     def __eq__(self, other: _Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
