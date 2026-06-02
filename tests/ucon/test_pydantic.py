@@ -497,5 +497,215 @@ class TestPydanticJsonSchema(unittest.TestCase):
         self.assertIn("length", props.get("description", ""))
 
 
+class TestPydanticKindIntegration(unittest.TestCase):
+    """Test Kind-aware Pydantic integration."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from pydantic import BaseModel, ValidationError
+            from ucon.integrations.pydantic import Number
+            from ucon.core import Dimension
+            from ucon.dimension import ENERGY
+            from ucon.kinds import Kind, KindLattice
+            from ucon.system import active_system, use
+            cls.BaseModel = BaseModel
+            cls.ValidationError = ValidationError
+            cls.Number = Number
+            cls.Dimension = Dimension
+            cls.ENERGY = ENERGY
+            cls.Kind = Kind
+            cls.KindLattice = KindLattice
+            cls.active_system = staticmethod(active_system)
+            cls.use = staticmethod(use)
+            cls.skip_tests = False
+        except ImportError:
+            cls.skip_tests = True
+
+    def setUp(self):
+        if self.skip_tests:
+            self.skipTest("pydantic not installed")
+
+    def test_kind_from_dict(self):
+        """Dict with 'kind' key resolves to kinded Number."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+        lattice = self.KindLattice([ke])
+        sys = self.active_system()
+
+        class Model(self.BaseModel):
+            value: self.Number
+
+        with self.use(sys, kinds=lattice):
+            m = Model(value={"quantity": 100, "unit": "J", "kind": "kinetic_energy"})
+            self.assertEqual(m.value.quantity, 100)
+            self.assertIs(m.value.kind, ke)
+
+    def test_kind_from_instance(self):
+        """Number instance with kind passes through unchanged."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+
+        class Model(self.BaseModel):
+            value: self.Number
+
+        n = CoreNumber(100, units.joule, kind=ke)
+        m = Model(value=n)
+        self.assertIs(m.value.kind, ke)
+
+    def test_kind_serialization(self):
+        """model_dump() includes kind name."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+
+        class Model(self.BaseModel):
+            value: self.Number
+
+        n = CoreNumber(100, units.joule, kind=ke)
+        m = Model(value=n)
+        dumped = m.model_dump()
+        self.assertEqual(dumped["value"]["kind"], "kinetic_energy")
+
+    def test_kind_serialization_none(self):
+        """Unkinded Number serializes kind as null."""
+        class Model(self.BaseModel):
+            value: self.Number
+
+        m = Model(value={"quantity": 5, "unit": "m"})
+        dumped = m.model_dump()
+        self.assertIsNone(dumped["value"]["kind"])
+
+    def test_kind_roundtrip(self):
+        """JSON round-trip preserves kind."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+        lattice = self.KindLattice([ke])
+        sys = self.active_system()
+
+        class Model(self.BaseModel):
+            value: self.Number
+
+        with self.use(sys, kinds=lattice):
+            n = CoreNumber(100, units.joule, kind=ke)
+            original = Model(value=n)
+            json_str = original.model_dump_json()
+            restored = Model.model_validate_json(json_str)
+            self.assertAlmostEqual(restored.value.quantity, 100)
+            self.assertIs(restored.value.kind, ke)
+
+    def test_kind_missing_defaults_none(self):
+        """Dict without 'kind' key yields kind=None."""
+        class Model(self.BaseModel):
+            value: self.Number
+
+        m = Model(value={"quantity": 5, "unit": "m"})
+        self.assertIsNone(m.value.kind)
+
+    def test_kind_unknown_raises(self):
+        """Unknown kind string raises ValidationError."""
+        class Model(self.BaseModel):
+            value: self.Number
+
+        with self.assertRaises(self.ValidationError):
+            Model(value={"quantity": 5, "unit": "J", "kind": "bogus_kind"})
+
+    def test_kind_constraint_valid(self):
+        """Number[kind] accepts matching kind."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+        lattice = self.KindLattice([ke])
+        sys = self.active_system()
+
+        with self.use(sys, kinds=lattice):
+            class Model(self.BaseModel):
+                value: self.Number[ke]
+
+            n = CoreNumber(100, units.joule, kind=ke)
+            m = Model(value=n)
+            self.assertEqual(m.value.quantity, 100)
+
+    def test_kind_constraint_wrong_kind_raises(self):
+        """Number[kind] rejects wrong kind."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+        pe = self.Kind("potential_energy", dimension=self.ENERGY)
+        lattice = self.KindLattice([ke, pe])
+        sys = self.active_system()
+
+        with self.use(sys, kinds=lattice):
+            class Model(self.BaseModel):
+                value: self.Number[ke]
+
+            n = CoreNumber(100, units.joule, kind=pe)
+            with self.assertRaises(self.ValidationError) as ctx:
+                Model(value=n)
+            self.assertIn("kinetic_energy", str(ctx.exception))
+
+    def test_kind_constraint_unkinded_raises(self):
+        """Number[kind] rejects unkinded Number."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+
+        class Model(self.BaseModel):
+            value: self.Number[ke]
+
+        with self.assertRaises(self.ValidationError) as ctx:
+            Model(value={"quantity": 100, "unit": "J"})
+        self.assertIn("unkinded", str(ctx.exception))
+
+    def test_kind_constraint_descendant_passes(self):
+        """Child kind accepted for parent constraint via active lattice."""
+        energy = self.Kind("energy", dimension=self.ENERGY)
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY, parent=energy)
+        lattice = self.KindLattice([energy, ke])
+        sys = self.active_system()
+
+        with self.use(sys, kinds=lattice):
+            class Model(self.BaseModel):
+                value: self.Number[energy]
+
+            n = CoreNumber(100, units.joule, kind=ke)
+            m = Model(value=n)
+            self.assertEqual(m.value.quantity, 100)
+
+    def test_joint_dimension_and_kind_constraint(self):
+        """Number[Dimension, Kind] checks both constraints."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+        lattice = self.KindLattice([ke])
+        sys = self.active_system()
+
+        with self.use(sys, kinds=lattice):
+            class Model(self.BaseModel):
+                value: self.Number[self.Dimension.energy, ke]
+
+            # Correct dimension + correct kind
+            n = CoreNumber(100, units.joule, kind=ke)
+            m = Model(value=n)
+            self.assertEqual(m.value.quantity, 100)
+
+            # Wrong dimension
+            with self.assertRaises(self.ValidationError):
+                Model(value={"quantity": 5, "unit": "m"})
+
+    def test_joint_constraint_order_insensitive(self):
+        """Number[Kind, Dimension] same as Number[Dimension, Kind]."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+        lattice = self.KindLattice([ke])
+        sys = self.active_system()
+
+        with self.use(sys, kinds=lattice):
+            class Model(self.BaseModel):
+                value: self.Number[ke, self.Dimension.energy]
+
+            n = CoreNumber(100, units.joule, kind=ke)
+            m = Model(value=n)
+            self.assertEqual(m.value.quantity, 100)
+
+    def test_kind_json_schema(self):
+        """JSON schema includes kind property and description."""
+        ke = self.Kind("kinetic_energy", dimension=self.ENERGY)
+
+        class Model(self.BaseModel):
+            value: self.Number[ke]
+
+        schema = Model.model_json_schema()
+        props = schema["properties"]["value"]
+        self.assertIn("kind", props.get("properties", {}))
+        self.assertIn("kinetic_energy", props.get("description", ""))
+
+
 if __name__ == '__main__':
     unittest.main()

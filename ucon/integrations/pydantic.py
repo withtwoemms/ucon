@@ -23,7 +23,7 @@ Usage
 >>> print(m.value)
 <5 km>
 >>> print(m.model_dump_json())
-{"value": {"quantity": 5.0, "unit": "km", "uncertainty": null}}
+{"value": {"quantity": 5.0, "unit": "km", "uncertainty": null, "kind": null}}
 
 Installation
 ------------
@@ -54,7 +54,10 @@ except ImportError as e:
 from ucon.core import Dimension
 from ucon.core import Number as _Number
 from ucon.core import UnknownUnitError
+from ucon.kinds import Kind
+from ucon.kinds.exceptions import KindNotFound
 from ucon.resolver import parse_unit
+from ucon.system import active_kinds
 
 
 def _validate_number(v: Any) -> _Number:
@@ -63,7 +66,7 @@ def _validate_number(v: Any) -> _Number:
 
     Accepts:
     - Number instance (passthrough)
-    - dict with 'quantity' and optional 'unit', 'uncertainty'
+    - dict with 'quantity' and optional 'unit', 'uncertainty', 'kind'
 
     Raises:
         ValueError: If input cannot be converted to Number.
@@ -88,10 +91,20 @@ def _validate_number(v: Any) -> _Number:
         else:
             unit = None
 
+        # Resolve kind if provided
+        kind_str = v.get("kind")
+        kind = None
+        if kind_str:
+            try:
+                kind = active_kinds().get(kind_str)
+            except KindNotFound:
+                raise ValueError(f"Unknown kind: {kind_str!r}")
+
         return _Number(
             quantity=quantity,
             unit=unit,
             uncertainty=uncertainty,
+            kind=kind,
         )
 
     raise ValueError(
@@ -109,7 +122,8 @@ def _serialize_number(n: _Number) -> dict:
         {
             "quantity": <float>,
             "unit": <str | null>,
-            "uncertainty": <float | null>
+            "uncertainty": <float | null>,
+            "kind": <str | null>
         }
     """
     # Get unit shorthand
@@ -127,6 +141,7 @@ def _serialize_number(n: _Number) -> dict:
         "quantity": float(n.quantity),
         "unit": unit_str,
         "uncertainty": float(n.uncertainty) if n.uncertainty is not None else None,
+        "kind": n.kind.name if n.kind is not None else None,
     }
 
 
@@ -142,6 +157,24 @@ def _make_dimension_validator(dimension: Dimension):
     return validate_dimension
 
 
+def _make_kind_validator(kind: Kind):
+    """Create a validator function for a specific kind constraint."""
+    def validate_kind(n: _Number) -> _Number:
+        if n.kind is None:
+            raise ValueError(
+                f"expected kind '{kind.name}', got unkinded Number"
+            )
+        if n.kind != kind:
+            # Descendant check via active lattice
+            lattice = active_kinds()
+            if not lattice.is_descendant(n.kind, kind):
+                raise ValueError(
+                    f"expected kind '{kind.name}', got '{n.kind.name}'"
+                )
+        return n
+    return validate_kind
+
+
 class _NumberPydanticAnnotation:
     """
     Pydantic annotation helper for ucon Number type.
@@ -152,9 +185,15 @@ class _NumberPydanticAnnotation:
     """
 
     dimension: Optional[Dimension] = None
+    kind: Optional[Kind] = None
 
-    def __init__(self, dimension: Optional[Dimension] = None):
+    def __init__(
+        self,
+        dimension: Optional[Dimension] = None,
+        kind: Optional[Kind] = None,
+    ):
         self.dimension = dimension
+        self.kind = kind
 
     def __get_pydantic_core_schema__(
         self,
@@ -167,13 +206,19 @@ class _NumberPydanticAnnotation:
         Uses no_info_plain_validator_function to bypass Pydantic's default
         introspection of the Number class fields.
         """
+        validators = []
         if self.dimension is not None:
-            # Chain dimension validation after number parsing
-            dim_validator = _make_dimension_validator(self.dimension)
-            def validate_with_dimension(v: Any) -> _Number:
+            validators.append(_make_dimension_validator(self.dimension))
+        if self.kind is not None:
+            validators.append(_make_kind_validator(self.kind))
+
+        if validators:
+            def validate_with_constraints(v: Any) -> _Number:
                 n = _validate_number(v)
-                return dim_validator(n)
-            validator = validate_with_dimension
+                for check in validators:
+                    n = check(n)
+                return n
+            validator = validate_with_constraints
         else:
             validator = _validate_number
 
@@ -198,11 +243,17 @@ class _NumberPydanticAnnotation:
                 "quantity": {"type": "number"},
                 "unit": {"type": "string", "nullable": True},
                 "uncertainty": {"type": "number", "nullable": True},
+                "kind": {"type": "string", "nullable": True},
             },
             "required": ["quantity"],
         }
+        parts = []
         if self.dimension is not None:
-            schema["description"] = f"Number with dimension '{self.dimension.name}'"
+            parts.append(f"dimension '{self.dimension.name}'")
+        if self.kind is not None:
+            parts.append(f"kind '{self.kind.name}'")
+        if parts:
+            schema["description"] = f"Number with {', '.join(parts)}"
         return schema
 
 
@@ -210,13 +261,16 @@ class _NumberType:
     """
     Subscriptable Number type for Pydantic models.
 
-    Supports both unconstrained and dimension-constrained usage:
+    Supports unconstrained, dimension-constrained, kind-constrained,
+    and jointly constrained usage:
 
-        value: Number                    # Any dimension
-        length: Number[Dimension.length] # Must be length dimension
+        value: Number                              # Any dimension/kind
+        length: Number[Dimension.length]           # Must be length dimension
+        energy: Number[ke]                         # Must be kinetic_energy kind
+        energy: Number[Dimension.energy, ke]       # Both constraints
 
-    When subscripted with a Dimension, validation will fail if the
-    parsed Number has a different dimension.
+    When subscripted, validation will fail if the parsed Number does not
+    satisfy the constraint(s).
     """
     _extra_validators: tuple = ()
 
@@ -225,16 +279,28 @@ class _NumberType:
         # Subclasses can add validators
 
     @classmethod
-    def __class_getitem__(cls, dimension: Dimension) -> type:
-        """Return an Annotated type with dimension validation."""
-        if not isinstance(dimension, Dimension):
-            raise TypeError(
-                f"Number[...] requires a Dimension, got {type(dimension).__name__}"
-            )
-        # Build the Annotated type with base annotation + extra validators
-        # Use _AnnotatedAlias directly for cross-version compatibility
-        annotations = tuple([_NumberPydanticAnnotation(dimension)] + list(cls._extra_validators))
-        return _AnnotatedAlias(_Number, annotations)
+    def __class_getitem__(cls, key) -> type:
+        """Return an Annotated type with dimension/kind validation."""
+        if isinstance(key, Dimension):
+            annotations = tuple([_NumberPydanticAnnotation(dimension=key)] + list(cls._extra_validators))
+            return _AnnotatedAlias(_Number, annotations)
+        if isinstance(key, Kind):
+            annotations = tuple([_NumberPydanticAnnotation(kind=key)] + list(cls._extra_validators))
+            return _AnnotatedAlias(_Number, annotations)
+        if isinstance(key, tuple) and len(key) == 2:
+            dim, kind = None, None
+            for item in key:
+                if isinstance(item, Dimension):
+                    dim = item
+                elif isinstance(item, Kind):
+                    kind = item
+            if dim is not None or kind is not None:
+                annotations = tuple([_NumberPydanticAnnotation(dimension=dim, kind=kind)] + list(cls._extra_validators))
+                return _AnnotatedAlias(_Number, annotations)
+        raise TypeError(
+            f"Number[...] requires a Dimension, Kind, or (Dimension, Kind) tuple, "
+            f"got {type(key).__name__}"
+        )
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -279,7 +345,7 @@ def constrained_number(*validators):
 # Export Number as the subscriptable type
 Number = _NumberType
 """
-Pydantic-compatible Number type with optional dimension constraints.
+Pydantic-compatible Number type with optional dimension and kind constraints.
 
 Use this as a type hint in Pydantic models to enable automatic validation
 and JSON serialization of ucon Number instances.
@@ -316,6 +382,17 @@ With dimension constraint::
         speed={"quantity": 100, "unit": "km/h"}
     )
 
+With kind constraint::
+
+    from ucon.kinds import Kind
+    from ucon.dimension import ENERGY
+    from ucon.pydantic import Number
+
+    ke = Kind("kinetic_energy", dimension=ENERGY)
+
+    class Physics(BaseModel):
+        energy: Number[ke]
+
 From Number instance::
 
     from ucon import units
@@ -324,7 +401,7 @@ From Number instance::
 Serialize to JSON::
 
     print(m.model_dump_json())
-    # {"value": {"quantity": 5.0, "unit": "km", "uncertainty": null}}
+    # {"value": {"quantity": 5.0, "unit": "km", "uncertainty": null, "kind": null}}
 """
 
 __all__ = ["Number", "constrained_number"]
