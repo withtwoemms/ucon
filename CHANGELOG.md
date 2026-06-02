@@ -67,9 +67,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unkinded `Number`s are added or subtracted under `strict=True`.
   Carries the `kinded` kind and the `unkinded_side` (`"left"` or
   `"right"`). Exported from `ucon.core` and re-exported from `ucon`.
+- **`KindConstraint`** — annotation marker parallel to
+  `DimensionConstraint`. Enables `Number[kind]` and
+  `Number[Dimension.X, kind]` subscript syntax for kind-constrained
+  parameters. Exported from `ucon.core` and re-exported from `ucon`.
 
 ### Changed
 
+- **`@enforce_dimensions` extended with kind validation (v2.0 §3.4).**
+  Parameters annotated as `Number[kind]` are validated for kind identity
+  (or lattice descendancy via the active `KindLattice`). Joint
+  annotations `Number[Dimension.X, kind]` check both dimension and kind.
+  `Number.__class_getitem__` now accepts `Kind`, `(Dimension, Kind)`, and
+  `(Kind, Dimension)` subscripts — order-insensitive. Descendancy
+  semantics: `Number[energy]` accepts `kinetic_energy` when it is a child
+  of `energy` in the active lattice.
 - **Kind-aware arithmetic dispatch (v2.0 §4.3, §4.4, §4.9).**
   `Number.__mul__` and `Number.__truediv__` consult the active
   `FormulaRegistry` when both operands carry a `kind`; the matched
