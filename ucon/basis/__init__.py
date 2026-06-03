@@ -27,8 +27,6 @@ from ucon.basis.graph import (
     BasisGraph,
     get_basis_graph,
     get_default_basis,
-    reset_default_basis_graph,
-    set_default_basis_graph,
     using_basis,
     using_basis_graph,
 )
@@ -60,8 +58,6 @@ __all__ = [
     "get_basis_graph",
     "get_default_basis",
     "ops",
-    "reset_default_basis_graph",
-    "set_default_basis_graph",
     "using_basis",
     "using_basis_graph",
 ]

@@ -11,7 +11,6 @@ This module owns three cohesive concerns:
    graph populated with the standard SI/CGS/CGS-ESU/CGS-EMU/natural/planck/atomic
    transforms.
 3. ContextVar-scoped active state and accessors (:func:`get_basis_graph`,
-   :func:`set_default_basis_graph`, :func:`reset_default_basis_graph`,
    :func:`using_basis`, :func:`using_basis_graph`, :func:`get_default_basis`).
 
 The accessors live alongside the graph type because they exist to serve it.
@@ -246,9 +245,6 @@ _default_basis: ContextVar[Basis | None] = ContextVar("basis", default=None)
 _basis_graph_context: ContextVar[BasisGraph | None] = ContextVar(
     "basis_graph", default=None
 )
-_default_basis_graph: BasisGraph | None = None
-
-
 def get_default_basis() -> Basis:
     """Get the current default basis.
 
@@ -270,18 +266,15 @@ def get_basis_graph() -> BasisGraph:
 
     1. Context-local graph (from :func:`using_basis_graph`).
     2. The active :class:`~ucon.system.UnitSystem`'s ``basis_graph``
-       (from :func:`ucon.system.use`). This lets ``with use(system):``
-       propagate ``system.basis_graph`` down through the algebraic chain
-       — ``Number`` arithmetic → ``Dimension`` algebra → ``multiply_via``
-       — without changing operator signatures.
-    3. Module-level default graph (lazily built with standard transforms).
+       (from :func:`ucon.system.use`).
+    3. Standard basis graph (bootstrap fallback, used only during
+       ``import ucon`` before the active system is set).
 
     Returns
     -------
     BasisGraph
         The active basis graph for the current context.
     """
-    global _default_basis_graph
     ctx_graph = _basis_graph_context.get()
     if ctx_graph is not None:
         return ctx_graph
@@ -294,61 +287,10 @@ def get_basis_graph() -> BasisGraph:
     if ctx is not None:
         return ctx.system.basis_graph
 
-    if _default_basis_graph is None:
-        _default_basis_graph = _build_standard_basis_graph()
-    return _default_basis_graph
-
-
-def set_default_basis_graph(graph: BasisGraph) -> None:
-    """Replace the module-level default basis graph.
-
-    .. deprecated:: 1.8
-       The module-level default basis graph is being retired in favor of
-       :class:`~ucon.system.UnitSystem` ownership. Use
-       ``with use(active().with_basis_graph(graph)):`` instead. Scheduled
-       for removal in ucon 2.0.
-
-    Parameters
-    ----------
-    graph : BasisGraph
-        The new default basis graph.
-    """
-    import warnings
-    warnings.warn(
-        "ucon.basis.set_default_basis_graph is deprecated; the module-level "
-        "default basis graph is being retired in favor of UnitSystem "
-        "ownership. Use 'with use(active().with_basis_graph(graph)): ...' "
-        "instead. Scheduled for removal in ucon 2.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    global _default_basis_graph
-    _default_basis_graph = graph
-
-
-def reset_default_basis_graph() -> None:
-    """Reset to the standard basis graph on next access.
-
-    .. deprecated:: 1.8
-       The module-level default basis graph is being retired in favor of
-       :class:`~ucon.system.UnitSystem` ownership. Leave the ``with
-       use(...)`` block instead of resetting a global. Scheduled for
-       removal in ucon 2.0.
-
-    The standard graph (with SI, CGS, CGS-ESU, and NATURAL transforms)
-    is lazily rebuilt when :func:`get_basis_graph` is next called.
-    """
-    import warnings
-    warnings.warn(
-        "ucon.basis.reset_default_basis_graph is deprecated; the module-level "
-        "default basis graph is being retired in favor of UnitSystem "
-        "ownership. Leave the 'with use(...)' block instead of resetting a "
-        "global. Scheduled for removal in ucon 2.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    global _default_basis_graph
-    _default_basis_graph = None
+    # Bootstrap fallback: during `import ucon` the active system is not
+    # yet set, but get_basis_graph() is called to construct the initial
+    # UnitSystem. Build the standard graph on the fly.
+    return _build_standard_basis_graph()
 
 
 @contextmanager
@@ -403,8 +345,6 @@ __all__ = [
     "BasisGraph",
     "get_basis_graph",
     "get_default_basis",
-    "reset_default_basis_graph",
-    "set_default_basis_graph",
     "using_basis",
     "using_basis_graph",
 ]

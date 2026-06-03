@@ -588,27 +588,18 @@ def load_package(path: str | Path) -> UnitPackage:
         except (ValueError, Exception) as e:
             raise PackageLoadError(f"Invalid [[kinds]] in {path}: {e}")
 
-    # Support both [package] table (preferred) and top-level keys (legacy)
+    # Package metadata must be in a [package] table
     package = data.get("package", {})
-    if not package and any(k in data for k in ("name", "version", "description")):
-        import warnings
-        warnings.warn(
-            f"Package metadata as top-level keys is deprecated. "
-            f"Wrap in a [package] table in {path.name}. "
-            f"Legacy format will be removed in ucon 2.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
 
     return UnitPackage(
-        name=package.get("name", data.get("name", path.stem)),
-        version=package.get("version", data.get("version", "1.0.0")),
-        description=package.get("description", data.get("description", "")),
+        name=package.get("name", path.stem),
+        version=package.get("version", "1.0.0"),
+        description=package.get("description", ""),
         units=units,
         edges=edges,
         constants=constants,
         kinds=kinds,
-        requires=tuple(package.get("requires", data.get("requires", []))),
+        requires=tuple(package.get("requires", [])),
     )
 
 

@@ -1027,35 +1027,6 @@ def all_dimensions() -> tuple[Dimension, ...]:
 # Before v1.8, ``Dimension.__mul__`` / ``__truediv__`` / ``__pow__`` consulted
 # three module-level dicts (``_DIM_MUL_CACHE`` / ``_DIM_DIV_CACHE`` /
 # ``_DIM_POW_CACHE``). v1.8 moves the caches onto ``UnitSystem._algebra_cache``
-# so each system holds its own ledger. The old names continue to resolve via
-# PEP-562 ``__getattr__`` but emit ``PendingDeprecationWarning`` and return
-# the live ``mul`` / ``div`` / ``pow`` dict of the active system's cache.
-#
-# Per the v1.8 migration table, these aliases are scheduled for removal in
-# v2.0. Callers reaching for the dicts directly should read them via
-# ``ucon.system.active()._algebra_cache`` (or ``_get_active_cache()``).
-
-_LEGACY_CACHE_ATTRS = {
-    "_DIM_MUL_CACHE": "mul",
-    "_DIM_DIV_CACHE": "div",
-    "_DIM_POW_CACHE": "pow",
-}
-
-
-def __getattr__(name):  # pragma: no cover - exercised via deprecation tests
-    sub = _LEGACY_CACHE_ATTRS.get(name)
-    if sub is None:
-        raise AttributeError(f"module 'ucon.dimension' has no attribute {name!r}")
-    import warnings
-    warnings.warn(
-        f"ucon.dimension.{name} is deprecated; the dimension algebra cache "
-        f"now lives on UnitSystem._algebra_cache. Read it via "
-        f"ucon.system.active()._algebra_cache.{sub}. Scheduled for removal "
-        f"in ucon v2.0.",
-        PendingDeprecationWarning,
-        stacklevel=2,
-    )
-    return getattr(_algebra_cache(), sub)
 
 
 # -----------------------------------------------------------------------------

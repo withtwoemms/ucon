@@ -479,25 +479,8 @@ def parse_unit(
         return UnitProduct({UnitFactor(unit, scale): 1})
 
 
-def get_unit_by_name(name: str) -> Union[Unit, UnitProduct]:
-    """Deprecated alias for :func:`parse_unit`.
-
-    .. deprecated:: 1.7.0
-        Use :func:`parse_unit` instead. ``get_unit_by_name`` will be
-        removed in v2.0.
-    """
-    warnings.warn(
-        "get_unit_by_name() is deprecated; use parse_unit() instead. "
-        "It will be removed in ucon v2.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return parse_unit(name)
-
-
 __all__ = [
     'parse_unit',
-    'get_unit_by_name',
     'register_unit',
     'register_priority_scaled_alias',
 ]

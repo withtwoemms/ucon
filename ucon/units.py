@@ -23,8 +23,6 @@ Notes
 The design allows for future extensibility: users can register their own units,
 systems, or aliases dynamically, without modifying the core definitions.
 """
-import warnings
-
 from ucon.core import BaseForm, Dimension, Scale, Unit, UnknownUnitError  # noqa: F401
 from ucon.system import BaseUnits
 from ucon.dimension import (
@@ -61,7 +59,6 @@ from ucon.dimension import (
     ATOMIC_ENERGY, ATOMIC_LENGTH,
 )
 from ucon.resolver import (
-    get_unit_by_name,
     parse_unit,
     register_priority_scaled_alias,
     register_unit,
@@ -276,39 +273,12 @@ _register_aliases()
 # Public API
 # ---------------------------------------------------------------------------
 
-def have(name: str) -> bool:
-    """Check if a unit name is defined.
-
-    .. deprecated:: 1.8.0
-        Use :func:`ucon.resolver.parse_unit` and catch
-        :class:`~ucon.core.UnknownUnitError` instead. ``have`` will be
-        removed in v2.0.
-
-    Delegates to :func:`~ucon.resolver.parse_unit`; the legacy
-    Python-variable-name fallback is dropped in favour of the canonical
-    ``Unit.name`` + alias resolution served by the resolver registry.
-    """
-    warnings.warn(
-        "units.have() is deprecated; call parse_unit() and catch "
-        "UnknownUnitError instead. It will be removed in ucon v2.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    assert name, "Must provide a unit name to check"
-    assert isinstance(name, str), "Unit name must be a string"
-    try:
-        parse_unit(name)
-    except UnknownUnitError:
-        return False
-    return True
-
 
 # Public surface: explicit names plus every TOML-loaded unit attribute.
 # Built dynamically because the unit set is populated at import time from
 # the canonical TOML registry.
 __all__ = sorted(
     {
-        "have",
         "none",
         "si",
         "imperial",

@@ -12,9 +12,7 @@ from ucon.graph import (
     ConversionNotFound,
     CyclicInconsistency,
     get_default_graph,
-    set_default_graph,
-    reset_default_graph,
-    using_graph,
+    using_conversion_graph,
 )
 from ucon.maps import LinearMap, AffineMap
 
@@ -324,11 +322,9 @@ class TestConversionGraphBFSEdgeCases(unittest.TestCase):
 class TestDefaultGraphManagement(unittest.TestCase):
     """Tests for default graph management functions.
 
-    v1.11: With eager system initialization, ``get_default_graph()`` returns
-    the active system's ``conversion_graph`` (tier 2). The module-level
-    ``_default_graph`` (tier 3) is dead code unless ``_active`` is unset.
-    Tests that exercise module-level mutation (``set_default_graph`` /
-    ``reset_default_graph``) are preserved as legacy-path coverage.
+    v2.0: ``set_default_graph`` / ``reset_default_graph`` and the module-level
+    ``_default_graph`` have been removed. ``get_default_graph()`` returns the
+    active system's ``conversion_graph``.
     """
 
     def test_get_default_graph_returns_graph(self):
@@ -342,28 +338,12 @@ class TestDefaultGraphManagement(unittest.TestCase):
         graph2 = get_default_graph()
         self.assertIs(graph1, graph2)
 
-    def test_set_default_graph_is_masked_by_active_system(self):
-        """set_default_graph mutates _default_graph but the active system
-        takes precedence in get_default_graph(), so the mutation is invisible."""
-        import warnings
-        active_graph = get_default_graph()
-        custom = ConversionGraph()
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            set_default_graph(custom)
-        # Active system tier (2) takes precedence over module default (tier 3)
-        self.assertIs(get_default_graph(), active_graph)
-        self.assertIsNot(get_default_graph(), custom)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            reset_default_graph()  # clean up module-level state
-
     def test_using_graph_context_manager(self):
         """Test using_graph provides scoped override (tier 1)."""
         default = get_default_graph()
         custom = ConversionGraph()
 
-        with using_graph(custom) as g:
+        with using_conversion_graph(custom) as g:
             self.assertIs(g, custom)
             self.assertIs(get_default_graph(), custom)
 
@@ -376,9 +356,9 @@ class TestDefaultGraphManagement(unittest.TestCase):
         custom1 = ConversionGraph()
         custom2 = ConversionGraph()
 
-        with using_graph(custom1):
+        with using_conversion_graph(custom1):
             self.assertIs(get_default_graph(), custom1)
-            with using_graph(custom2):
+            with using_conversion_graph(custom2):
                 self.assertIs(get_default_graph(), custom2)
             self.assertIs(get_default_graph(), custom1)
 
@@ -390,7 +370,7 @@ class TestDefaultGraphManagement(unittest.TestCase):
         custom = ConversionGraph()
 
         try:
-            with using_graph(custom):
+            with using_conversion_graph(custom):
                 self.assertIs(get_default_graph(), custom)
                 raise ValueError("test error")
         except ValueError:
@@ -410,48 +390,12 @@ class TestDefaultGraphManagement(unittest.TestCase):
 
 
 class TestGetDefaultGraphTierFallthrough(unittest.TestCase):
-    """Exercise the tier-2 → tier-3 fall-through inside ``get_default_graph``.
+    """Exercise ``get_default_graph`` active-context unwrapping.
 
-    As of v2.0.0a1 ``_active`` holds an :class:`~ucon.system.ActiveContext`
+    As of v2.0 ``_active`` holds an :class:`~ucon.system.ActiveContext`
     rather than a bare :class:`UnitSystem`; ``get_default_graph`` resolves
-    the conversion graph via ``ctx.system.conversion_graph``.  Eager init
-    keeps the truthy branch hot, so these tests temporarily clear
-    ``_active`` to drive the falsy branch and the tier-3 fallback that
-    follows it (lines 1360–1362).
+    the conversion graph via ``ctx.system.conversion_graph``.
     """
-
-    def test_falls_through_to_module_default_when_no_active_context(self):
-        """``ctx is None`` → returns ``_default_graph`` (tier 3)."""
-        import ucon.conversion as conv_mod
-        from ucon._active import _active
-
-        # Inject a sentinel into tier 3 so we can prove the fall-through
-        # actually returned it rather than something else.
-        sentinel = ConversionGraph()
-        saved_module_default = conv_mod._default_graph
-        token = _active.set(None)
-        try:
-            conv_mod._default_graph = sentinel
-            self.assertIs(get_default_graph(), sentinel)
-        finally:
-            conv_mod._default_graph = saved_module_default
-            _active.reset(token)
-
-    def test_raises_when_no_active_context_and_no_module_default(self):
-        """``ctx is None`` and ``_default_graph is None`` → ``RuntimeError``."""
-        import ucon.conversion as conv_mod
-        from ucon._active import _active
-
-        saved_module_default = conv_mod._default_graph
-        token = _active.set(None)
-        try:
-            conv_mod._default_graph = None
-            with self.assertRaises(RuntimeError) as cm:
-                get_default_graph()
-            self.assertIn("No conversion graph available", str(cm.exception))
-        finally:
-            conv_mod._default_graph = saved_module_default
-            _active.reset(token)
 
     def test_active_context_payload_unwraps_to_conversion_graph(self):
         """Truthy ``ctx`` branch returns ``ctx.system.conversion_graph``.

@@ -32,7 +32,7 @@ from ucon.graph import (
     CyclicInconsistency,
     DimensionMismatch,
     get_default_graph,
-    using_graph,
+    using_conversion_graph,
 )
 from ucon.maps import LinearMap, AffineMap, Map
 

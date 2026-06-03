@@ -6,7 +6,7 @@
 Tests for graph-local unit name resolution (v0.7.3).
 
 Verifies that:
-- Units registered on a graph are resolvable within using_graph()
+- Units registered on a graph are resolvable within using_conversion_graph()
 - Graph-local units are isolated from other graphs
 - Global registry provides fallback
 - Graph copy preserves name registries
@@ -16,8 +16,8 @@ import unittest
 from ucon import (
     Unit,
     get_default_graph,
-    get_unit_by_name,
-    using_graph,
+    parse_unit,
+    using_conversion_graph,
 )
 from ucon import Dimension
 from ucon.core._parsing_graph import _get_parsing_graph
@@ -92,23 +92,23 @@ class TestGraphLocalResolution(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_using_graph_scopes_parsing(self):
-        """using_graph() makes graph-local units resolvable via get_unit_by_name()."""
+        """using_conversion_graph() makes graph-local units resolvable via parse_unit()."""
         custom = Unit(name='zorkmid', dimension=Dimension.mass, aliases=('zk',))
         graph = get_default_graph().copy()
         graph.register_unit(custom)
 
         # Outside context, zorkmid is unknown
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name('zorkmid')
+            parse_unit('zorkmid')
 
         # Inside context, zorkmid resolves
-        with using_graph(graph):
-            resolved = get_unit_by_name('zorkmid')
+        with using_conversion_graph(graph):
+            resolved = parse_unit('zorkmid')
             self.assertEqual(resolved, custom)
 
         # Outside context again, zorkmid is unknown
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name('zorkmid')
+            parse_unit('zorkmid')
 
     def test_graph_isolation(self):
         """Units registered on one graph are not visible in another."""
@@ -129,9 +129,9 @@ class TestGraphLocalResolution(unittest.TestCase):
         """Graph-local resolution falls back to global registry."""
         graph = get_default_graph().copy()
 
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             # Standard unit 'meter' should resolve via graph (which has standard units)
-            resolved = get_unit_by_name('meter')
+            resolved = parse_unit('meter')
             self.assertEqual(resolved.name, 'meter')
 
     def test_graph_local_takes_precedence(self):
@@ -141,8 +141,8 @@ class TestGraphLocalResolution(unittest.TestCase):
         graph = ConversionGraph()
         graph.register_unit(custom_meter)
 
-        with using_graph(graph):
-            resolved = get_unit_by_name('meter')
+        with using_conversion_graph(graph):
+            resolved = parse_unit('meter')
             # Should get the graph-local custom_meter, not the global one
             self.assertEqual(resolved.dimension, Dimension.time)
 
@@ -183,20 +183,20 @@ class TestGraphLocalResolution(unittest.TestCase):
         self.assertIsNotNone(graph.resolve_unit('ampere'))
 
     def test__get_parsing_graph_outside_context(self):
-        """_get_parsing_graph() returns None outside using_graph()."""
+        """_get_parsing_graph() returns None outside using_conversion_graph()."""
         result = _get_parsing_graph()
         self.assertIsNone(result)
 
     def test__get_parsing_graph_inside_context(self):
-        """_get_parsing_graph() returns the graph inside using_graph()."""
+        """_get_parsing_graph() returns the graph inside using_conversion_graph()."""
         graph = ConversionGraph()
 
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _get_parsing_graph()
             self.assertIs(result, graph)
 
-    def test_nested_using_graph(self):
-        """Nested using_graph() contexts work correctly."""
+    def test_nested_using_conversion_graph(self):
+        """Nested using_conversion_graph() contexts work correctly."""
         outer_graph = ConversionGraph()
         inner_graph = ConversionGraph()
 
@@ -206,11 +206,11 @@ class TestGraphLocalResolution(unittest.TestCase):
         outer_graph.register_unit(outer_unit)
         inner_graph.register_unit(inner_unit)
 
-        with using_graph(outer_graph):
+        with using_conversion_graph(outer_graph):
             self.assertIs(_get_parsing_graph(), outer_graph)
             self.assertIsNotNone(outer_graph.resolve_unit('outer_unit'))
 
-            with using_graph(inner_graph):
+            with using_conversion_graph(inner_graph):
                 self.assertIs(_get_parsing_graph(), inner_graph)
                 self.assertIsNotNone(inner_graph.resolve_unit('inner_unit'))
                 # Outer unit not visible in inner graph
@@ -231,8 +231,8 @@ class TestScalePrefixShadowing(unittest.TestCase):
         """'GB' is giga-byte (information), not gilbert (Gb, cgs_emu_current)."""
         graph = get_default_graph()
 
-        with using_graph(graph):
-            unit = get_unit_by_name('GB')
+        with using_conversion_graph(graph):
+            unit = parse_unit('GB')
             self.assertEqual(unit.dimension.name, 'information',
                              f"'GB' resolved to {unit.dimension.name!r} instead of 'information'")
 
@@ -240,16 +240,16 @@ class TestScalePrefixShadowing(unittest.TestCase):
         """'Gb' (case-sensitive) is gilbert — the fix must not break this."""
         graph = get_default_graph()
 
-        with using_graph(graph):
-            unit = get_unit_by_name('Gb')
+        with using_conversion_graph(graph):
+            unit = parse_unit('Gb')
             self.assertEqual(unit.dimension.name, 'cgs_emu_current')
 
     def test_nm_resolves_to_nanometer_not_nautical_mile(self):
         """'nm' is nano-meter (length via n+m), not nautical mile (alias NM)."""
         graph = get_default_graph()
 
-        with using_graph(graph):
-            unit = get_unit_by_name('nm')
+        with using_conversion_graph(graph):
+            unit = parse_unit('nm')
             self.assertEqual(unit.dimension.name, 'length')
             # Verify it's nanometer (scaled), not nautical_mile
             # nautical_mile shorthand is 'nmi', nanometer shorthand is 'nm'
@@ -261,32 +261,32 @@ class TestScalePrefixShadowing(unittest.TestCase):
         """'nmi' (case-sensitive alias) is nautical mile — the fix must not break this."""
         graph = get_default_graph()
 
-        with using_graph(graph):
-            unit = get_unit_by_name('nmi')
+        with using_conversion_graph(graph):
+            unit = parse_unit('nmi')
             self.assertEqual(unit.name, 'nautical_mile')
 
     def test_NM_still_resolves_to_nautical_mile(self):
         """'NM' (case-sensitive alias) is nautical mile — the fix must not break this."""
         graph = get_default_graph()
 
-        with using_graph(graph):
-            unit = get_unit_by_name('NM')
+        with using_conversion_graph(graph):
+            unit = parse_unit('NM')
             self.assertEqual(unit.name, 'nautical_mile')
 
     def test_MB_resolves_to_megabyte(self):
         """'MB' is mega-byte (information), not any CGS unit."""
         graph = get_default_graph()
 
-        with using_graph(graph):
-            unit = get_unit_by_name('MB')
+        with using_conversion_graph(graph):
+            unit = parse_unit('MB')
             self.assertEqual(unit.dimension.name, 'information')
 
     def test_kB_resolves_to_kilobyte(self):
         """'kB' is kilo-byte (information)."""
         graph = get_default_graph()
 
-        with using_graph(graph):
-            unit = get_unit_by_name('kB')
+        with using_conversion_graph(graph):
+            unit = parse_unit('kB')
             self.assertEqual(unit.dimension.name, 'information')
 
 

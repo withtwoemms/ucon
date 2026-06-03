@@ -17,7 +17,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
-from ucon.graph import ConversionGraph, get_default_graph, using_graph
+from ucon.graph import ConversionGraph, get_default_graph, using_conversion_graph
 from ucon.maps import AffineMap, ComposedMap, ExpMap, LinearMap, LogMap, ReciprocalMap
 from ucon.serialization import (
     FORMAT_VERSION,
@@ -235,7 +235,7 @@ class TestRoundTrip:
         # Test meter → foot conversion
         src = units.meter
         dst = units.foot
-        with using_graph(restored):
+        with using_conversion_graph(restored):
             original_map = graph.convert(src=src, dst=dst)
             restored_map = restored.convert(src=src, dst=dst)
             assert abs(original_map(1.0) - restored_map(1.0)) < 1e-9
@@ -249,7 +249,7 @@ class TestRoundTrip:
 
         from ucon import units
 
-        with using_graph(restored):
+        with using_conversion_graph(restored):
             # celsius → kelvin
             original_map = graph.convert(src=units.celsius, dst=units.kelvin)
             restored_map = restored.convert(src=units.celsius, dst=units.kelvin)
@@ -267,7 +267,7 @@ class TestRoundTrip:
 
         from ucon import units
 
-        with using_graph(restored):
+        with using_conversion_graph(restored):
             # watt → dBm: 10*log10(P/1mW)
             original_map = graph.convert(src=units.watt, dst=units.decibel_milliwatt)
             restored_map = restored.convert(src=units.watt, dst=units.decibel_milliwatt)
@@ -283,7 +283,7 @@ class TestRoundTrip:
 
         from ucon import units
 
-        with using_graph(restored):
+        with using_conversion_graph(restored):
             # dyne → newton (CGS → SI)
             original_map = graph.convert(src=units.dyne, dst=units.newton)
             restored_map = restored.convert(src=units.dyne, dst=units.newton)
@@ -780,13 +780,13 @@ class TestScaledProductEdges:
         assert graph == restored
 
     def test_product_expression_with_prefix(self):
-        """get_unit_by_name resolves 'kwatt*hour' with Scale.kilo."""
+        """parse_unit resolves 'kwatt*hour' with Scale.kilo."""
         from ucon.core import Scale
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
 
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("kwatt*hour")
+        with using_conversion_graph(graph):
+            result = parse_unit("kwatt*hour")
 
         assert result is not None
         # Find the watt factor and check its scale
@@ -898,13 +898,13 @@ class TestContextSerialization:
 
         # Get the restored context and activate it
         restored_ctx = restored._contexts["spectroscopy"]
-        with using_graph(restored):
+        with using_conversion_graph(restored):
             # Build a temporary graph with context edges applied
             extended = restored.copy()
             from ucon.contexts import _add_context_edge
             for edge in restored_ctx.edges:
                 _add_context_edge(extended, edge)
-            with using_graph(extended):
+            with using_conversion_graph(extended):
                 m = extended.convert(src=units.meter, dst=units.hertz)
                 # 500 nm → frequency
                 freq = m(500e-9)
@@ -1421,9 +1421,9 @@ class TestResolveUnitFallbacks:
 
 class TestResolveContextUnit:
     def test_context_unit_via_resolver(self):
-        """_resolve_context_unit resolves via get_unit_by_name first (line 851)."""
+        """_resolve_context_unit resolves via parse_unit first (line 851)."""
         graph = get_default_graph()
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _resolve_context_unit("meter", {}, graph)
         assert result is not None
 
@@ -1435,16 +1435,16 @@ class TestResolveContextUnit:
         graph.register_unit(units.meter)
         unit_map = {"meter": units.meter}
 
-        # In an empty graph context, get_unit_by_name may fail — but
+        # In an empty graph context, parse_unit may fail — but
         # _resolve_unit(meter, unit_map, graph) succeeds via unit_map
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _resolve_context_unit("meter", unit_map, graph)
         assert result is not None
 
     def test_context_unit_returns_none(self):
         """_resolve_context_unit returns None when all resolution fails."""
         graph = ConversionGraph()
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _resolve_context_unit("nonexistent", {}, graph)
         assert result is None
 
@@ -1457,14 +1457,14 @@ class TestResolveProductExpression:
     def test_empty_expression(self):
         """Empty expression returns None."""
         graph = get_default_graph()
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _resolve_product_expression("", {}, graph)
         assert result is None
 
     def test_invalid_exponent(self):
         """Invalid exponent string returns None (parser raises, wrapper catches)."""
         graph = get_default_graph()
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _resolve_product_expression("meter^abc", {}, graph)
         assert result is None
 
@@ -1476,21 +1476,21 @@ class TestResolveProductExpression:
         graph.register_unit(units.meter)
         unit_map = {"meter": units.meter}
 
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _resolve_product_expression("meter", unit_map, graph)
         assert result is not None
 
     def test_unresolvable_unit_returns_none(self):
         """Completely unknown unit returns None."""
         graph = ConversionGraph()
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _resolve_product_expression("nonexistent", {}, graph)
         assert result is None
 
     def test_simple_expression(self):
         """Simple expression resolves correctly."""
         graph = get_default_graph()
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _resolve_product_expression("meter", {}, graph)
         assert result is not None
 
@@ -1684,13 +1684,13 @@ class TestRemainingCoverage:
         from ucon.dimension import Dimension
 
         # Create a minimal graph and put the unit ONLY in unit_map, not
-        # registered in the graph, so get_unit_by_name will fail but
+        # registered in the graph, so parse_unit will fail but
         # _resolve_unit will find it via unit_map
         graph = ConversionGraph()
         custom = Unit("zzzwidget_notregistered", Dimension.length)
         unit_map = {"zzzwidget_notregistered": custom}
 
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             result = _resolve_product_expression("zzzwidget_notregistered", unit_map, graph)
         assert result is not None
 
@@ -1798,20 +1798,20 @@ class TestProductExpressionGrammar:
 
     def test_division_basic(self):
         """'meter/second' → meter^1, second^-1."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("meter/second")
+        with using_conversion_graph(graph):
+            result = parse_unit("meter/second")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 1.0
         assert found["second"] == -1.0
 
     def test_division_compound_num(self):
         """'kg*meter/second^2' → kg^1, meter^1, second^-2."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("kg*meter/second^2")
+        with using_conversion_graph(graph):
+            result = parse_unit("kg*meter/second^2")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["kilogram"] == 1.0
         assert found["meter"] == 1.0
@@ -1819,10 +1819,10 @@ class TestProductExpressionGrammar:
 
     def test_division_then_multiply(self):
         """'meter/second*kilogram' → m^1, s^-1, kg^1 (left-to-right: * is multiply)."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("meter/second*kilogram")
+        with using_conversion_graph(graph):
+            result = parse_unit("meter/second*kilogram")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 1.0
         assert found["second"] == -1.0
@@ -1830,10 +1830,10 @@ class TestProductExpressionGrammar:
 
     def test_compound_denominator_via_slashes(self):
         """'meter/second/kilogram' → meter^1, second^-1, kg^-1."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("meter/second/kilogram")
+        with using_conversion_graph(graph):
+            result = parse_unit("meter/second/kilogram")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 1.0
         assert found["second"] == -1.0
@@ -1841,10 +1841,10 @@ class TestProductExpressionGrammar:
 
     def test_triple_slash_dosage(self):
         """'gram/kilogram/day/each' → g^1, kg^-1, day^-1, ea^-1."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("gram/kilogram/day/each")
+        with using_conversion_graph(graph):
+            result = parse_unit("gram/kilogram/day/each")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["gram"] == 1.0
         assert found["kilogram"] == -1.0
@@ -1853,31 +1853,31 @@ class TestProductExpressionGrammar:
 
     def test_backward_compat_star(self):
         """'meter*second^-1' still works."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("meter*second^-1")
+        with using_conversion_graph(graph):
+            result = parse_unit("meter*second^-1")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 1.0
         assert found["second"] == -1.0
 
     def test_whitespace_tolerance(self):
         """'meter / second' with whitespace works."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("meter / second")
+        with using_conversion_graph(graph):
+            result = parse_unit("meter / second")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 1.0
         assert found["second"] == -1.0
 
     def test_division_with_prefix(self):
         """'kwatt/hour' → kilo-watt^1, hour^-1."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         from ucon.core import Scale
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("kwatt/hour")
+        with using_conversion_graph(graph):
+            result = parse_unit("kwatt/hour")
         found_kilo_watt = False
         found_hour = False
         for uf, exp in result.factors.items():
@@ -1921,10 +1921,10 @@ class TestProductExpressionGrammar:
 
     def test_left_to_right_star_after_slash(self):
         """'meter^3/kilogram*second^2' → m^3, kg^-1, s^2 (left-to-right)."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("meter^3/kilogram*second^2")
+        with using_conversion_graph(graph):
+            result = parse_unit("meter^3/kilogram*second^2")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 3.0
         assert found["kilogram"] == -1.0
@@ -1932,10 +1932,10 @@ class TestProductExpressionGrammar:
 
     def test_left_to_right_multiple_star_after_slash(self):
         """'joule/mole*kelvin*second' → J^1, mol^-1, K^1, s^1 (left-to-right)."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("joule/mole*kelvin*second")
+        with using_conversion_graph(graph):
+            result = parse_unit("joule/mole*kelvin*second")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["joule"] == 1.0
         assert found["mole"] == -1.0
@@ -1944,10 +1944,10 @@ class TestProductExpressionGrammar:
 
     def test_left_to_right_star_after_slash_with_exponents(self):
         """'watt/meter^2*kelvin^4' → W^1, m^-2, K^4 (left-to-right)."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("watt/meter^2*kelvin^4")
+        with using_conversion_graph(graph):
+            result = parse_unit("watt/meter^2*kelvin^4")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["watt"] == 1.0
         assert found["meter"] == -2.0
@@ -1955,10 +1955,10 @@ class TestProductExpressionGrammar:
 
     def test_double_slash_all_denominator(self):
         """'meter/second/kilogram' → m^1, s^-1, kg^-1."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("meter/second/kilogram")
+        with using_conversion_graph(graph):
+            result = parse_unit("meter/second/kilogram")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 1.0
         assert found["second"] == -1.0
@@ -1966,20 +1966,20 @@ class TestProductExpressionGrammar:
 
     def test_slash_with_explicit_negative_exponent(self):
         """'meter/second^-1' → m^1, s^1 (negative exponent in denominator flips)."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("meter/second^-1")
+        with using_conversion_graph(graph):
+            result = parse_unit("meter/second^-1")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 1.0
         assert found["second"] == 1.0
 
     def test_float_exponents(self):
         """'joule/meter^2.0' → joule^1, meter^-2 (float exponents from emitter)."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("joule/meter^2.0")
+        with using_conversion_graph(graph):
+            result = parse_unit("joule/meter^2.0")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["joule"] == 1.0
         assert found["meter"] == -2.0
@@ -1988,10 +1988,10 @@ class TestProductExpressionGrammar:
 
     def test_parens_for_multi_denom(self):
         """'m³/(kg·s²)' → m^3, kg^-1, s^-2 (G constant with explicit parens)."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("m³/(kg·s²)")
+        with using_conversion_graph(graph):
+            result = parse_unit("m³/(kg·s²)")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 3.0
         assert found["kilogram"] == -1.0
@@ -1999,10 +1999,10 @@ class TestProductExpressionGrammar:
 
     def test_parens_stefan_boltzmann(self):
         """'W/(m²·K⁴)' → W^1, m^-2, K^-4."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("W/(m²·K⁴)")
+        with using_conversion_graph(graph):
+            result = parse_unit("W/(m²·K⁴)")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["watt"] == 1.0
         assert found["meter"] == -2.0
@@ -2010,10 +2010,10 @@ class TestProductExpressionGrammar:
 
     def test_parens_molar_gas(self):
         """'J/(mol·K)' → J^1, mol^-1, K^-1."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("J/(mol·K)")
+        with using_conversion_graph(graph):
+            result = parse_unit("J/(mol·K)")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["joule"] == 1.0
         assert found["mole"] == -1.0
@@ -2021,10 +2021,10 @@ class TestProductExpressionGrammar:
 
     def test_without_parens_is_left_to_right(self):
         """'m³/kg·s²' without parens is left-to-right: (m³/kg)·s² = m³·s²/kg."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("m³/kg·s²")
+        with using_conversion_graph(graph):
+            result = parse_unit("m³/kg·s²")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["meter"] == 3.0
         assert found["kilogram"] == -1.0
@@ -2032,10 +2032,10 @@ class TestProductExpressionGrammar:
 
     def test_unicode_no_slash_all_positive(self):
         """'kg·m·s' → all positive (no slash means no denominator)."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("kg·m·s")
+        with using_conversion_graph(graph):
+            result = parse_unit("kg·m·s")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["kilogram"] == 1.0
         assert found["meter"] == 1.0
@@ -2043,10 +2043,10 @@ class TestProductExpressionGrammar:
 
     def test_parens_override_left_to_right(self):
         """'kg/(m·s²)·A' → kg^1, m^-1, s^-2, A^1 (parens group then multiply A)."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
         graph = get_default_graph()
-        with using_graph(graph):
-            result = get_unit_by_name("kg/(m·s²)·A")
+        with using_conversion_graph(graph):
+            result = parse_unit("kg/(m·s²)·A")
         found = {uf.unit.name: exp for uf, exp in result.factors.items()}
         assert found["kilogram"] == 1.0
         assert found["meter"] == -1.0
@@ -2054,10 +2054,10 @@ class TestProductExpressionGrammar:
         assert found["ampere"] == 1.0  # multiplied back in
 
     def test_shorthand_roundtrip_multi_denom(self):
-        """UnitProduct.shorthand (Unicode) round-trips through get_unit_by_name."""
+        """UnitProduct.shorthand (Unicode) round-trips through parse_unit."""
         from ucon import units
         from ucon.core import UnitFactor, Scale, UnitProduct
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
 
         prod = UnitProduct({
             UnitFactor(units.meter, Scale.one): 3,
@@ -2068,8 +2068,8 @@ class TestProductExpressionGrammar:
         assert "(" in shorthand  # should have parens for multi-term denom
 
         graph = get_default_graph()
-        with using_graph(graph):
-            reparsed = get_unit_by_name(shorthand)
+        with using_conversion_graph(graph):
+            reparsed = parse_unit(shorthand)
         found = {uf.unit.name: exp for uf, exp in reparsed.factors.items()}
         assert found["meter"] == 3.0
         assert found["kilogram"] == -1.0

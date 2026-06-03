@@ -5,7 +5,7 @@
 """
 Tests for unit string parsing functionality.
 
-Verifies that get_unit_by_name() correctly parses unit strings including:
+Verifies that parse_unit() correctly parses unit strings including:
 - Simple units by name and alias
 - Scaled units with SI prefixes
 - Exponents in both Unicode and ASCII notation
@@ -16,64 +16,65 @@ import unittest
 
 from ucon import units, Scale, Dimension, Number
 from ucon.core import Unit, UnitProduct, UnitFactor
-from ucon.units import get_unit_by_name, UnknownUnitError
+from ucon.resolver import parse_unit
+from ucon.units import UnknownUnitError
 
 
 class TestSimpleUnitLookup(unittest.TestCase):
     """Test lookup of simple units by name and alias."""
 
     def test_lookup_by_name(self):
-        result = get_unit_by_name("meter")
+        result = parse_unit("meter")
         self.assertEqual(result, units.meter)
 
     def test_lookup_by_alias(self):
-        result = get_unit_by_name("m")
+        result = parse_unit("m")
         self.assertEqual(result, units.meter)
 
     def test_lookup_second_by_name(self):
-        result = get_unit_by_name("second")
+        result = parse_unit("second")
         self.assertEqual(result, units.second)
 
     def test_lookup_second_by_alias(self):
-        result = get_unit_by_name("s")
+        result = parse_unit("s")
         self.assertEqual(result, units.second)
 
     def test_lookup_case_insensitive_name(self):
-        result = get_unit_by_name("METER")
+        result = parse_unit("METER")
         self.assertEqual(result, units.meter)
 
     def test_lookup_case_sensitive_M_resolves_to_molar(self):
         # 'M' is the standard chemistry symbol for molar concentration
         # (and SI prefix for mega when used as a prefix). Lowercase 'm'
         # remains the meter alias.
-        result = get_unit_by_name("M")
+        result = parse_unit("M")
         self.assertEqual(result, units.molar)
 
     def test_lookup_case_insensitive_alias(self):
         # Lowercase 'm' is the canonical alias for meter.
-        result = get_unit_by_name("m")
+        result = parse_unit("m")
         self.assertEqual(result, units.meter)
 
     def test_lookup_liter_L(self):
         # 'L' is case-sensitive alias for liter (uppercase)
-        result = get_unit_by_name("L")
+        result = parse_unit("L")
         self.assertEqual(result, units.liter)
 
     def test_lookup_liter_lowercase(self):
-        result = get_unit_by_name("l")
+        result = parse_unit("l")
         self.assertEqual(result, units.liter)
 
     def test_lookup_byte_B(self):
         # 'B' is case-sensitive alias for byte (uppercase)
-        result = get_unit_by_name("B")
+        result = parse_unit("B")
         self.assertEqual(result, units.byte)
 
     def test_lookup_gram(self):
-        result = get_unit_by_name("gram")
+        result = parse_unit("gram")
         self.assertEqual(result, units.gram)
 
     def test_lookup_gram_alias(self):
-        result = get_unit_by_name("g")
+        result = parse_unit("g")
         self.assertEqual(result, units.gram)
 
 
@@ -81,94 +82,94 @@ class TestScaledUnitLookup(unittest.TestCase):
     """Test lookup of scaled units with SI prefixes."""
 
     def test_kilometer(self):
-        result = get_unit_by_name("km")
+        result = parse_unit("km")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1000.0, places=10)
 
     def test_millimeter(self):
-        result = get_unit_by_name("mm")
+        result = parse_unit("mm")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 0.001, places=10)
 
     def test_centimeter(self):
-        result = get_unit_by_name("cm")
+        result = parse_unit("cm")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 0.01, places=10)
 
     def test_milliliter(self):
-        result = get_unit_by_name("mL")
+        result = parse_unit("mL")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 0.001, places=10)
 
     def test_kilogram(self):
-        result = get_unit_by_name("kg")
+        result = parse_unit("kg")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1000.0, places=10)
 
     def test_milligram(self):
-        result = get_unit_by_name("mg")
+        result = parse_unit("mg")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 0.001, places=10)
 
     def test_megahertz(self):
-        result = get_unit_by_name("MHz")
+        result = parse_unit("MHz")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e6, places=1)
 
     def test_gigabyte(self):
-        result = get_unit_by_name("GB")
+        result = parse_unit("GB")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e9, places=1)
 
     def test_kilobyte_binary(self):
-        result = get_unit_by_name("KiB")
+        result = parse_unit("KiB")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1024.0, places=10)
 
     def test_mebibyte(self):
-        result = get_unit_by_name("MiB")
+        result = parse_unit("MiB")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1024**2, places=10)
 
     def test_microsecond_unicode(self):
-        result = get_unit_by_name("μs")
+        result = parse_unit("μs")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_microsecond_ascii(self):
-        result = get_unit_by_name("us")
+        result = parse_unit("us")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_nanosecond(self):
-        result = get_unit_by_name("ns")
+        result = parse_unit("ns")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
 
     def test_tebibyte(self):
-        result = get_unit_by_name("TiB")
+        result = parse_unit("TiB")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 2**40, places=1)
 
     def test_pebibyte(self):
-        result = get_unit_by_name("PiB")
+        result = parse_unit("PiB")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 2**50, places=1)
 
     def test_exbibyte(self):
-        result = get_unit_by_name("EiB")
+        result = parse_unit("EiB")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 2**60, places=1)
 
     def test_tebi_prefix_does_not_shadow_tera(self):
         """'TB' should still resolve as tera-byte, not tebi-byte."""
-        result = get_unit_by_name("TB")
+        result = parse_unit("TB")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e12, places=1)
 
     def test_pebi_prefix_does_not_shadow_peta(self):
         """'PB' should still resolve as peta-byte, not pebi-byte."""
-        result = get_unit_by_name("PB")
+        result = parse_unit("PB")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e15, places=1)
 
@@ -177,46 +178,46 @@ class TestExponentParsing(unittest.TestCase):
     """Test parsing of unit exponents in Unicode and ASCII notation."""
 
     def test_unicode_squared(self):
-        result = get_unit_by_name("m²")
+        result = parse_unit("m²")
         self.assertIsInstance(result, UnitProduct)
 
     def test_ascii_squared(self):
-        result = get_unit_by_name("m^2")
+        result = parse_unit("m^2")
         self.assertIsInstance(result, UnitProduct)
 
     def test_unicode_cubed(self):
-        result = get_unit_by_name("m³")
+        result = parse_unit("m³")
         self.assertIsInstance(result, UnitProduct)
 
     def test_ascii_cubed(self):
-        result = get_unit_by_name("m^3")
+        result = parse_unit("m^3")
         self.assertIsInstance(result, UnitProduct)
 
     def test_unicode_negative(self):
-        result = get_unit_by_name("s⁻¹")
+        result = parse_unit("s⁻¹")
         self.assertIsInstance(result, UnitProduct)
 
     def test_ascii_negative(self):
-        result = get_unit_by_name("s^-1")
+        result = parse_unit("s^-1")
         self.assertIsInstance(result, UnitProduct)
 
     def test_unicode_equals_ascii_squared(self):
-        unicode_result = get_unit_by_name("m²")
-        ascii_result = get_unit_by_name("m^2")
+        unicode_result = parse_unit("m²")
+        ascii_result = parse_unit("m^2")
         self.assertEqual(unicode_result, ascii_result)
 
     def test_unicode_equals_ascii_cubed(self):
-        unicode_result = get_unit_by_name("m³")
-        ascii_result = get_unit_by_name("m^3")
+        unicode_result = parse_unit("m³")
+        ascii_result = parse_unit("m^3")
         self.assertEqual(unicode_result, ascii_result)
 
     def test_unicode_equals_ascii_negative(self):
-        unicode_result = get_unit_by_name("s⁻¹")
-        ascii_result = get_unit_by_name("s^-1")
+        unicode_result = parse_unit("s⁻¹")
+        ascii_result = parse_unit("s^-1")
         self.assertEqual(unicode_result, ascii_result)
 
     def test_scaled_with_exponent(self):
-        result = get_unit_by_name("km^2")
+        result = parse_unit("km^2")
         self.assertIsInstance(result, UnitProduct)
         # km^2 = (1000m)^2 = 1e6 m^2
         self.assertAlmostEqual(result.fold_scale(), 1e6, places=1)
@@ -226,55 +227,55 @@ class TestCompositeUnitParsing(unittest.TestCase):
     """Test parsing of composite units with multiplication and division."""
 
     def test_velocity(self):
-        result = get_unit_by_name("m/s")
+        result = parse_unit("m/s")
         self.assertIsInstance(result, UnitProduct)
 
     def test_acceleration_unicode(self):
-        result = get_unit_by_name("m/s²")
+        result = parse_unit("m/s²")
         self.assertIsInstance(result, UnitProduct)
 
     def test_acceleration_ascii(self):
-        result = get_unit_by_name("m/s^2")
+        result = parse_unit("m/s^2")
         self.assertIsInstance(result, UnitProduct)
 
     def test_force_unicode(self):
-        result = get_unit_by_name("kg·m/s²")
+        result = parse_unit("kg·m/s²")
         self.assertIsInstance(result, UnitProduct)
 
     def test_force_ascii(self):
-        result = get_unit_by_name("kg*m/s^2")
+        result = parse_unit("kg*m/s^2")
         self.assertIsInstance(result, UnitProduct)
 
     def test_torque(self):
-        result = get_unit_by_name("N·m")
+        result = parse_unit("N·m")
         self.assertIsInstance(result, UnitProduct)
 
     def test_torque_ascii(self):
-        result = get_unit_by_name("N*m")
+        result = parse_unit("N*m")
         self.assertIsInstance(result, UnitProduct)
 
     def test_unicode_equals_ascii_velocity(self):
         # m/s should be the same regardless of notation
-        unicode_result = get_unit_by_name("m/s")
-        ascii_result = get_unit_by_name("m/s")
+        unicode_result = parse_unit("m/s")
+        ascii_result = parse_unit("m/s")
         self.assertEqual(unicode_result, ascii_result)
 
     def test_unicode_equals_ascii_acceleration(self):
-        unicode_result = get_unit_by_name("m/s²")
-        ascii_result = get_unit_by_name("m/s^2")
+        unicode_result = parse_unit("m/s²")
+        ascii_result = parse_unit("m/s^2")
         self.assertEqual(unicode_result, ascii_result)
 
     def test_unicode_equals_ascii_force(self):
-        unicode_result = get_unit_by_name("kg·m/s²")
-        ascii_result = get_unit_by_name("kg*m/s^2")
+        unicode_result = parse_unit("kg·m/s²")
+        ascii_result = parse_unit("kg*m/s^2")
         self.assertEqual(unicode_result, ascii_result)
 
     def test_data_rate(self):
-        result = get_unit_by_name("MB/s")
+        result = parse_unit("MB/s")
         self.assertIsInstance(result, UnitProduct)
 
     def test_pressure_per_time(self):
-        result = get_unit_by_name("Pa/s")
+        result = parse_unit("Pa/s")
         self.assertIsInstance(result, UnitProduct)
 
 
@@ -283,24 +284,24 @@ class TestUnknownUnit(unittest.TestCase):
 
     def test_unknown_raises(self):
         with self.assertRaises(UnknownUnitError) as ctx:
-            get_unit_by_name("foobar")
+            parse_unit("foobar")
         self.assertEqual(ctx.exception.name, "foobar")
 
     def test_empty_string_raises(self):
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name("")
+            parse_unit("")
 
     def test_whitespace_only_raises(self):
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name("   ")
+            parse_unit("   ")
 
     def test_unknown_in_composite_raises(self):
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name("foo/bar")
+            parse_unit("foo/bar")
 
     def test_error_message_contains_name(self):
         try:
-            get_unit_by_name("xyz123")
+            parse_unit("xyz123")
         except UnknownUnitError as e:
             self.assertIn("xyz123", str(e))
 
@@ -309,15 +310,15 @@ class TestWhitespaceHandling(unittest.TestCase):
     """Test that whitespace is handled correctly."""
 
     def test_leading_whitespace(self):
-        result = get_unit_by_name("  meter")
+        result = parse_unit("  meter")
         self.assertEqual(result, units.meter)
 
     def test_trailing_whitespace(self):
-        result = get_unit_by_name("meter  ")
+        result = parse_unit("meter  ")
         self.assertEqual(result, units.meter)
 
     def test_both_whitespace(self):
-        result = get_unit_by_name("  meter  ")
+        result = parse_unit("  meter  ")
         self.assertEqual(result, units.meter)
 
 
@@ -331,13 +332,13 @@ class TestPriorityAliases(unittest.TestCase):
 
     def test_min_is_minute_not_milli_inch(self):
         """'min' should parse as minute (time), not milli-inch (length)."""
-        result = get_unit_by_name("min")
+        result = parse_unit("min")
         self.assertEqual(result, units.minute)
         self.assertEqual(result.dimension, Dimension.time)
 
     def test_min_in_composite(self):
         """'min' should work correctly in composite units."""
-        result = get_unit_by_name("mL/min")
+        result = parse_unit("mL/min")
         self.assertIsInstance(result, UnitProduct)
         # Volume / time dimension
         expected_dim = Dimension.volume / Dimension.time
@@ -345,19 +346,19 @@ class TestPriorityAliases(unittest.TestCase):
 
     def test_mL_per_min_conversion(self):
         """Conversion using 'min' should work correctly."""
-        rate_per_hour = Number(120, unit=get_unit_by_name("mL/h"))
-        rate_per_min = rate_per_hour.to(get_unit_by_name("mL/min"))
+        rate_per_hour = Number(120, unit=parse_unit("mL/h"))
+        rate_per_min = rate_per_hour.to(parse_unit("mL/min"))
         self.assertAlmostEqual(rate_per_min.quantity, 2.0, places=9)
 
     def test_milli_prefix_still_works(self):
         """Normal milli- prefix parsing should still work."""
-        result = get_unit_by_name("mL")
+        result = parse_unit("mL")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 0.001, places=10)
 
     def test_inch_still_works(self):
         """Inch unit should still be accessible."""
-        result = get_unit_by_name("in")
+        result = parse_unit("in")
         self.assertEqual(result, units.inch)
 
 
@@ -370,52 +371,52 @@ class TestPriorityScaledAliases(unittest.TestCase):
 
     def test_mcg_is_microgram(self):
         """'mcg' should parse as microgram (medical convention)."""
-        result = get_unit_by_name("mcg")
+        result = parse_unit("mcg")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.mass)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_mcg_to_mg(self):
         """Conversion from mcg to mg should work."""
-        dose = Number(500, unit=get_unit_by_name("mcg"))
-        result = dose.to(get_unit_by_name("mg"))
+        dose = Number(500, unit=parse_unit("mcg"))
+        result = dose.to(parse_unit("mg"))
         self.assertAlmostEqual(result.quantity, 0.5, places=9)
 
     def test_mcg_to_ug(self):
         """mcg and µg should be equivalent."""
-        dose = Number(1, unit=get_unit_by_name("mcg"))
-        result = dose.to(get_unit_by_name("µg"))
+        dose = Number(1, unit=parse_unit("mcg"))
+        result = dose.to(parse_unit("µg"))
         self.assertAlmostEqual(result.quantity, 1.0, places=9)
 
     def test_mcg_in_composite(self):
         """'mcg' should work in composite units."""
-        result = get_unit_by_name("mcg/mL")
+        result = parse_unit("mcg/mL")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.density)
 
     def test_mcg_per_kg_per_min(self):
         """'mcg/kg/min' style dosing units (requires chained division support)."""
         # This tests mcg works; chained division is a separate issue
-        result = get_unit_by_name("mcg")
+        result = parse_unit("mcg")
         self.assertIsInstance(result, UnitProduct)
 
     def test_cc_is_milliliter(self):
         """'cc' should parse as milliliter (1 cc = 1 mL)."""
-        result = get_unit_by_name("cc")
+        result = parse_unit("cc")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.volume)
         self.assertAlmostEqual(result.fold_scale(), 0.001, places=10)
 
     def test_cc_to_mL(self):
         """Conversion from cc to mL should be 1:1."""
-        vol = Number(5, unit=get_unit_by_name("cc"))
-        result = vol.to(get_unit_by_name("mL"))
+        vol = Number(5, unit=parse_unit("cc"))
+        result = vol.to(parse_unit("mL"))
         self.assertAlmostEqual(result.quantity, 5.0, places=9)
 
     def test_cc_to_L(self):
         """Conversion from cc to L should work."""
-        vol = Number(1000, unit=get_unit_by_name("cc"))
-        result = vol.to(get_unit_by_name("L"))
+        vol = Number(1000, unit=parse_unit("cc"))
+        result = vol.to(parse_unit("L"))
         self.assertAlmostEqual(result.quantity, 1.0, places=9)
 
 
@@ -431,7 +432,7 @@ class TestRecursiveDescentParser(unittest.TestCase):
 
     def test_heat_transfer_coefficient(self):
         """GIVEN W/(m²*K) THEN returns W·m⁻²·K⁻¹."""
-        result = get_unit_by_name("W/(m²*K)")
+        result = parse_unit("W/(m²*K)")
         self.assertIsInstance(result, UnitProduct)
         # W in numerator (exp 1), m in denominator (exp -2), K in denominator (exp -1)
         factors = result.factors
@@ -440,14 +441,14 @@ class TestRecursiveDescentParser(unittest.TestCase):
 
     def test_concentration_rate(self):
         """GIVEN mol/(L*s) THEN returns mol·L⁻¹·s⁻¹."""
-        result = get_unit_by_name("mol/(L*s)")
+        result = parse_unit("mol/(L*s)")
         self.assertIsInstance(result, UnitProduct)
         factors = result.factors
         self.assertEqual(len(factors), 3)
 
     def test_molar_heat_capacity(self):
         """GIVEN J/(mol*K) THEN returns UnitProduct for molar heat capacity."""
-        result = get_unit_by_name("J/(mol*K)")
+        result = parse_unit("J/(mol*K)")
         self.assertIsInstance(result, UnitProduct)
         factors = result.factors
         self.assertEqual(len(factors), 3)
@@ -460,7 +461,7 @@ class TestRecursiveDescentParser(unittest.TestCase):
         (e.g., mg/kg * kg = mg). The fold_scale() still gives the correct
         combined scale factor.
         """
-        result = get_unit_by_name("mg/kg/d")
+        result = parse_unit("mg/kg/d")
         self.assertIsInstance(result, UnitProduct)
         # All three factors preserved: mg, kg^-1, d^-1
         factors = result.factors
@@ -470,7 +471,7 @@ class TestRecursiveDescentParser(unittest.TestCase):
 
     def test_chained_division_infusion_rate(self):
         """GIVEN µg/kg/min THEN returns µg/kg/min with all factors preserved."""
-        result = get_unit_by_name("µg/kg/min")
+        result = parse_unit("µg/kg/min")
         self.assertIsInstance(result, UnitProduct)
         factors = result.factors
         self.assertEqual(len(factors), 3)  # µg, kg^-1, min^-1
@@ -479,7 +480,7 @@ class TestRecursiveDescentParser(unittest.TestCase):
 
     def test_mcg_chained_division(self):
         """GIVEN mcg/kg/min THEN returns mcg/kg/min with all factors preserved."""
-        result = get_unit_by_name("mcg/kg/min")
+        result = parse_unit("mcg/kg/min")
         self.assertIsInstance(result, UnitProduct)
         factors = result.factors
         self.assertEqual(len(factors), 3)  # mcg, kg^-1, min^-1
@@ -488,94 +489,94 @@ class TestRecursiveDescentParser(unittest.TestCase):
 
     def test_acceleration_unicode_superscript(self):
         """GIVEN m/s² THEN returns UnitProduct with dimension acceleration."""
-        result = get_unit_by_name("m/s²")
+        result = parse_unit("m/s²")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.acceleration)
 
     def test_acceleration_ascii_caret(self):
         """GIVEN m/s^2 THEN returns UnitProduct identical to m/s²."""
-        unicode_result = get_unit_by_name("m/s²")
-        ascii_result = get_unit_by_name("m/s^2")
+        unicode_result = parse_unit("m/s²")
+        ascii_result = parse_unit("m/s^2")
         self.assertEqual(unicode_result, ascii_result)
 
     def test_frequency_negative_superscript(self):
         """GIVEN s⁻¹ THEN returns UnitProduct with dimension frequency."""
-        result = get_unit_by_name("s⁻¹")
+        result = parse_unit("s⁻¹")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.frequency)
 
     def test_force_mixed_notation(self):
         """GIVEN kg*m/s^2 THEN returns UnitProduct with dimension force."""
-        result = get_unit_by_name("kg*m/s^2")
+        result = parse_unit("kg*m/s^2")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.force)
 
     def test_force_nested_parentheses(self):
         """GIVEN (kg*m)/(s^2) THEN returns UnitProduct with dimension force."""
-        result = get_unit_by_name("(kg*m)/(s^2)")
+        result = parse_unit("(kg*m)/(s^2)")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.force)
 
     def test_nested_equals_flat(self):
         """Nested parentheses should give same result as flat expression."""
-        nested = get_unit_by_name("(kg*m)/(s^2)")
-        flat = get_unit_by_name("kg*m/s^2")
+        nested = parse_unit("(kg*m)/(s^2)")
+        flat = parse_unit("kg*m/s^2")
         self.assertEqual(nested, flat)
 
     def test_unbalanced_parentheses_error(self):
         """GIVEN W/(m²*K (missing close paren) THEN raises ValueError with position."""
         from ucon.parsing import ParseError
         with self.assertRaises((ValueError, ParseError)):
-            get_unit_by_name("W/(m²*K")
+            parse_unit("W/(m²*K")
 
     def test_extra_close_paren_error(self):
         """Extra closing parenthesis should raise error."""
         from ucon.parsing import ParseError
         with self.assertRaises((ValueError, ParseError)):
-            get_unit_by_name("W/(m²*K))")
+            parse_unit("W/(m²*K))")
 
     def test_backward_compat_simple_meter(self):
         """GIVEN m THEN returns units.meter (backward compatibility)."""
-        result = get_unit_by_name("m")
+        result = parse_unit("m")
         self.assertEqual(result, units.meter)
 
     def test_backward_compat_scaled_kg(self):
         """GIVEN kg THEN returns Scale.kilo * gram (backward compatibility)."""
-        result = get_unit_by_name("kg")
+        result = parse_unit("kg")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1000.0, places=9)
 
     def test_backward_compat_minute_priority(self):
         """GIVEN min THEN returns minute (time), not milli-inch."""
-        result = get_unit_by_name("min")
+        result = parse_unit("min")
         self.assertEqual(result, units.minute)
 
     def test_unicode_multiplication_dot(self):
         """GIVEN kg·m THEN parses with Unicode middle dot."""
-        result = get_unit_by_name("kg·m")
+        result = parse_unit("kg·m")
         self.assertIsInstance(result, UnitProduct)
 
     def test_unicode_multiplication_cdot(self):
         """GIVEN kg⋅m THEN parses with Unicode center dot."""
-        result = get_unit_by_name("kg⋅m")
+        result = parse_unit("kg⋅m")
         self.assertIsInstance(result, UnitProduct)
 
     def test_triple_chained_division(self):
         """GIVEN a/b/c/d THEN returns a·b⁻¹·c⁻¹·d⁻¹."""
-        result = get_unit_by_name("m/s/kg/K")
+        result = parse_unit("m/s/kg/K")
         self.assertIsInstance(result, UnitProduct)
         factors = result.factors
         self.assertEqual(len(factors), 4)
 
     def test_complex_heat_transfer_ascii(self):
         """GIVEN W/(m^2*K) (ASCII) THEN equivalent to Unicode version."""
-        unicode_result = get_unit_by_name("W/(m²*K)")
-        ascii_result = get_unit_by_name("W/(m^2*K)")
+        unicode_result = parse_unit("W/(m²*K)")
+        ascii_result = parse_unit("W/(m^2*K)")
         self.assertEqual(unicode_result, ascii_result)
 
     def test_deeply_nested_parens(self):
         """GIVEN ((m)) THEN returns meter wrapped in UnitProduct."""
-        result = get_unit_by_name("((m))")
+        result = parse_unit("((m))")
         self.assertIsInstance(result, UnitProduct)
         # Should have one factor: meter with exponent 1
         factors = result.factors
@@ -583,12 +584,12 @@ class TestRecursiveDescentParser(unittest.TestCase):
 
     def test_whitespace_in_expression(self):
         """Whitespace should be tolerated in expressions."""
-        result = get_unit_by_name("m / s")
+        result = parse_unit("m / s")
         self.assertIsInstance(result, UnitProduct)
 
     def test_whitespace_around_parens(self):
         """Whitespace around parentheses should work."""
-        result = get_unit_by_name("W / ( m^2 * K )")
+        result = parse_unit("W / ( m^2 * K )")
         self.assertIsInstance(result, UnitProduct)
 
 
@@ -604,22 +605,22 @@ class TestResolverEdgeCases(unittest.TestCase):
 
     def test_parse_exponent_ascii_caret(self):
         """ASCII caret notation: 'm^2' resolves."""
-        result = get_unit_by_name("m^2")
+        result = parse_unit("m^2")
         self.assertIsInstance(result, UnitProduct)
 
     def test_parse_exponent_ascii_negative(self):
         """ASCII caret negative: 's^-1' resolves."""
-        result = get_unit_by_name("s^-1")
+        result = parse_unit("s^-1")
         self.assertIsInstance(result, UnitProduct)
 
     def test_parse_exponent_ascii_invalid_raises(self):
         """ASCII caret with non-numeric exponent raises."""
         with self.assertRaises(UnknownUnitError):
-            get_unit_by_name("m^abc")
+            parse_unit("m^abc")
 
     def test_priority_alias_min(self):
         """'min' resolves to minute, not milli-inch."""
-        result = get_unit_by_name('min')
+        result = parse_unit('min')
         # Should be minute (time), not a prefix decomposition
         if isinstance(result, UnitProduct):
             # extract the unit from the product
@@ -631,7 +632,7 @@ class TestResolverEdgeCases(unittest.TestCase):
     def test_empty_string_raises(self):
         """Empty string raises UnknownUnitError."""
         with self.assertRaises((UnknownUnitError, ValueError)):
-            get_unit_by_name('')
+            parse_unit('')
 
 
 class TestSpelledOutScaleAliases(unittest.TestCase):
@@ -640,127 +641,127 @@ class TestSpelledOutScaleAliases(unittest.TestCase):
     # -- Length ---------------------------------------------------------------
 
     def test_kilometer(self):
-        result = get_unit_by_name("kilometer")
+        result = parse_unit("kilometer")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
         self.assertEqual(result.dimension, Dimension.length)
 
     def test_centimeter(self):
-        result = get_unit_by_name("centimeter")
+        result = parse_unit("centimeter")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-2, places=10)
 
     def test_millimeter(self):
-        result = get_unit_by_name("millimeter")
+        result = parse_unit("millimeter")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
 
     def test_micrometer(self):
-        result = get_unit_by_name("micrometer")
+        result = parse_unit("micrometer")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_nanometer(self):
-        result = get_unit_by_name("nanometer")
+        result = parse_unit("nanometer")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
 
     def test_picometer(self):
-        result = get_unit_by_name("picometer")
+        result = parse_unit("picometer")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-12, places=15)
 
     # -- Mass -----------------------------------------------------------------
 
     def test_milligram(self):
-        result = get_unit_by_name("milligram")
+        result = parse_unit("milligram")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
 
     def test_microgram(self):
-        result = get_unit_by_name("microgram")
+        result = parse_unit("microgram")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_kilogram_still_returns_unit(self):
         """kilogram must still resolve as the kilogram Unit, not kilo*gram."""
-        result = get_unit_by_name("kilogram")
+        result = parse_unit("kilogram")
         self.assertIsInstance(result, Unit)
         self.assertEqual(result, units.kilogram)
 
     # -- Time -----------------------------------------------------------------
 
     def test_millisecond(self):
-        result = get_unit_by_name("millisecond")
+        result = parse_unit("millisecond")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
 
     def test_microsecond(self):
-        result = get_unit_by_name("microsecond")
+        result = parse_unit("microsecond")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_nanosecond(self):
-        result = get_unit_by_name("nanosecond")
+        result = parse_unit("nanosecond")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-9, places=15)
 
     # -- Frequency ------------------------------------------------------------
 
     def test_megahertz(self):
-        result = get_unit_by_name("megahertz")
+        result = parse_unit("megahertz")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e6, places=1)
 
     def test_gigahertz(self):
-        result = get_unit_by_name("gigahertz")
+        result = parse_unit("gigahertz")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e9, places=1)
 
     # -- Information ----------------------------------------------------------
 
     def test_gigabyte(self):
-        result = get_unit_by_name("gigabyte")
+        result = parse_unit("gigabyte")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e9, places=1)
 
     def test_tebibyte(self):
-        result = get_unit_by_name("tebibyte")
+        result = parse_unit("tebibyte")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 2**40, places=1)
 
     def test_pebibyte(self):
-        result = get_unit_by_name("pebibyte")
+        result = parse_unit("pebibyte")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 2**50, places=1)
 
     def test_exbibyte(self):
-        result = get_unit_by_name("exbibyte")
+        result = parse_unit("exbibyte")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 2**60, places=1)
 
     # -- Power ----------------------------------------------------------------
 
     def test_kilowatt(self):
-        result = get_unit_by_name("kilowatt")
+        result = parse_unit("kilowatt")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
 
     # -- Conversions using spelled-out names ----------------------------------
 
     def test_kilometer_to_meter(self):
-        dist = Number(5, unit=get_unit_by_name("kilometer"))
+        dist = Number(5, unit=parse_unit("kilometer"))
         result = dist.to("m")
         self.assertAlmostEqual(result.quantity, 5000.0, places=9)
 
     def test_milligram_to_mcg(self):
-        dose = Number(1, unit=get_unit_by_name("milligram"))
-        result = dose.to(get_unit_by_name("mcg"))
+        dose = Number(1, unit=parse_unit("milligram"))
+        result = dose.to(parse_unit("mcg"))
         self.assertAlmostEqual(result.quantity, 1000.0, places=9)
 
     def test_tebibyte_to_gibibyte(self):
-        storage = Number(1, unit=get_unit_by_name("tebibyte"))
-        result = storage.to(get_unit_by_name("gibibyte"))
+        storage = Number(1, unit=parse_unit("tebibyte"))
+        result = storage.to(parse_unit("gibibyte"))
         self.assertAlmostEqual(result.quantity, 1024.0, places=9)
 
 
@@ -775,144 +776,144 @@ class TestPluralAliases(unittest.TestCase):
     # -- TOML plural aliases (base/unscaled units) ----------------------------
 
     def test_meters(self):
-        self.assertEqual(get_unit_by_name("meters"), units.meter)
+        self.assertEqual(parse_unit("meters"), units.meter)
 
     def test_metres(self):
-        self.assertEqual(get_unit_by_name("metres"), units.meter)
+        self.assertEqual(parse_unit("metres"), units.meter)
 
     def test_metre(self):
-        self.assertEqual(get_unit_by_name("metre"), units.meter)
+        self.assertEqual(parse_unit("metre"), units.meter)
 
     def test_seconds(self):
-        self.assertEqual(get_unit_by_name("seconds"), units.second)
+        self.assertEqual(parse_unit("seconds"), units.second)
 
     def test_grams(self):
-        self.assertEqual(get_unit_by_name("grams"), units.gram)
+        self.assertEqual(parse_unit("grams"), units.gram)
 
     def test_watts(self):
-        self.assertEqual(get_unit_by_name("watts"), units.watt)
+        self.assertEqual(parse_unit("watts"), units.watt)
 
     def test_joules(self):
-        self.assertEqual(get_unit_by_name("joules"), units.joule)
+        self.assertEqual(parse_unit("joules"), units.joule)
 
     def test_hours(self):
-        self.assertEqual(get_unit_by_name("hours"), units.hour)
+        self.assertEqual(parse_unit("hours"), units.hour)
 
     def test_liters(self):
-        self.assertEqual(get_unit_by_name("liters"), units.liter)
+        self.assertEqual(parse_unit("liters"), units.liter)
 
     def test_litres(self):
-        self.assertEqual(get_unit_by_name("litres"), units.liter)
+        self.assertEqual(parse_unit("litres"), units.liter)
 
     def test_litre(self):
-        self.assertEqual(get_unit_by_name("litre"), units.liter)
+        self.assertEqual(parse_unit("litre"), units.liter)
 
     def test_ohms(self):
-        self.assertEqual(get_unit_by_name("ohms"), units.ohm)
+        self.assertEqual(parse_unit("ohms"), units.ohm)
 
     def test_newtons(self):
-        self.assertEqual(get_unit_by_name("newtons"), units.newton)
+        self.assertEqual(parse_unit("newtons"), units.newton)
 
     def test_pascals(self):
-        self.assertEqual(get_unit_by_name("pascals"), units.pascal)
+        self.assertEqual(parse_unit("pascals"), units.pascal)
 
     def test_amps(self):
-        self.assertEqual(get_unit_by_name("amps"), units.ampere)
+        self.assertEqual(parse_unit("amps"), units.ampere)
 
     def test_amperes(self):
-        self.assertEqual(get_unit_by_name("amperes"), units.ampere)
+        self.assertEqual(parse_unit("amperes"), units.ampere)
 
     def test_volts(self):
-        self.assertEqual(get_unit_by_name("volts"), units.volt)
+        self.assertEqual(parse_unit("volts"), units.volt)
 
     def test_radians(self):
-        self.assertEqual(get_unit_by_name("radians"), units.radian)
+        self.assertEqual(parse_unit("radians"), units.radian)
 
     def test_arcseconds(self):
-        self.assertEqual(get_unit_by_name("arcseconds"), units.arcsecond)
+        self.assertEqual(parse_unit("arcseconds"), units.arcsecond)
 
     def test_arcminutes(self):
-        self.assertEqual(get_unit_by_name("arcminutes"), units.arcminute)
+        self.assertEqual(parse_unit("arcminutes"), units.arcminute)
 
     def test_lumens(self):
-        self.assertEqual(get_unit_by_name("lumens"), units.lumen)
+        self.assertEqual(parse_unit("lumens"), units.lumen)
 
     # -- New unit: solar_mass -------------------------------------------------
 
     def test_solar_mass_by_name(self):
-        result = get_unit_by_name("solar_mass")
+        result = parse_unit("solar_mass")
         self.assertIsInstance(result, Unit)
         self.assertEqual(result.dimension, Dimension.mass)
 
     def test_solar_mass_symbol(self):
-        result = get_unit_by_name("M☉")
+        result = parse_unit("M☉")
         self.assertIsInstance(result, Unit)
         self.assertEqual(result.name, "solar_mass")
 
     def test_solar_masses(self):
-        result = get_unit_by_name("solar_masses")
+        result = parse_unit("solar_masses")
         self.assertIsInstance(result, Unit)
         self.assertEqual(result.name, "solar_mass")
 
     # -- Scaled plural aliases (from units.py) --------------------------------
 
     def test_kilometers(self):
-        result = get_unit_by_name("kilometers")
+        result = parse_unit("kilometers")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
 
     def test_milligrams(self):
-        result = get_unit_by_name("milligrams")
+        result = parse_unit("milligrams")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
 
     def test_milliseconds(self):
-        result = get_unit_by_name("milliseconds")
+        result = parse_unit("milliseconds")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
 
     def test_milliliters(self):
-        result = get_unit_by_name("milliliters")
+        result = parse_unit("milliliters")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
 
     def test_kilowatts(self):
-        result = get_unit_by_name("kilowatts")
+        result = parse_unit("kilowatts")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
 
     def test_kilojoules(self):
-        result = get_unit_by_name("kilojoules")
+        result = parse_unit("kilojoules")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e3, places=10)
 
     def test_microradians(self):
-        result = get_unit_by_name("microradians")
+        result = parse_unit("microradians")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_microradian_singular(self):
-        result = get_unit_by_name("microradian")
+        result = parse_unit("microradian")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
 
     def test_millilumens(self):
-        result = get_unit_by_name("millilumens")
+        result = parse_unit("millilumens")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
 
     def test_millilumen_singular(self):
-        result = get_unit_by_name("millilumen")
+        result = parse_unit("millilumen")
         self.assertIsInstance(result, UnitProduct)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=10)
 
     # -- 1.6.4 additions ------------------------------------------------------
 
     def test_days(self):
-        self.assertEqual(get_unit_by_name("days"), units.day)
+        self.assertEqual(parse_unit("days"), units.day)
 
     def test_minutes(self):
-        self.assertEqual(get_unit_by_name("minutes"), units.minute)
+        self.assertEqual(parse_unit("minutes"), units.minute)
 
 
 class TestDimensionlessAliases(unittest.TestCase):
@@ -924,13 +925,13 @@ class TestDimensionlessAliases(unittest.TestCase):
     """
 
     def test_dimensionless(self):
-        self.assertEqual(get_unit_by_name("dimensionless"), units.fraction)
+        self.assertEqual(parse_unit("dimensionless"), units.fraction)
 
     def test_unitless(self):
-        self.assertEqual(get_unit_by_name("unitless"), units.fraction)
+        self.assertEqual(parse_unit("unitless"), units.fraction)
 
     def test_frac_still_works(self):
-        self.assertEqual(get_unit_by_name("frac"), units.fraction)
+        self.assertEqual(parse_unit("frac"), units.fraction)
 
 
 class TestMolarAliases(unittest.TestCase):
@@ -943,35 +944,35 @@ class TestMolarAliases(unittest.TestCase):
     """
 
     def test_M_is_molar(self):
-        self.assertEqual(get_unit_by_name("M"), units.molar)
+        self.assertEqual(parse_unit("M"), units.molar)
 
     def test_mM_is_millimolar(self):
-        result = get_unit_by_name("mM")
+        result = parse_unit("mM")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.concentration)
         # fold_scale() returns the scale prefix factor (milli = 1e-3)
         self.assertAlmostEqual(result.fold_scale(), 1e-3, places=15)
 
     def test_uM_equals_micromolar(self):
-        u = get_unit_by_name("uM")
-        mu = get_unit_by_name("µM")
+        u = parse_unit("uM")
+        mu = parse_unit("µM")
         self.assertEqual(u, mu)
 
     def test_nM_is_nanomolar(self):
-        result = get_unit_by_name("nM")
+        result = parse_unit("nM")
         self.assertEqual(result.dimension, Dimension.concentration)
 
     def test_pM_is_picomolar(self):
-        result = get_unit_by_name("pM")
+        result = parse_unit("pM")
         self.assertEqual(result.dimension, Dimension.concentration)
 
     def test_mol_per_L_still_works(self):
-        self.assertEqual(get_unit_by_name("mol/L").dimension,
+        self.assertEqual(parse_unit("mol/L").dimension,
                          Dimension.concentration)
 
     def test_mM_to_M_conversion(self):
-        c = Number(500, unit=get_unit_by_name("mM"))
-        result = c.to(get_unit_by_name("M"))
+        c = Number(500, unit=parse_unit("mM"))
+        result = c.to(parse_unit("M"))
         self.assertAlmostEqual(result.quantity, 0.5, places=9)
 
 
@@ -995,43 +996,43 @@ class TestWholeTokenAliases(unittest.TestCase):
     """
 
     def test_gy_rbe_resolves_to_gray(self):
-        self.assertEqual(get_unit_by_name("Gy(RBE)"), units.gray)
+        self.assertEqual(parse_unit("Gy(RBE)"), units.gray)
 
     def test_sv_rbe_resolves_to_sievert(self):
-        self.assertEqual(get_unit_by_name("Sv(RBE)"), units.sievert)
+        self.assertEqual(parse_unit("Sv(RBE)"), units.sievert)
 
     def test_gy_rbe_is_not_unitproduct(self):
         # Whole-token resolution returns the bare Unit, not a UnitProduct
-        result = get_unit_by_name("Gy(RBE)")
+        result = parse_unit("Gy(RBE)")
         self.assertIsInstance(result, Unit)
 
     def test_gy_alias_still_works(self):
-        self.assertEqual(get_unit_by_name("Gy"), units.gray)
+        self.assertEqual(parse_unit("Gy"), units.gray)
 
     def test_sv_alias_still_works(self):
-        self.assertEqual(get_unit_by_name("Sv"), units.sievert)
+        self.assertEqual(parse_unit("Sv"), units.sievert)
 
     def test_composite_with_real_operators_unchanged(self):
         # Regression: actual composite expressions still parse normally
-        result = get_unit_by_name("m/s")
+        result = parse_unit("m/s")
         self.assertIsInstance(result, UnitProduct)
 
     def test_composite_with_parentheses_unchanged(self):
         # Regression: parenthesised composites still parse
-        result = get_unit_by_name("J/(mol*K)")
+        result = parse_unit("J/(mol*K)")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension,
-                         get_unit_by_name("J/mol/K").dimension)
+                         parse_unit("J/mol/K").dimension)
 
     def test_priority_alias_min_unchanged(self):
         # Regression: 'min' still resolves to minute, not milli-inch
-        self.assertEqual(get_unit_by_name("min"), units.minute)
+        self.assertEqual(parse_unit("min"), units.minute)
 
     def test_priority_scaled_alias_mcg_unchanged(self):
         # Regression: 'mcg' still resolves to microgram via priority scaled
         # alias path (it is NOT in the unit-name registry, so the new
         # whole-string check falls through cleanly)
-        result = get_unit_by_name("mcg")
+        result = parse_unit("mcg")
         self.assertIsInstance(result, UnitProduct)
         self.assertEqual(result.dimension, Dimension.mass)
         self.assertAlmostEqual(result.fold_scale(), 1e-6, places=15)
@@ -1040,13 +1041,13 @@ class TestWholeTokenAliases(unittest.TestCase):
         # Verbatim check falls through; composite parser then raises
         # for the unknown parenthesised expression.
         with self.assertRaises((UnknownUnitError, Exception)):
-            get_unit_by_name("Foo(BAR)")
+            parse_unit("Foo(BAR)")
 
     def test_verbatim_lookup_is_case_sensitive(self):
         # Verbatim aliases are convention-specific; the exact casing is
         # required. Lowercase variants are not silently coerced.
         with self.assertRaises((UnknownUnitError, Exception)):
-            get_unit_by_name("gy(rbe)")
+            parse_unit("gy(rbe)")
 
 
 if __name__ == '__main__':
