@@ -91,6 +91,8 @@ class Dimension:
     magnetic_flux_density: ClassVar[Dimension]
     magnetic_permeability: ClassVar[Dimension]
     mass: ClassVar[Dimension]
+    molar_energy: ClassVar[Dimension]
+    molar_entropy: ClassVar[Dimension]
     molar_mass: ClassVar[Dimension]
     molar_volume: ClassVar[Dimension]
     momentum: ClassVar[Dimension]
@@ -106,6 +108,7 @@ class Dimension:
     resistance: ClassVar[Dimension]
     resistivity: ClassVar[Dimension]
     solid_angle: ClassVar[Dimension]
+    specific_energy: ClassVar[Dimension]
     specific_heat_capacity: ClassVar[Dimension]
     temperature: ClassVar[Dimension]
     thermal_conductivity: ClassVar[Dimension]
@@ -210,7 +213,10 @@ LUMINOUS_EFFICACY: Dimension
 CATALYTIC_ACTIVITY: Dimension
 MOLAR_MASS: Dimension
 MOLAR_VOLUME: Dimension
+MOLAR_ENERGY: Dimension
+MOLAR_ENTROPY: Dimension
 CONCENTRATION: Dimension
+SPECIFIC_ENERGY: Dimension
 WAVENUMBER: Dimension
 RADIANT_EXPOSURE: Dimension
 EXPOSURE: Dimension

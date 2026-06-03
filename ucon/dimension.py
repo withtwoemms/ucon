@@ -647,7 +647,12 @@ LUMINOUS_EFFICACY = _dim("luminous_efficacy", 3, -2, -1, 0, 0, 1, 0, 0)  # J·T�
 CATALYTIC_ACTIVITY = _dim("catalytic_activity", -1, 0, 0, 0, 0, 0, 1, 0)  # N/T
 MOLAR_MASS = _dim("molar_mass", 0, 0, 1, 0, 0, 0, -1, 0)  # M/N
 MOLAR_VOLUME = _dim("molar_volume", 0, 3, 0, 0, 0, 0, -1, 0)  # L³/N
+MOLAR_ENERGY = _dim("molar_energy", -2, 2, 1, 0, 0, 0, -1, 0)  # M·L²/(T²·N)
+MOLAR_ENTROPY = _dim("molar_entropy", -2, 2, 1, 0, -1, 0, -1, 0)  # M·L²/(T²·Θ·N)
 CONCENTRATION = _dim("concentration", 0, -3, 0, 0, 0, 0, 1, 0)  # N/L³
+
+# Specific quantities (per-mass)
+SPECIFIC_ENERGY = _dim("specific_energy", -2, 2, 0, 0, 0, 0, 0, 0)  # L²/T² (J/kg = Gy = Sv)
 
 # Spectroscopy / Radiation
 WAVENUMBER = _dim("wavenumber", 0, -1, 0, 0, 0, 0, 0, 0)  # 1/L
@@ -962,7 +967,11 @@ def all_dimensions() -> tuple[Dimension, ...]:
         CATALYTIC_ACTIVITY,
         MOLAR_MASS,
         MOLAR_VOLUME,
+        MOLAR_ENERGY,
+        MOLAR_ENTROPY,
         CONCENTRATION,
+        # Derived - Specific quantities (per-mass)
+        SPECIFIC_ENERGY,
         # Derived - Spectroscopy / Radiation
         WAVENUMBER,
         RADIANT_EXPOSURE,
@@ -1121,7 +1130,11 @@ __all__ = [
     "CATALYTIC_ACTIVITY",
     "MOLAR_MASS",
     "MOLAR_VOLUME",
+    "MOLAR_ENERGY",
+    "MOLAR_ENTROPY",
     "CONCENTRATION",
+    # Derived dimensions - Specific quantities (per-mass)
+    "SPECIFIC_ENERGY",
     # Derived dimensions - Spectroscopy / Radiation
     "WAVENUMBER",
     "RADIANT_EXPOSURE",
