@@ -45,7 +45,9 @@ from ucon.core import BaseForm, RebasedUnit, Scale, Unit, UnitFactor, UnitProduc
 from ucon.dimension import Dimension, resolve, _DIMENSION_ATTRS
 from ucon.expressions import ExprResult, evaluate
 from ucon.graph import ConversionGraph, using_conversion_graph
+from ucon.kinds import JoinPolicy, Kind, KindLattice
 from ucon.kinds.exceptions import KindNotFound
+from ucon.parsing.kinds import parse_kinds_payload
 from ucon.maps import (
     AffineMap,
     LinearMap,
@@ -403,11 +405,72 @@ def _serialize_constant(const: Constant) -> dict:
     return d
 
 
+def _serialize_kind(kind: Kind) -> dict:
+    """Serialize a Kind to TOML dict."""
+    d: dict = {"name": kind.name}
+    d["dimension"] = (
+        kind.dimension.name
+        if kind.dimension.name
+        else _dimension_to_expression(kind.dimension)
+    )
+    if kind.parent is not None:
+        d["parent"] = kind.parent.name
+    if kind.join_policy != JoinPolicy.LCA:
+        d["join_policy"] = kind.join_policy.value
+    if kind.aliases:
+        d["aliases"] = list(kind.aliases)
+    return d
+
+
+def _dimension_to_expression(dim: Dimension) -> str:
+    """Convert an unnamed Dimension to a parseable string expression."""
+    if dim.name:
+        return dim.name
+    # Build from vector: e.g. "M*L^2/T^2"
+    parts_num: list[str] = []
+    parts_den: list[str] = []
+    for comp, exp in zip(dim.vector.basis, dim.vector.components):
+        if exp == 0:
+            continue
+        sym = comp.symbol or comp.name
+        if exp > 0:
+            parts_num.append(sym if exp == 1 else f"{sym}^{int(exp)}")
+        else:
+            ae = abs(exp)
+            parts_den.append(sym if ae == 1 else f"{sym}^{int(ae)}")
+    num = "*".join(parts_num) if parts_num else "1"
+    return f"{num}/{'*'.join(parts_den)}" if parts_den else num
+
+
+def _collect_kinds(graph, explicit_kinds: 'KindLattice | None') -> list[dict]:
+    """Collect kinds for serialization.
+
+    Uses *explicit_kinds* if provided, then ``graph._kind_lattice``,
+    then falls back to ``active_kinds()``.
+    """
+    lattice = explicit_kinds
+    if lattice is None:
+        lattice = getattr(graph, '_kind_lattice', None)
+    if lattice is None:
+        try:
+            lattice = active_kinds()
+        except RuntimeError:
+            return []
+    if len(lattice) == 0:
+        return []
+    return [_serialize_kind(kind) for kind in lattice]
+
+
 # ---------------------------------------------------------------------------
 # Export: to_toml()
 # ---------------------------------------------------------------------------
 
-def to_toml(graph, path: Union[str, Path]) -> None:
+def to_toml(
+    graph,
+    path: Union[str, Path],
+    *,
+    kinds: 'KindLattice | None' = None,
+) -> None:
     """Export a ConversionGraph to a TOML file.
 
     Parameters
@@ -416,6 +479,10 @@ def to_toml(graph, path: Union[str, Path]) -> None:
         The graph to export.
     path : str or Path
         Destination file path.
+    kinds : KindLattice or None
+        Optional kind lattice to serialize as ``[[kinds]]`` sections.
+        When ``None``, falls back to ``graph._kind_lattice`` then
+        ``active_kinds()``.
     """
     try:
         import tomli_w
@@ -492,6 +559,11 @@ def to_toml(graph, path: Union[str, Path]) -> None:
     units_list = _collect_units(graph)
     if units_list:
         doc["units"] = units_list
+
+    # [[kinds]]
+    kinds_list = _collect_kinds(graph, kinds)
+    if kinds_list:
+        doc["kinds"] = kinds_list
 
     # [[edges]]
     edges = _extract_forward_edges(graph)
@@ -817,6 +889,12 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
             BaseForm(factors=tuple(resolved), prefactor=prefactor),
         )
 
+    # 6b. Parse kinds (before constants so constant kind references resolve)
+    kind_lattice = None
+    if "kinds" in doc:
+        kind_lattice = parse_kinds_payload(doc)
+        graph._kind_lattice = kind_lattice
+
     # 7. Materialize constants (before edges so expression factors can
     #    resolve constant symbols like "1 / Eh").
     constants = []
@@ -842,17 +920,20 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                     name="unknown", dimension=dim_map.get("none", Dimension.none),
                 )
 
-            # Resolve optional kind
+            # Resolve optional kind (prefer locally-parsed lattice)
             kind_str = const_spec.get("kind")
             kind = None
             if kind_str:
-                try:
-                    kind = active_kinds().get(kind_str)
-                except KindNotFound:
-                    raise GraphLoadError(
-                        f"[{section}]: unknown kind '{kind_str}' "
-                        f"for constant '{sym}'"
-                    )
+                if kind_lattice is not None and kind_str in kind_lattice:
+                    kind = kind_lattice.get(kind_str)
+                else:
+                    try:
+                        kind = active_kinds().get(kind_str)
+                    except (KindNotFound, RuntimeError):
+                        raise GraphLoadError(
+                            f"[{section}]: unknown kind '{kind_str}' "
+                            f"for constant '{sym}'"
+                        )
 
             const = Constant(
                 symbol=sym,

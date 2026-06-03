@@ -2414,9 +2414,9 @@ class TestConstantKindSerialization:
         ke = Kind("kinetic_energy", dimension=ENERGY)
         lattice = KindLattice([ke])
 
-        graph = get_default_graph()
+        graph = get_default_graph().copy()
 
-        # Add a kinded constant to the graph
+        # Add a kinded constant to the copied graph
         kinded_const = Constant(
             symbol="KE_test", name="test kinetic energy",
             value=100.0, unit=units.joule,
@@ -2511,3 +2511,209 @@ class TestConstantDefKind:
         graph = get_default_graph()
         with pytest.raises(PackageLoadError, match="Cannot resolve kind 'bogus_kind'"):
             cdef.materialize(graph)
+
+
+# ---------------------------------------------------------------------------
+# [[kinds]] TOML serialization
+# ---------------------------------------------------------------------------
+
+class TestKindsSerialization:
+    """Tests for [[kinds]] sections in TOML round-trip."""
+
+    def test_serialize_kind_basic(self):
+        """Root kind with default join_policy produces compact dict."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("energy", dimension=ENERGY)
+        d = _serialize_kind(k)
+        assert d == {"name": "energy", "dimension": "energy"}
+        assert "parent" not in d
+        assert "join_policy" not in d
+        assert "aliases" not in d
+
+    def test_serialize_kind_with_parent(self):
+        """Kind with parent emits parent key."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        root = Kind("energy", dimension=ENERGY)
+        child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
+        d = _serialize_kind(child)
+        assert d["parent"] == "energy"
+
+    def test_serialize_kind_with_refuse_policy(self):
+        """Non-default join_policy is emitted."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import JoinPolicy, Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("energy", dimension=ENERGY, join_policy=JoinPolicy.REFUSE)
+        d = _serialize_kind(k)
+        assert d["join_policy"] == "refuse"
+
+    def test_serialize_kind_default_policy_omitted(self):
+        """Default LCA policy is not emitted."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("energy", dimension=ENERGY)
+        d = _serialize_kind(k)
+        assert "join_policy" not in d
+
+    def test_serialize_kind_with_aliases(self):
+        """Kind with aliases emits aliases list."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("kinetic_energy", dimension=ENERGY, aliases=("KE", "T"))
+        d = _serialize_kind(k)
+        assert d["aliases"] == ["KE", "T"]
+
+    def test_serialize_kind_empty_aliases_omitted(self):
+        """Kind with no aliases does not emit aliases key."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("energy", dimension=ENERGY)
+        d = _serialize_kind(k)
+        assert "aliases" not in d
+
+    def test_kinds_section_in_toml(self, tmp_path):
+        """to_toml with explicit KindLattice emits [[kinds]] section."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+
+        root = Kind("energy", dimension=ENERGY)
+        child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
+        lattice = KindLattice([root, child])
+
+        graph = get_default_graph()
+        path = tmp_path / "kinds_test.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        with open(path, "rb") as f:
+            doc = tomllib.load(f)
+        assert "kinds" in doc
+        assert len(doc["kinds"]) == 2
+
+    def test_no_kinds_section_when_empty(self, tmp_path):
+        """to_toml with empty KindLattice omits [[kinds]] section."""
+        from ucon.kinds import KindLattice
+
+        graph = get_default_graph()
+        path = tmp_path / "no_kinds.ucon.toml"
+        graph.to_toml(path, kinds=KindLattice([]))
+
+        with open(path, "rb") as f:
+            doc = tomllib.load(f)
+        assert "kinds" not in doc
+
+    def test_kinds_roundtrip(self, tmp_path):
+        """Kind lattice survives to_toml → from_toml round-trip."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+
+        root = Kind("energy", dimension=ENERGY)
+        child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
+        lattice = KindLattice([root, child])
+
+        graph = get_default_graph()
+        path = tmp_path / "kinds_rt.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        restored = from_toml(path)
+        assert restored._kind_lattice is not None
+        assert set(restored._kind_lattice.names()) == {"energy", "kinetic_energy"}
+
+        # Verify parent relationship survived
+        ke = restored._kind_lattice.get("kinetic_energy")
+        assert ke.parent is not None
+        assert ke.parent.name == "energy"
+
+    def test_kinds_with_aliases_roundtrip(self, tmp_path):
+        """Kind aliases survive round-trip."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+
+        k = Kind("kinetic_energy", dimension=ENERGY, aliases=("KE",))
+        lattice = KindLattice([k])
+
+        graph = get_default_graph()
+        path = tmp_path / "alias_rt.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        restored = from_toml(path)
+        assert restored._kind_lattice is not None
+        ke = restored._kind_lattice.get("kinetic_energy")
+        assert "KE" in ke.aliases
+
+    def test_kinds_with_refuse_policy_roundtrip(self, tmp_path):
+        """Non-default join_policy survives round-trip."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import JoinPolicy, Kind, KindLattice
+
+        k = Kind("energy", dimension=ENERGY, join_policy=JoinPolicy.REFUSE)
+        lattice = KindLattice([k])
+
+        graph = get_default_graph()
+        path = tmp_path / "refuse_rt.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        restored = from_toml(path)
+        assert restored._kind_lattice is not None
+        energy = restored._kind_lattice.get("energy")
+        assert energy.join_policy == JoinPolicy.REFUSE
+
+    def test_from_toml_without_kinds_backward_compat(self, tmp_path):
+        """TOML without [[kinds]] loads with _kind_lattice = None."""
+        doc = {
+            "package": {"format_version": FORMAT_VERSION},
+            "units": [{"name": "meter", "dimension": "length"}],
+        }
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path)
+        assert g._kind_lattice is None
+
+    def test_constant_kind_resolved_from_local_lattice(self, tmp_path):
+        """Constant kind field resolves from locally-parsed [[kinds]]."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+
+        root = Kind("energy", dimension=ENERGY)
+        child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
+        lattice = KindLattice([root, child])
+
+        # Build a graph with a kinded constant
+        from ucon.constants import Constant
+        from ucon import units
+
+        graph = get_default_graph().copy()
+        kinded_const = Constant(
+            symbol="KE_test", name="test kinetic energy",
+            value=100.0, unit=units.joule,
+            uncertainty=None, category="session", kind=child,
+        )
+        graph._package_constants = graph._package_constants + (kinded_const,)
+
+        # Export with kinds
+        path = tmp_path / "local_resolve.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        # Reimport — kinds are in the file, so no active lattice needed
+        restored = from_toml(path)
+
+        # Find the constant and verify kind resolved from local lattice
+        restored_const = None
+        for c in restored._package_constants:
+            if c.symbol == "KE_test":
+                restored_const = c
+                break
+        assert restored_const is not None
+        assert restored_const.kind is not None
+        assert restored_const.kind.name == "kinetic_energy"
