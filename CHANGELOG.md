@@ -84,6 +84,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   molar entropy/heat capacity, real/apparent/reactive power, and
   pressure/stress. The lattice loads at import time and is accessible
   via `active_kinds()`.
+- **`load_package()` / `with_package()` support for `[[kinds]]`.**
+  `UnitPackage` gains an optional `kinds: KindLattice | None` field.
+  `load_package()` parses `[[kinds]]` sections via `parse_kinds_payload()`.
+  `Graph.with_package()` merges the package lattice into
+  `graph._kind_lattice`, with package definitions taking precedence on
+  name collision. Packages without `[[kinds]]` continue to work unchanged.
 
 ### Changed
 
