@@ -71,6 +71,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `DimensionConstraint`. Enables `Number[kind]` and
   `Number[Dimension.X, kind]` subscript syntax for kind-constrained
   parameters. Exported from `ucon.core` and re-exported from `ucon`.
+- **Named dimensions `MOLAR_ENERGY`, `MOLAR_ENTROPY`, `SPECIFIC_ENERGY`.**
+  Three new derived dimensions added to `ucon.dimension` for KOQ
+  degeneracy clusters: molar energy (M·L²·T⁻²·N⁻¹), molar entropy
+  (M·L²·T⁻²·Θ⁻¹·N⁻¹), and specific energy (L²·T⁻² — the shared
+  dimension of Gy, Sv, and J/kg).
+- **Built-in `KindLattice` (25 kinds, 8 clusters).** The
+  `comprehensive.ucon.toml` now ships `[[kinds]]` sections covering
+  the fundamental KOQ degeneracy clusters identified from the UnitSafe
+  benchmark: energy/torque, frequency/activity, absorbed dose/dose
+  equivalent, voltage/EMF, molar energy thermodynamic potentials,
+  molar entropy/heat capacity, real/apparent/reactive power, and
+  pressure/stress. The lattice loads at import time and is accessible
+  via `active_kinds()`.
 
 ### Changed
 
