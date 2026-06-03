@@ -35,9 +35,7 @@ class AlgebraCache:
     - ``div``: ``(Dimension, Dimension) -> Dimension``
     - ``pow``: ``(Dimension, exponent) -> Dimension``
 
-    Owned by each :class:`~ucon.system.UnitSystem` instance.  The module-level
-    :data:`_DEFAULT_ALGEBRA_CACHE` serves as the fallback when no system has
-    been activated via :func:`~ucon.system.use`.
+    Owned by each :class:`~ucon.system.UnitSystem` instance.
     """
 
     mul: dict = field(default_factory=dict)
@@ -51,26 +49,21 @@ class AlgebraCache:
         self.pow.clear()
 
 
-#: Module-level fallback used by ``_get_active_cache`` when no
-#: ``UnitSystem`` has been activated via :func:`use`.
-_DEFAULT_ALGEBRA_CACHE: AlgebraCache = AlgebraCache()
-
-
 def _get_active_cache() -> AlgebraCache:
     """Return the algebra cache that ``Dimension`` algebra should use now.
 
-    Routes through the active :class:`UnitSystem`'s per-instance cache when
-    an :class:`~ucon.system.ActiveContext` has been pushed via :func:`use`.
-    Falls back to :data:`_DEFAULT_ALGEBRA_CACHE` otherwise.
+    Routes through the active :class:`UnitSystem`'s per-instance cache
+    via the :class:`~ucon.system.ActiveContext` pushed by :func:`use`.
 
-    The fallback is intentionally a stable module-level object rather than
-    a fresh snapshot: that would construct a new :class:`AlgebraCache` on
-    every call and defeat memoization.
+    During bootstrap (before eager init completes) no active context
+    exists; a fresh :class:`AlgebraCache` is returned so that dimension
+    algebra works uncached.  Post-init, the active system's cache is
+    always returned.
     """
     ctx = _active.get()
     if ctx is None:
-        return _DEFAULT_ALGEBRA_CACHE
+        return AlgebraCache()
     return ctx.system._algebra_cache
 
 
-__all__ = ['AlgebraCache', '_get_active_cache', '_DEFAULT_ALGEBRA_CACHE']
+__all__ = ['AlgebraCache', '_get_active_cache']

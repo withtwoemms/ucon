@@ -59,7 +59,7 @@ from ucon.core.exceptions import DimensionNotCovered, UnknownUnitError
 from ucon.formulas import FormulaRegistry
 from ucon.kinds import KindLattice
 from ucon.resolver import parse_unit as _parse_unit
-from ucon._algebra_cache import AlgebraCache, _get_active_cache, _DEFAULT_ALGEBRA_CACHE
+from ucon._algebra_cache import AlgebraCache, _get_active_cache
 
 if TYPE_CHECKING:
     from ucon.basis.graph import BasisGraph
@@ -266,10 +266,9 @@ class BaseUnits:
         return hash((self.name, tuple(sorted(self.bases.items(), key=lambda x: x[0].name))))
 
 
-# AlgebraCache, _get_active_cache, and _DEFAULT_ALGEBRA_CACHE are
-# imported from ucon._algebra_cache (Layer 0/1) and re-exported
-# here for backward compatibility with ``from ucon.system import
-# AlgebraCache``.
+# AlgebraCache and _get_active_cache are imported from
+# ucon._algebra_cache (Layer 0/1) and re-exported here for
+# backward compatibility with ``from ucon.system import AlgebraCache``.
 
 
 # -----------------------------------------------------------------------------

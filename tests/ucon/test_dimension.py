@@ -290,11 +290,10 @@ class TestDimensionAlgebraCacheKeying(unittest.TestCase):
 
 
 class TestDimensionAlgebraCacheRouting(unittest.TestCase):
-    """v1.8: ``Dimension`` algebra routes through ``UnitSystem._algebra_cache``.
+    """v2.0: ``Dimension`` algebra routes through the active ``UnitSystem._algebra_cache``.
 
-    Outside any ``use(...)`` block the module-level ``_DEFAULT_ALGEBRA_CACHE``
-    is consulted (stable across calls). Inside a ``use(system)`` block the
-    active system's per-instance ``AlgebraCache`` is consulted instead.
+    After eager init, an active system is always present, so algebra
+    always routes through the per-instance ``AlgebraCache``.
     """
 
     def test_default_state_populates_active_system_cache(self):

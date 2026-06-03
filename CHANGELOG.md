@@ -93,6 +93,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Removed `_DEFAULT_ALGEBRA_CACHE` module-level global.** `_get_active_cache()`
+  now returns a fresh `AlgebraCache()` when no active context exists (bootstrap
+  only). Dimension algebra during import runs uncached; post-init behavior
+  is unchanged.
 - **Pydantic kind integration (v2.0 §3.4).** The `ucon.pydantic` adapter
   now supports `Kind` constraints alongside `Dimension` constraints.
   `Number[kind]`, `Number[Dimension.X, kind]`, and `Number[kind, Dimension.X]`
