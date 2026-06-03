@@ -53,8 +53,10 @@ from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
 from ucon.graph import using_conversion_graph
+from ucon.kinds import KindLattice
 from ucon.kinds.exceptions import KindNotFound
 from ucon.maps import AffineMap, LinearMap, Map
+from ucon.parsing.kinds import parse_kinds_payload
 from ucon.resolver import parse_unit
 from ucon.system import active_kinds
 
@@ -468,6 +470,9 @@ class UnitPackage:
         Conversion edge definitions.
     constants : tuple[ConstantDef, ...]
         Constant definitions.
+    kinds : KindLattice | None
+        Kind-of-quantity lattice parsed from ``[[kinds]]`` sections.
+        ``None`` when the package does not define any kinds.
     requires : tuple[str, ...]
         Names of required packages (for future dependency resolution).
     """
@@ -477,6 +482,7 @@ class UnitPackage:
     units: tuple[UnitDef, ...] = ()
     edges: tuple[EdgeDef, ...] = ()
     constants: tuple[ConstantDef, ...] = ()
+    kinds: KindLattice | None = None
     requires: tuple[str, ...] = ()
 
     def __post_init__(self):
@@ -574,6 +580,14 @@ def load_package(path: str | Path) -> UnitPackage:
         for c in data.get("constants", [])
     )
 
+    # Parse kinds
+    kinds: KindLattice | None = None
+    if "kinds" in data:
+        try:
+            kinds = parse_kinds_payload(data)
+        except (ValueError, Exception) as e:
+            raise PackageLoadError(f"Invalid [[kinds]] in {path}: {e}")
+
     # Support both [package] table (preferred) and top-level keys (legacy)
     package = data.get("package", {})
     if not package and any(k in data for k in ("name", "version", "description")):
@@ -593,6 +607,7 @@ def load_package(path: str | Path) -> UnitPackage:
         units=units,
         edges=edges,
         constants=constants,
+        kinds=kinds,
         requires=tuple(package.get("requires", data.get("requires", []))),
     )
 

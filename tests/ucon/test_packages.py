@@ -936,5 +936,209 @@ factor = "1 / 3600"
             path.unlink()
 
 
+class TestPackageKinds(unittest.TestCase):
+    """Test [[kinds]] parsing and merging in load_package / with_package."""
+
+    def _write_toml(self, content: str) -> Path:
+        """Write TOML content to a temp file and return the path."""
+        f = tempfile.NamedTemporaryFile(
+            mode='w', suffix='.ucon.toml', delete=False,
+        )
+        f.write(content)
+        f.flush()
+        f.close()
+        return Path(f.name)
+
+    def test_load_package_without_kinds(self):
+        """Package without [[kinds]] has kinds=None."""
+        path = self._write_toml('''
+[package]
+name = "no_kinds"
+''')
+        try:
+            pkg = load_package(path)
+            self.assertIsNone(pkg.kinds)
+        finally:
+            path.unlink()
+
+    def test_load_package_with_kinds(self):
+        """Package with [[kinds]] parses a KindLattice."""
+        path = self._write_toml('''
+[package]
+name = "with_kinds"
+
+[[kinds]]
+name = "energy"
+dimension = "energy"
+join_policy = "refuse"
+
+[[kinds]]
+name = "torque"
+dimension = "energy"
+parent = "energy"
+''')
+        try:
+            pkg = load_package(path)
+            self.assertIsNotNone(pkg.kinds)
+            self.assertEqual(len(pkg.kinds), 2)
+            self.assertIn("energy", pkg.kinds)
+            self.assertIn("torque", pkg.kinds)
+        finally:
+            path.unlink()
+
+    def test_load_package_kinds_with_aliases(self):
+        """Package kinds preserve aliases."""
+        path = self._write_toml('''
+[package]
+name = "aliased_kinds"
+
+[[kinds]]
+name = "voltage"
+dimension = "voltage"
+
+[[kinds]]
+name = "electromotive_force"
+dimension = "voltage"
+parent = "voltage"
+aliases = ["emf"]
+''')
+        try:
+            pkg = load_package(path)
+            self.assertEqual(pkg.kinds.get("emf").name, "electromotive_force")
+        finally:
+            path.unlink()
+
+    def test_with_package_merges_kinds_into_empty_lattice(self):
+        """with_package() stores kinds on graph when base has no lattice."""
+        path = self._write_toml('''
+[package]
+name = "test_kinds"
+
+[[kinds]]
+name = "energy"
+dimension = "energy"
+join_policy = "refuse"
+
+[[kinds]]
+name = "torque"
+dimension = "energy"
+parent = "energy"
+''')
+        try:
+            pkg = load_package(path)
+            base = get_default_graph().copy()
+            base._kind_lattice = None  # Simulate empty
+            new = base.with_package(pkg)
+            self.assertIsNotNone(new._kind_lattice)
+            self.assertEqual(len(new._kind_lattice), 2)
+            self.assertIn("torque", new._kind_lattice)
+        finally:
+            path.unlink()
+
+    def test_with_package_merges_kinds_into_existing_lattice(self):
+        """with_package() merges package kinds into existing graph lattice."""
+        from ucon.kinds import Kind, KindLattice
+        from ucon.dimension import ENERGY
+
+        # Build a base lattice with just "energy"
+        energy_kind = Kind("energy", dimension=ENERGY)
+        base_lattice = KindLattice([energy_kind])
+
+        path = self._write_toml('''
+[package]
+name = "extra_kinds"
+
+[[kinds]]
+name = "energy"
+dimension = "energy"
+join_policy = "refuse"
+
+[[kinds]]
+name = "torque"
+dimension = "energy"
+parent = "energy"
+''')
+        try:
+            pkg = load_package(path)
+            base = get_default_graph().copy()
+            base._kind_lattice = base_lattice
+            new = base.with_package(pkg)
+            self.assertIsNotNone(new._kind_lattice)
+            # Merged lattice has both the base energy and the package torque
+            self.assertIn("energy", new._kind_lattice)
+            self.assertIn("torque", new._kind_lattice)
+        finally:
+            path.unlink()
+
+    def test_with_package_no_kinds_preserves_existing(self):
+        """with_package() without kinds doesn't clear existing lattice."""
+        path = self._write_toml('''
+[package]
+name = "no_kinds_pkg"
+
+[[units]]
+name = "slug"
+dimension = "mass"
+aliases = ["slug"]
+
+[[edges]]
+src = "slug"
+dst = "kilogram"
+factor = 14.5939
+''')
+        try:
+            pkg = load_package(path)
+            base = get_default_graph().copy()
+            # Use the built-in lattice from comprehensive.ucon.toml
+            original_lattice = base._kind_lattice
+            new = base.with_package(pkg)
+            # Lattice unchanged
+            self.assertIs(new._kind_lattice, original_lattice)
+        finally:
+            path.unlink()
+
+    def test_with_package_original_graph_unmodified(self):
+        """with_package() doesn't mutate the original graph's lattice."""
+        path = self._write_toml('''
+[package]
+name = "addon_kinds"
+
+[[kinds]]
+name = "frequency"
+dimension = "frequency"
+join_policy = "refuse"
+
+[[kinds]]
+name = "radioactive_activity"
+dimension = "frequency"
+parent = "frequency"
+''')
+        try:
+            pkg = load_package(path)
+            base = get_default_graph().copy()
+            base._kind_lattice = None  # Start with no lattice
+            new = base.with_package(pkg)
+            # New graph has kinds, original doesn't
+            self.assertIsNotNone(new._kind_lattice)
+            self.assertIsNone(base._kind_lattice)
+        finally:
+            path.unlink()
+
+    def test_load_package_invalid_kinds_raises(self):
+        """Package with malformed [[kinds]] raises PackageLoadError."""
+        path = self._write_toml('''
+[package]
+name = "bad_kinds"
+
+[[kinds]]
+name = "oops"
+''')
+        try:
+            with self.assertRaises(PackageLoadError):
+                load_package(path)
+        finally:
+            path.unlink()
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -55,6 +55,7 @@ from ucon.core import (
     UnknownUnitError,
 )
 from ucon.core._parsing_graph import _parsing_graph
+from ucon.kinds import KindLattice as _KindLattice
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
 from ucon.resolver import parse_unit as _parse_unit
 from ucon._active import _active as _active_system
@@ -632,6 +633,18 @@ class Graph:
             if self._package_edge_already_covered(edge_def, new):
                 continue
             edge_def.materialize(new)
+
+        # Merge kind lattice (before constants so kind references resolve)
+        if package.kinds is not None and len(package.kinds) > 0:
+            existing = self._kind_lattice
+            if existing is not None and len(existing) > 0:
+                # Merge: package kinds override existing kinds on name collision.
+                pkg_names = set(package.kinds.names())
+                base_kinds = [k for k in existing if k.name not in pkg_names]
+                merged = _KindLattice(base_kinds + list(package.kinds))
+                new._kind_lattice = merged
+            else:
+                new._kind_lattice = package.kinds
 
         # Materialize constants (resolved within new graph context)
         materialized_constants = tuple(
