@@ -93,6 +93,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ConstantDef` in `ucon.packages` gains a parallel `kind: str | None`
   field, and `load_package()` parses the `kind` key from TOML constant
   definitions. Existing TOML files without `kind` keys are unaffected.
+- **`[[kinds]]` TOML serialization (v2.0 §3.4).** `to_toml()` accepts an
+  optional `kinds: KindLattice` keyword argument and emits `[[kinds]]`
+  sections (name, dimension, parent, join_policy, aliases). `from_toml()`
+  parses `[[kinds]]` via `parse_kinds_payload()` and stores the result on
+  `graph._kind_lattice`. Constant kind resolution prefers the locally-parsed
+  lattice, falling back to `active_kinds()`. TOML files without `[[kinds]]`
+  load with `_kind_lattice = None` (backward compatible).
 - **`@enforce_dimensions` extended with kind validation (v2.0 §3.4).**
   Parameters annotated as `Number[kind]` are validated for kind identity
   (or lattice descendancy via the active `KindLattice`). Joint
