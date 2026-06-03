@@ -4923,3 +4923,152 @@ aliases = [
     "planck_temperature",
     "T_P",
 ]
+
+# ---------------------------------------------------------------------------
+# Built-in kinds-of-quantity (KOQ)
+# ---------------------------------------------------------------------------
+# Each cluster groups physically distinct quantities that share
+# an SI dimensional signature. Root kinds carry the join_policy
+# that governs implicit addition of siblings. REFUSE means the
+# operation raises JoinRefused; LCA means the result lifts to
+# the common ancestor.
+#
+# UnitSafe benchmark clusters: https://huggingface.co/datasets/radiativity/UnitSafe
+
+# --- Cluster 1: Energy vs Torque  (M·L²·T⁻²) ---
+[[kinds]]
+name = "energy"
+dimension = "energy"
+join_policy = "refuse"
+
+[[kinds]]
+name = "torque"
+dimension = "energy"
+parent = "energy"
+
+# --- Cluster 2: Frequency vs Radioactive activity  (T⁻¹) ---
+[[kinds]]
+name = "frequency"
+dimension = "frequency"
+join_policy = "refuse"
+
+[[kinds]]
+name = "radioactive_activity"
+dimension = "frequency"
+parent = "frequency"
+
+# --- Cluster 3: Absorbed dose vs Dose equivalent  (L²·T⁻²) ---
+[[kinds]]
+name = "specific_energy"
+dimension = "specific_energy"
+join_policy = "refuse"
+
+[[kinds]]
+name = "absorbed_dose"
+dimension = "specific_energy"
+parent = "specific_energy"
+
+[[kinds]]
+name = "dose_equivalent"
+dimension = "specific_energy"
+parent = "specific_energy"
+
+# --- Cluster 4: Electric potential vs EMF  (M·L²·T⁻³·I⁻¹) ---
+[[kinds]]
+name = "voltage"
+dimension = "voltage"
+join_policy = "lca"
+
+[[kinds]]
+name = "electric_potential"
+dimension = "voltage"
+parent = "voltage"
+
+[[kinds]]
+name = "electromotive_force"
+dimension = "voltage"
+parent = "voltage"
+aliases = ["emf"]
+
+# --- Cluster 5: Molar energy kinds  (M·L²·T⁻²·N⁻¹) ---
+[[kinds]]
+name = "molar_energy"
+dimension = "molar_energy"
+join_policy = "refuse"
+
+[[kinds]]
+name = "enthalpy"
+dimension = "molar_energy"
+parent = "molar_energy"
+aliases = ["delta_H"]
+
+[[kinds]]
+name = "gibbs_energy"
+dimension = "molar_energy"
+parent = "molar_energy"
+aliases = ["delta_G"]
+
+[[kinds]]
+name = "helmholtz_energy"
+dimension = "molar_energy"
+parent = "molar_energy"
+aliases = ["delta_A"]
+
+[[kinds]]
+name = "chemical_potential"
+dimension = "molar_energy"
+parent = "molar_energy"
+aliases = ["mu_chem"]
+
+# --- Cluster 6: Molar entropy kinds  (M·L²·T⁻²·Θ⁻¹·N⁻¹) ---
+[[kinds]]
+name = "molar_entropy"
+dimension = "molar_entropy"
+join_policy = "lca"
+
+[[kinds]]
+name = "molar_entropy_quantity"
+dimension = "molar_entropy"
+parent = "molar_entropy"
+
+[[kinds]]
+name = "molar_heat_capacity"
+dimension = "molar_entropy"
+parent = "molar_entropy"
+
+# --- Cluster 7: Power kinds  (M·L²·T⁻³) ---
+[[kinds]]
+name = "power"
+dimension = "power"
+join_policy = "refuse"
+
+[[kinds]]
+name = "real_power"
+dimension = "power"
+parent = "power"
+
+[[kinds]]
+name = "apparent_power"
+dimension = "power"
+parent = "power"
+
+[[kinds]]
+name = "reactive_power"
+dimension = "power"
+parent = "power"
+
+# --- Cluster 8: Pressure vs Mechanical stress  (M·L⁻¹·T⁻²) ---
+[[kinds]]
+name = "pressure"
+dimension = "pressure"
+join_policy = "refuse"
+
+[[kinds]]
+name = "thermodynamic_pressure"
+dimension = "pressure"
+parent = "pressure"
+
+[[kinds]]
+name = "mechanical_stress"
+dimension = "pressure"
+parent = "pressure"
