@@ -2717,3 +2717,70 @@ class TestKindsSerialization:
         assert restored_const is not None
         assert restored_const.kind is not None
         assert restored_const.kind.name == "kinetic_energy"
+
+    def test_builtin_kinds_roundtrip(self, tmp_path):
+        """All 25 built-in kinds survive to_toml → from_toml round-trip."""
+        from ucon.kinds import JoinPolicy, KindLattice
+        from ucon.system import active_kinds
+
+        original = active_kinds()
+        assert len(original) == 25, "Expected 25 built-in kinds"
+
+        graph = get_default_graph()
+        path = tmp_path / "builtin_kinds_rt.ucon.toml"
+        graph.to_toml(path)
+
+        restored = from_toml(path)
+        assert restored._kind_lattice is not None
+        restored_lattice = restored._kind_lattice
+
+        # Same count
+        assert len(restored_lattice) == len(original)
+
+        # Same names
+        assert set(restored_lattice.names()) == set(original.names())
+
+        # Verify every kind's parent, dimension, join_policy, and aliases
+        for kind in original:
+            rt = restored_lattice.get(kind.name)
+            assert rt.dimension.name == kind.dimension.name, (
+                f"{kind.name}: dimension mismatch"
+            )
+            if kind.parent is None:
+                assert rt.parent is None, f"{kind.name}: expected no parent"
+            else:
+                assert rt.parent is not None, f"{kind.name}: expected parent"
+                assert rt.parent.name == kind.parent.name, (
+                    f"{kind.name}: parent mismatch"
+                )
+            assert rt.join_policy == kind.join_policy, (
+                f"{kind.name}: join_policy mismatch"
+            )
+            assert set(rt.aliases) == set(kind.aliases), (
+                f"{kind.name}: aliases mismatch"
+            )
+
+    def test_builtin_kinds_join_semantics_survive_roundtrip(self, tmp_path):
+        """REFUSE/LCA join semantics are preserved through round-trip."""
+        from ucon.kinds import JoinRefused
+
+        graph = get_default_graph()
+        path = tmp_path / "join_semantics_rt.ucon.toml"
+        graph.to_toml(path)
+
+        restored = from_toml(path)
+        lattice = restored._kind_lattice
+
+        # REFUSE cluster: torque + energy
+        with pytest.raises(JoinRefused):
+            lattice.join(lattice.get("torque"), lattice.get("energy"))
+
+        # LCA cluster: electric_potential + electromotive_force → voltage
+        result = lattice.join(
+            lattice.get("electric_potential"),
+            lattice.get("electromotive_force"),
+        )
+        assert result.name == "voltage"
+
+        # Alias survives: "emf" resolves
+        assert lattice.get("emf").name == "electromotive_force"
