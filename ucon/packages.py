@@ -404,13 +404,19 @@ class ConstantDef:
     category: str = "session"
     kind: str | None = None
 
-    def materialize(self, graph: 'ConversionGraph') -> Constant:
+    def materialize(self, graph: 'ConversionGraph', *, kind_lattice: KindLattice | None = None) -> Constant:
         """Resolve unit string and create a Constant.
 
         Parameters
         ----------
         graph : ConversionGraph
             The graph to resolve unit names against.
+        kind_lattice : KindLattice | None, optional
+            Local kind lattice to check before falling back to the ambient
+            ``active_kinds()``.  When loading a package that defines both
+            novel kinds and constants referencing those kinds, pass the
+            merged lattice so that resolution succeeds without requiring
+            the kinds to be registered in the ambient context first.
 
         Returns
         -------
@@ -430,15 +436,18 @@ class ConstantDef:
                     f"Cannot resolve unit '{self.unit}' for constant '{self.symbol}'"
                 )
 
-        # Resolve kind name if provided
+        # Resolve kind name if provided (prefer local lattice over ambient)
         resolved_kind = None
         if self.kind is not None:
-            try:
-                resolved_kind = active_kinds().get(self.kind)
-            except KindNotFound:
-                raise PackageLoadError(
-                    f"Cannot resolve kind '{self.kind}' for constant '{self.symbol}'"
-                )
+            if kind_lattice is not None and self.kind in kind_lattice:
+                resolved_kind = kind_lattice.get(self.kind)
+            else:
+                try:
+                    resolved_kind = active_kinds().get(self.kind)
+                except KindNotFound:
+                    raise PackageLoadError(
+                        f"Cannot resolve kind '{self.kind}' for constant '{self.symbol}'"
+                    )
 
         return Constant(
             symbol=self.symbol,
