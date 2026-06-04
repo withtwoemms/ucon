@@ -5,10 +5,10 @@ Particle physicists work in **natural units** — a system where
 That's a different basis from the SI you'd use to engineer the detector. A
 particle-physics calculation usually has to cross between the two.
 
-This walkthrough uses ucon's v1.8 `UnitSystem` to keep a natural-units
-calculation isolated from the surrounding SI pipeline. Every example threads
-the same `UnitSystem` through three entry points: parsing, conversion, and
-dimensional checking.
+This walkthrough uses ucon's `UnitSystem` to keep a natural-units calculation
+isolated from the surrounding SI pipeline. Every example threads the same
+`UnitSystem` through three entry points: parsing, conversion, and dimensional
+checking.
 
 For the rationale, see
 [UnitSystem Value Type](../../architecture/unitsystem-value-type.md). For the
@@ -20,16 +20,15 @@ isolation pattern, see
 ## Setting Up: Two Systems
 
 ```python
-from ucon.system import UnitSystem, use
-from ucon import units
+from ucon import UnitSystem, active_system, use, units
 
-# SI snapshot for detector engineering
-si_system = UnitSystem.from_globals()
+# SI system for detector engineering
+si_system = active_system()
 
-# Natural-units snapshot for particle calculations
-# (NATURAL basis is built in to v1.8; ucon.units exports the NATURAL_TO_SI
-# transform, so cross-basis conversions are pre-wired.)
-natural_system = UnitSystem.from_globals()  # same registries, ready for use(...)
+# Natural-units system for particle calculations
+# (NATURAL basis is built in; the NATURAL_TO_SI transform is pre-wired,
+# so cross-basis conversions work out of the box.)
+natural_system = active_system()  # same registries, ready for use(...)
 ```
 
 Both `UnitSystem`s share the same underlying registries — the difference is
@@ -191,9 +190,9 @@ inverse-mass.
     ```
 
 The basis crossing happens at `.to(...)`. `natural_system` and `si_system`
-share the same `basis_graph`, which contains the `NATURAL_TO_SI` transform
-shipped with v1.8 — that's what lets the BFS find a path between an inverse
-energy in NATURAL and a length in SI.
+share the same `basis_graph`, which contains the `NATURAL_TO_SI` transform —
+that's what lets the BFS find a path between an inverse energy in NATURAL and
+a length in SI.
 
 ---
 
@@ -227,7 +226,7 @@ energy is identified with SI time via `NATURAL_TO_SI`.
 ## Pinning a Run
 
 For a full analysis run, snapshot once at startup and pin it through the
-pipeline. Two snapshots from `from_globals()` compare equal, so dict-keying or
+pipeline. Two captures of `active_system()` compare equal, so dict-keying or
 hashing the system stays stable:
 
 ```python
@@ -238,7 +237,7 @@ def run_analysis(events, *, system):
             yield analyze(ev)
 
 if __name__ == "__main__":
-    natural_system = UnitSystem.from_globals()
+    natural_system = active_system()
     results = list(run_analysis(load_events(), system=natural_system))
 ```
 
@@ -250,11 +249,11 @@ snapshot continues to use the registry references it captured at construction.
 
 ## Key Takeaways
 
-1. **Two snapshots, one process.** `UnitSystem.from_globals()` is cheap and
-   safe to call per pipeline. Particle calculations live in one snapshot,
-   engineering in another.
+1. **Two systems, one process.** `active_system()` is cheap and safe to call
+   per pipeline. Particle calculations live in one system, engineering in
+   another.
 
-2. **Cross-basis is automatic.** v1.8 ships `NATURAL_TO_SI`. The conversion
+2. **Cross-basis is automatic.** ucon ships `NATURAL_TO_SI`. The conversion
    graph's BFS finds paths across the basis edge without per-call setup.
 
 3. **`system=` for one-off crossings.** Use `use(...)` for blocks. Use
@@ -264,7 +263,7 @@ snapshot continues to use the registry references it captured at construction.
    checked against the snapshot's registries — register a custom dimension on
    your snapshot and the decorator sees it without polluting globals.
 
-5. **Snapshots are values.** Two `from_globals()` calls back-to-back compare
+5. **Systems are values.** Two `active_system()` calls back-to-back compare
    equal. Pin one at startup and pass it as a parameter, not a global.
 
 ---

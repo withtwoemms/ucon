@@ -299,9 +299,11 @@ The dual-graph architecture cleanly separates *what can be converted* (BasisGrap
 
 ---
 
-## Context Scoping (v0.8.4+)
+## Context Scoping
 
-Both the default `Basis` and `BasisGraph` support thread-safe context scoping via `ContextVar`.
+Both the default `Basis` and `BasisGraph` are scoped through the active
+`UnitSystem`. Thread-safe isolation is handled by the `use()` context manager
+and the `ContextVar` it sets.
 
 ### Why Context Scoping?
 
@@ -314,37 +316,35 @@ Different parts of an application may need different defaults:
 ### API
 
 ```python
-from ucon import (
-    using_basis,
-    using_basis_graph,
-    get_default_basis,
-    get_basis_graph,
-)
+from ucon import active_system, use, CGS, Dimension
+from ucon.basis import BasisGraph
 
-# Scoped basis override
-with using_basis(CGS):
+# Scoped basis override via UnitSystem
+cgs_system = active_system().with_basis(CGS)
+with use(cgs_system):
     dim = Dimension.from_components(L=1)  # Uses CGS
-    get_default_basis()  # CGS
 
 # Scoped BasisGraph override
-custom_graph = BasisGraph()
-with using_basis_graph(custom_graph):
-    get_basis_graph() is custom_graph  # True
+custom_bg = BasisGraph()
+custom_system = active_system().with_basis_graph(custom_bg)
+with use(custom_system):
+    # All operations see custom_bg
+    pass
 ```
 
-### Relationship to `using_conversion_graph()`
+### Unified Scoping
 
-| Context Manager | Scope | Affects |
-|-----------------|-------|---------|
-| `using_conversion_graph()` | ConversionGraph | Unit conversions, name resolution |
-| `using_basis()` | Default Basis | Dimension creation defaults |
-| `using_basis_graph()` | BasisGraph | Cross-basis validation |
-
-These are independent — you can combine them as needed:
+In v2.0, all context scoping flows through a single `UnitSystem` value
+activated via `use(...)`. The `UnitSystem` bundles the basis, basis graph,
+and conversion graph — no need to combine separate context managers:
 
 ```python
-with using_conversion_graph(aerospace_graph):
-    with using_basis(CGS):
-        # Aerospace units, CGS dimensions
-        pass
+custom_system = (
+    active_system()
+    .with_basis(CGS)
+    .with_conversion(aerospace_graph)
+)
+with use(custom_system):
+    # Aerospace units, CGS dimensions — one context
+    pass
 ```

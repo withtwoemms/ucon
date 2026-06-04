@@ -37,6 +37,7 @@ Sections appear in this order:
 | `[[edges]]` | array of tables | no | Same-basis conversion edges |
 | `[[product_edges]]` | array of tables | no | Composite-unit conversion edges |
 | `[[cross_basis_edges]]` | array of tables | no | Cross-basis conversion edges |
+| `[[kinds]]` | array of tables | no | Kind-of-quantity definitions |
 | `[[constants]]` | array of tables | no | Physical constants |
 | `[contexts.*]` | table per context | no | Cross-dimensional conversion contexts |
 
@@ -383,6 +384,37 @@ transform = "SI_TO_atomic"
 
 ---
 
+## `[[kinds]]`
+
+Kind-of-quantity definitions for the graph's kind lattice.
+
+```toml
+[[kinds]]
+name = "energy"
+dimension = "energy"
+aliases = ["E"]
+join_policy = "lca"
+
+[[kinds]]
+name = "kinetic_energy"
+dimension = "energy"
+parent = "energy"
+aliases = ["KE"]
+```
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | string | yes | Canonical kind name |
+| `dimension` | string | yes | Dimension name (must exist in `[dimensions.*]`) |
+| `parent` | string | no | Name of a parent kind (forward references resolved) |
+| `aliases` | array of strings | no | Alternative names for lookup |
+| `join_policy` | string | no | `"lca"` (default) or `"refuse"` |
+
+Kinds are loaded into `graph._kind_lattice` on import. Constants can reference
+kinds by name via the `kind` key.
+
+---
+
 ## `[[constants]]`
 
 Physical constants associated with the graph.
@@ -407,6 +439,7 @@ uncertainty = 0.0
 | `category` | string | no | Classification (e.g. `"exact"`, `"measured"`, `"derived"`) |
 | `source` | string | no | Data source reference |
 | `uncertainty` | float | no | Standard uncertainty |
+| `kind` | string | no | Kind name (must exist in `[[kinds]]` or built-in lattice) |
 
 ---
 

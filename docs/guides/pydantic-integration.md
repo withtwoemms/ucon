@@ -71,6 +71,83 @@ m = PhysicsModel(
 )
 ```
 
+## Kind Constraints
+
+Use `Number[kind]` to enforce kind-of-quantity constraints at validation time.
+Kind validation is **lattice-aware**: a child kind satisfies a parent
+constraint (e.g. `kinetic_energy` passes a field typed as `Number[energy]`).
+
+```python
+from pydantic import BaseModel
+from ucon import active_kinds
+from ucon.pydantic import Number
+
+energy = active_kinds().get("energy")
+
+class Calorimetry(BaseModel):
+    heat_in: Number[energy]
+
+# Exact kind match — energy satisfies Number[energy]
+m = Calorimetry(heat_in={"quantity": 500, "unit": "J", "kind": "energy"})
+m.heat_in.kind.name  # "energy"
+
+# Descendant match — kinetic_energy is a child of energy in the lattice
+m2 = Calorimetry(heat_in={"quantity": 250, "unit": "J", "kind": "kinetic_energy"})
+m2.heat_in.kind.name  # "kinetic_energy"
+
+# Unkinded Number is rejected
+# Calorimetry(heat_in={"quantity": 100, "unit": "J"})
+# => ValidationError: expected kind 'energy', got unkinded Number
+
+# Wrong kind is rejected (torque is not a descendant of energy)
+# Calorimetry(heat_in={"quantity": 100, "unit": "J", "kind": "torque"})
+# => ValidationError: expected kind 'energy', got 'torque'
+```
+
+### Joint Dimension and Kind
+
+Combine both constraints with a tuple subscript (order-insensitive).
+This matters when multiple kinds share a dimension — for example,
+absorbed dose (Gy) and dose equivalent (Sv) are both `specific_energy`
+(`L²·T⁻²`), but confusing them is a safety error:
+
+```python
+from ucon import Dimension
+
+dose_equivalent = active_kinds().get("dose_equivalent")
+
+class ExposureRecord(BaseModel):
+    # Dimension alone would accept both Gy and Sv —
+    # the kind constraint ensures only Sv-typed values pass.
+    effective_dose: Number[Dimension.specific_energy, dose_equivalent]
+
+# Sv with dose_equivalent kind — accepted
+record = ExposureRecord(
+    effective_dose={"quantity": 0.02, "unit": "Sv", "kind": "dose_equivalent"},
+)
+
+# Gy with absorbed_dose kind — same dimension, rejected by kind constraint
+# ExposureRecord(
+#     effective_dose={"quantity": 0.02, "unit": "Gy", "kind": "absorbed_dose"},
+# )
+# => ValidationError: expected kind 'dose_equivalent', got 'absorbed_dose'
+```
+
+### JSON Round-Trip
+
+Kind survives serialization as a string name. The `"kind"` key is `null`
+when absent, preserving backward compatibility with existing data.
+
+```python
+m = Calorimetry(heat_in={"quantity": 500, "unit": "J", "kind": "energy"})
+print(m.model_dump())
+# {"heat_in": {"quantity": 500.0, "unit": "J", "uncertainty": null, "kind": "energy"}}
+
+# Round-trip: kind is resolved back from the active lattice
+restored = Calorimetry.model_validate_json(m.model_dump_json())
+restored.heat_in.kind.name  # "energy"
+```
+
 ## The `@enforce_dimensions` Decorator
 
 For function signatures, use `@enforce_dimensions` to validate at call time:

@@ -26,6 +26,10 @@ Task-oriented guides for common use cases.
 - **[Conversion Contexts](conversion-contexts.md)** - Cross-dimensional conversions (spectroscopy, Boltzmann)
 - **[Natural Units](natural-units.md)** - Particle physics natural units (c = h_bar = k_B = 1)
 
+## Migration
+
+- **[Migrating to v2.0](migrating-to-v2.md)** - Migration guide from v1.x to v2.0
+
 ## Domain Walkthroughs
 
 - **[Nursing Dosage](domain-walkthroughs/nursing-dosage.md)** - Weight-based dosing calculations

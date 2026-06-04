@@ -1104,88 +1104,39 @@ See [Dual-Graph Architecture](../architecture/dual-graph-architecture.md) for de
 
 ### Basis Context Scoping
 
-Thread-safe basis isolation via ContextVars.
+Basis and BasisGraph are scoped through the active `UnitSystem`. Use `use()`
+with a derived system to override them:
 
 ```python
-from ucon import (
-    get_default_basis,
-    get_basis_graph,
-    set_default_basis_graph,
-    reset_default_basis_graph,
-    using_basis,
-    using_basis_graph,
-)
-```
+from ucon import active_system, use, CGS, Dimension
 
-#### `get_default_basis()`
-
-Returns the current default basis (context-local or SI fallback).
-
-```python
-from ucon import get_default_basis, SI
-
-get_default_basis()  # SI (when no context set)
-```
-
-#### `using_basis(basis)`
-
-Context manager for scoped basis override.
-
-```python
-from ucon import using_basis, CGS, Dimension
-
-with using_basis(CGS):
-    # Dimensions created here use CGS basis
+# Override the active basis
+cgs_system = active_system().with_basis(CGS)
+with use(cgs_system):
     dim = Dimension.from_components(L=1, T=-1)
     dim.basis  # CGS
 ```
 
-#### `get_basis_graph()`
-
-Returns the current BasisGraph (context-local or module default).
-
 ```python
-from ucon import get_basis_graph, SI, CGS
+from ucon import active_system, use
+from ucon.basis import BasisGraph
 
-graph = get_basis_graph()
-graph.are_connected(SI, CGS)  # True (standard graph has SI/CGS transforms)
+# Override the active BasisGraph
+custom_bg = BasisGraph()
+custom_system = active_system().with_basis_graph(custom_bg)
+with use(custom_system):
+    # All operations see custom_bg
+    pass
 ```
 
-#### `using_basis_graph(graph)`
-
-Context manager for scoped BasisGraph override.
-
-```python
-from ucon import using_basis_graph, BasisGraph
-
-custom_graph = BasisGraph()
-with using_basis_graph(custom_graph):
-    get_basis_graph() is custom_graph  # True
-```
-
-#### `set_default_basis_graph(graph)` / `reset_default_basis_graph()`
-
-Module-level control over the default BasisGraph.
+The active system's basis and basis graph are accessible via the `UnitSystem`
+fields:
 
 ```python
-from ucon import set_default_basis_graph, reset_default_basis_graph, BasisGraph
-
-# Replace module default
-custom = BasisGraph()
-set_default_basis_graph(custom)
-
-# Restore standard graph (lazy rebuild on next access)
-reset_default_basis_graph()
+system = active_system()
+system.basis        # Current basis (SI by default)
+system.basis_graph  # Current BasisGraph
 ```
-
-| Function | Purpose |
-|----------|---------|
-| `get_default_basis()` | Get context-local basis or SI |
-| `using_basis(basis)` | Scoped basis override |
-| `get_basis_graph()` | Get context-local or default BasisGraph |
-| `using_basis_graph(graph)` | Scoped BasisGraph override |
-| `set_default_basis_graph(graph)` | Replace module default |
-| `reset_default_basis_graph()` | Restore standard graph |
 
 ---
 
@@ -1348,18 +1299,16 @@ plain = SI_TO_NATURAL.as_basis_transform()
 
 ## UnitSystem (`system=` kwarg)
 
-New in v1.8. A `UnitSystem` is a frozen value type that bundles a `Basis`, the unit / dimension / conversion / basis-graph registries, a `BaseUnits` mapping, and a per-instance `AlgebraCache`.
+A `UnitSystem` is a frozen value type that bundles a `Basis`, the unit / dimension / conversion / basis-graph registries, a `BaseUnits` mapping, and a per-instance `AlgebraCache`.
 
 ```python
-from ucon.system import UnitSystem, BaseUnits, use, active
+from ucon import UnitSystem, BaseUnits, active_system, use, active
 ```
-
-Note: `from ucon import UnitSystem` continues to resolve to the renamed `BaseUnits` (with a `PendingDeprecationWarning`) for v1.7 compatibility. The new value type is reachable only via `ucon.system`.
 
 ### Activation
 
 ```python
-sys = UnitSystem.from_globals()  # snapshot current globals
+sys = active_system()
 with use(sys):
     assert active() is sys
 ```
@@ -1391,7 +1340,7 @@ Each entry point falls back to `active()` (and then to module-level globals) whe
 
 ### AlgebraCache
 
-`UnitSystem` owns a per-instance `AlgebraCache` (sub-caches `mul` / `div` / `pow`). Module-level `_DIM_*_CACHE` dicts in `ucon.dimension` are deprecated shims; v2.0 routes `Dimension` algebra through the active system's cache.
+`UnitSystem` owns a per-instance `AlgebraCache` (sub-caches `mul` / `div` / `pow`). `Dimension` algebra routes through the active system's cache.
 
 See [ucon.system](modules/system.md) for the full reference and [ucon.basis.ops](modules/basis-ops.md) for the explicit cross-basis helpers that the new value type composes with.
 
@@ -1431,8 +1380,6 @@ SI_TO_NATURAL(si_momentum)["E"]  # Fraction(1)
 
 ## Kinds
 
-New in v1.9.0. **Preview surface — opt-in, not yet wired to `Number`.**
-
 A *kind* is a sortal refinement *within* a single dimension. Where
 pseudo-dimensions and basis abstraction distinguish quantities by changing
 their dimensional signature, a `KindLattice` records a partial order over
@@ -1440,16 +1387,13 @@ named kinds that all share the same dimension (e.g.,
 `kinetic_energy ≤ energy`, `equivalent_dose ≤ absorbed_dose`).
 
 ```python
-from ucon.kinds import (
-    Kind,
-    JoinPolicy,
-    KindLattice,
-    lca,
-)
+from ucon import Kind, KindLattice
+from ucon.kinds import JoinPolicy, lca
 ```
 
-Kinds and the lattice are deliberately **not** re-exported from the
-top-level `ucon` package in v1.9.0. Import from `ucon.kinds` directly.
+`Kind` and `KindLattice` are re-exported from the top-level `ucon` package.
+`Number` carries an optional `kind` field; arithmetic dispatch consults the
+active `KindLattice` and `FormulaRegistry`.
 See [Kind-of-Quantity Problem](../architecture/kind-of-quantity.md) for the
 conceptual framing.
 
@@ -1551,8 +1495,8 @@ from ucon.kinds import (
 
 ## Formulas
 
-New in v1.9.0. **Preview surface — not yet wired to `Number`.** Aspect
-rules activated in v1.9.1 (see [Aspects](#aspects) below).
+Kind-formula dispatch for multiplication and division. Aspect rules control
+propagation (see [Aspects](#aspects) below).
 
 A `FormulaRegistry` records named relationships between input kinds and an
 output kind. Given a sequence of `Kind` instances, the registry can resolve
@@ -1770,8 +1714,6 @@ from ucon.formulas import (
 ---
 
 ## Aspects
-
-New in v1.9.1. **Preview surface — not yet wired to `Number`.**
 
 An *aspect* is a covariant tag (a string) carried alongside a quantity
 that describes its provenance, processing, or calibration state — not its

@@ -37,9 +37,9 @@ ucon addresses KOQ through three complementary mechanisms:
 3. **Kind lattices** — Sortal refinements *within* a single dimension
 
 The first two solutions build on the relationship between `BasisVector` and
-`Dimension`. The third (introduced in v1.9.0 as an opt-in preview surface)
-layers a partial order *on top of* dimensions to distinguish quantities that
-share the same `BasisVector` but represent physically distinct kinds.
+`Dimension`. The third layers a partial order *on top of* dimensions to
+distinguish quantities that share the same `BasisVector` but represent
+physically distinct kinds.
 
 ---
 
@@ -508,17 +508,16 @@ out = join_aspects(
 # out == frozenset({"signal_summary", "calibrated"})
 ```
 
-#### Status in v1.9.1
+#### Status
 
-Aspects are an **opt-in preview surface**, like kinds:
+In v2.0, kinds and aspects are wired into `Number` arithmetic:
 
-- Not re-exported from the top-level `ucon` package — import from
-  `ucon.aspects` directly.
-- Not yet wired into `Number` arithmetic; aspect information is carried
-  only by client code that chooses to participate.
+- `Kind` and `KindLattice` are re-exported from the top-level `ucon` package.
+- `Number` carries an optional `kind` field, validated at construction.
+- Multiplication and division consult the active `FormulaRegistry` for kind dispatch.
+- Addition and subtraction consult the active `KindLattice` for join semantics.
 - `FormulaRegistry.apply` is the single entry point that combines formula
   lookup with aspect projection.
-- v2.0 binds aspects to `Number` alongside kinds.
 
 ### TOML Authoring
 
@@ -551,20 +550,18 @@ w_R = { kind = "radiation_weighting_factor" }
 
 ### Status
 
-Kinds, formulas, and aspects are an **opt-in preview surface**:
+Kinds, formulas, and aspects are first-class in v2.0:
 
-- Not re-exported from the top-level `ucon` package — import from
-  `ucon.kinds`, `ucon.formulas`, `ucon.aspects`, and `ucon.parsing`
-  directly.
-- Not yet wired into `Number` arithmetic; `Kind` and aspect information is
-  carried only by client code that chooses to participate.
-- The `aspect_rules` field on `KindFormula` gained operational semantics
-  in v1.9.1 (see [Aspect Propagation](#aspect-propagation) above).
-- v1.9.2 completed lookup completeness: `resolve()` supports full n-ary
-  commutative permutation, generalized ancestor-walk matching, and
-  opt-in dimension-only fallback (see [Lookup Tiers](#lookup-tiers) above).
-- v2.0 wires the lattice into `Number` so the type system can enforce
-  refinement constraints automatically.
+- `Kind`, `KindLattice`, `FormulaRegistry`, and `ActiveContext` are
+  re-exported from the top-level `ucon` package.
+- `Number` carries an optional `kind` field, validated against the unit's
+  dimension at construction.
+- Kind-aware arithmetic dispatch: `__mul__`/`__truediv__` consult the active
+  `FormulaRegistry`; `__add__`/`__sub__` consult the active `KindLattice`.
+- `@enforce_dimensions` supports `Number[kind]` and
+  `Number[Dimension.X, kind]` annotations for kind-constrained parameters.
+- 25 built-in kinds ship via `comprehensive.ucon.toml`, accessible through
+  `active_kinds()`.
 
 ### When to Use a Kind Lattice
 

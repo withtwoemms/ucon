@@ -69,14 +69,16 @@ result = slug(1).to(kilogram, graph=graph)
 
 ## Using Custom Bases
 
-For CGS or other non-SI workflows, use `using_basis` to set the default basis for dimension creation.
+For CGS or other non-SI workflows, use `use()` with a `UnitSystem` configured
+for the desired basis.
 
 ### Context Manager
 
 ```python
-from ucon import using_basis, CGS, Dimension
+from ucon import active_system, use, CGS, Dimension
 
-with using_basis(CGS):
+cgs_system = active_system().with_basis(CGS)
+with use(cgs_system):
     # Dimensions created here use CGS basis by default
     velocity = Dimension.from_components(L=1, T=-1, name="velocity")
     velocity.basis  # CGS
@@ -91,11 +93,14 @@ with using_basis(CGS):
 Contexts can be nested; inner contexts restore to outer on exit:
 
 ```python
-from ucon import using_basis, SI, CGS
+from ucon import active_system, use, SI, CGS
 
-with using_basis(CGS):
+cgs_system = active_system().with_basis(CGS)
+si_system = active_system().with_basis(SI)
+
+with use(cgs_system):
     # CGS is default here
-    with using_basis(SI):
+    with use(si_system):
         # SI is default here
         pass
     # Back to CGS
@@ -106,9 +111,10 @@ with using_basis(CGS):
 Explicit `basis=` argument always wins over context:
 
 ```python
-from ucon import using_basis, CGS, SI, Dimension
+from ucon import active_system, use, CGS, SI, Dimension
 
-with using_basis(CGS):
+cgs_system = active_system().with_basis(CGS)
+with use(cgs_system):
     # Explicit basis overrides context
     si_dim = Dimension.from_components(SI, L=1, name="length")
     si_dim.basis  # SI (not CGS)
