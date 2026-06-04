@@ -17,6 +17,12 @@ For a curated overview with examples, see the [API Reference](../api.md).
 - **[ucon.packages](packages.md)** --- Unit package loading from TOML
 - **[ucon.contexts](contexts.md)** --- Cross-dimensional conversion contexts (spectroscopy, boltzmann)
 
+## Kind-of-Quantity
+
+- **[ucon.kinds](kinds.md)** --- Kind, KindLattice, JoinPolicy
+- **[ucon.formulas](formulas.md)** --- KindFormula, FormulaRegistry, tiered lookup
+- **[ucon.aspects](aspects.md)** --- AspectSet, AspectRule, AspectJoinPolicy
+
 ## Integrations
 
 - **[ucon.integrations.numpy](integrations-numpy.md)** --- NumPy array support (NumberArray)
