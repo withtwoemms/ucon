@@ -816,5 +816,61 @@ class TestEnforceDimensionsKind(unittest.TestCase):
             self.assertEqual(result.quantity, 100)
 
 
+class TestClassGetitemFallbacks(unittest.TestCase):
+    """Cover Number.__class_getitem__ tuple-subscript fallback paths."""
+
+    def test_tuple_dim_only(self):
+        """Number[(Dimension, non-Kind)] falls back to dim-only annotation."""
+        ann = Number[Dimension.energy, "not_a_kind"]
+        assert hasattr(ann, '__metadata__')
+        constraints = ann.__metadata__
+        assert any(isinstance(c, DimensionConstraint) for c in constraints)
+        assert not any(isinstance(c, KindConstraint) for c in constraints)
+
+    def test_tuple_kind_only(self):
+        """Number[(Kind, non-Dimension)] falls back to kind-only annotation."""
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        ann = Number[ke, "not_a_dimension"]
+        assert hasattr(ann, '__metadata__')
+        constraints = ann.__metadata__
+        assert any(isinstance(c, KindConstraint) for c in constraints)
+        assert not any(isinstance(c, DimensionConstraint) for c in constraints)
+
+
+class TestKindDispatchWithoutContext(unittest.TestCase):
+    """Cover _resolve_mul_kind and _resolve_add_kind without active context."""
+
+    def test_resolve_mul_kind_no_active_context(self):
+        """_resolve_mul_kind returns None when no active context exists."""
+        from ucon._active import _active
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        pe = Kind("potential_energy", dimension=ENERGY)
+        a = Number(10, units.joule, kind=ke)
+        b = Number(5, units.joule, kind=pe)
+        token = _active.set(None)
+        try:
+            result = a._resolve_mul_kind(b)
+            self.assertIsNone(result)
+        finally:
+            _active.reset(token)
+
+    def test_resolve_add_kind_different_kinds_no_context(self):
+        """_resolve_add_kind raises TypeError for different kinds without context."""
+        from ucon._active import _active
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        pe = Kind("potential_energy", dimension=ENERGY)
+        a = Number(10, units.joule, kind=ke)
+        b = Number(5, units.joule, kind=pe)
+        token = _active.set(None)
+        try:
+            with self.assertRaises(TypeError) as ctx:
+                a._resolve_add_kind(b)
+            self.assertIn("kinetic_energy", str(ctx.exception))
+            self.assertIn("potential_energy", str(ctx.exception))
+            self.assertIn("without an active context", str(ctx.exception))
+        finally:
+            _active.reset(token)
+
+
 if __name__ == "__main__":
     unittest.main()

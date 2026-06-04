@@ -2784,3 +2784,47 @@ class TestKindsSerialization:
 
         # Alias survives: "emf" resolves
         assert lattice.get("emf").name == "electromotive_force"
+
+    def test_dimension_to_expression_named(self):
+        """_dimension_to_expression returns name for named dimension."""
+        from ucon.serialization import _dimension_to_expression
+        from ucon.dimension import ENERGY
+        result = _dimension_to_expression(ENERGY)
+        assert result == "energy"
+
+    def test_dimension_to_expression_unnamed_simple(self):
+        """_dimension_to_expression builds expression from unnamed vector."""
+        from ucon.serialization import _dimension_to_expression
+        from ucon import Dimension
+        from ucon.basis import Vector
+        from ucon.basis.builtin import SI
+        # L/T — anonymous dimension (no name attribute)
+        v = Vector(SI, (1, 0, -1, 0, 0, 0, 0, 0))
+        dim = Dimension(vector=v)
+        assert dim.name is None
+        result = _dimension_to_expression(dim)
+        assert "/" in result  # numerator / denominator
+
+    def test_dimension_to_expression_unnamed_with_exponents(self):
+        """_dimension_to_expression handles exponents > 1 and < -1."""
+        from ucon.serialization import _dimension_to_expression
+        from ucon import Dimension
+        from ucon.basis import Vector
+        from ucon.basis.builtin import SI
+        # L^2 / T^2 — anonymous dimension with exponents
+        v = Vector(SI, (2, 0, -2, 0, 0, 0, 0, 0))
+        dim = Dimension(vector=v)
+        assert dim.name is None
+        result = _dimension_to_expression(dim)
+        assert "^2" in result  # exponents rendered
+        assert "/" in result   # has denominator
+
+    def test_collect_kinds_runtime_error_fallback(self):
+        """_collect_kinds returns [] when active_kinds() raises RuntimeError."""
+        from unittest.mock import patch
+        from ucon.serialization import _collect_kinds
+        # Pass graph=None (no _kind_lattice attr) and explicit_kinds=None
+        # Mock active_kinds to raise RuntimeError
+        with patch('ucon.serialization.active_kinds', side_effect=RuntimeError("no context")):
+            result = _collect_kinds(None, None)
+        assert result == []
