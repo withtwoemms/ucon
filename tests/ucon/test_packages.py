@@ -18,9 +18,9 @@ from tests.ucon import EXAMPLE_UNIT_EXTENSIONS_PATH
 from ucon import (
     Dimension,
     get_default_graph,
-    get_unit_by_name,
+    parse_unit,
     load_package,
-    using_graph,
+    using_conversion_graph,
     EdgeDef,
     PackageLoadError,
     UnitDef,
@@ -121,9 +121,9 @@ class TestEdgeDefAffine(unittest.TestCase):
         edge_def.materialize(graph)
 
         # Verify the map type on the graph edge
-        with using_graph(graph):
-            celsius = get_unit_by_name('celsius')
-            kelvin = get_unit_by_name('kelvin')
+        with using_conversion_graph(graph):
+            celsius = parse_unit('celsius')
+            kelvin = parse_unit('kelvin')
             m = graph.convert(src=celsius, dst=kelvin)
             self.assertIsInstance(m, AffineMap)
             # 0°C → 273.15 K
@@ -192,9 +192,9 @@ offset = 100.0
             pkg = load_package(path)
             graph = get_default_graph().with_package(pkg)
 
-            with using_graph(graph):
-                ct = get_unit_by_name('ct')
-                kelvin = get_unit_by_name('kelvin')
+            with using_conversion_graph(graph):
+                ct = parse_unit('ct')
+                kelvin = parse_unit('kelvin')
                 m = graph.convert(src=ct, dst=kelvin)
                 # 0 ct → 100.0 K (factor=1.0, offset=100.0)
                 self.assertAlmostEqual(m(0), 100.0, places=2)
@@ -313,8 +313,8 @@ class TestWithPackage(unittest.TestCase):
         graph = get_default_graph().with_package(pkg)
 
         # Unit should be resolvable in the new graph
-        with using_graph(graph):
-            resolved = get_unit_by_name('slug')
+        with using_conversion_graph(graph):
+            resolved = parse_unit('slug')
             self.assertEqual(resolved.name, 'slug')
 
     def test_with_package_adds_edges(self):
@@ -328,9 +328,9 @@ class TestWithPackage(unittest.TestCase):
         graph = get_default_graph().with_package(pkg)
 
         # Conversion should work
-        with using_graph(graph):
-            slug = get_unit_by_name('slug')
-            kg = get_unit_by_name('kilogram')
+        with using_conversion_graph(graph):
+            slug = parse_unit('slug')
+            kg = parse_unit('kilogram')
             m = graph.convert(src=slug, dst=kg)
             self.assertAlmostEqual(m(1), 14.5939, places=3)
 
@@ -376,16 +376,16 @@ class TestWithPackage(unittest.TestCase):
         pkg = load_package(example_path)
         graph = get_default_graph().with_package(pkg)
 
-        with using_graph(graph):
+        with using_conversion_graph(graph):
             # Test slug → kg conversion
-            slug = get_unit_by_name('slug')
-            kg = get_unit_by_name('kg')
+            slug = parse_unit('slug')
+            kg = parse_unit('kg')
             m = graph.convert(src=slug, dst=kg)
             self.assertAlmostEqual(m(1), 14.5939, places=3)
 
             # Test nautical mile → meter
-            nmi = get_unit_by_name('nmi')
-            meter = get_unit_by_name('m')
+            nmi = parse_unit('nmi')
+            meter = parse_unit('m')
             m = graph.convert(src=nmi, dst=meter)
             self.assertAlmostEqual(m(1), 1852, places=0)
 
@@ -926,9 +926,9 @@ factor = "1 / 3600"
             pkg = load_package(path)
             graph = get_default_graph().with_package(pkg)
 
-            with using_graph(graph):
-                joule = get_unit_by_name('joule')
-                wh = get_unit_by_name('watt*hour')
+            with using_conversion_graph(graph):
+                joule = parse_unit('joule')
+                wh = parse_unit('watt*hour')
                 m = graph.convert(src=joule, dst=wh)
                 # 3600 J = 1 Wh
                 self.assertAlmostEqual(m(3600), 1.0, places=5)

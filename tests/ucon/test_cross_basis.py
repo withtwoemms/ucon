@@ -14,9 +14,9 @@ import unittest
 from ucon import (
     Dimension,
     get_default_graph,
-    get_unit_by_name,
+    parse_unit,
     units,
-    using_graph,
+    using_conversion_graph,
 )
 from ucon.basis.builtin import CGS, CGS_ESU, CGS_EMU, NATURAL, PLANCK, ATOMIC, SI
 from ucon.constants import get_constant_by_symbol
@@ -286,26 +286,26 @@ class TestCrossSystemNameResolution(unittest.TestCase):
 
     def test_resolve_dyne(self):
         graph = get_default_graph()
-        with using_graph(graph):
-            resolved = get_unit_by_name('dyne')
+        with using_conversion_graph(graph):
+            resolved = parse_unit('dyne')
             self.assertEqual(resolved, units.dyne)
 
     def test_resolve_gauss(self):
         graph = get_default_graph()
-        with using_graph(graph):
-            resolved = get_unit_by_name('gauss')
+        with using_conversion_graph(graph):
+            resolved = parse_unit('gauss')
             self.assertEqual(resolved, units.gauss)
 
     def test_resolve_statampere(self):
         graph = get_default_graph()
-        with using_graph(graph):
-            resolved = get_unit_by_name('statampere')
+        with using_conversion_graph(graph):
+            resolved = parse_unit('statampere')
             self.assertEqual(resolved, units.statampere)
 
     def test_resolve_oersted_by_alias(self):
         graph = get_default_graph()
-        with using_graph(graph):
-            resolved = get_unit_by_name('Oe')
+        with using_conversion_graph(graph):
+            resolved = parse_unit('Oe')
             self.assertEqual(resolved, units.oersted)
 
 
@@ -362,8 +362,8 @@ class TestNaturalUnitConversions(unittest.TestCase):
         )
 
     def test_resolve_ev_by_alias(self):
-        with using_graph(self.graph):
-            resolved = get_unit_by_name('eV')
+        with using_conversion_graph(self.graph):
+            resolved = parse_unit('eV')
             self.assertEqual(resolved, units.electron_volt)
 
     def test_hartree_to_joule(self):

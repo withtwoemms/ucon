@@ -13,8 +13,6 @@ from ucon import (
     SI,
     get_default_basis,
     get_basis_graph,
-    reset_default_basis_graph,
-    set_default_basis_graph,
     using_basis,
     using_basis_graph,
 )
@@ -96,24 +94,6 @@ class TestBasisGraph:
             # None in context should still return default
             assert get_basis_graph() is default_graph
 
-    def test_set_default_basis_graph_is_masked_by_active_system(self):
-        """v1.11: set_default_basis_graph mutates the module-level variable
-        but the active system takes precedence in get_basis_graph()."""
-        import warnings
-        active_graph = get_basis_graph()
-        custom_graph = BasisGraph()
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            set_default_basis_graph(custom_graph)
-        # Active system tier takes precedence
-        assert get_basis_graph() is active_graph
-        assert get_basis_graph() is not custom_graph
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            reset_default_basis_graph()
-
 
 class TestDimensionContextIntegration:
     """Tests for Dimension methods using context basis."""
@@ -156,9 +136,6 @@ class TestGetBasisGraphActiveSystemHook:
     (highest priority) and the module-level default (lowest), so a
     ``with use(system):`` block routes through it without changing operator
     signatures."""
-
-    def teardown_method(self) -> None:
-        reset_default_basis_graph()
 
     def test_active_system_supplies_basis_graph(self) -> None:
         """When a UnitSystem is active and no context-local graph is set,
@@ -206,34 +183,6 @@ class TestGetBasisGraphActiveSystemHook:
         # Should fall through cleanly to the module default; no exception.
         graph = get_basis_graph()
         assert isinstance(graph, BasisGraph)
-
-
-class TestRetirementWarnings:
-    """``set_default_basis_graph`` and ``reset_default_basis_graph`` emit
-    ``DeprecationWarning`` in v1.8 because the module-level default
-    basis graph is being retired in favor of :class:`UnitSystem` ownership."""
-
-    def teardown_method(self) -> None:
-        import warnings
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            reset_default_basis_graph()
-
-    def test_set_default_basis_graph_emits_deprecation(self) -> None:
-        custom_graph = BasisGraph()
-        with pytest.warns(DeprecationWarning, match="set_default_basis_graph"):
-            set_default_basis_graph(custom_graph)
-        # v1.11: mutation still takes effect at module level, but active
-        # system tier takes precedence in get_basis_graph().
-        # The warning is the important behavior to verify here.
-
-    def test_reset_default_basis_graph_emits_pending_deprecation(self) -> None:
-        with pytest.warns(DeprecationWarning, match="reset_default_basis_graph"):
-            reset_default_basis_graph()
-        # Behavior preserved: a subsequent get rebuilds the standard graph.
-        rebuilt = get_basis_graph()
-        assert rebuilt.are_connected(SI, CGS)
 
 
 class TestThreadSafety:

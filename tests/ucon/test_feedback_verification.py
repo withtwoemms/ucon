@@ -219,7 +219,7 @@ class TestTriage1BareComponentDimensions:
     Outcome (C): symbol singletons reject with generic error -> stays open.
 
     ucon core does not expose a dedicated `parse_dimension(str)` helper;
-    `get_unit_by_name` is the closest public entry point. These tests
+    `parse_unit` is the closest public entry point. These tests
     document current behavior so the registry can be updated either way.
     """
 
@@ -241,10 +241,10 @@ class TestTriage1BareComponentDimensions:
         either succeeds OR fails with a structured exception (not a crash).
         Run with -v to see which cases land on which side.
         """
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
 
         try:
-            result = get_unit_by_name(spec)
+            result = parse_unit(spec)
             outcome = f"ACCEPT: {spec!r} -> {result}"
         except Exception as exc:  # noqa: BLE001 - documenting all reject modes
             outcome = f"REJECT: {spec!r} -> {type(exc).__name__}: {exc}"
@@ -255,13 +255,13 @@ class TestTriage1BareComponentDimensions:
 
     def test_summary_table(self) -> None:
         """Print a registry-shaped summary of all six cases at once."""
-        from ucon.resolver import get_unit_by_name
+        from ucon.resolver import parse_unit
 
         cases = ["M", "M¹", "M^1", "M·T⁻¹", "mass", "mass^1"]
         rows = []
         for spec in cases:
             try:
-                get_unit_by_name(spec)
+                parse_unit(spec)
                 rows.append((spec, "ACCEPT", ""))
             except Exception as exc:
                 rows.append((spec, "REJECT", f"{type(exc).__name__}: {exc}"))

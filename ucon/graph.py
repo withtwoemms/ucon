@@ -11,8 +11,4 @@ statements continue to work.
 """
 from ucon.conversion import *  # noqa: F401,F403
 from ucon.conversion import Graph as ConversionGraph  # noqa: F401
-from ucon.conversion import (  # noqa: F401 — private names used by tests
-    _default_graph,
-    _graph_context,
-    _build_standard_edges,
-)
+from ucon.conversion import _graph_context  # noqa: F401 — private name used by tests

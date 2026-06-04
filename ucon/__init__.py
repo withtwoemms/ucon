@@ -55,8 +55,6 @@ from ucon.basis import (
     Vector as BasisVector,
     get_default_basis,
     get_basis_graph,
-    set_default_basis_graph,
-    reset_default_basis_graph,
     using_basis,
     using_basis_graph,
 )
@@ -123,10 +121,7 @@ from ucon.conversion import (
     CyclicInconsistency,
     DimensionMismatch,
     get_default_graph,
-    reset_default_graph,
-    set_default_graph,
     using_conversion_graph,
-    using_graph,
 )
 from ucon.contexts import (
     ContextEdge,
@@ -136,7 +131,7 @@ from ucon.contexts import (
     using_context,
 )
 from ucon.packages import ConstantDef, EdgeDef, PackageLoadError, UnitDef, UnitPackage, load_package
-from ucon.resolver import get_unit_by_name, parse_unit, register_unit
+from ucon.resolver import parse_unit, register_unit
 from ucon.parsing import ParseError, parse, parse_dimension
 
 
@@ -194,8 +189,6 @@ __all__ = [
     # Basis context scoping
     'get_default_basis',
     'get_basis_graph',
-    'set_default_basis_graph',
-    'reset_default_basis_graph',
     'using_basis',
     'using_basis_graph',
     # Standard bases
@@ -269,15 +262,12 @@ __all__ = [
     'all_dimensions',
     'enforce_dimensions',
     'get_default_graph',
-    'get_unit_by_name',
     'register_unit',
     'load_package',
     'parse',
     'parse_dimension',
     'parse_unit',
-    'reset_default_graph',
     'resolve_dimension',
-    'set_default_graph',
     'using_conversion_graph',
     # Submodules
     'constants',

@@ -93,6 +93,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Removed `_DEFAULT_ALGEBRA_CACHE` module-level global.** `_get_active_cache()`
+  now returns a fresh `AlgebraCache()` when no active context exists (bootstrap
+  only). Dimension algebra during import runs uncached; post-init behavior
+  is unchanged.
 - **Pydantic kind integration (v2.0 §3.4).** The `ucon.pydantic` adapter
   now supports `Kind` constraints alongside `Dimension` constraints.
   `Number[kind]`, `Number[Dimension.X, kind]`, and `Number[kind, Dimension.X]`
@@ -231,6 +235,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   imported `_none` from `ucon.core` or `ucon.quantity` should migrate
   to structural checks: `unit == UnitProduct({})` or
   `unit.factors == {}`.
+- **All v1.x deprecated symbols removed (Phase 5 breaking removals).**
+  The following public API symbols, deprecated during the v1.x series,
+  are deleted:
+  - `get_unit_by_name()` — use `parse_unit()` instead.
+  - `using_graph()` — use `using_conversion_graph()` instead.
+  - `set_default_graph()` / `reset_default_graph()` — graph ownership
+    moved to `UnitSystem`; use `use(system)` for scoping.
+  - `set_default_basis_graph()` / `reset_default_basis_graph()` — same;
+    use `using_basis_graph()` or `use(system)`.
+  - `UnitSystem.conversions` property — use `conversion_graph` instead.
+  - `UnitSystem(conversions=...)` kwarg — use `conversion_graph=`.
+  - `UnitSystem.from_globals()` — use `active_system()` instead.
+  - `units.have(name)` — use `parse_unit(name)` with a try/except.
+  - `_DIM_MUL_CACHE` / `_DIM_DIV_CACHE` / `_DIM_POW_CACHE` PEP-562
+    shims on `ucon.dimension` — algebra caches are now per-`UnitSystem`
+    via `AlgebraCache`.
+  - Module-level `_default_graph` and `_default_basis_graph` globals —
+    `get_default_graph()` and `get_basis_graph()` now resolve
+    exclusively via `ContextVar` and active `UnitSystem`.
 
 ## [1.12.0] - 2026-05-23
 

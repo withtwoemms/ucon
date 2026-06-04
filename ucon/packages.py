@@ -590,20 +590,11 @@ def load_package(path: str | Path) -> UnitPackage:
 
     # Support both [package] table (preferred) and top-level keys (legacy)
     package = data.get("package", {})
-    if not package and any(k in data for k in ("name", "version", "description")):
-        import warnings
-        warnings.warn(
-            f"Package metadata as top-level keys is deprecated. "
-            f"Wrap in a [package] table in {path.name}. "
-            f"Legacy format will be removed in ucon 2.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
 
     return UnitPackage(
-        name=package.get("name", data.get("name", path.stem)),
-        version=package.get("version", data.get("version", "1.0.0")),
-        description=package.get("description", data.get("description", "")),
+        name=package.get("name", path.stem),
+        version=package.get("version", "1.0.0"),
+        description=package.get("description", ""),
         units=units,
         edges=edges,
         constants=constants,

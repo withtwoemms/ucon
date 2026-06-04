@@ -290,11 +290,10 @@ class TestDimensionAlgebraCacheKeying(unittest.TestCase):
 
 
 class TestDimensionAlgebraCacheRouting(unittest.TestCase):
-    """v1.8: ``Dimension`` algebra routes through ``UnitSystem._algebra_cache``.
+    """v2.0: ``Dimension`` algebra routes through the active ``UnitSystem._algebra_cache``.
 
-    Outside any ``use(...)`` block the module-level ``_DEFAULT_ALGEBRA_CACHE``
-    is consulted (stable across calls). Inside a ``use(system)`` block the
-    active system's per-instance ``AlgebraCache`` is consulted instead.
+    After eager init, an active system is always present, so algebra
+    always routes through the per-instance ``AlgebraCache``.
     """
 
     def test_default_state_populates_active_system_cache(self):
@@ -316,42 +315,6 @@ class TestDimensionAlgebraCacheRouting(unittest.TestCase):
         self.assertGreater(len(system._algebra_cache.mul), 0)
         self.assertGreater(len(system._algebra_cache.div), 0)
         self.assertGreater(len(system._algebra_cache.pow), 0)
-
-    def test_legacy_dim_mul_cache_alias_emits_pending_deprecation(self):
-        import warnings
-
-        import ucon.dimension as dim_mod
-        from ucon.system import _get_active_cache
-
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            alias = dim_mod._DIM_MUL_CACHE
-        self.assertTrue(
-            any(issubclass(w.category, PendingDeprecationWarning) for w in caught)
-        )
-        self.assertIs(alias, _get_active_cache().mul)
-
-    def test_legacy_dim_div_cache_alias_points_at_active_cache(self):
-        import warnings
-
-        import ucon.dimension as dim_mod
-        from ucon.system import _get_active_cache
-
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            alias = dim_mod._DIM_DIV_CACHE
-        self.assertIs(alias, _get_active_cache().div)
-
-    def test_legacy_dim_pow_cache_alias_points_at_active_cache(self):
-        import warnings
-
-        import ucon.dimension as dim_mod
-        from ucon.system import _get_active_cache
-
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            alias = dim_mod._DIM_POW_CACHE
-        self.assertIs(alias, _get_active_cache().pow)
 
     def test_unknown_module_attribute_still_raises(self):
         import ucon.dimension as dim_mod

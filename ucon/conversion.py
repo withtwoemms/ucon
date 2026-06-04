@@ -16,8 +16,7 @@ Classes
 - ``ConversionGraph`` — Backward-compatible alias for :class:`Graph`.
 
 Default-graph lifecycle functions (``get_default_graph``,
-``set_default_graph``, ``reset_default_graph``, ``using_conversion_graph``,
-``using_graph``) are defined in this module.
+``using_conversion_graph``) are defined in this module.
 """
 from __future__ import annotations
 
@@ -67,10 +66,7 @@ __all__ = [
     'ConversionNotFound',
     'CyclicInconsistency',
     'get_default_graph',
-    'set_default_graph',
-    'reset_default_graph',
     'using_conversion_graph',
-    'using_graph',
 ]
 
 
@@ -1416,7 +1412,6 @@ ConversionGraph = Graph
 # Default-graph lifecycle (inlined from former ``ucon.graph_registry``)
 # ---------------------------------------------------------------------------
 
-_default_graph: Graph | None = None
 _graph_context: ContextVar[Graph | None] = ContextVar("graph", default=None)
 
 
@@ -1426,7 +1421,6 @@ def get_default_graph() -> Graph:
     Priority:
     1. Context-local graph (from ``using_conversion_graph``)
     2. Active :class:`~ucon.system.UnitSystem`'s ``conversion_graph``
-    3. Module-level default graph (lazily built -- legacy fallback)
     """
     # Check context first
     graph = _graph_context.get()
@@ -1438,69 +1432,10 @@ def get_default_graph() -> Graph:
     if ctx is not None:
         return ctx.system.conversion_graph
 
-    # Fall back to module default (dead code after eager init in ucon/__init__)
-    if _default_graph is not None:
-        return _default_graph
     raise RuntimeError(
         "No conversion graph available. This usually means "
         "get_default_graph() was called before 'import ucon' completed."
     )
-
-
-def set_default_graph(graph: Graph) -> None:
-    """Replace the module-level default graph.
-
-    .. deprecated:: 1.11
-       The module-level default graph is being retired in favor of
-       :class:`~ucon.system.UnitSystem` ownership.  With eager system
-       initialization the active system's ``conversion_graph`` (tier 2)
-       takes precedence, so mutations via this function are invisible to
-       :func:`get_default_graph`.  Use ``using_conversion_graph(graph)``
-       for scoped overrides or ``use(system)`` to switch the entire
-       active system.  Scheduled for removal in ucon 2.0.
-
-    Parameters
-    ----------
-    graph : Graph
-        The new default conversion graph.
-    """
-    warnings.warn(
-        "ucon.graph.set_default_graph is deprecated; the module-level "
-        "default graph is being retired in favor of UnitSystem ownership. "
-        "Use 'using_conversion_graph(graph)' for scoped overrides or "
-        "'use(system)' to switch the active system. "
-        "Scheduled for removal in ucon 2.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    global _default_graph
-    _default_graph = graph
-
-
-def reset_default_graph() -> None:
-    """Reset to the standard graph on next access.
-
-    .. deprecated:: 1.11
-       The module-level default graph is being retired in favor of
-       :class:`~ucon.system.UnitSystem` ownership.  With eager system
-       initialization the active system's ``conversion_graph`` (tier 2)
-       takes precedence, so this function has no visible effect.  Leave
-       the ``use(system)`` block instead of resetting a global.
-       Scheduled for removal in ucon 2.0.
-
-    The standard graph (with all built-in unit conversions) is lazily
-    rebuilt when :func:`get_default_graph` is next called.
-    """
-    warnings.warn(
-        "ucon.graph.reset_default_graph is deprecated; the module-level "
-        "default graph is being retired in favor of UnitSystem ownership. "
-        "Leave the 'use(system)' block instead of resetting a global. "
-        "Scheduled for removal in ucon 2.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    global _default_graph
-    _default_graph = None
 
 
 @contextmanager
@@ -1509,12 +1444,6 @@ def using_conversion_graph(graph: Graph):
 
     Sets both the conversion graph and parsing graph contexts, so that
     name resolution and conversions both use the same graph.
-
-    The canonical name as of v1.8. The older :func:`using_graph` is a
-    :class:`PendingDeprecationWarning` alias preserved for one release
-    cycle; new code should call ``using_conversion_graph`` to align with
-    :attr:`UnitSystem.basis_graph` / ``UnitSystem.conversion_graph``
-    naming.
 
     Usage::
 
@@ -1541,36 +1470,3 @@ def using_conversion_graph(graph: Graph):
         _parsing_graph.reset(token_parsing)
 
 
-@contextmanager
-def using_graph(graph: Graph):
-    """Deprecated alias for :func:`using_conversion_graph`.
-
-    .. deprecated:: 1.8
-       The name is ambiguous next to :func:`ucon.basis.using_basis_graph`.
-       Use :func:`using_conversion_graph` instead. Scheduled for removal
-       in ucon 2.0.
-
-    Parameters
-    ----------
-    graph : Graph
-        The graph to use within this context.
-
-    Yields
-    ------
-    Graph
-        The same graph passed in.
-    """
-    warnings.warn(
-        "ucon.using_graph is deprecated; use ucon.using_conversion_graph "
-        "for symmetry with using_basis_graph. Scheduled for removal in "
-        "ucon 2.0.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    with using_conversion_graph(graph) as g:
-        yield g
-
-
-def _build_standard_edges(graph: Graph) -> None:  # pragma: no cover
-    """Legacy stub — retained as a no-op for external code that references it."""
-    return

@@ -275,13 +275,13 @@ class TestNinesUnitParsing(unittest.TestCase):
     """Test that nines can be parsed from strings."""
 
     def test_parse_nines(self):
-        from ucon import get_unit_by_name
-        unit = get_unit_by_name('nines')
+        from ucon import parse_unit
+        unit = parse_unit('nines')
         self.assertEqual(unit, units.nines)
 
     def test_parse_nines_alias(self):
-        from ucon import get_unit_by_name
-        unit = get_unit_by_name('9s')
+        from ucon import parse_unit
+        unit = parse_unit('9s')
         self.assertEqual(unit, units.nines)
 
 

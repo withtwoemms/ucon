@@ -9,7 +9,7 @@ scenarios — without sacrificing interoperability.
 Key architectural features tested:
   1. ConversionGraph.copy() → independent graph instances
   2. ConversionGraph.with_package() → immutable extension
-  3. using_graph() → ContextVar-scoped graph switching
+  3. using_conversion_graph() → ContextVar-scoped graph switching
   4. No global mutable singleton
 
 Run: pytest test_ucon_graph_isolation.py -v
@@ -96,8 +96,8 @@ class TestGraphCopyIndependence:
         g2 = g.with_package(brewing_package())
 
         # Copy has 'smoot'
-        with ucon.using_graph(g2):
-            u = ucon.get_unit_by_name("smoot")
+        with ucon.using_conversion_graph(g2):
+            u = ucon.parse_unit("smoot")
             assert u.name == "smoot"
 
         # Original does NOT have 'smoot'
@@ -140,14 +140,14 @@ class TestWithPackageImmutability:
         aero_graph = base.with_package(aerospace_package())
 
         # Nursing graph has 'drop' but not 'slug'
-        with ucon.using_graph(nursing_graph):
-            assert ucon.get_unit_by_name("drop").name == "drop"
+        with ucon.using_conversion_graph(nursing_graph):
+            assert ucon.parse_unit("drop").name == "drop"
 
         assert nursing_graph.resolve_unit("zorkmid") is None
 
         # Aerospace graph has 'slug' but not 'drop'
-        with ucon.using_graph(aero_graph):
-            assert ucon.get_unit_by_name("zorkmid").name == "zorkmid"
+        with ucon.using_conversion_graph(aero_graph):
+            assert ucon.parse_unit("zorkmid").name == "zorkmid"
 
         assert aero_graph.resolve_unit("drop") is None
 
@@ -160,9 +160,9 @@ class TestWithPackageImmutability:
         base = ucon.get_default_graph()
         combined = base.with_package(nursing_package()).with_package(aerospace_package())
 
-        with ucon.using_graph(combined):
-            assert ucon.get_unit_by_name("drop").name == "drop"
-            assert ucon.get_unit_by_name("zorkmid").name == "zorkmid"
+        with ucon.using_conversion_graph(combined):
+            assert ucon.parse_unit("drop").name == "drop"
+            assert ucon.parse_unit("zorkmid").name == "zorkmid"
 
 
 # ─────────────────────────────────────────────────────
@@ -173,27 +173,27 @@ class TestWithPackageImmutability:
 
 
 class TestUsingGraphContextIsolation:
-    """using_graph() sets the active ConversionGraph for the current
+    """using_conversion_graph() sets the active ConversionGraph for the current
     context via ContextVar. It does not affect other contexts."""
 
     def test_using_graph_scopes_name_resolution(self):
-        """Inside using_graph, get_unit_by_name resolves against
+        """Inside using_graph, parse_unit resolves against
         the scoped graph. Outside, it reverts."""
         base = ucon.get_default_graph()
         extended = base.with_package(brewing_package())
 
         # Outside: no smoot
         with pytest.raises(Exception):
-            ucon.get_unit_by_name("smoot")
+            ucon.parse_unit("smoot")
 
         # Inside: smoot available
-        with ucon.using_graph(extended):
-            u = ucon.get_unit_by_name("smoot")
+        with ucon.using_conversion_graph(extended):
+            u = ucon.parse_unit("smoot")
             assert u.name == "smoot"
 
         # After exiting: no smoot again
         with pytest.raises(Exception):
-            ucon.get_unit_by_name("smoot")
+            ucon.parse_unit("smoot")
 
     def test_nested_using_graph_contexts(self):
         """Nested using_graph calls correctly stack and unwind."""
@@ -202,18 +202,18 @@ class TestUsingGraphContextIsolation:
         brewing_plus_aero = brewing.with_package(aerospace_package())
 
         # Outer context: brewing only
-        with ucon.using_graph(brewing):
-            assert ucon.get_unit_by_name("smoot").name == "smoot"
+        with ucon.using_conversion_graph(brewing):
+            assert ucon.parse_unit("smoot").name == "smoot"
             assert brewing.resolve_unit("zorkmid") is None
 
             # Inner context: brewing + aerospace
-            with ucon.using_graph(brewing_plus_aero):
-                assert ucon.get_unit_by_name("smoot").name == "smoot"
-                assert ucon.get_unit_by_name("zorkmid").name == "zorkmid"
+            with ucon.using_conversion_graph(brewing_plus_aero):
+                assert ucon.parse_unit("smoot").name == "smoot"
+                assert ucon.parse_unit("zorkmid").name == "zorkmid"
 
             # Back to outer: slug gone, smoot still available
             assert brewing.resolve_unit("zorkmid") is None
-            assert ucon.get_unit_by_name("smoot").name == "smoot"
+            assert ucon.parse_unit("smoot").name == "smoot"
 
     def test_using_graph_restores_on_exception(self):
         """If an exception occurs inside using_graph, the previous
@@ -222,15 +222,15 @@ class TestUsingGraphContextIsolation:
         extended = base.with_package(brewing_package())
 
         try:
-            with ucon.using_graph(extended):
-                assert ucon.get_unit_by_name("smoot").name == "smoot"
+            with ucon.using_conversion_graph(extended):
+                assert ucon.parse_unit("smoot").name == "smoot"
                 raise RuntimeError("simulated failure")
         except RuntimeError:
             pass
 
         # Graph correctly restored despite exception
         with pytest.raises(Exception):
-            ucon.get_unit_by_name("smoot")
+            ucon.parse_unit("smoot")
 
 
 # ─────────────────────────────────────────────────────
@@ -256,9 +256,9 @@ class TestThreadIsolation:
 
         def nursing_worker():
             try:
-                with ucon.using_graph(nursing):
-                    u = ucon.get_unit_by_name("drop")
-                    L = ucon.get_unit_by_name("liter")
+                with ucon.using_conversion_graph(nursing):
+                    u = ucon.parse_unit("drop")
+                    L = ucon.parse_unit("liter")
                     conv = nursing.convert(src=u, dst=L)
                     results["nursing"] = conv(300)  # 300 gtt → L
 
@@ -270,9 +270,9 @@ class TestThreadIsolation:
 
         def aero_worker():
             try:
-                with ucon.using_graph(aero):
-                    u = ucon.get_unit_by_name("zorkmid")
-                    kg = ucon.get_unit_by_name("kilogram")
+                with ucon.using_conversion_graph(aero):
+                    u = ucon.parse_unit("zorkmid")
+                    kg = ucon.parse_unit("kilogram")
                     conv = aero.convert(src=u, dst=kg)
                     results["aero"] = conv(1)  # 1 zorkmid → kg
 
@@ -300,9 +300,9 @@ class TestThreadIsolation:
         done = threading.Event()
 
         def worker():
-            with ucon.using_graph(extended):
+            with ucon.using_conversion_graph(extended):
                 # Thread can see smoot
-                assert ucon.get_unit_by_name("smoot").name == "smoot"
+                assert ucon.parse_unit("smoot").name == "smoot"
                 done.set()
                 # Hold the context open briefly
                 import time
@@ -314,7 +314,7 @@ class TestThreadIsolation:
 
         # Main thread should NOT see smoot
         with pytest.raises(Exception):
-            ucon.get_unit_by_name("smoot")
+            ucon.parse_unit("smoot")
 
         t.join()
 
@@ -349,9 +349,9 @@ class TestThreadIsolation:
 
                 barrier.wait(timeout=5)  # synchronize start
 
-                with ucon.using_graph(graph):
-                    u = ucon.get_unit_by_name(f"unit_{i}")
-                    m = ucon.get_unit_by_name("meter")
+                with ucon.using_conversion_graph(graph):
+                    u = ucon.parse_unit(f"unit_{i}")
+                    m = ucon.parse_unit("meter")
                     conv = graph.convert(src=u, dst=m)
                     results[i] = conv(1)
 
@@ -359,7 +359,7 @@ class TestThreadIsolation:
                     for j in range(10):
                         if j != i:
                             try:
-                                ucon.get_unit_by_name(f"unit_{j}")
+                                ucon.parse_unit(f"unit_{j}")
                                 errors[i] = f"thread {i} saw unit_{j}"
                             except Exception:
                                 pass  # correct
@@ -390,43 +390,8 @@ class TestThreadIsolation:
 
 class TestNoGlobalSingleton:
     """ucon does not have a set_application_registry() equivalent
-    that can globally switch the active unit system."""
-
-    def test_set_default_graph_does_not_exist_as_global_mutation(self):
-        """ucon's set_default_graph exists but only sets the default for
-        contexts that haven't explicitly chosen a graph. It doesn't
-        retroactively change active using_graph() contexts."""
-        base = ucon.get_default_graph()
-        extended = base.with_package(brewing_package())
-
-        result_inside = {}
-        result_outside = {}
-
-        def check_in_context():
-            with ucon.using_graph(base):
-                # Even if someone calls set_default_graph elsewhere,
-                # this context is locked to 'base'
-                try:
-                    ucon.get_unit_by_name("smoot")
-                    result_inside["smoot"] = True
-                except Exception:
-                    result_inside["smoot"] = False
-
-        # Set extended as default (deprecated in v1.11)
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            ucon.set_default_graph(extended)
-
-        # But an explicit using_graph(base) still uses base
-        check_in_context()
-        assert result_inside["smoot"] is False  # base doesn't have smoot
-
-        # Restore
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            ucon.set_default_graph(base)
-
+    that can globally switch the active unit system.
+    set_default_graph was removed in v2.0."""
 
 # ─────────────────────────────────────────────────────
 # 6. MULTI-TENANT MCP SERVER SCENARIO
@@ -456,9 +421,9 @@ class TestMultiTenantMCPScenario:
 
         def agent_request(agent_name, graph, convert_from, convert_to, value):
             try:
-                with ucon.using_graph(graph):
-                    src = ucon.get_unit_by_name(convert_from)
-                    dst = ucon.get_unit_by_name(convert_to)
+                with ucon.using_conversion_graph(graph):
+                    src = ucon.parse_unit(convert_from)
+                    dst = ucon.parse_unit(convert_to)
                     conv = graph.convert(src=src, dst=dst)
                     results[agent_name] = conv(value)
             except Exception as e:
@@ -497,9 +462,9 @@ class TestMultiTenantMCPScenario:
 
         # Simulate 100 sequential requests on the same graph
         for i in range(100):
-            with ucon.using_graph(nursing):
-                u = ucon.get_unit_by_name("drop")
-                L = ucon.get_unit_by_name("liter")
+            with ucon.using_conversion_graph(nursing):
+                u = ucon.parse_unit("drop")
+                L = ucon.parse_unit("liter")
                 conv = nursing.convert(src=u, dst=L)
                 result = conv(15000 * (i + 1))  # 15000 gtt = 1 L
                 expected = float(i + 1)

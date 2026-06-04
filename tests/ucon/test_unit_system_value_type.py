@@ -9,7 +9,6 @@ Tests for the ``ucon.system.UnitSystem`` value type and its
 
 import sys
 import unittest
-import warnings
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -50,46 +49,6 @@ class TestAlgebraCache(unittest.TestCase):
         c2 = AlgebraCache()
         c1.mul["x"] = 99
         self.assertNotIn("x", c2.mul)
-
-
-class TestUnitSystemFromGlobals(unittest.TestCase):
-    """Tests for the deprecated ``from_globals()`` construction path.
-
-    ``from_globals()`` emits ``DeprecationWarning`` since v1.11; tests
-    suppress it so the assertions focus on functional behavior.
-    """
-
-    def _from_globals(self, **kwargs):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            return UnitSystem.from_globals(**kwargs)
-
-    def test_from_globals_returns_unitsystem(self):
-        system = self._from_globals()
-        self.assertIsInstance(system, UnitSystem)
-
-    def test_from_globals_populates_required_fields(self):
-        system = self._from_globals()
-        # Type-level checks; the actual concrete types live in modules
-        # that import each other in nontrivial ways.
-        self.assertIsNotNone(system.basis)
-        self.assertIsInstance(system.units, dict)
-        self.assertIsInstance(system.dimensions, dict)
-        self.assertIsInstance(system.base_units, BaseUnits)
-        self.assertIsNotNone(system.conversion_graph)
-        self.assertIsNotNone(system.basis_graph)
-        self.assertIsInstance(system.contexts, dict)
-        self.assertIsInstance(system.constants, dict)
-        self.assertIsInstance(system._algebra_cache, AlgebraCache)
-
-    def test_base_units_field_is_baseunits(self):
-        system = self._from_globals()
-        self.assertIsInstance(system.base_units, BaseUnits)
-        self.assertEqual(system.base_units.name, "SI")
-
-    def test_from_globals_contains_meter_in_units(self):
-        system = self._from_globals()
-        self.assertIn("meter", system.units)
 
 
 class TestUnitSystemValueSemantics(unittest.TestCase):
@@ -175,40 +134,6 @@ class TestPublicSurface(unittest.TestCase):
         from ucon.system import active as a, use as u  # noqa: F401
         self.assertTrue(callable(a))
         self.assertTrue(callable(u))
-
-
-class TestFromGlobalsOverride(unittest.TestCase):
-    """Cover the ``base_units`` keyword override path in ``from_globals``."""
-
-    def test_default_base_units_is_si(self):
-        from ucon import units as _units_module
-        system = active_system()
-        self.assertIs(system.base_units, _units_module.si)
-
-    def test_override_base_units_is_used_verbatim(self):
-        from ucon import Dimension, units as _units_module
-        custom = BaseUnits(
-            name="length-only", bases={Dimension.length: _units_module.meter}
-        )
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            system = UnitSystem.from_globals(base_units=custom)
-        self.assertIs(system.base_units, custom)
-        self.assertEqual(system.base_units.name, "length-only")
-
-    def test_override_does_not_affect_other_fields(self):
-        from ucon import Dimension, units as _units_module
-        custom = BaseUnits(
-            name="length-only", bases={Dimension.length: _units_module.meter}
-        )
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            baseline = UnitSystem.from_globals()
-            overridden = UnitSystem.from_globals(base_units=custom)
-        self.assertIs(overridden.units, baseline.units)
-        self.assertIs(overridden.dimensions, baseline.dimensions)
-        self.assertIs(overridden.conversion_graph, baseline.conversion_graph)
-        self.assertIs(overridden.basis_graph, baseline.basis_graph)
 
 
 class TestUnitSystemDifferentialEquality(unittest.TestCase):
@@ -744,79 +669,6 @@ class TestCrossBasisArithmetic(unittest.TestCase):
                 self.assertIs(get_basis_graph(), explicit)
             # Outside the explicit override, falls back to system.basis_graph
             self.assertIs(get_basis_graph(), sys.basis_graph)
-
-
-class TestConversionsDeprecatedAlias(unittest.TestCase):
-    """v1.8.0 named the field ``conversions``. v1.8.1 renamed it to
-    ``conversion_graph`` for symmetry with ``basis_graph`` and exposes a
-    deprecation shim — both as a constructor kwarg and as a read
-    property. Both emit ``DeprecationWarning`` and are scheduled
-    for removal in v2.0."""
-
-    def test_conversions_kwarg_warns_and_routes_to_conversion_graph(self):
-        parent = active_system()
-        with warnings.catch_warnings(record=True) as captured:
-            warnings.simplefilter("always")
-            s = UnitSystem(
-                basis=parent.basis,
-                units=parent.units,
-                dimensions=parent.dimensions,
-                base_units=parent.base_units,
-                conversions=parent.conversion_graph,
-                basis_graph=parent.basis_graph,
-                contexts=parent.contexts,
-                constants=parent.constants,
-            )
-        self.assertIs(s.conversion_graph, parent.conversion_graph)
-        self.assertTrue(
-            any(issubclass(w.category, DeprecationWarning) for w in captured),
-            f"expected DeprecationWarning; got {[w.category for w in captured]}",
-        )
-
-    def test_conversions_property_warns_and_returns_conversion_graph(self):
-        s = active_system()
-        with warnings.catch_warnings(record=True) as captured:
-            warnings.simplefilter("always")
-            value = s.conversions
-        self.assertIs(value, s.conversion_graph)
-        self.assertTrue(
-            any(issubclass(w.category, DeprecationWarning) for w in captured),
-            f"expected DeprecationWarning; got {[w.category for w in captured]}",
-        )
-
-    def test_both_kwargs_raises_typeerror(self):
-        parent = active_system()
-        with self.assertRaises(TypeError):
-            UnitSystem(
-                basis=parent.basis,
-                units=parent.units,
-                dimensions=parent.dimensions,
-                base_units=parent.base_units,
-                conversion_graph=parent.conversion_graph,
-                conversions=parent.conversion_graph,
-                basis_graph=parent.basis_graph,
-                contexts=parent.contexts,
-                constants=parent.constants,
-            )
-
-    def test_conversion_graph_kwarg_does_not_warn(self):
-        parent = active_system()
-        with warnings.catch_warnings(record=True) as captured:
-            warnings.simplefilter("always")
-            UnitSystem(
-                basis=parent.basis,
-                units=parent.units,
-                dimensions=parent.dimensions,
-                base_units=parent.base_units,
-                conversion_graph=parent.conversion_graph,
-                basis_graph=parent.basis_graph,
-                contexts=parent.contexts,
-                constants=parent.constants,
-            )
-        self.assertFalse(
-            any(issubclass(w.category, DeprecationWarning) for w in captured),
-            "modern kwarg path must not emit a deprecation warning",
-        )
 
 
 if __name__ == "__main__":
