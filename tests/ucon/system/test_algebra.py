@@ -473,18 +473,19 @@ class TestExtendConversionEdgeConflict(unittest.TestCase):
                         return
         self.fail("expected ucon_edge_a -> ucon_edge_b edge in merged graph")
 
-    def test_prefer_other_on_conflicting_edge_currently_raises(self):
-        # The fall-through path in _merge_conversion_graphs calls
-        # Graph.add_edge to "overwrite" the existing edge under
-        # PREFER_OTHER, but add_edge enforces cyclic consistency rather
-        # than performing a replacement, so an unequal map for the same
-        # (src, dst) pair surfaces as CyclicInconsistency. This pins the
-        # current behavior and exercises the fall-through line; a real
-        # replacement would require a graph-level overwrite primitive.
-        from ucon.conversion import CyclicInconsistency
+    def test_prefer_other_takes_rhs_edge(self):
         lhs, rhs = self._conflicting_pair()
-        with self.assertRaises(CyclicInconsistency):
-            lhs.extend(rhs, on_conflict=ConflictPolicy.PREFER_OTHER)
+        out = lhs.extend(rhs, on_conflict=ConflictPolicy.PREFER_OTHER)
+        # Walk the merged graph and confirm the RHS map (factor 3) survived.
+        for _dim, srcs in out.conversion_graph._unit_edges.items():
+            for src, dsts in srcs.items():
+                if src.name != "ucon_edge_a":
+                    continue
+                for dst, m in dsts.items():
+                    if dst.name == "ucon_edge_b":
+                        self.assertEqual(m, LinearMap(3.0))
+                        return
+        self.fail("expected ucon_edge_a -> ucon_edge_b edge in merged graph")
 
 
 class TestWithBasisGraph(unittest.TestCase):
