@@ -91,6 +91,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `graph._kind_lattice`, with package definitions taking precedence on
   name collision. Packages without `[[kinds]]` continue to work unchanged.
 
+### Fixed
+
+- **`UnitSystem.extend` with `ConflictPolicy.PREFER_OTHER` now correctly
+  installs the RHS conversion edge.** Previously, the fall-through in
+  `_merge_conversion_graphs` called `Graph.add_edge` to overwrite the LHS
+  edge, but `add_edge` enforced cyclic consistency against the existing
+  reverse edge and raised `CyclicInconsistency`. `Graph.add_edge` now
+  accepts `overwrite=True`, which removes the prior forward+inverse edges
+  before insertion so the cyclic check sees clean state.
+
 ### Changed
 
 - **Removed `_DEFAULT_ALGEBRA_CACHE` module-level global.** `_get_active_cache()`
