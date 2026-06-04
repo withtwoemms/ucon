@@ -2337,3 +2337,494 @@ class TestImplicitMapDiscovery:
 
         assert _resolve_value(3.14) == 3.14
         assert _resolve_value("hello") == "hello"
+
+
+# ---------------------------------------------------------------------------
+# Constant kind serialization round-trip
+# ---------------------------------------------------------------------------
+
+class TestConstantKindSerialization:
+    """Tests for kind field on Constant in TOML serialization."""
+
+    def test_serialize_constant_with_kind(self):
+        """_serialize_constant includes kind when set."""
+        from ucon.constants import Constant
+        from ucon import units
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        c = Constant(
+            symbol="KE", name="kinetic energy",
+            value=100.0, unit=units.joule,
+            uncertainty=None, kind=ke,
+        )
+        d = _serialize_constant(c)
+        assert d["kind"] == "kinetic_energy"
+
+    def test_serialize_constant_without_kind(self):
+        """_serialize_constant omits kind when None."""
+        from ucon.constants import Constant
+        from ucon import units
+
+        c = Constant(
+            symbol="c", name="speed of light",
+            value=3e8, unit=units.meter,
+            uncertainty=None,
+        )
+        d = _serialize_constant(c)
+        assert "kind" not in d
+
+    def test_constant_kind_missing_tolerant(self, tmp_path):
+        """TOML without kind key deserializes constant with kind=None."""
+        doc = {
+            "package": {"format_version": FORMAT_VERSION},
+            "units": [{"name": "meter", "dimension": "length"}],
+            "constants": [{
+                "symbol": "x", "name": "test", "value": 42.0, "unit": "m",
+            }],
+        }
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path)
+        assert len(g._package_constants) == 1
+        assert g._package_constants[0].kind is None
+
+    def test_constant_kind_unknown_raises(self, tmp_path):
+        """TOML with unknown kind raises GraphLoadError."""
+        doc = {
+            "package": {"format_version": FORMAT_VERSION},
+            "units": [{"name": "meter", "dimension": "length"}],
+            "constants": [{
+                "symbol": "x", "name": "test", "value": 42.0,
+                "unit": "m", "kind": "bogus_kind",
+            }],
+        }
+        path = _write_toml(tmp_path, doc)
+        with pytest.raises(GraphLoadError, match="unknown kind 'bogus_kind'"):
+            from_toml(path)
+
+    def test_constant_kind_roundtrip(self, tmp_path):
+        """Kind survives export → reimport round-trip on a Constant."""
+        from ucon.constants import Constant
+        from ucon import units
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+        from ucon.system import active_system, use
+
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+
+        graph = get_default_graph().copy()
+
+        # Add a kinded constant to the copied graph
+        kinded_const = Constant(
+            symbol="KE_test", name="test kinetic energy",
+            value=100.0, unit=units.joule,
+            uncertainty=None, category="session", kind=ke,
+        )
+        graph._package_constants = graph._package_constants + (kinded_const,)
+
+        path = tmp_path / "kind_rt.ucon.toml"
+        graph.to_toml(path)
+
+        # Reimport with the kind lattice active
+        sys = active_system()
+        with use(sys, kinds=lattice):
+            restored = from_toml(path)
+
+        # Find our constant
+        restored_const = None
+        for c in restored._package_constants:
+            if c.symbol == "KE_test":
+                restored_const = c
+                break
+        assert restored_const is not None
+        assert restored_const.kind is not None
+        assert restored_const.kind.name == "kinetic_energy"
+
+    def test_constant_as_number_preserves_kind(self):
+        """Constant.as_number() passes kind through."""
+        from ucon.constants import Constant
+        from ucon import units
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        c = Constant(
+            symbol="KE", name="kinetic energy",
+            value=100.0, unit=units.joule,
+            uncertainty=None, kind=ke,
+        )
+        n = c.as_number()
+        assert n.kind is ke
+
+
+class TestConstantDefKind:
+    """Tests for kind field on ConstantDef in packages.py."""
+
+    def test_constant_def_with_kind(self):
+        """ConstantDef with kind materializes with resolved Kind."""
+        from ucon.packages import ConstantDef
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+        from ucon.system import active_system, use
+
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        lattice = KindLattice([ke])
+        sys = active_system()
+
+        cdef = ConstantDef(
+            symbol="KE", name="kinetic energy",
+            value=100.0, unit="J",
+            kind="kinetic_energy",
+        )
+
+        graph = get_default_graph()
+        with use(sys, kinds=lattice):
+            c = cdef.materialize(graph)
+        assert c.kind is not None
+        assert c.kind.name == "kinetic_energy"
+
+    def test_constant_def_without_kind(self):
+        """ConstantDef without kind materializes with kind=None."""
+        from ucon.packages import ConstantDef
+
+        cdef = ConstantDef(
+            symbol="c", name="speed of light",
+            value=3e8, unit="m/s",
+        )
+
+        graph = get_default_graph()
+        c = cdef.materialize(graph)
+        assert c.kind is None
+
+    def test_constant_def_unknown_kind_raises(self):
+        """ConstantDef with unknown kind raises PackageLoadError."""
+        from ucon.packages import ConstantDef, PackageLoadError
+
+        cdef = ConstantDef(
+            symbol="x", name="test",
+            value=42.0, unit="m",
+            kind="bogus_kind",
+        )
+
+        graph = get_default_graph()
+        with pytest.raises(PackageLoadError, match="Cannot resolve kind 'bogus_kind'"):
+            cdef.materialize(graph)
+
+
+# ---------------------------------------------------------------------------
+# [[kinds]] TOML serialization
+# ---------------------------------------------------------------------------
+
+class TestKindsSerialization:
+    """Tests for [[kinds]] sections in TOML round-trip."""
+
+    def test_serialize_kind_basic(self):
+        """Root kind with default join_policy produces compact dict."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("energy", dimension=ENERGY)
+        d = _serialize_kind(k)
+        assert d == {"name": "energy", "dimension": "energy"}
+        assert "parent" not in d
+        assert "join_policy" not in d
+        assert "aliases" not in d
+
+    def test_serialize_kind_with_parent(self):
+        """Kind with parent emits parent key."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        root = Kind("energy", dimension=ENERGY)
+        child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
+        d = _serialize_kind(child)
+        assert d["parent"] == "energy"
+
+    def test_serialize_kind_with_refuse_policy(self):
+        """Non-default join_policy is emitted."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import JoinPolicy, Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("energy", dimension=ENERGY, join_policy=JoinPolicy.REFUSE)
+        d = _serialize_kind(k)
+        assert d["join_policy"] == "refuse"
+
+    def test_serialize_kind_default_policy_omitted(self):
+        """Default LCA policy is not emitted."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("energy", dimension=ENERGY)
+        d = _serialize_kind(k)
+        assert "join_policy" not in d
+
+    def test_serialize_kind_with_aliases(self):
+        """Kind with aliases emits aliases list."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("kinetic_energy", dimension=ENERGY, aliases=("KE", "T"))
+        d = _serialize_kind(k)
+        assert d["aliases"] == ["KE", "T"]
+
+    def test_serialize_kind_empty_aliases_omitted(self):
+        """Kind with no aliases does not emit aliases key."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        from ucon.serialization import _serialize_kind
+
+        k = Kind("energy", dimension=ENERGY)
+        d = _serialize_kind(k)
+        assert "aliases" not in d
+
+    def test_kinds_section_in_toml(self, tmp_path):
+        """to_toml with explicit KindLattice emits [[kinds]] section."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+
+        root = Kind("energy", dimension=ENERGY)
+        child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
+        lattice = KindLattice([root, child])
+
+        graph = get_default_graph()
+        path = tmp_path / "kinds_test.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        with open(path, "rb") as f:
+            doc = tomllib.load(f)
+        assert "kinds" in doc
+        assert len(doc["kinds"]) == 2
+
+    def test_no_kinds_section_when_empty(self, tmp_path):
+        """to_toml with empty KindLattice omits [[kinds]] section."""
+        from ucon.kinds import KindLattice
+
+        graph = get_default_graph()
+        path = tmp_path / "no_kinds.ucon.toml"
+        graph.to_toml(path, kinds=KindLattice([]))
+
+        with open(path, "rb") as f:
+            doc = tomllib.load(f)
+        assert "kinds" not in doc
+
+    def test_kinds_roundtrip(self, tmp_path):
+        """Kind lattice survives to_toml → from_toml round-trip."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+
+        root = Kind("energy", dimension=ENERGY)
+        child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
+        lattice = KindLattice([root, child])
+
+        graph = get_default_graph()
+        path = tmp_path / "kinds_rt.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        restored = from_toml(path)
+        assert restored._kind_lattice is not None
+        assert set(restored._kind_lattice.names()) == {"energy", "kinetic_energy"}
+
+        # Verify parent relationship survived
+        ke = restored._kind_lattice.get("kinetic_energy")
+        assert ke.parent is not None
+        assert ke.parent.name == "energy"
+
+    def test_kinds_with_aliases_roundtrip(self, tmp_path):
+        """Kind aliases survive round-trip."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+
+        k = Kind("kinetic_energy", dimension=ENERGY, aliases=("KE",))
+        lattice = KindLattice([k])
+
+        graph = get_default_graph()
+        path = tmp_path / "alias_rt.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        restored = from_toml(path)
+        assert restored._kind_lattice is not None
+        ke = restored._kind_lattice.get("kinetic_energy")
+        assert "KE" in ke.aliases
+
+    def test_kinds_with_refuse_policy_roundtrip(self, tmp_path):
+        """Non-default join_policy survives round-trip."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import JoinPolicy, Kind, KindLattice
+
+        k = Kind("energy", dimension=ENERGY, join_policy=JoinPolicy.REFUSE)
+        lattice = KindLattice([k])
+
+        graph = get_default_graph()
+        path = tmp_path / "refuse_rt.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        restored = from_toml(path)
+        assert restored._kind_lattice is not None
+        energy = restored._kind_lattice.get("energy")
+        assert energy.join_policy == JoinPolicy.REFUSE
+
+    def test_from_toml_without_kinds_backward_compat(self, tmp_path):
+        """TOML without [[kinds]] loads with _kind_lattice = None."""
+        doc = {
+            "package": {"format_version": FORMAT_VERSION},
+            "units": [{"name": "meter", "dimension": "length"}],
+        }
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path)
+        assert g._kind_lattice is None
+
+    def test_constant_kind_resolved_from_local_lattice(self, tmp_path):
+        """Constant kind field resolves from locally-parsed [[kinds]]."""
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind, KindLattice
+
+        root = Kind("energy", dimension=ENERGY)
+        child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
+        lattice = KindLattice([root, child])
+
+        # Build a graph with a kinded constant
+        from ucon.constants import Constant
+        from ucon import units
+
+        graph = get_default_graph().copy()
+        kinded_const = Constant(
+            symbol="KE_test", name="test kinetic energy",
+            value=100.0, unit=units.joule,
+            uncertainty=None, category="session", kind=child,
+        )
+        graph._package_constants = graph._package_constants + (kinded_const,)
+
+        # Export with kinds
+        path = tmp_path / "local_resolve.ucon.toml"
+        graph.to_toml(path, kinds=lattice)
+
+        # Reimport — kinds are in the file, so no active lattice needed
+        restored = from_toml(path)
+
+        # Find the constant and verify kind resolved from local lattice
+        restored_const = None
+        for c in restored._package_constants:
+            if c.symbol == "KE_test":
+                restored_const = c
+                break
+        assert restored_const is not None
+        assert restored_const.kind is not None
+        assert restored_const.kind.name == "kinetic_energy"
+
+    def test_builtin_kinds_roundtrip(self, tmp_path):
+        """All 25 built-in kinds survive to_toml → from_toml round-trip."""
+        from ucon.kinds import JoinPolicy, KindLattice
+        from ucon.system import active_kinds
+
+        original = active_kinds()
+        assert len(original) == 25, "Expected 25 built-in kinds"
+
+        graph = get_default_graph()
+        path = tmp_path / "builtin_kinds_rt.ucon.toml"
+        graph.to_toml(path)
+
+        restored = from_toml(path)
+        assert restored._kind_lattice is not None
+        restored_lattice = restored._kind_lattice
+
+        # Same count
+        assert len(restored_lattice) == len(original)
+
+        # Same names
+        assert set(restored_lattice.names()) == set(original.names())
+
+        # Verify every kind's parent, dimension, join_policy, and aliases
+        for kind in original:
+            rt = restored_lattice.get(kind.name)
+            assert rt.dimension.name == kind.dimension.name, (
+                f"{kind.name}: dimension mismatch"
+            )
+            if kind.parent is None:
+                assert rt.parent is None, f"{kind.name}: expected no parent"
+            else:
+                assert rt.parent is not None, f"{kind.name}: expected parent"
+                assert rt.parent.name == kind.parent.name, (
+                    f"{kind.name}: parent mismatch"
+                )
+            assert rt.join_policy == kind.join_policy, (
+                f"{kind.name}: join_policy mismatch"
+            )
+            assert set(rt.aliases) == set(kind.aliases), (
+                f"{kind.name}: aliases mismatch"
+            )
+
+    def test_builtin_kinds_join_semantics_survive_roundtrip(self, tmp_path):
+        """REFUSE/LCA join semantics are preserved through round-trip."""
+        from ucon.kinds import JoinRefused
+
+        graph = get_default_graph()
+        path = tmp_path / "join_semantics_rt.ucon.toml"
+        graph.to_toml(path)
+
+        restored = from_toml(path)
+        lattice = restored._kind_lattice
+
+        # REFUSE cluster: torque + energy
+        with pytest.raises(JoinRefused):
+            lattice.join(lattice.get("torque"), lattice.get("energy"))
+
+        # LCA cluster: electric_potential + electromotive_force → voltage
+        result = lattice.join(
+            lattice.get("electric_potential"),
+            lattice.get("electromotive_force"),
+        )
+        assert result.name == "voltage"
+
+        # Alias survives: "emf" resolves
+        assert lattice.get("emf").name == "electromotive_force"
+
+    def test_dimension_to_expression_named(self):
+        """_dimension_to_expression returns name for named dimension."""
+        from ucon.serialization import _dimension_to_expression
+        from ucon.dimension import ENERGY
+        result = _dimension_to_expression(ENERGY)
+        assert result == "energy"
+
+    def test_dimension_to_expression_unnamed_simple(self):
+        """_dimension_to_expression builds expression from unnamed vector."""
+        from ucon.serialization import _dimension_to_expression
+        from ucon import Dimension
+        from ucon.basis import Vector
+        from ucon.basis.builtin import SI
+        # L/T — anonymous dimension (no name attribute)
+        v = Vector(SI, (1, 0, -1, 0, 0, 0, 0, 0))
+        dim = Dimension(vector=v)
+        assert dim.name is None
+        result = _dimension_to_expression(dim)
+        assert "/" in result  # numerator / denominator
+
+    def test_dimension_to_expression_unnamed_with_exponents(self):
+        """_dimension_to_expression handles exponents > 1 and < -1."""
+        from ucon.serialization import _dimension_to_expression
+        from ucon import Dimension
+        from ucon.basis import Vector
+        from ucon.basis.builtin import SI
+        # L^2 / T^2 — anonymous dimension with exponents
+        v = Vector(SI, (2, 0, -2, 0, 0, 0, 0, 0))
+        dim = Dimension(vector=v)
+        assert dim.name is None
+        result = _dimension_to_expression(dim)
+        assert "^2" in result  # exponents rendered
+        assert "/" in result   # has denominator
+
+    def test_collect_kinds_runtime_error_fallback(self):
+        """_collect_kinds returns [] when active_kinds() raises RuntimeError."""
+        from unittest.mock import patch
+        from ucon.serialization import _collect_kinds
+        # Pass graph=None (no _kind_lattice attr) and explicit_kinds=None
+        # Mock active_kinds to raise RuntimeError
+        with patch('ucon.serialization.active_kinds', side_effect=RuntimeError("no context")):
+            result = _collect_kinds(None, None)
+        assert result == []

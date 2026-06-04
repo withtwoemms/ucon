@@ -169,15 +169,16 @@ _init_system = UnitSystem(
     contexts=getattr(_init_graph, '_contexts', {}),
     constants=_init_constants,
 )
+_init_kinds = getattr(_init_graph, '_kind_lattice', None) or KindLattice()
 _sys_active_var.set(ActiveContext(
     system=_init_system,
     formulas=FormulaRegistry(),
-    kinds=KindLattice(),
+    kinds=_init_kinds,
     strict=True,
 ))
 constants._populate_cache(_init_graph._package_constants)
 
-del _sys_active_var, _init_graph, _init_constants, _init_system
+del _sys_active_var, _init_graph, _init_constants, _init_system, _init_kinds
 
 __all__ = [
     # Basis abstractions

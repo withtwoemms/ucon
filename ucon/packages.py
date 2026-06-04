@@ -53,8 +53,12 @@ from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
 from ucon.graph import using_conversion_graph
+from ucon.kinds import KindLattice
+from ucon.kinds.exceptions import KindNotFound
 from ucon.maps import AffineMap, LinearMap, Map
+from ucon.parsing.kinds import parse_kinds_payload
 from ucon.resolver import parse_unit
+from ucon.system import active_kinds
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -387,6 +391,9 @@ class ConstantDef:
         Data source reference.
     category : str
         Category: "exact", "derived", "measured", or "session".
+    kind : str | None
+        Optional canonical kind name. Resolved via the active
+        ``KindLattice`` during materialization.
     """
     symbol: str
     name: str
@@ -395,6 +402,7 @@ class ConstantDef:
     uncertainty: float | None = None
     source: str = "user-defined"
     category: str = "session"
+    kind: str | None = None
 
     def materialize(self, graph: 'ConversionGraph') -> Constant:
         """Resolve unit string and create a Constant.
@@ -412,7 +420,7 @@ class ConstantDef:
         Raises
         ------
         PackageLoadError
-            If the unit string cannot be resolved.
+            If the unit string or kind name cannot be resolved.
         """
         with using_conversion_graph(graph):
             try:
@@ -420,6 +428,16 @@ class ConstantDef:
             except UnknownUnitError:
                 raise PackageLoadError(
                     f"Cannot resolve unit '{self.unit}' for constant '{self.symbol}'"
+                )
+
+        # Resolve kind name if provided
+        resolved_kind = None
+        if self.kind is not None:
+            try:
+                resolved_kind = active_kinds().get(self.kind)
+            except KindNotFound:
+                raise PackageLoadError(
+                    f"Cannot resolve kind '{self.kind}' for constant '{self.symbol}'"
                 )
 
         return Constant(
@@ -430,6 +448,7 @@ class ConstantDef:
             uncertainty=self.uncertainty,
             source=self.source,
             category=self.category,
+            kind=resolved_kind,
         )
 
 
@@ -451,6 +470,9 @@ class UnitPackage:
         Conversion edge definitions.
     constants : tuple[ConstantDef, ...]
         Constant definitions.
+    kinds : KindLattice | None
+        Kind-of-quantity lattice parsed from ``[[kinds]]`` sections.
+        ``None`` when the package does not define any kinds.
     requires : tuple[str, ...]
         Names of required packages (for future dependency resolution).
     """
@@ -460,6 +482,7 @@ class UnitPackage:
     units: tuple[UnitDef, ...] = ()
     edges: tuple[EdgeDef, ...] = ()
     constants: tuple[ConstantDef, ...] = ()
+    kinds: KindLattice | None = None
     requires: tuple[str, ...] = ()
 
     def __post_init__(self):
@@ -552,9 +575,18 @@ def load_package(path: str | Path) -> UnitPackage:
             uncertainty=c.get("uncertainty"),
             source=c.get("source", "user-defined"),
             category=c.get("category", "session"),
+            kind=c.get("kind"),
         )
         for c in data.get("constants", [])
     )
+
+    # Parse kinds
+    kinds: KindLattice | None = None
+    if "kinds" in data:
+        try:
+            kinds = parse_kinds_payload(data)
+        except (ValueError, Exception) as e:
+            raise PackageLoadError(f"Invalid [[kinds]] in {path}: {e}")
 
     # Support both [package] table (preferred) and top-level keys (legacy)
     package = data.get("package", {})
@@ -575,6 +607,7 @@ def load_package(path: str | Path) -> UnitPackage:
         units=units,
         edges=edges,
         constants=constants,
+        kinds=kinds,
         requires=tuple(package.get("requires", data.get("requires", []))),
     )
 

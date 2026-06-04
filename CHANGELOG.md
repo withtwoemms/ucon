@@ -71,6 +71,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `DimensionConstraint`. Enables `Number[kind]` and
   `Number[Dimension.X, kind]` subscript syntax for kind-constrained
   parameters. Exported from `ucon.core` and re-exported from `ucon`.
+- **Named dimensions `MOLAR_ENERGY`, `MOLAR_ENTROPY`, `SPECIFIC_ENERGY`.**
+  Three new derived dimensions added to `ucon.dimension` for KOQ
+  degeneracy clusters: molar energy (M·L²·T⁻²·N⁻¹), molar entropy
+  (M·L²·T⁻²·Θ⁻¹·N⁻¹), and specific energy (L²·T⁻² — the shared
+  dimension of Gy, Sv, and J/kg).
+- **Built-in `KindLattice` (25 kinds, 8 clusters).** The
+  `comprehensive.ucon.toml` now ships `[[kinds]]` sections covering
+  the fundamental KOQ degeneracy clusters identified from the UnitSafe
+  benchmark: energy/torque, frequency/activity, absorbed dose/dose
+  equivalent, voltage/EMF, molar energy thermodynamic potentials,
+  molar entropy/heat capacity, real/apparent/reactive power, and
+  pressure/stress. The lattice loads at import time and is accessible
+  via `active_kinds()`.
+- **`load_package()` / `with_package()` support for `[[kinds]]`.**
+  `UnitPackage` gains an optional `kinds: KindLattice | None` field.
+  `load_package()` parses `[[kinds]]` sections via `parse_kinds_payload()`.
+  `Graph.with_package()` merges the package lattice into
+  `graph._kind_lattice`, with package definitions taking precedence on
+  name collision. Packages without `[[kinds]]` continue to work unchanged.
 
 ### Changed
 
@@ -83,6 +102,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   JSON schema generation includes the `kind` property and describes kind
   constraints in the `description` field. Unknown kind strings raise
   `ValueError` during deserialization.
+- **TOML kind round-trip on `Constant` (v2.0 §3.4).** The `Constant`
+  dataclass gains an optional `kind: Kind | None = None` field.
+  `Constant.as_number()` now passes `kind` through to `Number`.
+  `_serialize_constant()` writes `kind = "<canonical>"` when set
+  (omitted when `None` for backward compatibility). `from_toml()`
+  reads the optional `kind` key from constant specs and resolves it
+  via `active_kinds()`; unknown kind names raise `GraphLoadError`.
+  `ConstantDef` in `ucon.packages` gains a parallel `kind: str | None`
+  field, and `load_package()` parses the `kind` key from TOML constant
+  definitions. Existing TOML files without `kind` keys are unaffected.
+- **`[[kinds]]` TOML serialization (v2.0 §3.4).** `to_toml()` accepts an
+  optional `kinds: KindLattice` keyword argument and emits `[[kinds]]`
+  sections (name, dimension, parent, join_policy, aliases). `from_toml()`
+  parses `[[kinds]]` via `parse_kinds_payload()` and stores the result on
+  `graph._kind_lattice`. Constant kind resolution prefers the locally-parsed
+  lattice, falling back to `active_kinds()`. TOML files without `[[kinds]]`
+  load with `_kind_lattice = None` (backward compatible).
 - **`@enforce_dimensions` extended with kind validation (v2.0 §3.4).**
   Parameters annotated as `Number[kind]` are validated for kind identity
   (or lattice descendancy via the active `KindLattice`). Joint

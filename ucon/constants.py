@@ -40,6 +40,7 @@ from ucon.core import Number
 if TYPE_CHECKING:
     from ucon.core import Unit, UnitProduct
     from ucon.dimension import Dimension
+    from ucon.kinds import Kind
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,8 @@ class Constant:
         Data source (default: "CODATA 2022").
     category : str
         Category: "exact", "derived", "measured", or "session".
+    kind : Kind | None
+        Optional kind-of-quantity tag. None for unkinded constants.
 
     Examples
     --------
@@ -81,6 +84,7 @@ class Constant:
     source: str = "CODATA 2022"
     category: str = "measured"
     aliases: tuple = ()
+    kind: Union['Kind', None] = None
 
     def as_number(self) -> 'Number':
         """Return as Number for calculations."""
@@ -88,6 +92,7 @@ class Constant:
             quantity=self.value,
             unit=self.unit,
             uncertainty=self.uncertainty,
+            kind=self.kind,
         )
 
     @property

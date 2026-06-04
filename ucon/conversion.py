@@ -55,6 +55,7 @@ from ucon.core import (
     UnknownUnitError,
 )
 from ucon.core._parsing_graph import _parsing_graph
+from ucon.kinds import KindLattice as _KindLattice
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
 from ucon.resolver import parse_unit as _parse_unit
 from ucon._active import _active as _active_system
@@ -129,6 +130,9 @@ class Graph:
 
     # Named ConversionContext definitions (for serialization round-trip)
     _contexts: dict[str, 'ConversionContext'] = field(default_factory=dict)
+
+    # Kind lattice loaded from TOML (for serialization round-trip)
+    _kind_lattice: 'KindLattice | None' = field(default=None)
 
     # Conversion path cache: (src_key, dst_key) -> Map
     # Cleared when edges are added
@@ -570,6 +574,7 @@ class Graph:
         new._loaded_packages = self._loaded_packages  # frozenset is immutable, share reference
         new._package_constants = self._package_constants  # tuple is immutable, share reference
         new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
+        new._kind_lattice = self._kind_lattice  # KindLattice is immutable, share ref
         return new
 
     def register_context(self, ctx: 'ConversionContext') -> None:
@@ -628,6 +633,18 @@ class Graph:
             if self._package_edge_already_covered(edge_def, new):
                 continue
             edge_def.materialize(new)
+
+        # Merge kind lattice (before constants so kind references resolve)
+        if package.kinds is not None and len(package.kinds) > 0:
+            existing = self._kind_lattice
+            if existing is not None and len(existing) > 0:
+                # Merge: package kinds override existing kinds on name collision.
+                pkg_names = set(package.kinds.names())
+                base_kinds = [k for k in existing if k.name not in pkg_names]
+                merged = _KindLattice(base_kinds + list(package.kinds))
+                new._kind_lattice = merged
+            else:
+                new._kind_lattice = package.kinds
 
         # Materialize constants (resolved within new graph context)
         materialized_constants = tuple(
@@ -1143,13 +1160,20 @@ class Graph:
 
     # ------------- Serialization ----------------------------------------------
 
-    def to_toml(self, path: Union[str, 'Path']) -> None:
+    def to_toml(
+        self,
+        path: Union[str, 'Path'],
+        *,
+        kinds: 'KindLattice | None' = None,
+    ) -> None:
         """Export this graph to a TOML file.
 
         Parameters
         ----------
         path : str or Path
             Destination file path.
+        kinds : KindLattice or None
+            Optional kind lattice to serialize as ``[[kinds]]`` sections.
 
         Raises
         ------
@@ -1157,7 +1181,7 @@ class Graph:
             If ``tomli_w`` is not installed.
         """
         from ucon.serialization import to_toml
-        to_toml(self, path)
+        to_toml(self, path, kinds=kinds)
 
     @classmethod
     def from_toml(cls, path: Union[str, 'Path'], *, strict: bool = True) -> 'Graph':
@@ -1373,6 +1397,13 @@ class Graph:
                     return False
                 if not self._maps_equal(edge.map, other_edge.map):
                     return False
+
+        # Compare kind lattice
+        if (self._kind_lattice is None) != (other._kind_lattice is None):
+            return False
+        if self._kind_lattice is not None and other._kind_lattice is not None:
+            if set(self._kind_lattice.names()) != set(other._kind_lattice.names()):
+                return False
 
         return True
 
