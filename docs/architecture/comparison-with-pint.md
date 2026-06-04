@@ -452,7 +452,7 @@ ucon's overhead profile is different:
 
 ucon does not use C extensions. For tight inner loops on millions of scalar conversions, Pint or raw arithmetic will be faster. For batch operations on arrays, the per-element overhead difference is negligible.
 
-Published benchmarks are available via `make benchmark` (see [Performance Benchmarks](../reference/index.md)).
+Published benchmarks are available via `make benchmark` (see [Performance Benchmarks](../reference/performance.md)).
 
 ---
 
