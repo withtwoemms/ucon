@@ -1311,9 +1311,9 @@ def _merge_conversion_graphs(
                         )
                     if on_conflict is ConflictPolicy.PREFER_SELF:
                         continue
-                    # PREFER_OTHER: fall through to overwrite via add_edge.
-                # Adding an edge requires the destination dimension to be
-                # consistent; ``add_edge`` itself raises on inconsistency.
+                    # PREFER_OTHER: overwrite LHS edge with RHS edge.
+                    new.add_edge(src=src, dst=dst, map=m, overwrite=True)
+                    continue
                 new.add_edge(src=src, dst=dst, map=m)
 
     # Ensure every chosen unit is registered for name lookup. ``copy``
