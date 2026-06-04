@@ -1116,7 +1116,7 @@ class UnitProduct:
         Human-readable composite unit string, e.g. 'kg·m/s²'.
         """
         if not self.factors:
-            return ""
+            return "1"
 
         num: list[str] = []
         den: list[str] = []
@@ -2326,8 +2326,9 @@ class Number:
         parts: list[str] = [str(self.quantity)]
         if self.uncertainty is not None:
             parts += ["±", str(self.uncertainty)]
-        if self.unit.dimension:
-            parts.append(self.unit.shorthand)
+        sh = self.unit.shorthand
+        if sh and sh != "1":
+            parts.append(sh)
         if self.kind is not None:
             parts.append(f"[{self.kind.name}]")
         return f"<{' '.join(parts)}>"

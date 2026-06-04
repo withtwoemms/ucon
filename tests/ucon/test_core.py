@@ -922,9 +922,9 @@ class TestUnitProductAlgebra(unittest.TestCase):
         self.assertIs(result, NotImplemented)
 
     def test_append_dimensionless_skipped(self):
-        # UnitProduct with only dimensionless factor → empty shorthand
+        # UnitProduct with no factors → canonical identity shorthand "1"
         up = UnitProduct({})
-        self.assertEqual(up.shorthand, "")
+        self.assertEqual(up.shorthand, "1")
 
     def test_shorthand_with_negative_non_unit_exponent(self):
         # e.g. m/s² should show superscript on denominator

@@ -131,8 +131,8 @@ def _serialize_number(n: _Number) -> dict:
         unit_str = None
     elif hasattr(n.unit, 'shorthand'):
         unit_str = n.unit.shorthand
-        # Empty shorthand means dimensionless
-        if unit_str == "":
+        # Canonical identity shorthand means dimensionless
+        if not unit_str or unit_str == "1":
             unit_str = None
     else:
         unit_str = None
