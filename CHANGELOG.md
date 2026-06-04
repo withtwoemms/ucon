@@ -100,6 +100,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reverse edge and raised `CyclicInconsistency`. `Graph.add_edge` now
   accepts `overwrite=True`, which removes the prior forward+inverse edges
   before insertion so the cyclic check sees clean state.
+- **`Graph.with_package()` now resolves constant `kind=` references against
+  the package's merged kind lattice**, not just the ambient context.
+  Packages defining both novel kinds and constants referencing those kinds
+  now load correctly. `ConstantDef.materialize()` accepts an optional
+  `kind_lattice` parameter for local resolution.
 
 ### Changed
 
