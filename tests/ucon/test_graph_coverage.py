@@ -8,6 +8,8 @@ Tests targeting uncovered lines in ucon.graph.
 Coverage gaps addressed:
 - add_edge basis_graph validation (NoTransformPath)
 - _add_cross_basis_edge DimensionMismatch on bad transform
+- _add_product_edge overwrite=True (edge replacement)
+- _add_product_edge cyclic consistency (identity roundtrip, CyclicInconsistency)
 - package_constants property
 - with_package / _package_edge_already_covered
 - _convert_units connected-basis ConversionNotFound
@@ -1458,6 +1460,92 @@ class TestGraphEquality(unittest.TestCase):
         g1._kind_lattice = KindLattice([Kind("energy", dimension=Dimension.energy)])
         g2._kind_lattice = KindLattice([Kind("torque", dimension=Dimension.energy)])
         self.assertNotEqual(g1, g2)
+
+
+# -----------------------------------------------------------------------
+# _add_product_edge: overwrite=True replaces existing product edge
+# Covers lines 322-325 (overwrite branch in _add_product_edge)
+# -----------------------------------------------------------------------
+class TestProductEdgeOverwrite(unittest.TestCase):
+    """add_edge(overwrite=True) replaces an existing product edge."""
+
+    def test_overwrite_replaces_product_edge(self):
+        graph = ConversionGraph()
+        a = Unit(name="ow_vol_a", dimension=Dimension.volume)
+        b = Unit(name="ow_vol_b", dimension=Dimension.volume)
+
+        pa = UnitProduct.from_unit(a)
+        pb = UnitProduct.from_unit(b)
+
+        # Install initial edge: a → b with factor 2
+        graph.add_edge(src=pa, dst=pb, map=LinearMap(2))
+        m1 = graph._bfs_product_path(src=pa, dst=pb)
+        self.assertAlmostEqual(m1(1), 2.0, places=6)
+
+        # Overwrite with factor 5 — would raise CyclicInconsistency without overwrite
+        graph.add_edge(src=pa, dst=pb, map=LinearMap(5), overwrite=True)
+        # Cache was cleared by add_edge, verify the new map is in place
+        ka = graph._product_key(pa)
+        kb = graph._product_key(pb)
+        self.assertAlmostEqual(graph._product_edges[ka][kb](1), 5.0, places=6)
+        self.assertAlmostEqual(graph._product_edges[kb][ka](1), 0.2, places=6)
+
+    def test_overwrite_without_prior_edge_is_noop(self):
+        """overwrite=True on a fresh pair doesn't fail."""
+        graph = ConversionGraph()
+        a = Unit(name="ow_vol_c", dimension=Dimension.volume)
+        b = Unit(name="ow_vol_d", dimension=Dimension.volume)
+
+        pa = UnitProduct.from_unit(a)
+        pb = UnitProduct.from_unit(b)
+
+        # No prior edge exists — overwrite=True should still work
+        graph.add_edge(src=pa, dst=pb, map=LinearMap(7), overwrite=True)
+        ka = graph._product_key(pa)
+        kb = graph._product_key(pb)
+        self.assertAlmostEqual(graph._product_edges[ka][kb](1), 7.0, places=6)
+
+
+# -----------------------------------------------------------------------
+# _add_product_edge: cyclic consistency check passes (roundtrip is identity)
+# Covers lines 328-332 (check enters if-block, roundtrip.is_identity() → True)
+# -----------------------------------------------------------------------
+class TestProductEdgeCyclicConsistencyPass(unittest.TestCase):
+    """Adding a consistent inverse product edge passes the cyclic check."""
+
+    def test_consistent_inverse_product_edge_accepted(self):
+        graph = ConversionGraph()
+        a = Unit(name="cc_vol_a", dimension=Dimension.volume)
+        b = Unit(name="cc_vol_b", dimension=Dimension.volume)
+
+        pa = UnitProduct.from_unit(a)
+        pb = UnitProduct.from_unit(b)
+
+        # Add forward edge: a → b with factor 3
+        graph.add_edge(src=pa, dst=pb, map=LinearMap(3))
+
+        # Re-adding the same edge should pass the cyclic check:
+        # existing reverse is 1/3, roundtrip = (1/3) @ 3 = identity
+        graph.add_edge(src=pa, dst=pb, map=LinearMap(3))
+
+        ka = graph._product_key(pa)
+        kb = graph._product_key(pb)
+        self.assertAlmostEqual(graph._product_edges[ka][kb](1), 3.0, places=6)
+
+    def test_inconsistent_product_edge_raises(self):
+        graph = ConversionGraph()
+        a = Unit(name="ci_vol_a", dimension=Dimension.volume)
+        b = Unit(name="ci_vol_b", dimension=Dimension.volume)
+
+        pa = UnitProduct.from_unit(a)
+        pb = UnitProduct.from_unit(b)
+
+        # Add forward edge: a → b with factor 3
+        graph.add_edge(src=pa, dst=pb, map=LinearMap(3))
+
+        # Adding a conflicting edge (factor 5) should raise CyclicInconsistency
+        with self.assertRaises(CyclicInconsistency):
+            graph.add_edge(src=pa, dst=pb, map=LinearMap(5))
 
 
 if __name__ == '__main__':

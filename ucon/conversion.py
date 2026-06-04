@@ -143,6 +143,7 @@ class Graph:
         dst: Union[Unit, UnitProduct],
         map: Map,
         basis_transform: BasisTransform | ConstantBoundBasisTransform | None = None,
+        overwrite: bool = False,
     ) -> None:
         """Register a conversion edge (and its inverse) on this graph.
 
@@ -178,6 +179,12 @@ class Graph:
             exponents differ, as for electromagnetic units). The ``src``
             unit is rebased to the dst's dimension and the edge connects
             the rebased unit to ``dst``. Most edges do not need this.
+        overwrite : bool, optional
+            When ``True``, remove any existing forward and inverse edges
+            for the ``(src, dst)`` pair before inserting the new ones.
+            This bypasses the cyclic-consistency check by clearing the
+            prior state first. Used by :func:`_merge_conversion_graphs`
+            under :attr:`ConflictPolicy.PREFER_OTHER`. Default ``False``.
 
         Raises
         ------
@@ -186,8 +193,9 @@ class Graph:
             ``basis_transform`` was supplied.
         CyclicInconsistency
             A reverse edge exists already and composing it with the new
-            ``map`` does not yield the identity. This protects against
-            silently registering incompatible conversions.
+            ``map`` does not yield the identity (only when
+            ``overwrite=False``). This protects against silently
+            registering incompatible conversions.
         NoTransformPath
             The graph has a :class:`BasisGraph` attached and no path
             exists between the source and destination bases.
@@ -271,21 +279,26 @@ class Graph:
         # Handle Unit vs UnitProduct dispatch (normal case)
         if isinstance(src, Unit) and not isinstance(src, UnitProduct):
             if isinstance(dst, Unit) and not isinstance(dst, UnitProduct):
-                self._add_unit_edge(src=src, dst=dst, map=map)
+                self._add_unit_edge(src=src, dst=dst, map=map, overwrite=overwrite)
                 return
 
         # At least one is a UnitProduct
         src_prod = src if isinstance(src, UnitProduct) else UnitProduct.from_unit(src)
         dst_prod = dst if isinstance(dst, UnitProduct) else UnitProduct.from_unit(dst)
-        self._add_product_edge(src=src_prod, dst=dst_prod, map=map)
+        self._add_product_edge(src=src_prod, dst=dst_prod, map=map, overwrite=overwrite)
 
-    def _add_unit_edge(self, *, src: Unit, dst: Unit, map: Map) -> None:
+    def _add_unit_edge(self, *, src: Unit, dst: Unit, map: Map, overwrite: bool = False) -> None:
         """Add edge between plain Units."""
         if src.dimension != dst.dimension:
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
 
         dim = src.dimension
         self._ensure_dimension(dim)
+
+        if overwrite:
+            # Remove existing forward + inverse so cyclic check sees clean state
+            self._unit_edges[dim].get(src, {}).pop(dst, None)
+            self._unit_edges[dim].get(dst, {}).pop(src, None)
 
         # Check cyclic consistency if reverse exists
         if self._has_direct_unit_edge(src=dst, dst=src):
@@ -298,13 +311,18 @@ class Graph:
         self._unit_edges[dim].setdefault(src, {})[dst] = map
         self._unit_edges[dim].setdefault(dst, {})[src] = map.inverse()
 
-    def _add_product_edge(self, *, src: UnitProduct, dst: UnitProduct, map: Map) -> None:
+    def _add_product_edge(self, *, src: UnitProduct, dst: UnitProduct, map: Map, overwrite: bool = False) -> None:
         """Add edge between UnitProducts."""
         if src.dimension != dst.dimension:
             raise DimensionMismatch(f"{src.dimension} != {dst.dimension}")
 
         src_key = self._product_key(src)
         dst_key = self._product_key(dst)
+
+        if overwrite:
+            # Remove existing forward + inverse so cyclic check sees clean state
+            self._product_edges.get(src_key, {}).pop(dst_key, None)
+            self._product_edges.get(dst_key, {}).pop(src_key, None)
 
         # Check cyclic consistency
         if dst_key in self._product_edges and src_key in self._product_edges.get(dst_key, {}):
