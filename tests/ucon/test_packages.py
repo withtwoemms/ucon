@@ -1139,6 +1139,47 @@ name = "oops"
         finally:
             path.unlink()
 
+    def test_novel_kind_referenced_by_constant_in_same_package(self):
+        """Package defining a novel kind and a constant referencing it loads correctly.
+
+        Regression test for the ambient-context gap: ConstantDef.materialize()
+        used to resolve kind= via active_kinds() (the ambient ContextVar),
+        which doesn't contain novel kinds defined by the package itself.
+        The fix passes the merged kind lattice to materialize() so local
+        resolution succeeds.
+        """
+        from ucon.packages import ConstantDef
+
+        path = self._write_toml('''
+[package]
+name = "radiation_safety"
+
+[[kinds]]
+name = "absorbed_dose_rate"
+dimension = "specific_energy"
+
+[[constants]]
+symbol = "max_occupational"
+name = "max occupational dose rate"
+value = 0.05
+unit = "Gy/h"
+kind = "absorbed_dose_rate"
+''')
+        try:
+            pkg = load_package(path)
+            base_graph = get_default_graph()
+            base_count = len(base_graph.package_constants)
+            graph = base_graph.with_package(pkg)
+
+            # Constant should be materialized with the novel kind resolved
+            self.assertEqual(len(graph.package_constants), base_count + 1)
+            const = graph.package_constants[-1]
+            self.assertEqual(const.symbol, 'max_occupational')
+            self.assertIsNotNone(const.kind)
+            self.assertEqual(const.kind.name, 'absorbed_dose_rate')
+        finally:
+            path.unlink()
+
 
 if __name__ == '__main__':
     unittest.main()

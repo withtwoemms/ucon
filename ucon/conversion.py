@@ -660,9 +660,12 @@ class Graph:
             else:
                 new._kind_lattice = package.kinds
 
-        # Materialize constants (resolved within new graph context)
+        # Materialize constants (resolved within new graph context).
+        # Pass the merged kind lattice so novel kinds defined by the
+        # package can be resolved without requiring ambient registration.
         materialized_constants = tuple(
-            const_def.materialize(new) for const_def in package.constants
+            const_def.materialize(new, kind_lattice=new._kind_lattice)
+            for const_def in package.constants
         )
         new._package_constants = getattr(self, '_package_constants', ()) + materialized_constants
 
