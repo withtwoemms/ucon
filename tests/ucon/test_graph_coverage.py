@@ -1440,6 +1440,25 @@ class TestGraphEquality(unittest.TestCase):
         g2 = self._make_minimal_graph()
         self.assertEqual(g1, g2)
 
+    def test_kind_lattice_asymmetric_none(self):
+        """Line 1403: one graph has kind lattice, the other does not."""
+        from ucon.kinds import Kind, KindLattice
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        lattice = KindLattice([Kind("energy", dimension=Dimension.energy)])
+        g1._kind_lattice = lattice
+        g2._kind_lattice = None
+        self.assertNotEqual(g1, g2)
+
+    def test_kind_lattice_name_mismatch(self):
+        """Line 1406: both graphs have kind lattices with different names."""
+        from ucon.kinds import Kind, KindLattice
+        g1 = self._make_minimal_graph()
+        g2 = self._make_minimal_graph()
+        g1._kind_lattice = KindLattice([Kind("energy", dimension=Dimension.energy)])
+        g2._kind_lattice = KindLattice([Kind("torque", dimension=Dimension.energy)])
+        self.assertNotEqual(g1, g2)
+
 
 if __name__ == '__main__':
     unittest.main()

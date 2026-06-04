@@ -588,7 +588,7 @@ def load_package(path: str | Path) -> UnitPackage:
         except (ValueError, Exception) as e:
             raise PackageLoadError(f"Invalid [[kinds]] in {path}: {e}")
 
-    # Package metadata must be in a [package] table
+    # Support both [package] table (preferred) and top-level keys (legacy)
     package = data.get("package", {})
 
     return UnitPackage(
@@ -599,7 +599,7 @@ def load_package(path: str | Path) -> UnitPackage:
         edges=edges,
         constants=constants,
         kinds=kinds,
-        requires=tuple(package.get("requires", [])),
+        requires=tuple(package.get("requires", data.get("requires", []))),
     )
 
 
