@@ -83,12 +83,11 @@ other before dividing. `enforce_dimensions` catches it.
 === "Python API"
 
     ```python
-    from ucon import enforce_dimensions, parse, Dimension
-    from ucon.system import use
+    from ucon import enforce_dimensions, parse, Dimension, use
 
     @enforce_dimensions(
-        partial=Dimension.from_components(name="energy", L=2, M=1, T=-2),
-        total=Dimension.from_components(name="energy", L=2, M=1, T=-2),
+        partial=Dimension.energy,
+        total=Dimension.energy,
         returns=None,  # dimensionless ratio
     )
     def branching_ratio(partial, total):
