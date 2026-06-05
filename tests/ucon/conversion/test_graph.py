@@ -531,3 +531,102 @@ class TestConversionGraphAmbiguousDecomposition(unittest.TestCase):
 
         with self.assertRaises(ConversionNotFound):
             graph.convert(src=ambiguous, dst=target)
+
+
+class TestContainsUnitByIdentity(unittest.TestCase):
+    """Pin the dimension-scoped identity lookup invariant.
+
+    ``Graph.contains_unit_by_identity`` is on the hot path for every
+    ``Number.to(...)`` call under ``strict=True`` (the v2.0 default).
+    It must:
+
+      1. Return ``True`` for a Unit instance whose object identity
+         matches a node registered in the graph (whether via
+         ``add_edge`` or ``register_unit``).
+      2. Return ``False`` for a structurally-equal but identity-distinct
+         clone — even when the clone's dimension is populated in the
+         graph by other units.
+      3. Cost work proportional to the size of the queried unit's own
+         dimension bucket, not the size of the entire graph. The fix
+         that introduced this invariant scopes the scan to
+         ``_unit_edges[unit.dimension]`` instead of iterating every
+         dimension.
+    """
+
+    def setUp(self):
+        self.meter = units.meter
+        self.foot = Unit(name='foot', dimension=Dimension.length, aliases=('ft',))
+        self.gram = units.gram
+        # A populated graph: length AND mass dimensions both carry edges.
+        # This is the regression-shaped scenario: under the old
+        # implementation, a hit in `length` was found only after the
+        # outer loop walked every other dimension. Under the new
+        # implementation, the `length` bucket is consulted directly.
+        self.graph = ConversionGraph()
+        self.graph.add_edge(src=self.meter, dst=self.foot, map=LinearMap(3.28084))
+        self.graph.add_edge(
+            src=self.gram,
+            dst=Unit(name='ounce', dimension=Dimension.mass, aliases=('oz',)),
+            map=LinearMap(0.035274),
+        )
+
+    def test_real_unit_in_populated_dimension_passes(self):
+        """A Unit node added via add_edge is found by identity."""
+        self.assertTrue(self.graph.contains_unit_by_identity(self.meter))
+        self.assertTrue(self.graph.contains_unit_by_identity(self.foot))
+
+    def test_foreign_clone_in_same_dimension_fails(self):
+        """An identity-distinct clone is rejected even when its
+        dimension bucket is populated and contains a value-equal node.
+        """
+        import dataclasses
+        foreign_meter = dataclasses.replace(self.meter)
+        self.assertEqual(foreign_meter, self.meter)
+        self.assertIsNot(foreign_meter, self.meter)
+        self.assertFalse(self.graph.contains_unit_by_identity(foreign_meter))
+
+    def test_unit_in_unrelated_dimension_returns_false(self):
+        """A Unit whose dimension is not present in the graph is not
+        found — and the lookup must not spuriously hit other
+        dimensions' nodes.
+        """
+        orphan = Unit(name='orphan', dimension=Dimension.time)
+        self.assertFalse(self.graph.contains_unit_by_identity(orphan))
+
+    def test_registry_only_unit_passes_via_name_fallback(self):
+        """A Unit registered via ``register_unit`` but never appearing
+        in ``_unit_edges`` (e.g. a unit that only participates in
+        product edges) is still resolvable by identity.
+        """
+        # `pH`-style: register without adding a unit→unit edge.
+        ph_like = Unit(name='ph_like', dimension=Dimension.none)
+        self.graph.register_unit(ph_like)
+        self.assertTrue(self.graph.contains_unit_by_identity(ph_like))
+
+    def test_registry_fallback_is_identity_not_just_name(self):
+        """The name-registry fallback must still enforce ``is`` —
+        a clone with the same name is not the same Unit.
+        """
+        ph_like = Unit(name='ph_like', dimension=Dimension.none)
+        self.graph.register_unit(ph_like)
+        import dataclasses
+        ph_clone = dataclasses.replace(ph_like)
+        self.assertFalse(self.graph.contains_unit_by_identity(ph_clone))
+
+    def test_unit_product_with_real_factors_passes(self):
+        """UnitProduct descent: every factor must satisfy the check."""
+        product = UnitProduct({
+            UnitFactor(self.meter, Scale.one): 1,
+            UnitFactor(self.gram, Scale.one): -1,
+        })
+        self.assertTrue(self.graph.contains_unit_by_identity(product))
+
+    def test_unit_product_with_foreign_factor_fails(self):
+        """One foreign factor fails the whole product."""
+        import dataclasses
+        foreign_gram = dataclasses.replace(self.gram)
+        product = UnitProduct({
+            UnitFactor(self.meter, Scale.one): 1,
+            UnitFactor(foreign_gram, Scale.one): -1,
+        })
+        self.assertFalse(self.graph.contains_unit_by_identity(product))
