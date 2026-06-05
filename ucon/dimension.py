@@ -558,8 +558,18 @@ class Dimension(metaclass=_DimensionMeta):
         Pseudo-dimensions compare by tag, not just vector.
         Regular dimensions compare by vector.
         """
+        # Identity fast-path: ``Dimension`` objects in the standard catalog
+        # are singletons reused across Unit algebra, so most equality checks
+        # on the hot path are ``x == x``.
+        if self is other:
+            return True
         if not isinstance(other, Dimension):
             return NotImplemented
+        # Hash fast-fail: ``_hash_cache`` is precomputed in ``__post_init__``
+        # and captures both vector and tag. Unequal hashes mean unequal
+        # values; equal hashes still fall through to the component compare.
+        if self._hash_cache != other._hash_cache:
+            return False
 
         # Different bases are never equal
         if self.vector.basis != other.vector.basis:
