@@ -105,6 +105,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Packages defining both novel kinds and constants referencing those kinds
   now load correctly. `ConstantDef.materialize()` accepts an optional
   `kind_lattice` parameter for local resolution.
+- **`Graph.contains_unit_by_identity` no longer scans every dimension on
+  every call.** The check is on the hot path of `Number.to` / `NumberArray.to`
+  under `strict=True` (the v2.0 default); the previous implementation
+  iterated `_unit_edges` across all dimensions, then iterated
+  `_name_registry_cs`, before returning. The lookup is now scoped to
+  `_unit_edges[unit.dimension]` for the per-dimension scan and a single
+  `_name_registry_cs.get(unit.name)` identity check for the
+  product-only-unit fallback. Behavior is unchanged; the new
+  `tests/ucon/conversion/test_graph.py::TestContainsUnitByIdentity`
+  pins the identity-vs-name semantics and the dimension-scoped
+  invariant. Restores most of the per-conversion overhead introduced
+  in #259, with the largest improvement on temperature (affine)
+  conversion.
 
 ### Changed
 
