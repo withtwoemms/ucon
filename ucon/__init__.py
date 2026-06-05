@@ -143,7 +143,7 @@ from ucon.parsing import ParseError, parse, parse_dimension
 # and routes all conversions through the UnitSystem authority.
 #
 # All required modules are already imported above, so we construct the
-# UnitSystem directly — no need for from_globals() or deferred imports.
+# UnitSystem directly.
 from ucon.dimension import _DIMENSION_ATTRS
 from ucon._active import _active as _sys_active_var
 _init_graph = units._graph  # Direct reference; get_default_graph() isn't usable yet

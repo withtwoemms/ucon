@@ -1021,15 +1021,6 @@ def all_dimensions() -> tuple[Dimension, ...]:
 
 
 # -----------------------------------------------------------------------------
-# Back-compat shim for the v1.7 module-level algebra caches
-# -----------------------------------------------------------------------------
-#
-# Before v1.8, ``Dimension.__mul__`` / ``__truediv__`` / ``__pow__`` consulted
-# three module-level dicts (``_DIM_MUL_CACHE`` / ``_DIM_DIV_CACHE`` /
-# ``_DIM_POW_CACHE``). v1.8 moves the caches onto ``UnitSystem._algebra_cache``
-
-
-# -----------------------------------------------------------------------------
 # Public API
 # -----------------------------------------------------------------------------
 
