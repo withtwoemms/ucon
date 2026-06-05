@@ -146,6 +146,21 @@ pip install ucon-tools[mcp]
 
 AI agents can then convert units, check dimensions, and perform factor-label calculations with dimensional validation at each step.
 
+### Composable Unit Systems
+
+```python
+import ucon
+from ucon import use
+
+with use(ucon.active_system().restrict(units=["meter", "second", "kilogram"])):
+    parse("9.81 m/s^2")    # ok — length and time are in scope
+    parse("100 °F")        # raises — temperature is not
+```
+
+`UnitSystem` is an immutable value. `extend` / `restrict` / `merge` compose
+systems; `use(...)` activates one per scope via a ContextVar — no module-global
+state. Full walkthrough: [`examples/system/README.md`](https://github.com/withtwoemms/ucon/blob/main/examples/system/README.md).
+
 ---
 
 ## Features
