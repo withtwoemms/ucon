@@ -15,21 +15,14 @@ Submodules
 - ``vector``: ``Vector`` dimensional exponent vectors. Arithmetic is strict
   same-basis; cross-basis arithmetic lives in ``ops``.
 - ``transforms``: Transform types and standard transform instances.
-- ``graph``: ``BasisGraph`` registry, standard-graph factory, and
-  ContextVar-scoped active state (``get_basis_graph``, ``using_basis``, etc.).
+- ``graph``: ``BasisGraph`` registry and standard-graph factory.
 - ``ops``: Explicit cross-basis arithmetic (``multiply_via``, ``divide_via``,
   ``unify``).
 - ``builtin``: Standard bases (SI, CGS, CGS-ESU, CGS-EMU, NATURAL, PLANCK, ATOMIC).
 """
 
 from ucon.basis import ops
-from ucon.basis.graph import (
-    BasisGraph,
-    get_basis_graph,
-    get_default_basis,
-    using_basis,
-    using_basis_graph,
-)
+from ucon.basis.graph import BasisGraph
 from ucon.basis.transforms import (
     BasisTransform,
     ConstantBinding,
@@ -55,9 +48,5 @@ __all__ = [
     "LossyProjection",
     "NoTransformPath",
     "Vector",
-    "get_basis_graph",
-    "get_default_basis",
     "ops",
-    "using_basis",
-    "using_basis_graph",
 ]

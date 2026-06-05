@@ -53,10 +53,6 @@ from ucon.basis import (
     LossyProjection,
     NoTransformPath,
     Vector as BasisVector,
-    get_default_basis,
-    get_basis_graph,
-    using_basis,
-    using_basis_graph,
 )
 from ucon.basis.builtin import (
     CGS,
@@ -187,11 +183,6 @@ __all__ = [
     'ConstantBinding',
     'LossyProjection',
     'NoTransformPath',
-    # Basis context scoping
-    'get_default_basis',
-    'get_basis_graph',
-    'using_basis',
-    'using_basis_graph',
     # Standard bases
     'CGS',
     'CGS_ESU',

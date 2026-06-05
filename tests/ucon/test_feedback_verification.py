@@ -41,7 +41,6 @@ from ucon.basis import (
     ops,
 )
 from ucon.basis.builtin import SI
-from ucon.basis.graph import get_basis_graph
 from ucon.dimension import resolve
 from ucon.system import active_system, use
 
@@ -110,7 +109,7 @@ class TestIssue25CrossBasisArithmetic:
         self.economic = _build_economic_basis()
         self.si_to_economic = _build_si_to_economic(self.economic)
         # Build a graph that contains the standard transforms PLUS our embedding.
-        base_graph = get_basis_graph()
+        base_graph = active_system().basis_graph
         self.graph = base_graph.with_transform(self.si_to_economic)
 
     def test_1_currency_times_time(self) -> None:
@@ -286,7 +285,7 @@ class TestTriage1BareComponentDimensions:
 
 def test_standard_graph_includes_expected_basis_transforms() -> None:
     """Confirm the standard graph wiring is intact under current main."""
-    graph = get_basis_graph()
+    graph = active_system().basis_graph
     from ucon.basis.builtin import CGS, CGS_ESU, NATURAL, PLANCK, ATOMIC
 
     # SI -> CGS, CGS_ESU, NATURAL, PLANCK, ATOMIC must all be reachable.

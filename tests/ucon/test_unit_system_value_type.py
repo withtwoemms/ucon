@@ -533,9 +533,8 @@ class TestCompoundParserSystemRouting(unittest.TestCase):
 
 class TestCrossBasisArithmetic(unittest.TestCase):
     """``with use(system): ...`` propagates ``system.basis_graph`` down
-    through ``Number`` arithmetic via ``get_basis_graph()``, and
-    :func:`ucon.basis.ops.unify` performs 3-way unification through a
-    common combined basis.
+    through ``Number`` arithmetic, and :func:`ucon.basis.ops.unify`
+    performs 3-way unification through a common combined basis.
 
     Closes the ``USD*s`` case — multiplying a Number whose unit lives in
     a domain basis (currency) by a Number whose unit lives in SI must
@@ -645,30 +644,6 @@ class TestCrossBasisArithmetic(unittest.TestCase):
 
         with self.assertRaises(BasisMismatch):
             n1 * n2
-
-    def test_get_basis_graph_honors_active_system(self):
-        # The plumbing hook: get_basis_graph() returns system.basis_graph
-        # when a system is active.
-        from ucon.basis.graph import get_basis_graph
-        from ucon.system import use
-
-        sys, _, _ = self._build_combined_currency_si_system()
-        with use(sys):
-            self.assertIs(get_basis_graph(), sys.basis_graph)
-
-    def test_using_basis_graph_still_wins_over_active_system(self):
-        # Precedence: an explicit ``using_basis_graph`` context still wins
-        # over the active UnitSystem.
-        from ucon.basis.graph import BasisGraph, get_basis_graph, using_basis_graph
-        from ucon.system import use
-
-        sys, _, _ = self._build_combined_currency_si_system()
-        explicit = BasisGraph()
-        with use(sys):
-            with using_basis_graph(explicit):
-                self.assertIs(get_basis_graph(), explicit)
-            # Outside the explicit override, falls back to system.basis_graph
-            self.assertIs(get_basis_graph(), sys.basis_graph)
 
 
 if __name__ == "__main__":
