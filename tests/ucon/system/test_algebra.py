@@ -7,8 +7,7 @@ test_algebra
 ============
 
 Tests for :meth:`UnitSystem.extend`, :meth:`restrict`, :meth:`merge`,
-and the ``with_*`` incremental constructors introduced in v2.0 (§3.1 of
-the v2.0 implementation plan).
+and the ``with_*`` incremental constructors introduced in v2.0.
 
 The tests use the eagerly-initialised active ``UnitSystem`` as the base
 fixture and derive subsystems and overlays via the new algebra; no

@@ -6,7 +6,7 @@
 test_adopt
 ==========
 
-Tests for :meth:`ucon.system.UnitSystem.adopt` (v2.0 §3.3).
+Tests for :meth:`ucon.system.UnitSystem.adopt`.
 
 ``adopt`` is the trivial cross-system value-movement primitive: rebind
 the :class:`Unit` references in a :class:`Number` to point at the

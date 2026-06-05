@@ -1,7 +1,7 @@
 # Copyright 2026 The Radiativity Company
 # Licensed under the Apache License, Version 2.0
 
-"""Tests for kind-aware arithmetic dispatch (v2.0 §4.3, §4.4, §4.9).
+"""Tests for kind-aware arithmetic dispatch.
 
 Pins the wiring between ``Number.__mul__``, ``__truediv__``, ``__add__``,
 ``__sub__`` and the active ``FormulaRegistry`` / ``KindLattice``.
@@ -54,7 +54,7 @@ def _refuse_lattice():
 
 class TestMulFormulaStampsKind:
     """__mul__: FormulaRegistry resolves output_kind when both operands
-    carry a kind (§4.4, Q19)."""
+    carry a kind."""
 
     def test_mul_formula_stamps_kind(self) -> None:
         force_kind = Kind("force", dimension=FORCE)

@@ -1947,8 +1947,8 @@ class Number:
                 dst_unit = uf.unit
 
         if src_is_plain and dst_is_plain and src_unit != dst_unit:
-            # Strict source-unit resolution (v2.0 §3.4): under strict=True
-            # (the default), require `src_unit` to be in `graph` by object
+            # Strict source-unit resolution: under strict=True (the
+            # default), require `src_unit` to be in `graph` by object
             # identity. Strict is a scope property, not a system property,
             # so the flag is read from the active context regardless of
             # whether `system=` / `graph=` was passed explicitly.
@@ -1996,8 +1996,8 @@ class Number:
             if exp == 1.0 and uf.scale == Scale.one:
                 graph_dst = uf.unit
 
-        # Strict source-unit resolution (v2.0 §3.4) — mirror of fast-path
-        # guard for general / UnitProduct sources. `contains_unit_by_identity`
+        # Strict source-unit resolution — mirror of fast-path guard for
+        # general / UnitProduct sources. `contains_unit_by_identity`
         # descends into UnitProduct factors.
         _ctx = _sys_active_var.get()
         if _ctx is not None and _ctx.strict and not graph.contains_unit_by_identity(graph_src):
@@ -2066,14 +2066,14 @@ class Number:
     def as_ratio(self):
         return Ratio(self)
 
-    # --- Kind dispatch helpers (§4.3, §4.4, §4.9) ---
+    # --- Kind dispatch helpers ---
 
     def _resolve_mul_kind(self, other: 'Number') -> 'Kind | None':
         """Resolve the result kind for multiplication or division.
 
         Consults the active ``FormulaRegistry`` when both operands
-        carry a ``kind`` (Q19). Returns the formula's ``output_kind``,
-        or ``None`` if no formula matches or either operand is unkinded.
+        carry a ``kind``. Returns the formula's ``output_kind``, or
+        ``None`` if no formula matches or either operand is unkinded.
         """
         if self.kind is None or other.kind is None:
             return None
@@ -2093,11 +2093,10 @@ class Number:
     def _resolve_add_kind(self, other: 'Number') -> 'Kind | None':
         """Resolve the result kind for addition or subtraction.
 
-        Consults the active ``KindLattice`` (§4.3). Same-kind
-        preserves; different-kind joins at LCA or raises
-        ``JoinRefused``. Under ``strict=True``, kinded + unkinded
-        raises ``KindMismatch``; under permissive mode, warns and
-        inherits the present kind.
+        Consults the active ``KindLattice``. Same-kind preserves;
+        different-kind joins at LCA or raises ``JoinRefused``. Under
+        ``strict=True``, kinded + unkinded raises ``KindMismatch``;
+        under permissive mode, warns and inherits the present kind.
         """
         if self.kind is not None and other.kind is not None:
             if self.kind == other.kind:
@@ -2141,7 +2140,7 @@ class Number:
                 quantity=self.quantity * other,
                 unit=self.unit,
                 uncertainty=new_uncertainty,
-                kind=self.kind,  # S1: scalar preserves kind
+                kind=self.kind,  # scalar preserves kind
             )
 
         if not isinstance(other, Number):
@@ -2175,7 +2174,7 @@ class Number:
                 f"{self.unit.dimension} vs {other.unit.dimension}"
             )
 
-        # Kind lattice dispatch (§4.3)
+        # Kind lattice dispatch
         result_kind = self._resolve_add_kind(other)
 
         # Uncertainty propagation for addition: δc = sqrt(δa² + δb²)
@@ -2203,7 +2202,7 @@ class Number:
                 f"{self.unit.dimension} vs {other.unit.dimension}"
             )
 
-        # Kind lattice dispatch (§4.3) — same rules as addition
+        # Kind lattice dispatch — same rules as addition
         result_kind = self._resolve_add_kind(other)
 
         # Uncertainty propagation for subtraction: δc = sqrt(δa² + δb²)
@@ -2225,7 +2224,7 @@ class Number:
         if isinstance(other, Ratio):
             other = other.evaluate()
 
-        # Scalar division — S1: preserves kind
+        # Scalar division — preserves kind
         if isinstance(other, (int, float)):
             new_uncertainty = None
             if self.uncertainty is not None:
@@ -2234,7 +2233,7 @@ class Number:
                 quantity=self.quantity / other,
                 unit=self.unit,
                 uncertainty=new_uncertainty,
-                kind=self.kind,  # S1: scalar preserves kind
+                kind=self.kind,  # scalar preserves kind
             )
 
         if not isinstance(other, Number):
@@ -2254,7 +2253,7 @@ class Number:
             return abs(result_quantity) * rel_c if rel_c > 0 else None
 
         # --- Case 1: Dimensionless result ----------------------------------
-        # S2: same-kind division yields kind=None (dimensionless ratio).
+        # Same-kind division yields kind=None (dimensionless ratio).
         if not unit_quot.dimension:
             num = self._canonical_magnitude
             den = other._canonical_magnitude
@@ -3046,7 +3045,7 @@ class NumberArray:
                     )
                 graph = ctx.system.conversion_graph
 
-        # Strict source-unit resolution (v2.0 §3.4): mirror of Number.to.
+        # Strict source-unit resolution: mirror of Number.to.
         _ctx = _sys_active_var.get()
         if _ctx is not None and _ctx.strict and not graph.contains_unit_by_identity(src):
             raise UnitDefinitionMismatch(src, graph=graph)

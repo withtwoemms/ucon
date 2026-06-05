@@ -1,10 +1,9 @@
 # Copyright 2026 The Radiativity Company
 # Licensed under the Apache License, Version 2.0
 
-"""Regression suite for ``Number.kind`` (v2.0 §3.4 — slice 1 of KOQ-on-Number).
+"""Regression suite for ``Number.kind``.
 
-Pins three invariants from the §3.4 deliverable and the v4/v5/v6
-architecture entries:
+Pins three invariants of the KOQ-on-``Number`` surface:
 
 1. ``Number(kind=...)`` constructs when ``kind.dimension`` matches the
    unit's dimension.

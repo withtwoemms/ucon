@@ -12,9 +12,7 @@ level**. Cross-module assignment is a signal that the assignee
 module is treating another module's namespace as its own,
 indicating an unresolved layering / cycle-break workaround.
 
-This test was added in v1.12.0 alongside the structural cycle-break
-work (S1–S3 in
-``docs/internal/IMPLEMENTATION_PLAN_v1.12.0-cycle-break-structural.md``)
+This test was added alongside the structural cycle-break work in v1.12.0
 to prevent regressions.
 
 What this catches

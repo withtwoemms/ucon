@@ -6,8 +6,7 @@
 test_algebra_laws
 =================
 
-Structural laws for the v2.0 ``UnitSystem`` algebra (§3.1 of the v2.0
-implementation plan):
+Structural laws for the v2.0 ``UnitSystem`` algebra:
 
 - *Identity-like*: self-extend and no-op restrict preserve registries.
 - *Associativity*: ``(a.extend(b)).extend(c)`` and
@@ -20,8 +19,7 @@ implementation plan):
 
 The state space is small: a handful of derived subsystems off the active
 system. Each law is checked over named fixtures rather than randomized
-inputs — that is sufficient to cover every meaningful configuration here
-(see §6 q-rationale in the implementation plan; hypothesis is not used).
+inputs — that is sufficient to cover every meaningful configuration here.
 
 Note on equality
 ----------------

@@ -3,27 +3,16 @@
 # See the LICENSE file for details.
 
 """
-Verification suite for open ucon-core items in the feedback registry.
+Verification suite for cross-basis arithmetic and dimension-parser invariants
+in ucon core.
 
-Source registry:
-    /Users/withtwoemms/programming/python/mcp.ucon.dev/docs/internal/feedback/
-        ucon-feedback-registry.md (last updated 2026-04-30)
+Two invariants are pinned here:
 
-Two items are testable against ucon core directly:
+- Cross-basis arithmetic in ``compute()``: shipped via transform-graph-aware
+  ``Vector`` arithmetic (``Vector._unify_basis``). Verified here at the
+  ``Vector`` / ``Number`` layer.
 
-- Issue 2.5: cross-basis arithmetic in compute() (P1, "blocking")
-    Hypothesis: shipped in 1.6.6 via transform-graph-aware Vector arithmetic
-    (`Vector._unify_basis`). Verified here at the Vector / Number layer,
-    not the MCP `compute()` tool layer (that is ucon-tools).
-
-- Triage-1: bare component letters in the dimension parser (P3)
-    Hypothesis: 1.6.x parser unification may have resolved this incidentally.
-
-Out of scope here (not ucon-core work):
-
-- Issue 2.1 (compound parser routing) — ucon-tools `using_graph()` wrapper
-- ux-1 (response capability hints) — ucon-tools / docs
-- Issue 3 (namespace isolation) — v2.0 design space
+- Bare component letters in the dimension parser are parser-resolved.
 
 Run with: pytest tests/ucon/test_feedback_verification.py -v
 """

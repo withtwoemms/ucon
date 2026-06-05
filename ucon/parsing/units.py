@@ -271,7 +271,7 @@ def parse_unit_expression(
 
 
 # -----------------------------------------------------------------------------
-# Quantity parsing moved to ucon.parsing.quantity (Phase 2f).
+# Quantity parsing lives in ucon.parsing.quantity.
 
 
 __all__ = [

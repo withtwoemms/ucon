@@ -6,7 +6,7 @@
 test_relations
 ==============
 
-Tests for the §3.2 :class:`UnitSystem` relation surface:
+Tests for the :class:`UnitSystem` relation surface:
 
 - :meth:`UnitSystem.subsystem_of`
 - :meth:`UnitSystem.compatible_with`
