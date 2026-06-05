@@ -42,7 +42,7 @@ from ucon.basis.transforms import ConstantBoundBasisTransform, ConstantBinding
 from ucon.constants import Constant
 from ucon.contexts import ConversionContext, ContextEdge
 from ucon.core import BaseForm, RebasedUnit, Scale, Unit, UnitFactor, UnitProduct
-from ucon.dimension import Dimension, resolve, _DIMENSION_ATTRS
+from ucon.dimension import Dimension, resolve
 from ucon.expressions import ExprResult, evaluate
 from ucon.graph import ConversionGraph, using_conversion_graph
 from ucon.kinds import JoinPolicy, Kind, KindLattice
@@ -721,15 +721,9 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                 )
         basis_map[name] = Basis(name, components)
 
-    # 2. Build dimensions
+    # 2. Build dimensions (TOML is authoritative)
     dim_map: dict[str, Dimension] = {}
-    # Pre-populate with standard dimensions
-    for name, dim in _DIMENSION_ATTRS.items():
-        dim_map[name] = dim
-
     for name, spec in doc.get("dimensions", {}).items():
-        if name in dim_map:
-            continue  # Use standard dimension if available
         basis_name = _require(spec, "basis", f"dimensions.{name}")
         basis = basis_map.get(basis_name)
         if basis is None:
@@ -843,13 +837,10 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
         dim_name = _require(unit_spec, "dimension", section)
         dim = dim_map.get(dim_name)
         if dim is None:
-            # Try resolving from the standard dimension registry
-            dim = _DIMENSION_ATTRS.get(dim_name)
-            if dim is None:
-                raise GraphLoadError(
-                    f"[{section}]: unknown dimension '{dim_name}' "
-                    f"for unit '{uname}'"
-                )
+            raise GraphLoadError(
+                f"[{section}]: unknown dimension '{dim_name}' "
+                f"for unit '{uname}'"
+            )
 
         aliases = tuple(unit_spec.get("aliases", []))
         scalable = bool(unit_spec.get("scalable", True))
@@ -920,7 +911,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                 # Fall back to local resolution
                 resolved = _resolve_unit(unit_str, unit_map, graph)
                 unit_expr = resolved if resolved is not None else Unit(
-                    name="unknown", dimension=dim_map.get("none", Dimension.none),
+                    name="unknown", dimension=dim_map["none"],
                 )
 
             # Resolve optional kind (prefer locally-parsed lattice)

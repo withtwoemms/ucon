@@ -586,6 +586,49 @@ def _write_toml(tmp_path, doc: dict) -> Path:
     return path
 
 
+# Standard SI preamble used by synthetic TOMLs.  Since v2.0 the loader no
+# longer consults the in-process ``_DIMENSION_ATTRS`` registry as a fallback
+# for unit dimensions — every referenced dimension must be declared in the
+# TOML itself.  This helper provides the minimal SI bits used by the
+# strict-mode / coverage tests below.
+_MINIMAL_PREAMBLE = {
+    "bases": {
+        "SI": {
+            "components": [
+                {"name": "time", "symbol": "T"},
+                {"name": "length", "symbol": "L"},
+                {"name": "mass", "symbol": "M"},
+                {"name": "current", "symbol": "I"},
+                {"name": "temperature", "symbol": "Θ"},
+                {"name": "luminous_intensity", "symbol": "J"},
+                {"name": "amount_of_substance", "symbol": "N"},
+                {"name": "information", "symbol": "B"},
+            ],
+        },
+    },
+    "dimensions": {
+        "length": {"basis": "SI", "vector": [0, 1, 0, 0, 0, 0, 0, 0]},
+        "none": {"basis": "SI", "vector": [0, 0, 0, 0, 0, 0, 0, 0]},
+    },
+}
+
+
+def _with_preamble(doc: dict) -> dict:
+    """Merge the minimal SI preamble into ``doc`` (caller wins on conflicts)."""
+    out = {
+        "bases": dict(_MINIMAL_PREAMBLE["bases"]),
+        "dimensions": dict(_MINIMAL_PREAMBLE["dimensions"]),
+    }
+    for k, v in doc.items():
+        if k == "bases":
+            out["bases"].update(v)
+        elif k == "dimensions":
+            out["dimensions"].update(v)
+        else:
+            out[k] = v
+    return out
+
+
 class TestMalformedInput:
     """from_toml raises GraphLoadError (not KeyError) on bad input."""
 
@@ -712,12 +755,12 @@ class TestStrictParsing:
 
     def _minimal_doc_with_units(self):
         """Return a minimal TOML doc with meter and foot registered."""
-        return {
+        return _with_preamble({
             "units": [
                 {"name": "meter", "dimension": "length"},
                 {"name": "foot", "dimension": "length"},
             ],
-        }
+        })
 
     def test_strict_rejects_unknown_edge_src(self, tmp_path):
         doc = self._minimal_doc_with_units()
@@ -1283,12 +1326,12 @@ components = [42]
 
 class TestStrictModeBranches:
     def _minimal_doc_with_units(self):
-        return {
+        return _with_preamble({
             "units": [
                 {"name": "meter", "dimension": "length"},
                 {"name": "foot", "dimension": "length"},
             ],
-        }
+        })
 
     def test_nonstrict_skips_unknown_product_edge(self, tmp_path):
         """Non-strict mode skips unresolvable product edges (line 716)."""
@@ -1579,6 +1622,64 @@ dimension = "testdim"
         assert unit.dimension.name == "testdim"
 
 
+class TestDimensionCatalogParity:
+    """Loading ``comprehensive.ucon.toml`` must reconstruct the standard
+    dimension catalog without consulting any in-process registry.
+
+    This is the PR 6 acceptance test: TOML is now authoritative for
+    dimensions, so the loader output must have full name / vector /
+    symbol parity with the Python ``_DIMENSION_ATTRS`` map.  Once
+    ``_DIMENSION_ATTRS`` is removed in PR 7, this test will continue
+    to anchor the same contract via the standard system's dimensions.
+    """
+
+    def test_toml_catalog_matches_python_catalog(self):
+        """Every standard dimension lives in the TOML, with matching vector + symbol."""
+        from pathlib import Path
+        import tomllib
+
+        from ucon.dimension import _DIMENSION_ATTRS
+
+        toml_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "ucon"
+            / "comprehensive.ucon.toml"
+        )
+        with open(toml_path, "rb") as f:
+            doc = tomllib.load(f)
+        toml_dims = doc.get("dimensions", {})
+
+        py_names = set(_DIMENSION_ATTRS.keys())
+        toml_names = set(toml_dims.keys())
+        missing_in_toml = py_names - toml_names
+        extra_in_toml = toml_names - py_names
+        assert not missing_in_toml, f"Python dims missing from TOML: {missing_in_toml}"
+        assert not extra_in_toml, f"TOML dims not in Python catalog: {extra_in_toml}"
+
+        # Component-wise vector parity (string fractions tolerated).
+        from fractions import Fraction
+
+        vector_mismatches: list[str] = []
+        symbol_mismatches: list[str] = []
+        for name in py_names:
+            py_dim = _DIMENSION_ATTRS[name]
+            spec = toml_dims[name]
+            toml_vec = tuple(
+                Fraction(c) if isinstance(c, str) else Fraction(c)
+                for c in spec.get("vector", [])
+            )
+            py_vec = tuple(py_dim.vector.components)
+            if toml_vec != py_vec:
+                vector_mismatches.append(f"{name}: py={py_vec} toml={toml_vec}")
+            if py_dim.symbol != spec.get("symbol"):
+                symbol_mismatches.append(
+                    f"{name}: py={py_dim.symbol!r} toml={spec.get('symbol')!r}"
+                )
+
+        assert not vector_mismatches, "Vector mismatches:\n  " + "\n  ".join(vector_mismatches)
+        assert not symbol_mismatches, "Symbol mismatches:\n  " + "\n  ".join(symbol_mismatches)
+
+
 # ---------------------------------------------------------------------------
 # Coverage: _serialize_transform — binding with fractional target_expression (line 287)
 # ---------------------------------------------------------------------------
@@ -1709,7 +1810,7 @@ class TestRemainingCoverage:
 
     def test_constant_unit_fallback_to_local(self, tmp_path):
         """Constant with unresolvable unit falls back to _resolve_unit (lines 762–765)."""
-        doc = {
+        doc = _with_preamble({
             "units": [{"name": "meter", "dimension": "length"}],
             "constants": [{
                 "symbol": "k",
@@ -1718,7 +1819,7 @@ class TestRemainingCoverage:
                 "unit": "zzz_unknown_unit_zzz",
                 "category": "session",
             }],
-        }
+        })
         path = _write_toml(tmp_path, doc)
         g = from_toml(path)
         assert len(g._package_constants) == 1
@@ -1727,7 +1828,7 @@ class TestRemainingCoverage:
 
     def test_cross_basis_edge_without_transform_key(self, tmp_path):
         """Cross-basis edge without transform key skips add_edge (line 737→721)."""
-        doc = {
+        doc = _with_preamble({
             "units": [
                 {"name": "meter", "dimension": "length"},
                 {"name": "foot", "dimension": "length"},
@@ -1738,7 +1839,7 @@ class TestRemainingCoverage:
                 "factor": 3.28084,
                 # No "transform" key — bt will be None
             }],
-        }
+        })
         path = _write_toml(tmp_path, doc)
         g = from_toml(path)
         # Graph should load; edge was not added (no transform)
@@ -1846,10 +1947,10 @@ class TestFormatVersionValidation:
 
     def test_format_version_warning_roundtrip(self, tmp_path):
         """from_toml warns on newer minor version during import."""
-        doc = {
+        doc = _with_preamble({
             "package": {"format_version": "1.99"},
             "units": [{"name": "meter", "dimension": "length"}],
-        }
+        })
         path = _write_toml(tmp_path, doc)
         with pytest.warns(UserWarning, match="newer than supported"):
             from_toml(path)
@@ -2164,26 +2265,26 @@ class TestProductExpressionGrammar:
 
     def test_non_strict_warns_on_bad_expression(self, tmp_path):
         """Non-strict mode warns when a product expression is skipped."""
-        doc = {
+        doc = _with_preamble({
             "package": {"format_version": FORMAT_VERSION},
             "units": [{"name": "meter", "dimension": "length"}],
             "product_edges": [
                 {"src": "meter^xyz", "dst": "meter", "factor": 1.0, "product": True},
             ],
-        }
+        })
         path = _write_toml(tmp_path, doc)
         with pytest.warns(UserWarning, match="skipping unresolvable product edge"):
             from_toml(path, strict=False)
 
     def test_non_strict_warns_on_unresolvable(self, tmp_path):
         """Non-strict mode warns when a unit name cannot be resolved."""
-        doc = {
+        doc = _with_preamble({
             "package": {"format_version": FORMAT_VERSION},
             "units": [{"name": "meter", "dimension": "length"}],
             "product_edges": [
                 {"src": "meter", "dst": "nonexistent_unit", "factor": 1.0, "product": True},
             ],
-        }
+        })
         path = _write_toml(tmp_path, doc)
         with pytest.warns(UserWarning, match="skipping unresolvable product edge"):
             from_toml(path, strict=False)
@@ -2443,13 +2544,13 @@ class TestConstantKindSerialization:
 
     def test_constant_kind_missing_tolerant(self, tmp_path):
         """TOML without kind key deserializes constant with kind=None."""
-        doc = {
+        doc = _with_preamble({
             "package": {"format_version": FORMAT_VERSION},
             "units": [{"name": "meter", "dimension": "length"}],
             "constants": [{
                 "symbol": "x", "name": "test", "value": 42.0, "unit": "m",
             }],
-        }
+        })
         path = _write_toml(tmp_path, doc)
         g = from_toml(path)
         assert len(g._package_constants) == 1
@@ -2457,14 +2558,14 @@ class TestConstantKindSerialization:
 
     def test_constant_kind_unknown_raises(self, tmp_path):
         """TOML with unknown kind raises GraphLoadError."""
-        doc = {
+        doc = _with_preamble({
             "package": {"format_version": FORMAT_VERSION},
             "units": [{"name": "meter", "dimension": "length"}],
             "constants": [{
                 "symbol": "x", "name": "test", "value": 42.0,
                 "unit": "m", "kind": "bogus_kind",
             }],
-        }
+        })
         path = _write_toml(tmp_path, doc)
         with pytest.raises(GraphLoadError, match="unknown kind 'bogus_kind'"):
             from_toml(path)
@@ -2738,10 +2839,10 @@ class TestKindsSerialization:
 
     def test_from_toml_without_kinds_backward_compat(self, tmp_path):
         """TOML without [[kinds]] loads with _kind_lattice = None."""
-        doc = {
+        doc = _with_preamble({
             "package": {"format_version": FORMAT_VERSION},
             "units": [{"name": "meter", "dimension": "length"}],
-        }
+        })
         path = _write_toml(tmp_path, doc)
         g = from_toml(path)
         assert g._kind_lattice is None
