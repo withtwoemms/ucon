@@ -1628,9 +1628,11 @@ class TestDimensionCatalogParity:
 
     This is the PR 6 acceptance test: TOML is now authoritative for
     dimensions, so the loader output must have full name / vector /
-    symbol parity with the Python ``_DIMENSION_ATTRS`` map.  Once
-    ``_DIMENSION_ATTRS`` is removed in PR 7, this test will continue
-    to anchor the same contract via the standard system's dimensions.
+    symbol parity with the Python standard catalog. In PR 7 the
+    mutable ``_DIMENSION_ATTRS`` global was removed; this test reads
+    the immutable :data:`ucon.dimension._STANDARD_ATTRS` builder
+    output, which is the same catalog the bootstrap wires into the
+    default :class:`UnitSystem`.
     """
 
     def test_toml_catalog_matches_python_catalog(self):
@@ -1638,7 +1640,7 @@ class TestDimensionCatalogParity:
         from pathlib import Path
         import tomllib
 
-        from ucon.dimension import _DIMENSION_ATTRS
+        from ucon.dimension import _STANDARD_ATTRS
 
         toml_path = (
             Path(__file__).resolve().parent.parent.parent
@@ -1649,7 +1651,7 @@ class TestDimensionCatalogParity:
             doc = tomllib.load(f)
         toml_dims = doc.get("dimensions", {})
 
-        py_names = set(_DIMENSION_ATTRS.keys())
+        py_names = set(_STANDARD_ATTRS.keys())
         toml_names = set(toml_dims.keys())
         missing_in_toml = py_names - toml_names
         extra_in_toml = toml_names - py_names
@@ -1662,7 +1664,7 @@ class TestDimensionCatalogParity:
         vector_mismatches: list[str] = []
         symbol_mismatches: list[str] = []
         for name in py_names:
-            py_dim = _DIMENSION_ATTRS[name]
+            py_dim = _STANDARD_ATTRS[name]
             spec = toml_dims[name]
             toml_vec = tuple(
                 Fraction(c) if isinstance(c, str) else Fraction(c)

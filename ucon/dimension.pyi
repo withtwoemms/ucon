@@ -24,7 +24,7 @@ class Dimension:
     symbol: str | None = None
     tag: str | None = None
 
-    # Class attributes for IDE completion (from _DIMENSION_ATTRS)
+    # Class attributes for IDE completion (from _STANDARD_ATTRS)
     acceleration: ClassVar[Dimension]
     amount_of_substance: ClassVar[Dimension]
     angle: ClassVar[Dimension]

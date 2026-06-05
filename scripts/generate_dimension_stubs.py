@@ -3,7 +3,7 @@
 Generate type stubs for ucon.dimension from runtime introspection.
 
 This script imports ucon.dimension and generates a .pyi stub file by:
-1. Extracting all registered dimensions from _DIMENSION_ATTRS
+1. Extracting all registered dimensions from _STANDARD_ATTRS
 2. Extracting all module-level constants from __all__
 3. Introspecting the Dimension class for methods and properties
 4. Generating complete type annotations
@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import ucon.dimension as dim_module
-from ucon.dimension import Dimension, _DIMENSION_ATTRS, __all__ as DIM_ALL
+from ucon.dimension import Dimension, _STANDARD_ATTRS, __all__ as DIM_ALL
 
 
 HEADER = '''\
@@ -70,9 +70,9 @@ def generate_dimension_class() -> list[str]:
     lines.append("    tag: str | None = None")
     lines.append("")
 
-    # Class-level attributes from _DIMENSION_ATTRS registry
-    lines.append("    # Class attributes for IDE completion (from _DIMENSION_ATTRS)")
-    for name in sorted(_DIMENSION_ATTRS.keys()):
+    # Class-level attributes from the standard dimension catalog.
+    lines.append("    # Class attributes for IDE completion (from _STANDARD_ATTRS)")
+    for name in sorted(_STANDARD_ATTRS.keys()):
         lines.append(f"    {name}: ClassVar[Dimension]")
     lines.append("")
 

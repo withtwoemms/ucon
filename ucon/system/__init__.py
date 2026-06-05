@@ -62,6 +62,7 @@ from ucon.resolver import parse_unit as _parse_unit
 from ucon._algebra_cache import AlgebraCache, _get_active_cache
 
 if TYPE_CHECKING:
+    from ucon.basis import Vector
     from ucon.basis.graph import BasisGraph
     from ucon.basis.transforms import BasisTransform, ConstantBoundBasisTransform
     from ucon.basis.types import Basis
@@ -331,6 +332,24 @@ class UnitSystem:
     _algebra_cache: AlgebraCache = field(
         default_factory=AlgebraCache, compare=False, repr=False
     )
+    dimensions_by_vector: Optional[Mapping['Vector', 'Dimension']] = field(
+        default=None, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        # ``dimensions_by_vector`` powers ``resolve(vector)``. It is
+        # derived from ``dimensions`` (excluding pseudo-dimensions, which
+        # share the zero vector and are tag-isolated) when not supplied
+        # explicitly. The bootstrap path passes the precomputed standard
+        # registry; ``from_toml`` and other call sites get the derivation
+        # for free.
+        if self.dimensions_by_vector is None:
+            derived = {
+                d.vector: d
+                for d in self.dimensions.values()
+                if not d.is_pseudo
+            }
+            object.__setattr__(self, 'dimensions_by_vector', derived)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, UnitSystem):

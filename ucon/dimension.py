@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING
 from ucon.basis import Basis, BasisComponent, Vector
 from ucon.basis.builtin import ATOMIC, CGS, CGS_EMU, CGS_ESU, NATURAL, PLANCK, SI
 from ucon.basis.ops import divide_via, multiply_via
-from ucon._active import resolve_basis
+from ucon._active import _active, resolve_basis
 from ucon._algebra_cache import _get_active_cache
 
 if TYPE_CHECKING:
@@ -49,22 +49,23 @@ if TYPE_CHECKING:
 
 
 # -----------------------------------------------------------------------------
-# Registry for dimension resolution
+# Dimension resolution
 # -----------------------------------------------------------------------------
-
-_REGISTRY: dict[Vector, "Dimension"] = {}
+#
+# v2.0 routes name- and vector-based lookup through the active
+# :class:`~ucon.system.UnitSystem`. The module-level ``_DIMENSION_ATTRS``
+# and ``_REGISTRY`` dicts that powered v1.x lookups have been removed --
+# their data lives on :data:`UnitSystem.dimensions` and
+# :data:`UnitSystem.dimensions_by_vector` respectively. The immutable
+# :data:`_STANDARD_ATTRS` and :data:`_STANDARD_REGISTRY` returned by
+# :func:`_build_standard_dimensions` serve as the bootstrap-window
+# fallback for the brief interval before ``ucon/__init__.py`` installs
+# the default active context.
 
 
 def _algebra_cache():
     """Resolve the per-system :class:`AlgebraCache` for dimension algebra."""
     return _get_active_cache()
-
-
-def _register(dim: "Dimension") -> "Dimension":
-    """Register a dimension for resolution by vector."""
-    if dim.tag is None:  # Don't register pseudo-dimensions
-        _REGISTRY[dim.vector] = dim
-    return dim
 
 
 def resolve(vector: Vector) -> "Dimension":
@@ -78,7 +79,9 @@ def resolve(vector: Vector) -> "Dimension":
     Returns
     -------
     Dimension
-        A registered dimension if one matches, otherwise a new derived dimension.
+        A registered dimension if one matches in the active system's
+        ``dimensions_by_vector`` map (or the bootstrap-window standard
+        registry); otherwise a new derived :class:`Dimension`.
 
     Examples
     --------
@@ -90,16 +93,27 @@ def resolve(vector: Vector) -> "Dimension":
     >>> resolve(v)
     Dimension(velocity)
     """
-    if vector in _REGISTRY:
-        return _REGISTRY[vector]
+    ctx = _active.get()
+    if ctx is not None:
+        registry = ctx.system.dimensions_by_vector
+    else:
+        # Bootstrap-window fallback: ``ucon/__init__.py`` has not yet
+        # installed the default active context.
+        registry = _STANDARD_REGISTRY
 
-    # Zero vector always resolves to NONE
+    dim = registry.get(vector)
+    if dim is not None:
+        return dim
+
+    # Zero vector always resolves to NONE (the basis-specific zero
+    # vector for the vector's basis).
     if vector.is_dimensionless():
         none_vector = Vector(vector.basis, tuple(0 for _ in vector.components))
-        if none_vector in _REGISTRY:
-            return _REGISTRY[none_vector]
+        dim = registry.get(none_vector)
+        if dim is not None:
+            return dim
 
-    # Create a derived dimension
+    # Create a derived dimension.
     name = _vector_to_dim_expr(vector)
     return Dimension(vector=vector, name=f"derived({name})")
 
@@ -146,38 +160,54 @@ def _vector_to_dim_expr(v: Vector) -> str:
 # Dimension Dataclass
 # -----------------------------------------------------------------------------
 
-# Registry for Dimension.length style attribute access
-_DIMENSION_ATTRS: dict[str, "Dimension"] = {}
 
+def _active_dimension_names() -> dict[str, "Dimension"]:
+    """Return the name -> Dimension map to consult for attribute access.
 
-def _register_attr(dim: "Dimension") -> "Dimension":
-    """Register a dimension for attribute access via Dimension.name."""
-    if dim.name:
-        _DIMENSION_ATTRS[dim.name] = dim
-    return dim
+    Steady state: the active system's :attr:`UnitSystem.dimensions`.
+    Bootstrap window (before ``ucon/__init__.py`` finishes): the
+    immutable :data:`_STANDARD_ATTRS` produced by
+    :func:`_build_standard_dimensions`.
+
+    During the *very* early load window — while this module's own
+    ``Dimension`` dataclass is being decorated — ``_STANDARD_ATTRS``
+    is not yet bound. The metaclass's ``__getattr__`` is invoked at
+    that point by ``dataclasses._get_field`` to look up per-field
+    defaults; returning an empty mapping makes those lookups raise
+    ``AttributeError`` so the dataclass falls through to the
+    declared defaults.
+    """
+    ctx = _active.get()
+    if ctx is not None:
+        return ctx.system.dimensions
+    return globals().get("_STANDARD_ATTRS", {})
 
 
 class _DimensionMeta(type):
-    """Metaclass providing Dimension.length style attribute access.
+    """Metaclass providing ``Dimension.length`` style attribute access.
 
     This allows both:
-    - `from ucon.dimension import LENGTH` (module constant)
-    - `Dimension.length` (attribute access, discoverable via IDE)
+    - ``from ucon.dimension import LENGTH`` (module constant)
+    - ``Dimension.length`` (attribute access, discoverable via IDE)
+
+    Resolution routes through :func:`_active_dimension_names` so the set
+    of available names follows the active :class:`UnitSystem`.
     """
 
     def __getattr__(cls, name: str) -> "Dimension":
         if name.startswith("_"):
             raise AttributeError(f"type object 'Dimension' has no attribute {name!r}")
-        if name in _DIMENSION_ATTRS:
-            return _DIMENSION_ATTRS[name]
+        registry = _active_dimension_names()
+        if name in registry:
+            return registry[name]
         raise AttributeError(
             f"type object 'Dimension' has no attribute {name!r}. "
-            f"Available dimensions: {', '.join(sorted(_DIMENSION_ATTRS.keys()))}"
+            f"Available dimensions: {', '.join(sorted(registry.keys()))}"
         )
 
     def __dir__(cls) -> list[str]:
         # Include dimension names in dir() for IDE discoverability
-        return list(super().__dir__()) + list(_DIMENSION_ATTRS.keys())
+        return list(super().__dir__()) + list(_active_dimension_names().keys())
 
 
 @dataclass(frozen=True)
@@ -574,18 +604,20 @@ def _build_standard_dimensions() -> tuple[
     Returns
     -------
     (attrs, registry)
-        ``attrs`` maps name -> Dimension (powers ``Dimension.length`` access
-        and ``_DIMENSION_ATTRS`` lookup). ``registry`` maps vector -> Dimension
-        (powers ``resolve(vector)``). Pseudo-dimensions land in ``attrs`` but
-        not in ``registry`` (they share the zero vector and are tag-isolated).
+        ``attrs`` maps name -> Dimension (powers ``Dimension.length``
+        attribute access via :class:`_DimensionMeta`).  ``registry``
+        maps vector -> Dimension (powers :func:`resolve` lookup by
+        exponent vector). Pseudo-dimensions land in ``attrs`` but not in
+        ``registry`` -- they share the zero vector and are tag-isolated.
 
     Notes
     -----
-    This function is pure: it neither reads from nor writes to module-level
-    state. The caller is responsible for seeding ``_REGISTRY`` and
-    ``_DIMENSION_ATTRS`` from the returned dicts. The returned catalog is
-    also the canonical source for the module-level ``LENGTH``/``MASS``/...
-    constants below.
+    This function is pure: it neither reads from nor writes to module-
+    level state. The returned dicts are the canonical source for the
+    module-level ``LENGTH``/``MASS``/... constants below, are wired into
+    the default :class:`~ucon.system.UnitSystem` by
+    :mod:`ucon._bootstrap`, and serve as the bootstrap-window fallback
+    for :func:`resolve` and :class:`_DimensionMeta`.
     """
     attrs: dict[str, "Dimension"] = {}
     registry: dict[Vector, "Dimension"] = {}
@@ -746,8 +778,6 @@ def _build_standard_dimensions() -> tuple[
 
 
 _STANDARD_ATTRS, _STANDARD_REGISTRY = _build_standard_dimensions()
-_REGISTRY.update(_STANDARD_REGISTRY)
-_DIMENSION_ATTRS.update(_STANDARD_ATTRS)
 
 
 # Module-level constants resolved from the catalog. The .pyi stub mirrors
