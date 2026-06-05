@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ucon._active import _active as _sys_active_var
+from ucon._active import resolve_basis_graph
 from ucon.basis.graph import BasisGraph, _build_standard_basis_graph
 from ucon.basis.types import BasisMismatch, LossyProjection, NoTransformPath
 from ucon.basis.vector import Vector
@@ -46,17 +46,11 @@ def _resolve_graph(
     """Pick the BasisGraph to consult.
 
     Preference order: explicit ``graph`` > ``system.basis_graph`` >
-    ContextVar-scoped active graph.
+    ContextVar-scoped active graph > standard graph (bootstrap fallback).
     """
-    if graph is not None:
-        return graph
-    if system is not None:
-        return system.basis_graph
-    ctx = _sys_active_var.get()
-    if ctx is not None:
-        return ctx.system.basis_graph
-    # Bootstrap fallback: active system not yet set.
-    return _build_standard_basis_graph()
+    return resolve_basis_graph(
+        graph=graph, system=system, fallback=_build_standard_basis_graph
+    )
 
 
 def unify(

@@ -41,14 +41,8 @@ from typing import TYPE_CHECKING
 from ucon.basis import Basis, BasisComponent, Vector
 from ucon.basis.builtin import SI
 from ucon.basis.ops import divide_via, multiply_via
-from ucon._active import _active as _sys_active_var
+from ucon._active import resolve_basis
 from ucon._algebra_cache import _get_active_cache
-
-
-def _active_basis() -> Basis:
-    """Return the basis from the active UnitSystem, or SI during bootstrap."""
-    ctx = _sys_active_var.get()
-    return ctx.system.basis if ctx is not None else SI
 
 if TYPE_CHECKING:
     from ucon.basis import BasisTransform
@@ -252,7 +246,7 @@ class Dimension(metaclass=_DimensionMeta):
         True
         """
         if basis is None:
-            basis = _active_basis()
+            basis = resolve_basis(fallback=SI)
 
         # Build component tuple
         exponents = []
@@ -305,7 +299,7 @@ class Dimension(metaclass=_DimensionMeta):
         False
         """
         if basis is None:
-            basis = _active_basis()
+            basis = resolve_basis(fallback=SI)
         if name is None:
             name = tag
 

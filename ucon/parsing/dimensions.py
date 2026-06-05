@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING
 
 from ucon.basis import Basis
 from ucon.basis.builtin import SI
-from ucon._active import _active as _sys_active_var
+from ucon._active import resolve_basis
 from ucon.dimension import (
     NONE,
     Dimension,
@@ -113,11 +113,7 @@ def parse_dimension(
 
     spec = spec.strip()
     if basis is None:
-        if system is not None:
-            basis = system.basis
-        else:
-            ctx = _sys_active_var.get()
-            basis = ctx.system.basis if ctx is not None else SI
+        basis = resolve_basis(system=system, fallback=SI)
 
     # System override: a direct hit in ``system.dimensions`` short-circuits.
     if system is not None:
