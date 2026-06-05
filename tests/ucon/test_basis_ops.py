@@ -29,11 +29,9 @@ from ucon.basis import (
     BasisTransform,
     Vector,
     ops,
-    using_basis_graph,
 )
 from ucon.basis.builtin import SI
-from ucon.basis.graph import get_basis_graph
-from ucon.system import UnitSystem, active_system
+from ucon.system import UnitSystem, active_system, use
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +90,7 @@ class TestUnifyCrossBasis:
     def setup_method(self) -> None:
         self.economic = _economic_basis()
         self.embedding = _si_to_economic(self.economic)
-        self.graph = get_basis_graph().with_transform(self.embedding)
+        self.graph = active_system().basis_graph.with_transform(self.embedding)
 
     def test_forward_projection_si_to_economic(self) -> None:
         si_time = _vec(SI, time=1)
@@ -161,7 +159,7 @@ class TestUnifyFailures:
 class TestMultiplyVia:
     def setup_method(self) -> None:
         self.economic = _economic_basis()
-        self.graph = get_basis_graph().with_transform(_si_to_economic(self.economic))
+        self.graph = active_system().basis_graph.with_transform(_si_to_economic(self.economic))
 
     def test_same_basis_delegates_to_operator(self) -> None:
         kg = _vec(SI, mass=1)
@@ -191,7 +189,7 @@ class TestMultiplyVia:
 class TestDivideVia:
     def setup_method(self) -> None:
         self.economic = _economic_basis()
-        self.graph = get_basis_graph().with_transform(_si_to_economic(self.economic))
+        self.graph = active_system().basis_graph.with_transform(_si_to_economic(self.economic))
 
     def test_same_basis_delegates_to_operator(self) -> None:
         m = _vec(SI, length=1)
@@ -221,7 +219,7 @@ class TestGraphResolution:
     def setup_method(self) -> None:
         self.economic = _economic_basis()
         self.embedding = _si_to_economic(self.economic)
-        self.extended_graph = get_basis_graph().with_transform(self.embedding)
+        self.extended_graph = active_system().basis_graph.with_transform(self.embedding)
 
     def test_explicit_graph_wins(self) -> None:
         """``graph=`` kwarg is honoured even when the active graph is
@@ -230,7 +228,7 @@ class TestGraphResolution:
         s = _vec(SI, time=1)
         # Active graph is the default — has no economic transform.
         # Passing ``graph=`` provides one.
-        with using_basis_graph(BasisGraph()):
+        with use(active_system().with_basis_graph(BasisGraph())):
             result = ops.multiply_via(usd, s, graph=self.extended_graph)
         assert result.basis == self.economic
         assert result["currency"] == 1
@@ -242,7 +240,7 @@ class TestGraphResolution:
         usd = _vec(self.economic, currency=1)
         s = _vec(SI, time=1)
         # Active graph again deliberately empty so it cannot mediate.
-        with using_basis_graph(BasisGraph()):
+        with use(active_system().with_basis_graph(BasisGraph())):
             result = ops.multiply_via(usd, s, system=system)
         assert result.basis == self.economic
 
@@ -251,7 +249,7 @@ class TestGraphResolution:
         ContextVar-scoped graph is used."""
         usd = _vec(self.economic, currency=1)
         s = _vec(SI, time=1)
-        with using_basis_graph(self.extended_graph):
+        with use(active_system().with_basis_graph(self.extended_graph)):
             result = ops.multiply_via(usd, s)
         assert result.basis == self.economic
 

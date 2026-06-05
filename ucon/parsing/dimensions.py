@@ -36,7 +36,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ucon.basis import Basis, get_default_basis
+from ucon.basis import Basis
+from ucon.basis.builtin import SI
+from ucon._active import _active as _sys_active_var
 from ucon.dimension import (
     NONE,
     Dimension,
@@ -73,7 +75,7 @@ def parse_dimension(
         The dimension string to parse.
     basis : Basis, optional
         The basis to interpret component symbols against. Defaults to the
-        active basis from :func:`get_default_basis` (typically SI), or
+        active :class:`UnitSystem`'s ``basis`` (typically SI), or
         ``system.basis`` when ``system`` is provided.
     system : UnitSystem, optional
         When provided, ``system.basis`` supplies the default basis (unless
@@ -111,7 +113,11 @@ def parse_dimension(
 
     spec = spec.strip()
     if basis is None:
-        basis = system.basis if system is not None else get_default_basis()
+        if system is not None:
+            basis = system.basis
+        else:
+            ctx = _sys_active_var.get()
+            basis = ctx.system.basis if ctx is not None else SI
 
     # System override: a direct hit in ``system.dimensions`` short-circuits.
     if system is not None:

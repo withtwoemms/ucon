@@ -5,7 +5,7 @@
 
 import pytest
 
-from ucon import parse, Number, using_conversion_graph, CGS, using_basis
+from ucon import parse, Number, using_conversion_graph, CGS
 from ucon.units import UnknownUnitError, meter, second, kilogram, hour, mile
 from ucon.parsing import _Tokenizer, _TokenType, ParseError
 

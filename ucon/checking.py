@@ -28,9 +28,18 @@ else:
 from ucon._active import _active as _sys_active_var
 from ucon.basis import NoTransformPath
 from ucon.basis.builtin import SI
-from ucon.basis.graph import get_basis_graph
+from ucon.basis.graph import BasisGraph, _build_standard_basis_graph
 from ucon.core import Dimension, DimensionConstraint, KindConstraint, Number, RebasedUnit, Unit, UnitProduct
 from ucon.graph import ConversionNotFound, get_default_graph
+
+
+def _active_basis_graph() -> BasisGraph:
+    """Return the active UnitSystem's basis_graph, or the standard graph
+    during bootstrap."""
+    ctx = _sys_active_var.get()
+    if ctx is not None:
+        return ctx.system.basis_graph
+    return _build_standard_basis_graph()
 
 if TYPE_CHECKING:
     from ucon.system import UnitSystem
@@ -58,7 +67,7 @@ def _dimensions_compatible(actual: Dimension, expected: Dimension) -> bool:
     if actual.vector.basis == expected.vector.basis:
         return False  # same basis, already failed __eq__
 
-    bg = get_basis_graph()
+    bg = _active_basis_graph()
     try:
         if actual.vector.basis != SI:
             actual = actual.in_basis(bg.get_transform(actual.vector.basis, SI))
@@ -138,7 +147,7 @@ def _coerce_via_graph(value: Number, *, system: "UnitSystem | None" = None) -> N
 
     # Determine the SI dimension by transforming through the basis graph
     actual_dim = unit.dimension if isinstance(unit, Unit) else unit.dimension
-    bg = get_basis_graph()
+    bg = _active_basis_graph()
     try:
         if actual_dim.vector.basis != SI:
             si_dim = actual_dim.in_basis(bg.get_transform(actual_dim.vector.basis, SI))

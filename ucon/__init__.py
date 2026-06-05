@@ -64,6 +64,7 @@ from ucon.basis.builtin import (
     NATURAL,
     SI,
 )
+from ucon.basis.graph import _build_standard_basis_graph
 from ucon.basis.transforms import (
     CGS_TO_SI,
     NATURAL_TO_SI,
@@ -155,12 +156,12 @@ _init_graph = units._graph  # Direct reference; get_default_graph() isn't usable
 _init_constants = constants._build_symbol_lookup(_init_graph._package_constants)
 
 _init_system = UnitSystem(
-    basis=get_default_basis(),
+    basis=SI,
     units=units._units,
     dimensions=_DIMENSION_ATTRS,
     base_units=units.si,
     conversion_graph=_init_graph,
-    basis_graph=get_basis_graph(),
+    basis_graph=_build_standard_basis_graph(),
     contexts=getattr(_init_graph, '_contexts', {}),
     constants=_init_constants,
 )

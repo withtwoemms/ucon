@@ -39,11 +39,11 @@ from ucon.basis import (
     BasisTransform,
     Vector,
     ops,
-    using_basis_graph,
 )
 from ucon.basis.builtin import SI
 from ucon.basis.graph import get_basis_graph
 from ucon.dimension import resolve
+from ucon.system import active_system, use
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +117,7 @@ class TestIssue25CrossBasisArithmetic:
         """USD * second -> currency * time, in the economic basis."""
         usd = _vector(self.economic, currency=1)
         second = _vector(SI, time=1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = ops.multiply_via(usd, second)
         assert result.basis == self.economic
         assert result["currency"] == 1
@@ -127,7 +127,7 @@ class TestIssue25CrossBasisArithmetic:
         """USD / year -> currency / time."""
         usd = _vector(self.economic, currency=1)
         year = _vector(SI, time=1)  # year and second share the time dimension
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = ops.divide_via(usd, year)
         assert result.basis == self.economic
         assert result["currency"] == 1
@@ -137,7 +137,7 @@ class TestIssue25CrossBasisArithmetic:
         """Dimensionless scalar multiplication preserves currency/time."""
         usd_per_year = _vector(self.economic, currency=1, time=-1)
         dimensionless = _vector(SI)  # zero vector
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = ops.multiply_via(usd_per_year, dimensionless)
         assert result.basis == self.economic
         assert result["currency"] == 1
@@ -147,7 +147,7 @@ class TestIssue25CrossBasisArithmetic:
         """USD/kg * kg/day -> USD/day (currency / time)."""
         usd_per_kg = _vector(self.economic, currency=1, mass=-1)
         kg_per_day = _vector(SI, mass=1, time=-1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = ops.multiply_via(usd_per_kg, kg_per_day)
         assert result.basis == self.economic
         assert result["currency"] == 1
@@ -159,7 +159,7 @@ class TestIssue25CrossBasisArithmetic:
         usd = _vector(self.economic, currency=1)
         dimensionless_rate = _vector(SI)
         year = _vector(SI, time=1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             mid = ops.multiply_via(usd, dimensionless_rate)
             result = ops.multiply_via(mid, year)
         assert result.basis == self.economic
@@ -170,7 +170,7 @@ class TestIssue25CrossBasisArithmetic:
         """Pure-SI multiplication unchanged by graph extension (regression guard)."""
         kg = _vector(SI, mass=1)
         m_per_s = _vector(SI, length=1, time=-1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = kg * m_per_s
         assert result.basis == SI
         assert result["mass"] == 1
@@ -181,7 +181,7 @@ class TestIssue25CrossBasisArithmetic:
         """Pure-currency multiplication stays in economic basis (regression guard)."""
         usd_a = _vector(self.economic, currency=1)
         usd_b = _vector(self.economic, currency=1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = usd_a * usd_b
         assert result.basis == self.economic
         assert result["currency"] == 2
@@ -201,7 +201,7 @@ class TestIssue25CrossBasisArithmetic:
         unrelated = Basis("unrelated", [BasisComponent("flux", "Φ")])
         flux_vec = _vector(unrelated, flux=1)
         kg_vec = _vector(SI, mass=1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             with pytest.raises(ValueError, match="different bases"):
                 ops.multiply_via(flux_vec, kg_vec)
 
