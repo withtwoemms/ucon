@@ -1514,6 +1514,72 @@ class TestSerializeDimensionFractional:
 
 
 # ---------------------------------------------------------------------------
+# Coverage: Dimension serialization — symbol field round-trip
+# ---------------------------------------------------------------------------
+
+class TestSerializeDimensionSymbol:
+    """The TOML schema for [dimensions.<name>] gained a `symbol` field
+    so the Python-literal catalog can be expressed entirely in TOML
+    without dropping the short symbols (T, L, M, ...) that hang off
+    SI base dimensions.
+    """
+
+    def test_serialize_dimension_with_symbol(self):
+        """Dimension with symbol emits symbol key."""
+        from ucon.basis import Basis, Vector
+        from ucon.dimension import Dimension
+        from fractions import Fraction
+
+        b = Basis("test", ["a"])
+        v = Vector(b, (Fraction(1),))
+        d = Dimension(vector=v, name="length", symbol="L")
+        result = _serialize_dimension(d)
+        assert result["symbol"] == "L"
+
+    def test_serialize_dimension_without_symbol_omits_key(self):
+        """Dimension without symbol omits the key."""
+        from ucon.basis import Basis, Vector
+        from ucon.dimension import Dimension
+        from fractions import Fraction
+
+        b = Basis("test", ["a"])
+        v = Vector(b, (Fraction(1),))
+        d = Dimension(vector=v, name="anonymous")
+        result = _serialize_dimension(d)
+        assert "symbol" not in result
+
+    def test_symbol_round_trip_via_from_toml(self, tmp_path):
+        """A non-standard dimension with a symbol survives TOML round-trip."""
+        from ucon.conversion import ConversionGraph
+
+        toml_content = '''
+[package]
+name = "symtest"
+format_version = "1.0"
+
+[bases.testbasis]
+components = [{name = "foo", symbol = "F"}]
+
+[dimensions.testdim]
+basis = "testbasis"
+vector = [1]
+symbol = "Ξ"
+
+[[units]]
+name = "testunit"
+dimension = "testdim"
+'''
+        path = tmp_path / "symtest.ucon.toml"
+        path.write_text(toml_content)
+        restored = ConversionGraph.from_toml(path)
+
+        unit = restored._name_registry_cs.get("testunit")
+        assert unit is not None
+        assert unit.dimension.symbol == "Ξ"
+        assert unit.dimension.name == "testdim"
+
+
+# ---------------------------------------------------------------------------
 # Coverage: _serialize_transform — binding with fractional target_expression (line 287)
 # ---------------------------------------------------------------------------
 

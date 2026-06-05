@@ -315,6 +315,8 @@ def _serialize_dimension(dim: Dimension) -> dict:
         else:
             components.append(int(c))
     d["vector"] = components
+    if dim.symbol is not None:
+        d["symbol"] = dim.symbol
     if dim.tag is not None:
         d["tag"] = dim.tag
     return d
@@ -745,7 +747,8 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
         )
         vector = Vector(basis, vec_components)
         tag = spec.get("tag")
-        dim_map[name] = Dimension(vector=vector, name=name, tag=tag)
+        symbol = spec.get("symbol")
+        dim_map[name] = Dimension(vector=vector, name=name, symbol=symbol, tag=tag)
 
     # 3. Build transforms
     transform_map: dict[str, Union[BasisTransform, ConstantBoundBasisTransform]] = {}
