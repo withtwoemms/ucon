@@ -39,7 +39,7 @@ from fractions import Fraction
 from typing import TYPE_CHECKING
 
 from ucon.basis import Basis, BasisComponent, Vector
-from ucon.basis.builtin import SI
+from ucon.basis.builtin import ATOMIC, CGS, CGS_EMU, CGS_ESU, NATURAL, PLANCK, SI
 from ucon.basis.ops import divide_via, multiply_via
 from ucon._active import resolve_basis
 from ucon._algebra_cache import _get_active_cache
@@ -565,328 +565,316 @@ class Dimension(metaclass=_DimensionMeta):
 # -----------------------------------------------------------------------------
 
 
-def _vec(*components: int | Fraction) -> Vector:
-    """Shorthand for creating an SI vector with 8 components."""
-    # Pad with zeros if needed
-    padded = list(components) + [0] * (8 - len(components))
-    return Vector(SI, tuple(padded))
-
-
-def _dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
-    """Create and register a standard dimension."""
-    vec = _vec(*components)
-    dim = Dimension(vector=vec, name=name, symbol=symbol)
-    _register(dim)
-    _register_attr(dim)
-    return dim
-
-
-# Dimensionless (NONE)
-NONE = _dim("none")
-
-# 8 Base dimensions (T, L, M, I, Θ, J, N, B)
-TIME = _dim("time", 1, 0, 0, 0, 0, 0, 0, 0, symbol="T")
-LENGTH = _dim("length", 0, 1, 0, 0, 0, 0, 0, 0, symbol="L")
-MASS = _dim("mass", 0, 0, 1, 0, 0, 0, 0, 0, symbol="M")
-CURRENT = _dim("current", 0, 0, 0, 1, 0, 0, 0, 0, symbol="I")
-TEMPERATURE = _dim("temperature", 0, 0, 0, 0, 1, 0, 0, 0, symbol="Θ")
-LUMINOUS_INTENSITY = _dim("luminous_intensity", 0, 0, 0, 0, 0, 1, 0, 0, symbol="J")
-AMOUNT_OF_SUBSTANCE = _dim("amount_of_substance", 0, 0, 0, 0, 0, 0, 1, 0, symbol="N")
-INFORMATION = _dim("information", 0, 0, 0, 0, 0, 0, 0, 1, symbol="B")
-
-# 4 Pseudo-dimensions
-ANGLE = _register_attr(Dimension.pseudo("angle", name="angle", symbol="θ"))
-SOLID_ANGLE = _register_attr(Dimension.pseudo("solid_angle", name="solid_angle", symbol="Ω"))
-RATIO = _register_attr(Dimension.pseudo("ratio", name="ratio"))
-COUNT = _register_attr(Dimension.pseudo("count", name="count"))
-
-# Derived dimensions
-# Mechanics
-VELOCITY = _dim("velocity", -1, 1, 0, 0, 0, 0, 0, 0)  # L/T
-ACCELERATION = _dim("acceleration", -2, 1, 0, 0, 0, 0, 0, 0)  # L/T²
-FORCE = _dim("force", -2, 1, 1, 0, 0, 0, 0, 0)  # M·L/T²
-ENERGY = _dim("energy", -2, 2, 1, 0, 0, 0, 0, 0)  # M·L²/T²
-POWER = _dim("power", -3, 2, 1, 0, 0, 0, 0, 0)  # M·L²/T³
-MOMENTUM = _dim("momentum", -1, 1, 1, 0, 0, 0, 0, 0)  # M·L/T
-ANGULAR_MOMENTUM = _dim("angular_momentum", -1, 2, 1, 0, 0, 0, 0, 0)  # M·L²/T
-AREA = _dim("area", 0, 2, 0, 0, 0, 0, 0, 0)  # L²
-VOLUME = _dim("volume", 0, 3, 0, 0, 0, 0, 0, 0)  # L³
-DENSITY = _dim("density", 0, -3, 1, 0, 0, 0, 0, 0)  # M/L³
-LINEAR_DENSITY = _dim("linear_density", 0, -1, 1, 0, 0, 0, 0, 0)  # M/L
-PRESSURE = _dim("pressure", -2, -1, 1, 0, 0, 0, 0, 0)  # M/(L·T²)
-FREQUENCY = _dim("frequency", -1, 0, 0, 0, 0, 0, 0, 0)  # 1/T
-DYNAMIC_VISCOSITY = _dim("dynamic_viscosity", -1, -1, 1, 0, 0, 0, 0, 0)  # M/(L·T)
-KINEMATIC_VISCOSITY = _dim("kinematic_viscosity", -1, 2, 0, 0, 0, 0, 0, 0)  # L²/T
-GRAVITATION = _dim("gravitation", -2, 3, -1, 0, 0, 0, 0, 0)  # L³/(M·T²)
-
-# Electromagnetism
-CHARGE = _dim("charge", 1, 0, 0, 1, 0, 0, 0, 0)  # I·T
-VOLTAGE = _dim("voltage", -3, 2, 1, -1, 0, 0, 0, 0)  # M·L²/(T³·I)
-RESISTANCE = _dim("resistance", -3, 2, 1, -2, 0, 0, 0, 0)  # M·L²/(T³·I²)
-RESISTIVITY = _dim("resistivity", -3, 3, 1, -2, 0, 0, 0, 0)  # M·L³/(T³·I²)
-CONDUCTANCE = _dim("conductance", 3, -2, -1, 2, 0, 0, 0, 0)  # T³·I²/(M·L²)
-CONDUCTIVITY = _dim("conductivity", 3, -3, -1, 2, 0, 0, 0, 0)  # T³·I²/(M·L³)
-CAPACITANCE = _dim("capacitance", 4, -2, -1, 2, 0, 0, 0, 0)  # T⁴·I²/(M·L²)
-INDUCTANCE = _dim("inductance", -2, 2, 1, -2, 0, 0, 0, 0)  # M·L²/(T²·I²)
-MAGNETIC_FLUX = _dim("magnetic_flux", -2, 2, 1, -1, 0, 0, 0, 0)  # M·L²/(T²·I)
-MAGNETIC_FLUX_DENSITY = _dim("magnetic_flux_density", -2, 0, 1, -1, 0, 0, 0, 0)  # M/(T²·I)
-MAGNETIC_PERMEABILITY = _dim("magnetic_permeability", -2, 1, 1, -2, 0, 0, 0, 0)  # M·L/(T²·I²)
-PERMITTIVITY = _dim("permittivity", 4, -3, -1, 2, 0, 0, 0, 0)  # T⁴·I²/(M·L³)
-ELECTRIC_FIELD_STRENGTH = _dim("electric_field_strength", -3, 1, 1, -1, 0, 0, 0, 0)  # M·L/(T³·I)
-MAGNETIC_FIELD_STRENGTH = _dim("magnetic_field_strength", 0, -1, 0, 1, 0, 0, 0, 0)  # I/L
-
-# Thermodynamics
-ENTROPY = _dim("entropy", -2, 2, 1, 0, -1, 0, 0, 0)  # M·L²/(T²·Θ)
-SPECIFIC_HEAT_CAPACITY = _dim("specific_heat_capacity", -2, 2, 0, 0, -1, 0, 0, 0)  # L²/(T²·Θ)
-THERMAL_CONDUCTIVITY = _dim("thermal_conductivity", -3, 1, 1, 0, -1, 0, 0, 0)  # M·L/(T³·Θ)
-
-# Photometry
-ILLUMINANCE = _dim("illuminance", 0, -2, 0, 0, 0, 1, 0, 0)  # J/L²
-LUMINOUS_EFFICACY = _dim("luminous_efficacy", 3, -2, -1, 0, 0, 1, 0, 0)  # J·T³/(M·L²)
-
-# Chemistry
-CATALYTIC_ACTIVITY = _dim("catalytic_activity", -1, 0, 0, 0, 0, 0, 1, 0)  # N/T
-MOLAR_MASS = _dim("molar_mass", 0, 0, 1, 0, 0, 0, -1, 0)  # M/N
-MOLAR_VOLUME = _dim("molar_volume", 0, 3, 0, 0, 0, 0, -1, 0)  # L³/N
-MOLAR_ENERGY = _dim("molar_energy", -2, 2, 1, 0, 0, 0, -1, 0)  # M·L²/(T²·N)
-MOLAR_ENTROPY = _dim("molar_entropy", -2, 2, 1, 0, -1, 0, -1, 0)  # M·L²/(T²·Θ·N)
-CONCENTRATION = _dim("concentration", 0, -3, 0, 0, 0, 0, 1, 0)  # N/L³
-
-# Specific quantities (per-mass)
-SPECIFIC_ENERGY = _dim("specific_energy", -2, 2, 0, 0, 0, 0, 0, 0)  # L²/T² (J/kg = Gy = Sv)
-
-# Spectroscopy / Radiation
-WAVENUMBER = _dim("wavenumber", 0, -1, 0, 0, 0, 0, 0, 0)  # 1/L
-RADIANT_EXPOSURE = _dim("radiant_exposure", -2, 0, 1, 0, 0, 0, 0, 0)  # M/T²
-EXPOSURE = _dim("exposure", 1, 0, -1, 1, 0, 0, 0, 0)  # I·T/M (radiation exposure, C/kg)
-
-# Electromagnetism (derived)
-ELECTRIC_DIPOLE_MOMENT = _dim("electric_dipole_moment", 1, 1, 0, 1, 0, 0, 0, 0)  # I·T·L
-
-
-# -----------------------------------------------------------------------------
-# CGS Dimensions (Centimetre-Gram-Second)
-# -----------------------------------------------------------------------------
-
-from ucon.basis.builtin import CGS  # noqa: E402
-
-
-def _cgs_vec(*components: int | Fraction) -> Vector:
-    """Shorthand for creating a CGS vector with 3 components (L, M, T)."""
-    padded = list(components) + [0] * (3 - len(components))
-    return Vector(CGS, tuple(padded))
-
-
-def _cgs_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
-    """Create and register a standard CGS dimension."""
-    vec = _cgs_vec(*components)
-    dim = Dimension(vector=vec, name=name, symbol=symbol)
-    _register(dim)
-    _register_attr(dim)
-    return dim
-
-
-# CGS base dimensions
-CGS_NONE = _cgs_dim("cgs_none")
-CGS_LENGTH = _cgs_dim("cgs_length", 1, 0, 0)
-CGS_MASS = _cgs_dim("cgs_mass", 0, 1, 0)
-CGS_TIME = _cgs_dim("cgs_time", 0, 0, 1)
-
-# CGS derived dimensions
-CGS_VELOCITY = _cgs_dim("cgs_velocity", 1, 0, -1)  # L/T
-CGS_FORCE = _cgs_dim("cgs_force", 1, 1, -2)  # M·L/T² (dyne)
-CGS_ENERGY = _cgs_dim("cgs_energy", 2, 1, -2)  # M·L²/T² (erg)
-CGS_PRESSURE = _cgs_dim("cgs_pressure", -1, 1, -2)  # M/(L·T²) (barye)
-CGS_DYNAMIC_VISCOSITY = _cgs_dim("cgs_dynamic_viscosity", -1, 1, -1)  # M/(L·T) (poise)
-CGS_KINEMATIC_VISCOSITY = _cgs_dim("cgs_kinematic_viscosity", 2, 0, -1)  # L²/T (stokes)
-CGS_ACCELERATION = _cgs_dim("cgs_acceleration", 1, 0, -2)  # L/T² (galileo)
-CGS_WAVENUMBER = _cgs_dim("cgs_wavenumber", -1, 0, 0)  # 1/L (kayser)
-CGS_RADIANT_EXPOSURE = _cgs_dim("cgs_radiant_exposure", 0, 1, -2)  # M/T² (langley)
-
-
-# -----------------------------------------------------------------------------
-# CGS-ESU Dimensions (Electrostatic Units)
-# -----------------------------------------------------------------------------
-
-from ucon.basis.builtin import CGS_ESU  # noqa: E402
-
-
-def _cgs_esu_vec(*components: int | Fraction) -> Vector:
-    """Shorthand for creating a CGS-ESU vector with 4 components (L, M, T, Q)."""
-    padded = list(components) + [0] * (4 - len(components))
-    return Vector(CGS_ESU, tuple(padded))
-
-
-def _cgs_esu_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
-    """Create and register a standard CGS-ESU dimension."""
-    vec = _cgs_esu_vec(*components)
-    dim = Dimension(vector=vec, name=name, symbol=symbol)
-    _register(dim)
-    _register_attr(dim)
-    return dim
-
-
-# CGS-ESU electromagnetic dimensions
-# In CGS-ESU, charge Q is the fundamental electromagnetic component.
-# Current is derived as Q·T^(-1). All vectors use the 4-component (L, M, T, Q) basis.
-CGS_ESU_CHARGE = _cgs_esu_dim(
-    "cgs_esu_charge",
-    0, 0, 0, 1,
-)  # statcoulomb: pure Q
-CGS_ESU_CURRENT = _cgs_esu_dim(
-    "cgs_esu_current",
-    0, 0, -1, 1,
-)  # statampere: Q·T^(-1)
-CGS_ESU_VOLTAGE = _cgs_esu_dim(
-    "cgs_esu_voltage",
-    2, 1, -2, -1,
-)  # statvolt: L²·M·T^(-2)·Q^(-1) = energy / charge
-CGS_ESU_RESISTANCE = _cgs_esu_dim(
-    "cgs_esu_resistance",
-    2, 1, -1, -2,
-)  # statohm: L²·M·T^(-1)·Q^(-2) = voltage / current
-CGS_ESU_CAPACITANCE = _cgs_esu_dim(
-    "cgs_esu_capacitance",
-    -2, -1, 2, 2,
-)  # statfarad: L^(-2)·M^(-1)·T²·Q² = charge / voltage
-CGS_ESU_MAGNETIC_FLUX_DENSITY = _cgs_esu_dim(
-    "cgs_esu_magnetic_flux_density",
-    0, 1, -1, -1,
-)  # gauss: M·T^(-1)·Q^(-1) (from SI M·T^(-2)·I^(-1))
-CGS_ESU_MAGNETIC_FLUX = _cgs_esu_dim(
-    "cgs_esu_magnetic_flux",
-    2, 1, -1, -1,
-)  # maxwell: L²·M·T^(-1)·Q^(-1) (from SI M·L²·T^(-2)·I^(-1))
-CGS_ESU_MAGNETIC_FIELD_STRENGTH = _cgs_esu_dim(
-    "cgs_esu_magnetic_field_strength",
-    -1, 0, -1, 1,
-)  # oersted: L^(-1)·T^(-1)·Q (from SI I·L^(-1))
-CGS_ESU_ELECTRIC_DIPOLE_MOMENT = _cgs_esu_dim(
-    "cgs_esu_electric_dipole_moment",
-    1, 0, 0, 1,
-)  # debye: L·Q = charge × length
-
-
-# -----------------------------------------------------------------------------
-# CGS-EMU Dimensions (Electromagnetic Units, 4-component basis: L, M, T, Φ)
-# -----------------------------------------------------------------------------
-# CGS-EMU uses a proper 4-component basis where current (Φ) is the fundamental
-# electromagnetic quantity. This eliminates KOQ collisions that occurred with the
-# old 3-component CGS basis (e.g., EMU_RESISTANCE = L·T^(-1) = CGS_VELOCITY).
-
-from ucon.basis.builtin import CGS_EMU  # noqa: E402
-
-
-def _cgs_emu_vec(*components: int | Fraction) -> Vector:
-    """Shorthand for creating a CGS-EMU vector with 4 components (L, M, T, Φ)."""
-    padded = list(components) + [0] * (4 - len(components))
-    return Vector(CGS_EMU, tuple(padded))
-
-
-def _cgs_emu_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
-    """Create and register a standard CGS-EMU dimension."""
-    vec = _cgs_emu_vec(*components)
-    dim = Dimension(vector=vec, name=name, symbol=symbol)
-    _register(dim)
-    _register_attr(dim)
-    return dim
-
-
-CGS_EMU_CURRENT = _cgs_emu_dim(
-    "cgs_emu_current",
-    0, 0, 0, 1,
-)  # biot/abampere: pure Φ
-CGS_EMU_CHARGE = _cgs_emu_dim(
-    "cgs_emu_charge",
-    0, 0, 1, 1,
-)  # abcoulomb: T·Φ (charge = current × time)
-CGS_EMU_VOLTAGE = _cgs_emu_dim(
-    "cgs_emu_voltage",
-    2, 1, -3, -1,
-)  # abvolt: L²·M·T^(-3)·Φ^(-1) = energy / charge
-CGS_EMU_RESISTANCE = _cgs_emu_dim(
-    "cgs_emu_resistance",
-    2, 1, -3, -2,
-)  # abohm: L²·M·T^(-3)·Φ^(-2) = voltage / current
-CGS_EMU_CAPACITANCE = _cgs_emu_dim(
-    "cgs_emu_capacitance",
-    -2, -1, 4, 2,
-)  # abfarad: L^(-2)·M^(-1)·T⁴·Φ² = charge / voltage
-CGS_EMU_INDUCTANCE = _cgs_emu_dim(
-    "cgs_emu_inductance",
-    2, 1, -2, -2,
-)  # abhenry: L²·M·T^(-2)·Φ^(-2)
-
-
-# -----------------------------------------------------------------------------
-# Natural-unit dimensions (1D basis: energy)
-# -----------------------------------------------------------------------------
-
-from ucon.basis.builtin import NATURAL  # noqa: E402
-
-
-def _natural_vec(*components: int | Fraction) -> Vector:
-    padded = list(components) + [0] * (1 - len(components))
-    return Vector(NATURAL, tuple(padded))
-
-
-def _natural_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
-    vec = _natural_vec(*components)
-    dim = Dimension(vector=vec, name=name, symbol=symbol)
-    _register(dim)
-    _register_attr(dim)
-    return dim
-
-
-NATURAL_ENERGY = _natural_dim("natural_energy", 1)
-
-
-# -----------------------------------------------------------------------------
-# Planck-unit dimensions (1D basis: energy)
-# -----------------------------------------------------------------------------
-
-from ucon.basis.builtin import PLANCK  # noqa: E402
-
-
-def _planck_vec(*components: int | Fraction) -> Vector:
-    padded = list(components) + [0] * (1 - len(components))
-    return Vector(PLANCK, tuple(padded))
-
-
-def _planck_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
-    vec = _planck_vec(*components)
-    dim = Dimension(vector=vec, name=name, symbol=symbol)
-    _register(dim)
-    _register_attr(dim)
-    return dim
-
-
-PLANCK_ENERGY = _planck_dim("planck_energy", 1)   # E¹ (energy ≡ mass ≡ temperature)
-PLANCK_LENGTH = _planck_dim("planck_length", -1)   # E⁻¹ (length ≡ time)
-
-
-# -----------------------------------------------------------------------------
-# Atomic-unit dimensions (1D basis: energy)
-# -----------------------------------------------------------------------------
-
-from ucon.basis.builtin import ATOMIC  # noqa: E402
-
-
-def _atomic_vec(*components: int | Fraction) -> Vector:
-    padded = list(components) + [0] * (1 - len(components))
-    return Vector(ATOMIC, tuple(padded))
-
-
-def _atomic_dim(name: str, *components: int | Fraction, symbol: str | None = None) -> Dimension:
-    vec = _atomic_vec(*components)
-    dim = Dimension(vector=vec, name=name, symbol=symbol)
-    _register(dim)
-    _register_attr(dim)
-    return dim
-
-
-ATOMIC_ENERGY = _atomic_dim("atomic_energy", 1)   # E¹ (energy ≡ mass)
-ATOMIC_LENGTH = _atomic_dim("atomic_length", -1)   # E⁻¹ (length ≡ time)
+def _build_standard_dimensions() -> tuple[
+    dict[str, "Dimension"],
+    dict[Vector, "Dimension"],
+]:
+    """Construct the full catalog of standard named ``Dimension`` objects.
+
+    Returns
+    -------
+    (attrs, registry)
+        ``attrs`` maps name -> Dimension (powers ``Dimension.length`` access
+        and ``_DIMENSION_ATTRS`` lookup). ``registry`` maps vector -> Dimension
+        (powers ``resolve(vector)``). Pseudo-dimensions land in ``attrs`` but
+        not in ``registry`` (they share the zero vector and are tag-isolated).
+
+    Notes
+    -----
+    This function is pure: it neither reads from nor writes to module-level
+    state. The caller is responsible for seeding ``_REGISTRY`` and
+    ``_DIMENSION_ATTRS`` from the returned dicts. The returned catalog is
+    also the canonical source for the module-level ``LENGTH``/``MASS``/...
+    constants below.
+    """
+    attrs: dict[str, "Dimension"] = {}
+    registry: dict[Vector, "Dimension"] = {}
+
+    def _make(
+        basis_obj: Basis,
+        dim_count: int,
+        name: str,
+        *components: int | Fraction,
+        symbol: str | None = None,
+    ) -> "Dimension":
+        padded = list(components) + [0] * (dim_count - len(components))
+        vec = Vector(basis_obj, tuple(padded))
+        dim = Dimension(vector=vec, name=name, symbol=symbol)
+        attrs[name] = dim
+        registry[vec] = dim
+        return dim
+
+    def _pseudo(
+        tag: str,
+        *,
+        name: str,
+        symbol: str | None = None,
+    ) -> "Dimension":
+        dim = Dimension.pseudo(tag, name=name, symbol=symbol)
+        attrs[name] = dim
+        return dim
+
+    # SI: dimensionless
+    _make(SI, 8, "none")
+
+    # SI: 8 base dimensions (T, L, M, I, Θ, J, N, B)
+    _make(SI, 8, "time", 1, 0, 0, 0, 0, 0, 0, 0, symbol="T")
+    _make(SI, 8, "length", 0, 1, 0, 0, 0, 0, 0, 0, symbol="L")
+    _make(SI, 8, "mass", 0, 0, 1, 0, 0, 0, 0, 0, symbol="M")
+    _make(SI, 8, "current", 0, 0, 0, 1, 0, 0, 0, 0, symbol="I")
+    _make(SI, 8, "temperature", 0, 0, 0, 0, 1, 0, 0, 0, symbol="Θ")
+    _make(SI, 8, "luminous_intensity", 0, 0, 0, 0, 0, 1, 0, 0, symbol="J")
+    _make(SI, 8, "amount_of_substance", 0, 0, 0, 0, 0, 0, 1, 0, symbol="N")
+    _make(SI, 8, "information", 0, 0, 0, 0, 0, 0, 0, 1, symbol="B")
+
+    # SI: 4 pseudo-dimensions
+    _pseudo("angle", name="angle", symbol="θ")
+    _pseudo("solid_angle", name="solid_angle", symbol="Ω")
+    _pseudo("ratio", name="ratio")
+    _pseudo("count", name="count")
+
+    # SI: derived - mechanics
+    _make(SI, 8, "velocity", -1, 1, 0, 0, 0, 0, 0, 0)
+    _make(SI, 8, "acceleration", -2, 1, 0, 0, 0, 0, 0, 0)
+    _make(SI, 8, "force", -2, 1, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "energy", -2, 2, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "power", -3, 2, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "momentum", -1, 1, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "angular_momentum", -1, 2, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "area", 0, 2, 0, 0, 0, 0, 0, 0)
+    _make(SI, 8, "volume", 0, 3, 0, 0, 0, 0, 0, 0)
+    _make(SI, 8, "density", 0, -3, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "linear_density", 0, -1, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "pressure", -2, -1, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "frequency", -1, 0, 0, 0, 0, 0, 0, 0)
+    _make(SI, 8, "dynamic_viscosity", -1, -1, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "kinematic_viscosity", -1, 2, 0, 0, 0, 0, 0, 0)
+    _make(SI, 8, "gravitation", -2, 3, -1, 0, 0, 0, 0, 0)
+
+    # SI: derived - electromagnetism
+    _make(SI, 8, "charge", 1, 0, 0, 1, 0, 0, 0, 0)
+    _make(SI, 8, "voltage", -3, 2, 1, -1, 0, 0, 0, 0)
+    _make(SI, 8, "resistance", -3, 2, 1, -2, 0, 0, 0, 0)
+    _make(SI, 8, "resistivity", -3, 3, 1, -2, 0, 0, 0, 0)
+    _make(SI, 8, "conductance", 3, -2, -1, 2, 0, 0, 0, 0)
+    _make(SI, 8, "conductivity", 3, -3, -1, 2, 0, 0, 0, 0)
+    _make(SI, 8, "capacitance", 4, -2, -1, 2, 0, 0, 0, 0)
+    _make(SI, 8, "inductance", -2, 2, 1, -2, 0, 0, 0, 0)
+    _make(SI, 8, "magnetic_flux", -2, 2, 1, -1, 0, 0, 0, 0)
+    _make(SI, 8, "magnetic_flux_density", -2, 0, 1, -1, 0, 0, 0, 0)
+    _make(SI, 8, "magnetic_permeability", -2, 1, 1, -2, 0, 0, 0, 0)
+    _make(SI, 8, "permittivity", 4, -3, -1, 2, 0, 0, 0, 0)
+    _make(SI, 8, "electric_field_strength", -3, 1, 1, -1, 0, 0, 0, 0)
+    _make(SI, 8, "magnetic_field_strength", 0, -1, 0, 1, 0, 0, 0, 0)
+
+    # SI: derived - thermodynamics
+    _make(SI, 8, "entropy", -2, 2, 1, 0, -1, 0, 0, 0)
+    _make(SI, 8, "specific_heat_capacity", -2, 2, 0, 0, -1, 0, 0, 0)
+    _make(SI, 8, "thermal_conductivity", -3, 1, 1, 0, -1, 0, 0, 0)
+
+    # SI: derived - photometry
+    _make(SI, 8, "illuminance", 0, -2, 0, 0, 0, 1, 0, 0)
+    _make(SI, 8, "luminous_efficacy", 3, -2, -1, 0, 0, 1, 0, 0)
+
+    # SI: derived - chemistry
+    _make(SI, 8, "catalytic_activity", -1, 0, 0, 0, 0, 0, 1, 0)
+    _make(SI, 8, "molar_mass", 0, 0, 1, 0, 0, 0, -1, 0)
+    _make(SI, 8, "molar_volume", 0, 3, 0, 0, 0, 0, -1, 0)
+    _make(SI, 8, "molar_energy", -2, 2, 1, 0, 0, 0, -1, 0)
+    _make(SI, 8, "molar_entropy", -2, 2, 1, 0, -1, 0, -1, 0)
+    _make(SI, 8, "concentration", 0, -3, 0, 0, 0, 0, 1, 0)
+
+    # SI: derived - specific quantities (per-mass)
+    _make(SI, 8, "specific_energy", -2, 2, 0, 0, 0, 0, 0, 0)
+
+    # SI: derived - spectroscopy / radiation
+    _make(SI, 8, "wavenumber", 0, -1, 0, 0, 0, 0, 0, 0)
+    _make(SI, 8, "radiant_exposure", -2, 0, 1, 0, 0, 0, 0, 0)
+    _make(SI, 8, "exposure", 1, 0, -1, 1, 0, 0, 0, 0)
+
+    # SI: derived - electromagnetism (additional)
+    _make(SI, 8, "electric_dipole_moment", 1, 1, 0, 1, 0, 0, 0, 0)
+
+    # CGS: base (3 components: L, M, T)
+    _make(CGS, 3, "cgs_none")
+    _make(CGS, 3, "cgs_length", 1, 0, 0)
+    _make(CGS, 3, "cgs_mass", 0, 1, 0)
+    _make(CGS, 3, "cgs_time", 0, 0, 1)
+
+    # CGS: derived
+    _make(CGS, 3, "cgs_velocity", 1, 0, -1)
+    _make(CGS, 3, "cgs_force", 1, 1, -2)
+    _make(CGS, 3, "cgs_energy", 2, 1, -2)
+    _make(CGS, 3, "cgs_pressure", -1, 1, -2)
+    _make(CGS, 3, "cgs_dynamic_viscosity", -1, 1, -1)
+    _make(CGS, 3, "cgs_kinematic_viscosity", 2, 0, -1)
+    _make(CGS, 3, "cgs_acceleration", 1, 0, -2)
+    _make(CGS, 3, "cgs_wavenumber", -1, 0, 0)
+    _make(CGS, 3, "cgs_radiant_exposure", 0, 1, -2)
+
+    # CGS-ESU (4 components: L, M, T, Q)
+    _make(CGS_ESU, 4, "cgs_esu_charge", 0, 0, 0, 1)
+    _make(CGS_ESU, 4, "cgs_esu_current", 0, 0, -1, 1)
+    _make(CGS_ESU, 4, "cgs_esu_voltage", 2, 1, -2, -1)
+    _make(CGS_ESU, 4, "cgs_esu_resistance", 2, 1, -1, -2)
+    _make(CGS_ESU, 4, "cgs_esu_capacitance", -2, -1, 2, 2)
+    _make(CGS_ESU, 4, "cgs_esu_magnetic_flux_density", 0, 1, -1, -1)
+    _make(CGS_ESU, 4, "cgs_esu_magnetic_flux", 2, 1, -1, -1)
+    _make(CGS_ESU, 4, "cgs_esu_magnetic_field_strength", -1, 0, -1, 1)
+    _make(CGS_ESU, 4, "cgs_esu_electric_dipole_moment", 1, 0, 0, 1)
+
+    # CGS-EMU (4 components: L, M, T, Φ)
+    _make(CGS_EMU, 4, "cgs_emu_current", 0, 0, 0, 1)
+    _make(CGS_EMU, 4, "cgs_emu_charge", 0, 0, 1, 1)
+    _make(CGS_EMU, 4, "cgs_emu_voltage", 2, 1, -3, -1)
+    _make(CGS_EMU, 4, "cgs_emu_resistance", 2, 1, -3, -2)
+    _make(CGS_EMU, 4, "cgs_emu_capacitance", -2, -1, 4, 2)
+    _make(CGS_EMU, 4, "cgs_emu_inductance", 2, 1, -2, -2)
+
+    # Natural (1 component: E)
+    _make(NATURAL, 1, "natural_energy", 1)
+
+    # Planck (1 component: E — energy ≡ mass ≡ temperature; length ≡ time)
+    _make(PLANCK, 1, "planck_energy", 1)
+    _make(PLANCK, 1, "planck_length", -1)
+
+    # Atomic (1 component: E — energy ≡ mass; length ≡ time)
+    _make(ATOMIC, 1, "atomic_energy", 1)
+    _make(ATOMIC, 1, "atomic_length", -1)
+
+    return attrs, registry
+
+
+_STANDARD_ATTRS, _STANDARD_REGISTRY = _build_standard_dimensions()
+_REGISTRY.update(_STANDARD_REGISTRY)
+_DIMENSION_ATTRS.update(_STANDARD_ATTRS)
+
+
+# Module-level constants resolved from the catalog. The .pyi stub mirrors
+# these declarations so static analysis sees them; runtime values come from
+# the builder's output dict.
+
+# Dimensionless
+NONE = _STANDARD_ATTRS["none"]
+
+# 8 base dimensions
+TIME = _STANDARD_ATTRS["time"]
+LENGTH = _STANDARD_ATTRS["length"]
+MASS = _STANDARD_ATTRS["mass"]
+CURRENT = _STANDARD_ATTRS["current"]
+TEMPERATURE = _STANDARD_ATTRS["temperature"]
+LUMINOUS_INTENSITY = _STANDARD_ATTRS["luminous_intensity"]
+AMOUNT_OF_SUBSTANCE = _STANDARD_ATTRS["amount_of_substance"]
+INFORMATION = _STANDARD_ATTRS["information"]
+
+# 4 pseudo-dimensions
+ANGLE = _STANDARD_ATTRS["angle"]
+SOLID_ANGLE = _STANDARD_ATTRS["solid_angle"]
+RATIO = _STANDARD_ATTRS["ratio"]
+COUNT = _STANDARD_ATTRS["count"]
+
+# Derived: mechanics
+VELOCITY = _STANDARD_ATTRS["velocity"]
+ACCELERATION = _STANDARD_ATTRS["acceleration"]
+FORCE = _STANDARD_ATTRS["force"]
+ENERGY = _STANDARD_ATTRS["energy"]
+POWER = _STANDARD_ATTRS["power"]
+MOMENTUM = _STANDARD_ATTRS["momentum"]
+ANGULAR_MOMENTUM = _STANDARD_ATTRS["angular_momentum"]
+AREA = _STANDARD_ATTRS["area"]
+VOLUME = _STANDARD_ATTRS["volume"]
+DENSITY = _STANDARD_ATTRS["density"]
+LINEAR_DENSITY = _STANDARD_ATTRS["linear_density"]
+PRESSURE = _STANDARD_ATTRS["pressure"]
+FREQUENCY = _STANDARD_ATTRS["frequency"]
+DYNAMIC_VISCOSITY = _STANDARD_ATTRS["dynamic_viscosity"]
+KINEMATIC_VISCOSITY = _STANDARD_ATTRS["kinematic_viscosity"]
+GRAVITATION = _STANDARD_ATTRS["gravitation"]
+
+# Derived: electromagnetism
+CHARGE = _STANDARD_ATTRS["charge"]
+VOLTAGE = _STANDARD_ATTRS["voltage"]
+RESISTANCE = _STANDARD_ATTRS["resistance"]
+RESISTIVITY = _STANDARD_ATTRS["resistivity"]
+CONDUCTANCE = _STANDARD_ATTRS["conductance"]
+CONDUCTIVITY = _STANDARD_ATTRS["conductivity"]
+CAPACITANCE = _STANDARD_ATTRS["capacitance"]
+INDUCTANCE = _STANDARD_ATTRS["inductance"]
+MAGNETIC_FLUX = _STANDARD_ATTRS["magnetic_flux"]
+MAGNETIC_FLUX_DENSITY = _STANDARD_ATTRS["magnetic_flux_density"]
+MAGNETIC_PERMEABILITY = _STANDARD_ATTRS["magnetic_permeability"]
+PERMITTIVITY = _STANDARD_ATTRS["permittivity"]
+ELECTRIC_FIELD_STRENGTH = _STANDARD_ATTRS["electric_field_strength"]
+MAGNETIC_FIELD_STRENGTH = _STANDARD_ATTRS["magnetic_field_strength"]
+
+# Derived: thermodynamics
+ENTROPY = _STANDARD_ATTRS["entropy"]
+SPECIFIC_HEAT_CAPACITY = _STANDARD_ATTRS["specific_heat_capacity"]
+THERMAL_CONDUCTIVITY = _STANDARD_ATTRS["thermal_conductivity"]
+
+# Derived: photometry
+ILLUMINANCE = _STANDARD_ATTRS["illuminance"]
+LUMINOUS_EFFICACY = _STANDARD_ATTRS["luminous_efficacy"]
+
+# Derived: chemistry
+CATALYTIC_ACTIVITY = _STANDARD_ATTRS["catalytic_activity"]
+MOLAR_MASS = _STANDARD_ATTRS["molar_mass"]
+MOLAR_VOLUME = _STANDARD_ATTRS["molar_volume"]
+MOLAR_ENERGY = _STANDARD_ATTRS["molar_energy"]
+MOLAR_ENTROPY = _STANDARD_ATTRS["molar_entropy"]
+CONCENTRATION = _STANDARD_ATTRS["concentration"]
+
+# Derived: specific quantities (per-mass)
+SPECIFIC_ENERGY = _STANDARD_ATTRS["specific_energy"]
+
+# Derived: spectroscopy / radiation
+WAVENUMBER = _STANDARD_ATTRS["wavenumber"]
+RADIANT_EXPOSURE = _STANDARD_ATTRS["radiant_exposure"]
+EXPOSURE = _STANDARD_ATTRS["exposure"]
+
+# Derived: electromagnetism (additional)
+ELECTRIC_DIPOLE_MOMENT = _STANDARD_ATTRS["electric_dipole_moment"]
+
+# CGS base + derived
+CGS_NONE = _STANDARD_ATTRS["cgs_none"]
+CGS_LENGTH = _STANDARD_ATTRS["cgs_length"]
+CGS_MASS = _STANDARD_ATTRS["cgs_mass"]
+CGS_TIME = _STANDARD_ATTRS["cgs_time"]
+CGS_VELOCITY = _STANDARD_ATTRS["cgs_velocity"]
+CGS_FORCE = _STANDARD_ATTRS["cgs_force"]
+CGS_ENERGY = _STANDARD_ATTRS["cgs_energy"]
+CGS_PRESSURE = _STANDARD_ATTRS["cgs_pressure"]
+CGS_DYNAMIC_VISCOSITY = _STANDARD_ATTRS["cgs_dynamic_viscosity"]
+CGS_KINEMATIC_VISCOSITY = _STANDARD_ATTRS["cgs_kinematic_viscosity"]
+CGS_ACCELERATION = _STANDARD_ATTRS["cgs_acceleration"]
+CGS_WAVENUMBER = _STANDARD_ATTRS["cgs_wavenumber"]
+CGS_RADIANT_EXPOSURE = _STANDARD_ATTRS["cgs_radiant_exposure"]
+
+# CGS-ESU
+CGS_ESU_CHARGE = _STANDARD_ATTRS["cgs_esu_charge"]
+CGS_ESU_CURRENT = _STANDARD_ATTRS["cgs_esu_current"]
+CGS_ESU_VOLTAGE = _STANDARD_ATTRS["cgs_esu_voltage"]
+CGS_ESU_RESISTANCE = _STANDARD_ATTRS["cgs_esu_resistance"]
+CGS_ESU_CAPACITANCE = _STANDARD_ATTRS["cgs_esu_capacitance"]
+CGS_ESU_MAGNETIC_FLUX_DENSITY = _STANDARD_ATTRS["cgs_esu_magnetic_flux_density"]
+CGS_ESU_MAGNETIC_FLUX = _STANDARD_ATTRS["cgs_esu_magnetic_flux"]
+CGS_ESU_MAGNETIC_FIELD_STRENGTH = _STANDARD_ATTRS["cgs_esu_magnetic_field_strength"]
+CGS_ESU_ELECTRIC_DIPOLE_MOMENT = _STANDARD_ATTRS["cgs_esu_electric_dipole_moment"]
+
+# CGS-EMU
+CGS_EMU_CURRENT = _STANDARD_ATTRS["cgs_emu_current"]
+CGS_EMU_CHARGE = _STANDARD_ATTRS["cgs_emu_charge"]
+CGS_EMU_VOLTAGE = _STANDARD_ATTRS["cgs_emu_voltage"]
+CGS_EMU_RESISTANCE = _STANDARD_ATTRS["cgs_emu_resistance"]
+CGS_EMU_CAPACITANCE = _STANDARD_ATTRS["cgs_emu_capacitance"]
+CGS_EMU_INDUCTANCE = _STANDARD_ATTRS["cgs_emu_inductance"]
+
+# Natural / Planck / Atomic
+NATURAL_ENERGY = _STANDARD_ATTRS["natural_energy"]
+PLANCK_ENERGY = _STANDARD_ATTRS["planck_energy"]
+PLANCK_LENGTH = _STANDARD_ATTRS["planck_length"]
+ATOMIC_ENERGY = _STANDARD_ATTRS["atomic_energy"]
+ATOMIC_LENGTH = _STANDARD_ATTRS["atomic_length"]
 
 
 def basis() -> tuple[Dimension, ...]:
