@@ -1,23 +1,14 @@
 # Building Isolated UnitSystems
 
-ucon's v1.8 `UnitSystem` value type lets you bundle a basis, the unit and
-dimension registries, the conversion and basis graphs, and a canonical
-`BaseUnits` mapping into a single passable value. This guide covers when and
-how to construct an *isolated* `UnitSystem` — one that doesn't share state
-with the global default.
+ucon's `UnitSystem` value type bundles a basis, the unit and dimension
+registries, the conversion and basis graphs, and a canonical `BaseUnits`
+mapping into a single passable value. This guide covers when and how to
+construct an *isolated* `UnitSystem` — one that doesn't share state with the
+global default.
 
 For the rationale and equality semantics, see the
 [UnitSystem Value Type](../architecture/unitsystem-value-type.md) architecture
 page.
-
-!!! note "v1.8+"
-    `UnitSystem` is available starting in ucon 1.8. The legacy import
-    `from ucon import UnitSystem` still resolves to `BaseUnits` with a
-    `PendingDeprecationWarning`. Import the new type explicitly:
-
-    ```python
-    from ucon.system import UnitSystem
-    ```
 
 ---
 
@@ -26,14 +17,13 @@ page.
 There are three ways to obtain a `UnitSystem`:
 
 ```python
-from ucon.system import UnitSystem, BaseUnits
-from ucon import units
+from ucon import UnitSystem, BaseUnits, active_system, units
 
-# 1. Snapshot the current globals
-default = UnitSystem.from_globals()
+# 1. Capture the active system
+default = active_system()
 
-# 2. Snapshot with a different BaseUnits mapping
-imperial = UnitSystem.from_globals(base_units=units.imperial)
+# 2. Derive with a different BaseUnits mapping
+imperial = default.with_base_units(units.imperial)
 
 # 3. Construct directly to replace specific registries
 isolated = UnitSystem(
@@ -66,12 +56,12 @@ test's units. An isolated `UnitSystem` gives each test its own
 
 ```python
 import pytest
-from ucon.system import UnitSystem, use
+from ucon import UnitSystem, active_system, use
 from ucon.graph import ConversionGraph
 
 @pytest.fixture
 def isolated_system():
-    parent = UnitSystem.from_globals()
+    parent = active_system()
     return UnitSystem(
         basis=parent.basis,
         units=parent.units,
@@ -125,16 +115,16 @@ This worked example builds a fully self-contained `UnitSystem` that registers
 aerospace units in its *own* conversion graph, leaving the global graph
 untouched.
 
-### Step 1: Snapshot the parent
+### Step 1: Capture the parent
 
 ```python
-from ucon.system import UnitSystem
+from ucon import active_system
 
-parent = UnitSystem.from_globals()
+parent = active_system()
 ```
 
-`parent` shares its `units` and `dimensions` registries with the globals (by
-reference). That's fine — we only want to isolate the conversion graph.
+`parent` shares its `units` and `dimensions` registries with the active system
+(by reference). That's fine — we only want to isolate the conversion graph.
 
 ### Step 2: Start a fresh conversion graph
 
@@ -185,7 +175,7 @@ aero_system = UnitSystem(
 ### Step 5: Activate with `use(...)`
 
 ```python
-from ucon.system import use
+from ucon import use
 
 with use(aero_system):
     mass_kg = slug(1).to(kilogram)
@@ -193,7 +183,7 @@ with use(aero_system):
 ```
 
 Outside the with-block, the global graph is unchanged — `slug` is not
-registered, `nautical_mile` is not registered, and the v1.8 user-facing entry
+registered, `nautical_mile` is not registered, and the user-facing entry
 points (`Number.to`, `enforce_dimensions`, `parse`, `parse_unit`,
 `parse_dimension`, `ucon.basis.ops.*`) see only what the global registries
 expose.
@@ -202,7 +192,7 @@ expose.
 
 ## Threading `system=` Explicitly
 
-`use(...)` sets a `ContextVar`. Every v1.8 entry point that reads the active
+`use(...)` sets a `ContextVar`. Every entry point that reads the active
 system also accepts `system=` as an explicit override. Use it when you want a
 call-site decision rather than a contextmanager:
 
@@ -231,59 +221,59 @@ where you want to assert "this call must use *that* system" without nesting.
 
 ## Equality and Reuse
 
-Two snapshots produced by `from_globals()` compare equal even though they are
+Two captures of `active_system()` compare equal even though they are
 distinct objects:
 
 ```python
-a = UnitSystem.from_globals()
-b = UnitSystem.from_globals()
+a = active_system()
+b = active_system()
 assert a == b
 assert hash(a) == hash(b)
 ```
 
-Snapshots remain equal until you mutate one of the shared registries. If your
-pipeline relies on `__hash__` (e.g., as a dict key), pin one snapshot at
-startup rather than re-snapshotting per call.
+Systems remain equal until you mutate one of the shared registries. If your
+pipeline relies on `__hash__` (e.g., as a dict key), pin one system at
+startup rather than re-capturing per call.
 
 A directly-constructed `UnitSystem` with an isolated graph compares *unequal*
-to a globals snapshot:
+to the active system:
 
 ```python
-aero_system == UnitSystem.from_globals()  # False (different graph identity)
+aero_system == active_system()  # False (different graph identity)
 ```
 
 That's by design: a different conversion graph means a different world.
 
 ---
 
-## Migration from v1.7 `using_*` Stacks
+## Replacing Legacy `using_*` Stacks
 
-In v1.7 isolating "the world" required three separate context managers:
+Prior to v2.0, isolating "the world" required multiple nested context managers:
 
 ```python
-# v1.7 — three nested contexts
+# Legacy — three nested contexts (removed in v2.0)
 with using_basis(my_basis), using_conversion_graph(my_graph), using_context(my_ctx):
     ...
 ```
 
-v1.8 collapses that to one:
+v2.0 collapses that to one:
 
 ```python
-# v1.8 — one UnitSystem
+# v2.0 — one UnitSystem
 my_system = UnitSystem(
     basis=my_basis,
     conversion_graph=my_graph,
     contexts={"my_ctx": my_ctx},
-    # other fields from parent snapshot
+    # other fields from parent system
     ...
 )
 with use(my_system):
     ...
 ```
 
-The legacy `using_*` context managers continue to work in v1.8 — they're not
-deprecated and still drive the underlying `ContextVar`s. `use(...)` is the
-*aggregated* form when you want one value to capture all of it.
+`use(...)` sets a single `ContextVar` that carries the entire `UnitSystem`.
+The legacy `using_basis`, `using_basis_graph`, and related per-field context
+managers have been removed in v2.0.
 
 ---
 
@@ -318,5 +308,5 @@ When you write a test that builds an isolated `UnitSystem`, verify:
 ## Further Reading
 
 - [UnitSystem Value Type](../architecture/unitsystem-value-type.md) — the rationale
-- [Custom Units & Graphs](custom-units-and-graphs.md) — graph-only isolation (pre-v1.8 idiom)
+- [Custom Units & Graphs](custom-units-and-graphs.md) — graph-only isolation
 - [Particle Physics walkthrough](domain-walkthroughs/particle-physics.md) — end-to-end example

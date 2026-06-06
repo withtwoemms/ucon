@@ -419,21 +419,24 @@ convert(value=1, from_unit="slug", to_unit="lb")
 
 ## All Dimensions
 
+65 named dimensions across the SI basis (including CGS-EMU electromagnetic dimensions and pseudo-dimensions).
+
 | | | | |
-|-------------------------|-------------------------|-------------------------|-------------------------|
-| acceleration            | current                 | information             | permittivity            |
-| angle                   | density                 | kinematic_viscosity     | power                   |
-| angular_momentum        | dynamic_viscosity       | length                  | pressure                |
-| area                    | electric_field_strength | luminous_intensity      | ratio                   |
-| capacitance             | energy                  | magnetic_flux           | resistance              |
-| catalytic_activity      | entropy                 | magnetic_flux_density   | resistivity             |
-| cgs_emu_capacitance     | exposure                | magnetic_permeability   | solid_angle             |
-| cgs_emu_charge          | force                   | mass                    | specific_heat_capacity  |
-| cgs_emu_current         | frequency               | molar_mass              | temperature             |
-| cgs_emu_inductance      | gravitation             | molar_volume            | thermal_conductivity    |
-| cgs_emu_resistance      | illuminance             | momentum                | time                    |
-| cgs_emu_voltage         | inductance              | none                    | velocity                |
-| charge                  |                         |                         | voltage                 |
-| conductance             |                         |                         | volume                  |
-| conductivity            |                         |                         |                         |
-| count                   |                         |                         |                         |
+|-------------------------------|-------------------------------|-------------------------------|-------------------------------|
+| acceleration                  | count                         | linear_density                | radiant_exposure              |
+| amount_of_substance           | current                       | luminous_efficacy             | ratio                         |
+| angle                         | density                       | luminous_intensity            | resistance                    |
+| angular_momentum              | dynamic_viscosity             | magnetic_field_strength       | resistivity                   |
+| area                          | electric_dipole_moment        | magnetic_flux                 | solid_angle                   |
+| capacitance                   | electric_field_strength       | magnetic_flux_density         | specific_energy               |
+| catalytic_activity            | energy                        | magnetic_permeability         | specific_heat_capacity        |
+| cgs_emu_capacitance           | entropy                       | mass                          | temperature                   |
+| cgs_emu_charge                | exposure                      | molar_energy                  | thermal_conductivity          |
+| cgs_emu_current               | force                         | molar_entropy                 | time                          |
+| cgs_emu_inductance            | frequency                     | molar_mass                    | velocity                      |
+| cgs_emu_resistance            | gravitation                   | molar_volume                  | voltage                       |
+| cgs_emu_voltage               | illuminance                   | momentum                      | volume                        |
+| charge                        | inductance                    | none                          | wavenumber                    |
+| concentration                 | information                   | permittivity                  |                               |
+| conductance                   | kinematic_viscosity           | power                         |                               |
+| conductivity                  | length                        | pressure                      |                               |

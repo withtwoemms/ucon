@@ -57,6 +57,7 @@ nav:
     - Isolated UnitSystems: guides/building-isolated-unitsystems.md
     - Conversion Contexts: guides/conversion-contexts.md
     - Natural Units: guides/natural-units.md
+    - Migrating to v2.0: guides/migrating-to-v2.md
     - MCP Server:
       - external/ucon-tools/docs/guides/mcp-server/index.md
       - Custom Units: external/ucon-tools/docs/guides/mcp-server/custom-units.md

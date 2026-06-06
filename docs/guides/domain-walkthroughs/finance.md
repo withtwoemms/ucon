@@ -200,10 +200,140 @@ convert(value=5.25, from_unit="%", to_unit="s")
 
 ---
 
+## Advanced: Currency as a Basis Extension
+
+The salary chain above models `dollar` as `Dimension.count`. That works for
+simple chains, but it's semantically wrong --- dollars are not counts of
+discrete items. The defect surfaces when you try it:
+
+```python
+from ucon import units
+
+dollar = Unit(name="dollar", dimension=Dimension.count, aliases=("USD",))
+
+# This succeeds --- but it shouldn't:
+dollar(100).to(units.each)   # <100 ea>  (dollars became "items")
+dollar(50) + units.each(3)   # <53 USD>  (added money to a count)
+```
+
+The root cause is the same degeneracy pattern the
+[Domain-Specific Bases](../domain-bases/index.md) guides address: two
+physically distinct quantities (`currency` and `count`) share the same SI
+dimension (dimensionless / pseudo-count). The fix is to extend the basis
+with a `currency` component.
+
+### Extended Basis
+
+```python
+from ucon.basis import Basis, BasisComponent, Vector
+from ucon.core import Dimension, Unit
+from fractions import Fraction
+
+FINANCIAL = Basis("Financial", [
+    BasisComponent("time", "T"),
+    BasisComponent("count", "N"),
+    BasisComponent("currency", "C"),   # the hidden qualifier
+])
+```
+
+### Dimensional Vectors
+
+| Quantity | Vector | Example Unit |
+|----------|--------|--------------|
+| Time | T¹N⁰C⁰ | hour, year |
+| Count | T⁰N¹C⁰ | each, shares |
+| Currency | T⁰N⁰C¹ | USD, EUR |
+| Wage rate | T⁻¹N⁰C¹ | $/hr |
+| Price per unit | T⁰N⁻¹C¹ | $/share |
+| Count rate | T⁻¹N¹C⁰ | shares/day |
+
+### Implementation
+
+```python
+# Dimensions
+currency_dim = Dimension(
+    vector=Vector(FINANCIAL, (0, 0, 1)),
+    name="currency"
+)  # C¹
+
+count_dim = Dimension(
+    vector=Vector(FINANCIAL, (0, 1, 0)),
+    name="count"
+)  # N¹
+
+wage_rate_dim = Dimension(
+    vector=Vector(FINANCIAL, (-1, 0, 1)),
+    name="wage_rate"
+)  # C¹T⁻¹
+
+price_per_unit_dim = Dimension(
+    vector=Vector(FINANCIAL, (0, -1, 1)),
+    name="price_per_unit"
+)  # C¹N⁻¹
+
+# Units
+dollar = Unit(name="dollar", shorthand="USD", dimension=currency_dim)
+share  = Unit(name="share",  shorthand="sh",  dimension=count_dim)
+```
+
+### Safety
+
+Currency and count are now structurally distinct:
+
+```python
+dollar(100) + share(5)
+# raises: incompatible dimensions (C¹ vs N¹)
+
+dollar(100).to(units.each)
+# raises: no conversion path (currency ≠ count)
+```
+
+### Wage Rate Chain
+
+The salary chain now carries proper dimensions through every step:
+
+```python
+from ucon import units as u
+
+annual_salary = dollar(85_000)          # C¹
+hours_per_year = u.hour(52 * 40)        # T¹
+
+hourly_rate = annual_salary / hours_per_year
+# dimension: C¹ / T¹ = C¹T⁻¹ (wage_rate)
+print(f"${hourly_rate.quantity:.2f}/hr")  # $40.87/hr
+```
+
+Mixing in a count-rate by accident is caught:
+
+```python
+# Shares traded per day
+trade_rate = share(1000) / u.day(1)     # N¹T⁻¹ (count_rate)
+
+hourly_rate + trade_rate
+# raises: incompatible dimensions (C¹T⁻¹ vs N¹T⁻¹)
+```
+
+### When This Matters
+
+| Scenario | Without Basis Extension | With Basis Extension |
+|----------|------------------------|----------------------|
+| `dollar(100) + each(5)` | Silently succeeds (53) | Dimension error |
+| `dollar(100).to(each)` | Converts to 100 ea | No conversion path |
+| `$/hr + shares/day` | Same dimension (count/time) | Distinct (C¹T⁻¹ vs N¹T⁻¹) |
+| Portfolio: `price * shares` | count² | C¹N¹ (market value × position size) |
+
+For quick calculations where currency is the only non-SI quantity, the
+`Dimension.count` hack is adequate. For systems that mix currencies, share
+counts, and time-denominated rates in the same pipeline, the basis extension
+prevents a class of errors that dimensional analysis alone cannot catch.
+
+---
+
 ## Key Takeaways
 
 1. **Basis points, percent, and fractions are the same dimension** --- ucon converts between them automatically
 2. **Pseudo-dimensions isolate ratios from angles** --- 50 bp cannot become 50 rad
 3. **Salary chains track units through each step** --- $/yr x yr/wk x wk/hr = $/hr
-4. **Custom units extend the graph** --- currencies, day count conventions, and other financial units load via `define_unit`
-5. **Both interfaces validate dimensions** --- ratio != time, ratio != angle
+4. **Currency is not count** --- for pipelines mixing money, shares, and rates, a basis extension with a `currency` component prevents silent conflation
+5. **Custom units extend the graph** --- currencies, day count conventions, and other financial units load via `define_unit`
+6. **Both interfaces validate dimensions** --- ratio != time, ratio != angle

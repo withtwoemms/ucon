@@ -552,20 +552,20 @@ class Graph:
                 for factor in unit.factors
             )
         # Units that participate in plain Unit→Unit edges live in
-        # ``_unit_edges`` (as both src and dst nodes are stored there).
-        for per_dim in self._unit_edges.values():
+        # ``_unit_edges`` (as both src and dst nodes are stored there),
+        # keyed by their own ``dimension``. Scanning only that bucket
+        # avoids an O(dimensions × nodes) traversal on every conversion.
+        per_dim = self._unit_edges.get(unit.dimension)
+        if per_dim is not None:
             for node in per_dim:
                 if node is unit:
                     return True
         # Units that participate only in product edges (e.g. ``pH`` with
         # ``mole/liter ↔ pH``) are still registered in
-        # ``_name_registry_cs`` via ``register_unit``. That registry is
-        # the canonical "this graph blessed this Unit instance" surface,
-        # so an identity hit there is just as authoritative.
-        for node in self._name_registry_cs.values():
-            if node is unit:
-                return True
-        return False
+        # ``_name_registry_cs`` via ``register_unit`` under their
+        # canonical ``name``. An identity hit there is just as
+        # authoritative as a hit in ``_unit_edges``.
+        return self._name_registry_cs.get(unit.name) is unit
 
     def copy(self) -> 'Graph':
         """Return a deep copy suitable for extension.

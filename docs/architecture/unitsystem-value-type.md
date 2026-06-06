@@ -1,13 +1,13 @@
 # UnitSystem as a Value Type
 
-In v1.8, ucon introduced `UnitSystem` (`ucon.system.UnitSystem`) — a frozen
-dataclass that bundles a basis, the registries (units, dimensions, conversion_graph,
-basis graph, contexts, constants), a canonical `BaseUnits` mapping, and a
-per-instance algebra cache.
+`UnitSystem` (`ucon.system.UnitSystem`) is a frozen dataclass that bundles a
+basis, the registries (units, dimensions, conversion_graph, basis graph,
+contexts, constants), a canonical `BaseUnits` mapping, and a per-instance
+algebra cache.
 
 This page explains *why* `UnitSystem` is a value type, what equality means for
-it, and how it relates to the module-level globals that have driven ucon since
-v0.x.
+it, and how it relates to the module-level globals that drove earlier ucon
+versions.
 
 ---
 
@@ -43,7 +43,7 @@ The pair `(BaseUnits, UnitSystem)` is intentional:
 
 ## Why a Value Type, Not Globals
 
-Before v1.8 every call into ucon read four module-level singletons:
+Before the `UnitSystem` value type, every call into ucon read four module-level singletons:
 
 1. `ucon._loader._UNITS` — the name → Unit registry
 2. `ucon.dimension._DIMENSION_ATTRS` — the name → Dimension registry
@@ -54,8 +54,8 @@ That worked, but had three sharp edges:
 
 **1. Implicit coupling.** A function that read three of those globals had no
 type-level record of that fact. Threading explicit state through a pipeline
-required four context managers (`using_basis`, `using_basis_graph`,
-`using_conversion_graph`, plus an ad-hoc registry swap for `ucon._loader`).
+required multiple context managers (one per field), each managing its own
+`ContextVar`.
 
 **2. Test isolation.** Tests that touched the registries had to remember to
 restore them in `finally` blocks. A leaked unit registration in test A could
@@ -70,17 +70,16 @@ caller's basis handling can poison memoized entries for everyone else.
 named value:
 
 ```python
-from ucon.system import UnitSystem, use
+from ucon import active_system, use
 
-snapshot = UnitSystem.from_globals()
-with use(snapshot):
-    # Every entry point sees the same snapshot
+system = active_system()
+with use(system):
+    # Every entry point sees the same system
     ...
 ```
 
-The four singletons are still there in v1.8 — `UnitSystem.from_globals()` reads
-them — but every user-facing entry point now accepts `system=` and the
-contextmanager `use(...)` sets a `ContextVar` that callees can pick up.
+Every user-facing entry point accepts `system=` and the context manager
+`use(...)` sets a `ContextVar` that callees can pick up.
 
 ---
 
@@ -104,14 +103,14 @@ Equality splits across that line:
 | `constants`        | by identity | dict                                         |
 | `_algebra_cache`   | excluded    | per-instance memoization, not part of value  |
 
-Two snapshots produced by `UnitSystem.from_globals()` back-to-back are equal:
-the basis and base units compare by value, and the registries are passed
-through by reference (the snapshot does not copy them).
+Two captures of `active_system()` back-to-back are equal: the basis and base
+units compare by value, and the registries are passed through by reference
+(the system does not copy them).
 
-Modifying the global registries between snapshots breaks that — by design.
-Mutation of a shared world should change identity of every snapshot pointing at
-it, and identity-equality on `units`/`dimensions`/`conversion_graph` captures
-exactly that.
+Modifying the registries between captures breaks that — by design. Mutation of
+a shared world should change identity of every system pointing at it, and
+identity-equality on `units`/`dimensions`/`conversion_graph` captures exactly
+that.
 
 ---
 
@@ -120,15 +119,8 @@ exactly that.
 `Dimension.__mul__`, `__truediv__`, and `__pow__` are hot — every parsed
 compound unit lands in them. ucon memoizes results in three dicts.
 
-In v1.7 those dicts lived at module level in `ucon.dimension`:
-
-```python
-_DIM_MUL_CACHE: dict[tuple[Dimension, Dimension], Dimension] = {}
-_DIM_DIV_CACHE: dict[tuple[Dimension, Dimension], Dimension] = {}
-_DIM_POW_CACHE: dict[tuple[Dimension, Fraction], Dimension] = {}
-```
-
-That worked but conflated two different cache lifetimes:
+Historically, those dicts lived at module level. That conflated two different
+cache lifetimes:
 
 - **Process-lifetime memoization** for repeated lookups of `LENGTH * MASS` —
   legitimate, fast, never invalidated.
@@ -136,55 +128,47 @@ That worked but conflated two different cache lifetimes:
   result depends on the *active basis graph*. If basis-graph state changes mid
   process, stale entries linger.
 
-In v1.8 the dicts moved to a per-instance `AlgebraCache` owned by the
-`UnitSystem`. Two pipelines with different bases now have separate algebra
-caches. `Dimension` algebra routes through `_get_active_cache()`, which falls
-back to a module-level `_DEFAULT_ALGEBRA_CACHE` when no `UnitSystem` has been
-activated — preserving v1.7 behaviour for un-migrated callers.
+The dicts now live on a per-instance `AlgebraCache` owned by the `UnitSystem`.
+Two pipelines with different bases have separate algebra caches. `Dimension`
+algebra routes through `_get_active_cache()`, which creates a fresh
+`AlgebraCache()` when no `UnitSystem` has been activated (bootstrap only).
 
-The cache is excluded from `__eq__` and `__hash__`. Two snapshots are equal even
+The cache is excluded from `__eq__` and `__hash__`. Two systems are equal even
 if one has populated its cache through use.
 
 ---
 
-## from_globals and the Snapshot Pattern
+## Obtaining a UnitSystem
 
-`UnitSystem.from_globals(*, base_units=None)` reads the live module-level
-state into a new `UnitSystem`. It does *not* copy the registries. That makes
-two consecutive calls cheap and equal:
+`active_system()` returns the currently active `UnitSystem`. It does *not*
+copy the registries. That makes two consecutive calls cheap and equal:
 
 ```python
-a = UnitSystem.from_globals()
-b = UnitSystem.from_globals()
+from ucon import active_system
+
+a = active_system()
+b = active_system()
 assert a == b          # by-identity on registries, by-value on basis
 assert a is not b      # distinct AlgebraCache, but excluded from equality
 ```
 
-Pass `base_units=...` to override which `BaseUnits` mapping is canonical for
-this snapshot:
-
-```python
-from ucon import units
-imperial_snapshot = UnitSystem.from_globals(base_units=units.imperial)
-```
-
 This is the recommended entry path for code that just wants "the same world
-the global API would see, but as a value I can pass around".
+the active context would see, but as a value I can pass around".
 
 ---
 
 ## When To Construct UnitSystem Directly
 
-Most code should call `UnitSystem.from_globals()`. Construct one directly only
-when you need to *replace* a registry — for example, an isolated test
+Most code should use `active_system()`. Construct one directly only when you
+need to *replace* a registry — for example, an isolated test
 `ConversionGraph` that shouldn't share state with the default graph:
 
 ```python
-from ucon.system import UnitSystem
+from ucon import UnitSystem, active_system
 from ucon.graph import ConversionGraph
 
 isolated_graph = ConversionGraph()       # empty; populate as needed
-parent = UnitSystem.from_globals()
+parent = active_system()
 test_system = UnitSystem(
     basis=parent.basis,
     units=parent.units,
@@ -204,17 +188,13 @@ for the full walkthrough.
 
 ## Relationship to BaseUnits
 
-`BaseUnits` is the dimension → base-unit mapping. It was renamed from
-v1.7's `UnitSystem` so that the `UnitSystem` name could carry the richer
-value type. The PEP 562 alias `from ucon import UnitSystem` still resolves to
-`BaseUnits` in v1.8 with a `PendingDeprecationWarning`, scheduled for removal
-in v2.0. The new value type is reachable only via
-`from ucon.system import UnitSystem`.
+`BaseUnits` is the dimension → base-unit mapping. It was renamed from the
+pre-v2.0 `UnitSystem` so that the `UnitSystem` name could carry the richer
+value type.
 
-| v1.7 spelling                  | v1.8 spelling                          |
-|--------------------------------|----------------------------------------|
-| `from ucon import UnitSystem`  | `from ucon import BaseUnits`           |
-|                                | `from ucon.system import UnitSystem`   |
+```python
+from ucon import UnitSystem, BaseUnits
+```
 
 `UnitSystem` *contains* a `BaseUnits` (the `base_units` field). The two
 abstractions compose: `BaseUnits` answers "what unit represents kg-of-mass in
