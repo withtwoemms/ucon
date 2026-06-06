@@ -1638,7 +1638,6 @@ class TestDimensionCatalogParity:
     def test_toml_catalog_matches_python_catalog(self):
         """Every standard dimension lives in the TOML, with matching vector + symbol."""
         from pathlib import Path
-        import tomllib
 
         from ucon.dimension import _STANDARD_ATTRS
 
