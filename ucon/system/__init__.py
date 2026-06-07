@@ -51,6 +51,7 @@ from typing import (
 )
 
 from ucon._active import _active
+from ucon.conversion import _graph_context
 from ucon.core import Number, Unit, UnitFactor, UnitProduct
 from ucon.core._parsing_graph import _parsing_graph
 from ucon.core.exceptions import DimensionNotCovered, UnknownUnitError
@@ -1059,9 +1060,11 @@ def use(
         )
     token = _active.set(ctx)
     token_parsing = _parsing_graph.set(system.conversion_graph)
+    token_graph = _graph_context.set(system.conversion_graph)
     try:
         yield ctx
     finally:
+        _graph_context.reset(token_graph)
         _parsing_graph.reset(token_parsing)
         _active.reset(token)
 
