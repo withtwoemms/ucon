@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] — v2.0 restructuring for UnitSystem primacy
 
 ### Added
 
@@ -118,9 +118,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   invariant. Restores most of the per-conversion overhead introduced
   in #259, with the largest improvement on temperature (affine)
   conversion.
+- **`Dimension.__eq__` performance regression addressed.** Identity
+  short-circuit (`self is other`) and `__hash__` fast-path avoid the
+  full vector comparison for repeated algebra on the same dimension
+  objects. Restores Unit algebra throughput after the dimension-cache
+  removal.
 
 ### Changed
 
+- **Context-global getters replaced with active-UnitSystem substrate.**
+  `get_default_graph()`, `get_basis_graph()`, and all resolution paths
+  now delegate to the `ActiveContext` carried by the `_active` ContextVar
+  rather than consulting independent module-level sentinels. This
+  eliminates the class of bugs where context managers disagreed about
+  which graph was current.
+- **Basis/graph resolution centralized into `ucon._active`.**
+  `get_default_basis()` and `get_basis_graph()` resolve exclusively
+  via `active().system.basis` and `active().system.basis_graph`
+  respectively, making the active `UnitSystem` the single source of
+  truth for all resolution paths.
+- **Basis context globals retired.** `get_default_basis`,
+  `get_basis_graph`, `using_basis`, and `using_basis_graph` are removed.
+  All four were deprecated in v1.x; their functionality is subsumed by
+  `use(system)` and `active_system().basis` / `.basis_graph`.
+- **TOML becomes authoritative for Dimensions.** Dimension definitions
+  (including symbols) are now loaded from `comprehensive.ucon.toml`
+  rather than being hard-coded in `ucon/dimension.py`. The generated
+  `dimension.pyi` stub reflects the TOML-declared catalog. This
+  completes the TOML-takeover trajectory for all three registries
+  (units, constants, dimensions).
+- **Module-level mutable dimension caches deleted.** The dimension
+  algebra caches (`_DIM_MUL_CACHE`, `_DIM_DIV_CACHE`, `_DIM_POW_CACHE`)
+  that formerly lived as module globals on `ucon.dimension` are removed.
+  All dimension algebra routes through the per-`UnitSystem` `AlgebraCache`
+  accessible via the active context. This eliminates the last category
+  of module-level mutable state.
 - **Removed `_DEFAULT_ALGEBRA_CACHE` module-level global.** `_get_active_cache()`
   now returns a fresh `AlgebraCache()` when no active context exists (bootstrap
   only). Dimension algebra during import runs uncached; post-init behavior
@@ -282,6 +314,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Module-level `_default_graph` and `_default_basis_graph` globals —
     `get_default_graph()` and `get_basis_graph()` now resolve
     exclusively via `ContextVar` and active `UnitSystem`.
+  - `get_default_basis()` / `get_basis_graph()` / `using_basis()` /
+    `using_basis_graph()` — basis resolution is now exclusively via
+    `active_system().basis` and `active_system().basis_graph`.
 
 ## [1.12.0] - 2026-05-23
 
