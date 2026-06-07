@@ -18,12 +18,9 @@ Public surface (v1.8):
   of the v1.7 top-level ``UnitSystem`` class.
 - :class:`UnitSystem` -- the new value type that owns a ``BaseUnits`` plus
   the registries (units, dimensions, conversions, basis_graph, contexts,
-  constants) and a per-instance :class:`AlgebraCache`. Phase 2 introduces
-  the type and its construction surface; later phases route call sites
-  through it.
+  constants) and a per-instance :class:`AlgebraCache`.
 - :class:`AlgebraCache` -- per-instance cache for ``Dimension`` algebra
-  (mul/div/pow). Replaces the module-level caches in ``ucon.dimension`` in
-  later phases.
+  (mul/div/pow).
 - :func:`use` -- contextmanager that sets the active ``UnitSystem``.
 - :func:`active` -- returns the active ``UnitSystem`` (snapshotting from
   globals if none has been set).
@@ -62,6 +59,7 @@ from ucon.resolver import parse_unit as _parse_unit
 from ucon._algebra_cache import AlgebraCache, _get_active_cache
 
 if TYPE_CHECKING:
+    from ucon.basis import Vector
     from ucon.basis.graph import BasisGraph
     from ucon.basis.transforms import BasisTransform, ConstantBoundBasisTransform
     from ucon.basis.types import Basis
@@ -284,10 +282,6 @@ class UnitSystem:
     basis_graph, contexts, constants), the canonical ``base_units``
     mapping, and a per-instance :class:`AlgebraCache`.
 
-    In v1.8 Phase 2 the type exists with a construction surface but no
-    callers. Later phases route the user-facing entry points
-    (``compute``, ``convert``, ``declare_computation``, ...) through it.
-
     Parameters
     ----------
     basis : Basis
@@ -331,6 +325,24 @@ class UnitSystem:
     _algebra_cache: AlgebraCache = field(
         default_factory=AlgebraCache, compare=False, repr=False
     )
+    dimensions_by_vector: Optional[Mapping['Vector', 'Dimension']] = field(
+        default=None, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        # ``dimensions_by_vector`` powers ``resolve(vector)``. It is
+        # derived from ``dimensions`` (excluding pseudo-dimensions, which
+        # share the zero vector and are tag-isolated) when not supplied
+        # explicitly. The bootstrap path passes the precomputed standard
+        # registry; ``from_toml`` and other call sites get the derivation
+        # for free.
+        if self.dimensions_by_vector is None:
+            derived = {
+                d.vector: d
+                for d in self.dimensions.values()
+                if not d.is_pseudo
+            }
+            object.__setattr__(self, 'dimensions_by_vector', derived)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, UnitSystem):
@@ -1161,7 +1173,7 @@ class Bridge:
 
         The resulting :class:`Bridge` is re-validated by
         :meth:`__post_init__` so that pairs valid individually but not
-        jointly are caught (per §8 of the v2.0 plan).
+        jointly are caught.
         """
         if other.dst is not self.src:
             raise ValueError(

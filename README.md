@@ -146,6 +146,21 @@ pip install ucon-tools[mcp]
 
 AI agents can then convert units, check dimensions, and perform factor-label calculations with dimensional validation at each step.
 
+### Composable Unit Systems
+
+```python
+import ucon
+from ucon import use
+
+with use(ucon.active_system().restrict(units=["meter", "second", "kilogram"])):
+    parse("9.81 m/s^2")    # ok — length and time are in scope
+    parse("100 °F")        # raises — temperature is not
+```
+
+`UnitSystem` is an immutable value. `extend` / `restrict` / `merge` compose
+systems; `use(...)` activates one per scope via a ContextVar — no module-global
+state. Full walkthrough: [`examples/system/README.md`](https://github.com/withtwoemms/ucon/blob/main/examples/system/README.md).
+
 ---
 
 ## Features
@@ -181,6 +196,10 @@ AI agents can then convert units, check dimensions, and perform factor-label cal
 | **1.7.0** | Basis subpackage layout: `types`/`vector` extraction | Complete |
 | **1.8.0** | `UnitSystem` as a value type, strict same-basis `Vector`, explicit cross-basis `ops` | Complete |
 | **1.9.0** | Kind-of-Quantity (KOQ) sortal lattice and formula registry — opt-in preview surface | Complete |
+| 1.10.0 | `Number.to()` routed through the active `UnitSystem`; top-level `active()` / `use()` exports | Complete |
+| 1.11.0 | Eager `UnitSystem` initialization on import; module-global default-graph singletons deprecated | Complete |
+| 1.12.0 | Cycle-break completion: `_active` and `AlgebraCache` as Layer-0 leaves; AST audit against cross-module injection | Complete |
+| **2.0** | `UnitSystem` algebra (`extend` / `restrict` / `merge` / `with_*`), relations (`subsystem_of` / `compatible_with` / `diff`), cross-system movement (`adopt`, `Bridge`), first-class `Number.kind` with arithmetic dispatch, `ActiveContext` substrate, `strict=True` default | Largely shipped; release pending |
 
 See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROADMAP.md)
 

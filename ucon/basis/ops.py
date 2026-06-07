@@ -20,8 +20,7 @@ Public surface
 
 All three accept an optional ``graph=`` kwarg or an optional ``system=``
 kwarg (which contributes its ``basis_graph``). When neither is given, the
-ContextVar-scoped active graph from
-:func:`ucon.basis.graph.get_basis_graph` is used.
+active :class:`UnitSystem`'s ``basis_graph`` is used.
 
 This module sits at the top of the basis subpackage's import DAG: it
 imports ``types``, ``vector``, and ``graph``, but nothing imports it from
@@ -32,7 +31,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ucon.basis.graph import BasisGraph, get_basis_graph
+from ucon._active import resolve_basis_graph
+from ucon.basis.graph import BasisGraph, _build_standard_basis_graph
 from ucon.basis.types import BasisMismatch, LossyProjection, NoTransformPath
 from ucon.basis.vector import Vector
 
@@ -46,13 +46,11 @@ def _resolve_graph(
     """Pick the BasisGraph to consult.
 
     Preference order: explicit ``graph`` > ``system.basis_graph`` >
-    ContextVar-scoped active graph.
+    ContextVar-scoped active graph > standard graph (bootstrap fallback).
     """
-    if graph is not None:
-        return graph
-    if system is not None:
-        return system.basis_graph
-    return get_basis_graph()
+    return resolve_basis_graph(
+        graph=graph, system=system, fallback=_build_standard_basis_graph
+    )
 
 
 def unify(

@@ -3,27 +3,16 @@
 # See the LICENSE file for details.
 
 """
-Verification suite for open ucon-core items in the feedback registry.
+Verification suite for cross-basis arithmetic and dimension-parser invariants
+in ucon core.
 
-Source registry:
-    /Users/withtwoemms/programming/python/mcp.ucon.dev/docs/internal/feedback/
-        ucon-feedback-registry.md (last updated 2026-04-30)
+Two invariants are pinned here:
 
-Two items are testable against ucon core directly:
+- Cross-basis arithmetic in ``compute()``: shipped via transform-graph-aware
+  ``Vector`` arithmetic (``Vector._unify_basis``). Verified here at the
+  ``Vector`` / ``Number`` layer.
 
-- Issue 2.5: cross-basis arithmetic in compute() (P1, "blocking")
-    Hypothesis: shipped in 1.6.6 via transform-graph-aware Vector arithmetic
-    (`Vector._unify_basis`). Verified here at the Vector / Number layer,
-    not the MCP `compute()` tool layer (that is ucon-tools).
-
-- Triage-1: bare component letters in the dimension parser (P3)
-    Hypothesis: 1.6.x parser unification may have resolved this incidentally.
-
-Out of scope here (not ucon-core work):
-
-- Issue 2.1 (compound parser routing) — ucon-tools `using_graph()` wrapper
-- ux-1 (response capability hints) — ucon-tools / docs
-- Issue 3 (namespace isolation) — v2.0 design space
+- Bare component letters in the dimension parser are parser-resolved.
 
 Run with: pytest tests/ucon/test_feedback_verification.py -v
 """
@@ -39,11 +28,10 @@ from ucon.basis import (
     BasisTransform,
     Vector,
     ops,
-    using_basis_graph,
 )
 from ucon.basis.builtin import SI
-from ucon.basis.graph import get_basis_graph
 from ucon.dimension import resolve
+from ucon.system import active_system, use
 
 
 # ---------------------------------------------------------------------------
@@ -110,14 +98,14 @@ class TestIssue25CrossBasisArithmetic:
         self.economic = _build_economic_basis()
         self.si_to_economic = _build_si_to_economic(self.economic)
         # Build a graph that contains the standard transforms PLUS our embedding.
-        base_graph = get_basis_graph()
+        base_graph = active_system().basis_graph
         self.graph = base_graph.with_transform(self.si_to_economic)
 
     def test_1_currency_times_time(self) -> None:
         """USD * second -> currency * time, in the economic basis."""
         usd = _vector(self.economic, currency=1)
         second = _vector(SI, time=1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = ops.multiply_via(usd, second)
         assert result.basis == self.economic
         assert result["currency"] == 1
@@ -127,7 +115,7 @@ class TestIssue25CrossBasisArithmetic:
         """USD / year -> currency / time."""
         usd = _vector(self.economic, currency=1)
         year = _vector(SI, time=1)  # year and second share the time dimension
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = ops.divide_via(usd, year)
         assert result.basis == self.economic
         assert result["currency"] == 1
@@ -137,7 +125,7 @@ class TestIssue25CrossBasisArithmetic:
         """Dimensionless scalar multiplication preserves currency/time."""
         usd_per_year = _vector(self.economic, currency=1, time=-1)
         dimensionless = _vector(SI)  # zero vector
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = ops.multiply_via(usd_per_year, dimensionless)
         assert result.basis == self.economic
         assert result["currency"] == 1
@@ -147,7 +135,7 @@ class TestIssue25CrossBasisArithmetic:
         """USD/kg * kg/day -> USD/day (currency / time)."""
         usd_per_kg = _vector(self.economic, currency=1, mass=-1)
         kg_per_day = _vector(SI, mass=1, time=-1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = ops.multiply_via(usd_per_kg, kg_per_day)
         assert result.basis == self.economic
         assert result["currency"] == 1
@@ -159,7 +147,7 @@ class TestIssue25CrossBasisArithmetic:
         usd = _vector(self.economic, currency=1)
         dimensionless_rate = _vector(SI)
         year = _vector(SI, time=1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             mid = ops.multiply_via(usd, dimensionless_rate)
             result = ops.multiply_via(mid, year)
         assert result.basis == self.economic
@@ -170,7 +158,7 @@ class TestIssue25CrossBasisArithmetic:
         """Pure-SI multiplication unchanged by graph extension (regression guard)."""
         kg = _vector(SI, mass=1)
         m_per_s = _vector(SI, length=1, time=-1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = kg * m_per_s
         assert result.basis == SI
         assert result["mass"] == 1
@@ -181,7 +169,7 @@ class TestIssue25CrossBasisArithmetic:
         """Pure-currency multiplication stays in economic basis (regression guard)."""
         usd_a = _vector(self.economic, currency=1)
         usd_b = _vector(self.economic, currency=1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             result = usd_a * usd_b
         assert result.basis == self.economic
         assert result["currency"] == 2
@@ -201,7 +189,7 @@ class TestIssue25CrossBasisArithmetic:
         unrelated = Basis("unrelated", [BasisComponent("flux", "Φ")])
         flux_vec = _vector(unrelated, flux=1)
         kg_vec = _vector(SI, mass=1)
-        with using_basis_graph(self.graph):
+        with use(active_system().with_basis_graph(self.graph)):
             with pytest.raises(ValueError, match="different bases"):
                 ops.multiply_via(flux_vec, kg_vec)
 
@@ -286,7 +274,7 @@ class TestTriage1BareComponentDimensions:
 
 def test_standard_graph_includes_expected_basis_transforms() -> None:
     """Confirm the standard graph wiring is intact under current main."""
-    graph = get_basis_graph()
+    graph = active_system().basis_graph
     from ucon.basis.builtin import CGS, CGS_ESU, NATURAL, PLANCK, ATOMIC
 
     # SI -> CGS, CGS_ESU, NATURAL, PLANCK, ATOMIC must all be reachable.

@@ -6,7 +6,7 @@
 test_import_dag
 ===============
 
-Verification tests for the Phase 2 acyclic DAG restructure.
+Verification tests for the acyclic import DAG.
 
 1. Every ``ucon.*`` module can be imported individually.
 2. Audit deferred (function-body) ``from ucon.*`` imports — track known

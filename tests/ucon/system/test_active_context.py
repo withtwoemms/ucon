@@ -6,7 +6,7 @@
 test_active_context
 ===================
 
-Tests for the v2.0 §3.4 :class:`ActiveContext` substrate.
+Tests for the :class:`ActiveContext` substrate.
 
 ``ActiveContext`` is a frozen dataclass that bundles a ``UnitSystem`` with
 the active :class:`FormulaRegistry`, :class:`KindLattice`, and a ``strict``

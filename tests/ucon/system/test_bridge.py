@@ -6,7 +6,7 @@
 test_bridge
 ===========
 
-Tests for :class:`ucon.system.Bridge` (v2.0 §3.3).
+Tests for :class:`ucon.system.Bridge`.
 
 ``Bridge`` is the sanctioned cross-system value-movement primitive when
 unit names diverge or a basis transform is required. ``rename`` is

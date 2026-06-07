@@ -8,6 +8,9 @@ from fractions import Fraction
 import pytest
 
 from ucon.basis import Basis, BasisComponent, BasisTransform, Vector
+from ucon.basis import ops
+from ucon.basis.graph import BasisGraph
+from ucon.system import active_system, use
 
 
 # -----------------------------------------------------------------------------
@@ -477,8 +480,6 @@ class TestVectorCrossBasisArithmetic:
         """GIVEN USD(economic) and year(SI) with SI->economic in the active
         graph, WHEN multiplied via ``ops.multiply_via``, THEN the result
         lives in the economic basis with currency=1, time=1."""
-        from ucon.basis import ops
-        from ucon.basis.graph import using_basis_graph
 
         # USD: currency=1, all SI components 0, expressed in economic basis.
         usd = Vector(
@@ -491,7 +492,7 @@ class TestVectorCrossBasisArithmetic:
             (Fraction(0), Fraction(0), Fraction(1)),
         )
 
-        with using_basis_graph(graph_with_embedding):
+        with use(active_system().with_basis_graph(graph_with_embedding)):
             result = ops.multiply_via(usd, year)
 
         assert result.basis == economic
@@ -505,8 +506,6 @@ class TestVectorCrossBasisArithmetic:
     ):
         """GIVEN USD(economic) divided by year(SI) via ``ops.divide_via``,
         THEN the result lives in economic with currency=1, time=-1."""
-        from ucon.basis import ops
-        from ucon.basis.graph import using_basis_graph
 
         usd = Vector(
             economic,
@@ -517,7 +516,7 @@ class TestVectorCrossBasisArithmetic:
             (Fraction(0), Fraction(0), Fraction(1)),
         )
 
-        with using_basis_graph(graph_with_embedding):
+        with use(active_system().with_basis_graph(graph_with_embedding)):
             result = ops.divide_via(usd, year)
 
         assert result.basis == economic
@@ -529,8 +528,6 @@ class TestVectorCrossBasisArithmetic:
     ):
         """Direction symmetry: SI(left) * economic(right) also unifies into
         economic via ``ops.multiply_via``."""
-        from ucon.basis import ops
-        from ucon.basis.graph import using_basis_graph
 
         year = Vector(
             si_like,
@@ -541,7 +538,7 @@ class TestVectorCrossBasisArithmetic:
             (Fraction(0), Fraction(0), Fraction(0), Fraction(1)),
         )
 
-        with using_basis_graph(graph_with_embedding):
+        with use(active_system().with_basis_graph(graph_with_embedding)):
             result = ops.multiply_via(year, usd)
 
         assert result.basis == economic
@@ -551,14 +548,13 @@ class TestVectorCrossBasisArithmetic:
     def test_no_transform_path_still_raises(self, si_like):
         """GIVEN two bases with no transform path in the active graph,
         THEN multiplication still raises ValueError."""
-        from ucon.basis.graph import BasisGraph, using_basis_graph
 
         unrelated = Basis("Unrelated", ["x", "y", "z"])
         v1 = Vector.zero(si_like)
         v2 = Vector.zero(unrelated)
         empty_graph = BasisGraph()
 
-        with using_basis_graph(empty_graph):
+        with use(active_system().with_basis_graph(empty_graph)):
             with pytest.raises(
                 ValueError,
                 match="Cannot multiply vectors from different bases",
@@ -568,7 +564,6 @@ class TestVectorCrossBasisArithmetic:
     def test_lossy_only_path_still_raises(self, si_like):
         """GIVEN two bases connected only by a lossy projection (one drops a
         non-zero component of the other), THEN multiplication still raises."""
-        from ucon.basis.graph import BasisGraph, using_basis_graph
 
         # Smaller basis: just length, time (no mass).
         small = Basis("small", ["length", "time"])
@@ -593,7 +588,7 @@ class TestVectorCrossBasisArithmetic:
             (Fraction(1), Fraction(0)),
         )
 
-        with using_basis_graph(graph):
+        with use(active_system().with_basis_graph(graph)):
             # No reverse path (small -> si_like) and the forward path is
             # lossy. Should raise.
             with pytest.raises(

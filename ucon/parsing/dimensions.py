@@ -36,13 +36,28 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ucon.basis import Basis, get_default_basis
+from ucon.basis import Basis
+from ucon.basis.builtin import SI
+from ucon._active import _active, resolve_basis
 from ucon.dimension import (
     NONE,
     Dimension,
-    _DIMENSION_ATTRS,
+    _STANDARD_ATTRS,
 )
 from ucon.parsing.lexer import _Tokenizer, _TokenType
+
+
+def _active_dimension_names() -> dict[str, "Dimension"]:
+    """Return the name -> Dimension map for parser lookups.
+
+    Steady state: the active :class:`~ucon.system.UnitSystem`'s
+    ``dimensions``. Bootstrap window: the immutable
+    :data:`ucon.dimension._STANDARD_ATTRS` fallback.
+    """
+    ctx = _active.get()
+    if ctx is not None:
+        return ctx.system.dimensions
+    return _STANDARD_ATTRS
 
 if TYPE_CHECKING:
     from ucon.system import UnitSystem
@@ -73,12 +88,14 @@ def parse_dimension(
         The dimension string to parse.
     basis : Basis, optional
         The basis to interpret component symbols against. Defaults to the
-        active basis from :func:`get_default_basis` (typically SI), or
+        active :class:`UnitSystem`'s ``basis`` (typically SI), or
         ``system.basis`` when ``system`` is provided.
     system : UnitSystem, optional
         When provided, ``system.basis`` supplies the default basis (unless
         ``basis=`` is given explicitly) and ``system.dimensions`` is
-        consulted before the module-level ``_DIMENSION_ATTRS`` registry.
+        consulted before the active :class:`UnitSystem`'s dimensions
+        (and, during the bootstrap window, the standard catalog
+        fallback).
 
     Returns
     -------
@@ -111,7 +128,7 @@ def parse_dimension(
 
     spec = spec.strip()
     if basis is None:
-        basis = system.basis if system is not None else get_default_basis()
+        basis = resolve_basis(system=system, fallback=SI)
 
     # System override: a direct hit in ``system.dimensions`` short-circuits.
     if system is not None:
@@ -120,8 +137,9 @@ def parse_dimension(
             return sys_dim
 
     # Fast path: bare known dimension name (e.g., "length", "velocity").
-    if spec in _DIMENSION_ATTRS:
-        return _DIMENSION_ATTRS[spec]
+    registry = _active_dimension_names()
+    if spec in registry:
+        return registry[spec]
 
     # Fast path: bare component symbol of the active basis (e.g., "M", "Θ").
     for comp in basis:
@@ -216,8 +234,9 @@ class _DimensionParser:
     def _resolve_atom(self, ident: str) -> "Dimension":
         # Named dimensions (component or derived) take priority. This means
         # "mass" → MASS regardless of basis, and "velocity" → VELOCITY.
-        if ident in _DIMENSION_ATTRS:
-            return _DIMENSION_ATTRS[ident]
+        registry = _active_dimension_names()
+        if ident in registry:
+            return registry[ident]
         # Component symbol or name in the active basis.
         for comp in self._basis:
             if ident == comp.symbol or ident == comp.name:

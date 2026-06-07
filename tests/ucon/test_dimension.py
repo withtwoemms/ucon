@@ -9,7 +9,8 @@ import unittest
 from fractions import Fraction
 
 from ucon.dimension import Dimension, resolve, basis, SI
-from ucon.basis import Vector
+from ucon.basis import Basis, BasisComponent, BasisGraph, Vector
+from ucon.system import active_system, use
 
 
 class TestDimensionConstruction(unittest.TestCase):
@@ -215,10 +216,8 @@ class TestDimensionAlgebraOpsRouting(unittest.TestCase):
         """If the active graph has no path between the operand bases,
         the underlying ``BasisMismatch`` from ``ops`` surfaces as
         :class:`ValueError` to the caller."""
-        from ucon.basis import Basis, BasisComponent, BasisGraph, using_basis_graph
-
         isolated = Basis("isolated", [BasisComponent("phlogiston", "Φ")])
-        with using_basis_graph(BasisGraph()):  # empty graph — no SI ↔ isolated
+        with use(active_system().with_basis_graph(BasisGraph())):  # empty graph — no SI ↔ isolated
             phlogiston = Dimension.from_components(isolated, phlogiston=1)
             with self.assertRaises(ValueError):
                 Dimension.length * phlogiston

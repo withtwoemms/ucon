@@ -53,10 +53,6 @@ from ucon.basis import (
     LossyProjection,
     NoTransformPath,
     Vector as BasisVector,
-    get_default_basis,
-    get_basis_graph,
-    using_basis,
-    using_basis_graph,
 )
 from ucon.basis.builtin import (
     CGS,
@@ -64,6 +60,7 @@ from ucon.basis.builtin import (
     NATURAL,
     SI,
 )
+from ucon.basis.graph import _build_standard_basis_graph
 from ucon.basis.transforms import (
     CGS_TO_SI,
     NATURAL_TO_SI,
@@ -142,38 +139,14 @@ from ucon.parsing import ParseError, parse, parse_dimension
 # get_default_graph() is always hit.  This makes _default_graph dead code
 # and routes all conversions through the UnitSystem authority.
 #
-# All required modules are already imported above, so we construct the
-# UnitSystem directly.
-from ucon.dimension import _DIMENSION_ATTRS
-from ucon._active import _active as _sys_active_var
-_init_graph = units._graph  # Direct reference; get_default_graph() isn't usable yet
+# The bootstrap site is centralized in ucon._bootstrap so there is a
+# single place that wires the standard catalog into a UnitSystem and
+# installs the default active context.
+from ucon._bootstrap import install_default_active_context
 
-# Symbol/name/alias lookup used by ``UnitSystem.constants``; descriptive
-# lookup feeds ``ucon.constants`` module-level attribute access. Both
-# builders live in ``ucon.constants`` so no cross-module attribute
-# assignment is required here.
-_init_constants = constants._build_symbol_lookup(_init_graph._package_constants)
+install_default_active_context()
 
-_init_system = UnitSystem(
-    basis=get_default_basis(),
-    units=units._units,
-    dimensions=_DIMENSION_ATTRS,
-    base_units=units.si,
-    conversion_graph=_init_graph,
-    basis_graph=get_basis_graph(),
-    contexts=getattr(_init_graph, '_contexts', {}),
-    constants=_init_constants,
-)
-_init_kinds = getattr(_init_graph, '_kind_lattice', None) or KindLattice()
-_sys_active_var.set(ActiveContext(
-    system=_init_system,
-    formulas=FormulaRegistry(),
-    kinds=_init_kinds,
-    strict=True,
-))
-constants._populate_cache(_init_graph._package_constants)
-
-del _sys_active_var, _init_graph, _init_constants, _init_system, _init_kinds
+del install_default_active_context
 
 __all__ = [
     # Basis abstractions
@@ -186,11 +159,6 @@ __all__ = [
     'ConstantBinding',
     'LossyProjection',
     'NoTransformPath',
-    # Basis context scoping
-    'get_default_basis',
-    'get_basis_graph',
-    'using_basis',
-    'using_basis_graph',
     # Standard bases
     'CGS',
     'CGS_ESU',

@@ -1,7 +1,7 @@
 # Copyright 2026 The Radiativity Company
 # Licensed under the Apache License, Version 2.0
 
-"""Pin §3.5 semantics directly at the ``Vector`` boundary.
+"""Pin strict same-basis semantics directly at the ``Vector`` boundary.
 
 ``Vector`` arithmetic is strict same-basis: cross-basis ``*`` / ``/`` raise
 :class:`ucon.basis.types.BasisMismatch`. Cross-basis arithmetic lives in
@@ -82,7 +82,7 @@ class TestCrossBasisRaises:
 
 
 class TestVectorImportSurface:
-    """``vector.py`` must not reach the graph layer (§3.5 exit criterion)."""
+    """``vector.py`` must not reach the graph layer."""
 
     def test_vector_module_does_not_expose_basis_graph(self) -> None:
         import ucon.basis.vector as vector_module

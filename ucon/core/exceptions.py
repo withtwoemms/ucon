@@ -128,7 +128,7 @@ class KindDimensionMismatch(Exception):
 
     Raised at :meth:`ucon.Number.__post_init__` when ``kind`` is supplied
     and ``kind.dimension != unit.dimension``. A Number's kind must refine
-    the same dimensional equivalence class its unit lives in (v2.0 §3.4).
+    the same dimensional equivalence class its unit lives in.
 
     Attributes
     ----------

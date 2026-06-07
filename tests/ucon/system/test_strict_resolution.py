@@ -6,7 +6,7 @@
 test_strict_resolution
 ======================
 
-Tests for the v2.0 §3.4 ``strict=True`` source-unit resolution guard on
+Tests for the ``strict=True`` source-unit resolution guard on
 :meth:`ucon.Number.to` and :meth:`ucon.NumberArray.to`.
 
 Under ``strict=True`` (the v2.0 default), ``Number.to(target)`` resolves

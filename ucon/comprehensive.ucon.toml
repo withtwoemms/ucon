@@ -59,11 +59,17 @@ vector = [-2, 1, 0, 0, 0, 0, 0, 0]
 [dimensions.amount_of_substance]
 basis = "SI"
 vector = [0, 0, 0, 0, 0, 0, 1, 0]
+symbol = "N"
 
 [dimensions.angle]
 basis = "SI"
 vector = [0, 0, 0, 0, 0, 0, 0, 0]
+symbol = "θ"
 tag = "angle"
+
+[dimensions.angular_momentum]
+basis = "SI"
+vector = [-1, 2, 1, 0, 0, 0, 0, 0]
 
 [dimensions.area]
 basis = "SI"
@@ -165,6 +171,18 @@ vector = [1, 1, -2]
 basis = "CGS"
 vector = [2, 0, -1]
 
+[dimensions.cgs_length]
+basis = "CGS"
+vector = [1, 0, 0]
+
+[dimensions.cgs_mass]
+basis = "CGS"
+vector = [0, 1, 0]
+
+[dimensions.cgs_none]
+basis = "CGS"
+vector = [0, 0, 0]
+
 [dimensions.cgs_pressure]
 basis = "CGS"
 vector = [-1, 1, -2]
@@ -172,6 +190,14 @@ vector = [-1, 1, -2]
 [dimensions.cgs_radiant_exposure]
 basis = "CGS"
 vector = [0, 1, -2]
+
+[dimensions.cgs_time]
+basis = "CGS"
+vector = [0, 0, 1]
+
+[dimensions.cgs_velocity]
+basis = "CGS"
+vector = [1, 0, -1]
 
 [dimensions.cgs_wavenumber]
 basis = "CGS"
@@ -189,6 +215,10 @@ vector = [0, -3, 0, 0, 0, 0, 1, 0]
 basis = "SI"
 vector = [3, -2, -1, 2, 0, 0, 0, 0]
 
+[dimensions.conductivity]
+basis = "SI"
+vector = [3, -3, -1, 2, 0, 0, 0, 0]
+
 [dimensions.count]
 basis = "SI"
 vector = [0, 0, 0, 0, 0, 0, 0, 0]
@@ -197,6 +227,11 @@ tag = "count"
 [dimensions.current]
 basis = "SI"
 vector = [0, 0, 0, 1, 0, 0, 0, 0]
+symbol = "I"
+
+[dimensions.density]
+basis = "SI"
+vector = [0, -3, 1, 0, 0, 0, 0, 0]
 
 [dimensions.dynamic_viscosity]
 basis = "SI"
@@ -205,6 +240,10 @@ vector = [-1, -1, 1, 0, 0, 0, 0, 0]
 [dimensions.electric_dipole_moment]
 basis = "SI"
 vector = [1, 1, 0, 1, 0, 0, 0, 0]
+
+[dimensions.electric_field_strength]
+basis = "SI"
+vector = [-3, 1, 1, -1, 0, 0, 0, 0]
 
 [dimensions.energy]
 basis = "SI"
@@ -226,6 +265,10 @@ vector = [-2, 1, 1, 0, 0, 0, 0, 0]
 basis = "SI"
 vector = [-1, 0, 0, 0, 0, 0, 0, 0]
 
+[dimensions.gravitation]
+basis = "SI"
+vector = [-2, 3, -1, 0, 0, 0, 0, 0]
+
 [dimensions.illuminance]
 basis = "SI"
 vector = [0, -2, 0, 0, 0, 1, 0, 0]
@@ -237,6 +280,7 @@ vector = [-2, 2, 1, -2, 0, 0, 0, 0]
 [dimensions.information]
 basis = "SI"
 vector = [0, 0, 0, 0, 0, 0, 0, 1]
+symbol = "B"
 
 [dimensions.kinematic_viscosity]
 basis = "SI"
@@ -245,14 +289,20 @@ vector = [-1, 2, 0, 0, 0, 0, 0, 0]
 [dimensions.length]
 basis = "SI"
 vector = [0, 1, 0, 0, 0, 0, 0, 0]
+symbol = "L"
 
 [dimensions.linear_density]
 basis = "SI"
 vector = [0, -1, 1, 0, 0, 0, 0, 0]
 
+[dimensions.luminous_efficacy]
+basis = "SI"
+vector = [3, -2, -1, 0, 0, 1, 0, 0]
+
 [dimensions.luminous_intensity]
 basis = "SI"
 vector = [0, 0, 0, 0, 0, 1, 0, 0]
+symbol = "J"
 
 [dimensions.magnetic_field_strength]
 basis = "SI"
@@ -273,6 +323,27 @@ vector = [-2, 1, 1, -2, 0, 0, 0, 0]
 [dimensions.mass]
 basis = "SI"
 vector = [0, 0, 1, 0, 0, 0, 0, 0]
+symbol = "M"
+
+[dimensions.molar_energy]
+basis = "SI"
+vector = [-2, 2, 1, 0, 0, 0, -1, 0]
+
+[dimensions.molar_entropy]
+basis = "SI"
+vector = [-2, 2, 1, 0, -1, 0, -1, 0]
+
+[dimensions.molar_mass]
+basis = "SI"
+vector = [0, 0, 1, 0, 0, 0, -1, 0]
+
+[dimensions.molar_volume]
+basis = "SI"
+vector = [0, 3, 0, 0, 0, 0, -1, 0]
+
+[dimensions.momentum]
+basis = "SI"
+vector = [-1, 1, 1, 0, 0, 0, 0, 0]
 
 [dimensions.natural_energy]
 basis = "natural"
@@ -281,6 +352,10 @@ vector = [1]
 [dimensions.none]
 basis = "SI"
 vector = [0, 0, 0, 0, 0, 0, 0, 0]
+
+[dimensions.permittivity]
+basis = "SI"
+vector = [4, -3, -1, 2, 0, 0, 0, 0]
 
 [dimensions.planck_energy]
 basis = "planck"
@@ -311,18 +386,37 @@ tag = "ratio"
 basis = "SI"
 vector = [-3, 2, 1, -2, 0, 0, 0, 0]
 
+[dimensions.resistivity]
+basis = "SI"
+vector = [-3, 3, 1, -2, 0, 0, 0, 0]
+
 [dimensions.solid_angle]
 basis = "SI"
 vector = [0, 0, 0, 0, 0, 0, 0, 0]
+symbol = "Ω"
 tag = "solid_angle"
+
+[dimensions.specific_energy]
+basis = "SI"
+vector = [-2, 2, 0, 0, 0, 0, 0, 0]
+
+[dimensions.specific_heat_capacity]
+basis = "SI"
+vector = [-2, 2, 0, 0, -1, 0, 0, 0]
 
 [dimensions.temperature]
 basis = "SI"
 vector = [0, 0, 0, 0, 1, 0, 0, 0]
+symbol = "Θ"
+
+[dimensions.thermal_conductivity]
+basis = "SI"
+vector = [-3, 1, 1, 0, -1, 0, 0, 0]
 
 [dimensions.time]
 basis = "SI"
 vector = [1, 0, 0, 0, 0, 0, 0, 0]
+symbol = "T"
 
 [dimensions.velocity]
 basis = "SI"

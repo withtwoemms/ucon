@@ -467,9 +467,9 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
         """Fallback loop (lines 155-160) picks a unit when no prefactor==1.0 exists."""
         from ucon.checking import _coerce_via_graph
         from ucon.graph import get_default_graph
-        from ucon.basis.graph import get_basis_graph
+        from ucon.system import active_system
 
-        bg = get_basis_graph()
+        bg = active_system().basis_graph
         cgs_force = units.dyne.dimension
         si_force = cgs_force.in_basis(bg.get_transform(CGS, SI))
 
