@@ -203,5 +203,48 @@ class TestUseExceptionSafety(unittest.TestCase):
         self.assertTrue(active_strict())
 
 
+class TestUseSetsParsigGraph(unittest.TestCase):
+    """``use()`` sets ``_parsing_graph`` so name resolution works."""
+
+    def test_parsing_graph_set_inside_use(self):
+        from ucon.core._parsing_graph import _parsing_graph
+        sys = active_system()
+        with use(sys):
+            pg = _parsing_graph.get()
+            self.assertIs(pg, sys.conversion_graph)
+
+    def test_parsing_graph_restored_after_use(self):
+        from ucon.core._parsing_graph import _parsing_graph
+        before = _parsing_graph.get()
+        sys = active_system()
+        with use(sys):
+            pass
+        self.assertIs(_parsing_graph.get(), before)
+
+    def test_nested_use_parsing_graph_restores_correctly(self):
+        from ucon.core._parsing_graph import _parsing_graph
+        sys = active_system()
+        with use(sys) as outer_ctx:
+            outer_pg = _parsing_graph.get()
+            self.assertIs(outer_pg, sys.conversion_graph)
+            with use(sys) as inner_ctx:
+                inner_pg = _parsing_graph.get()
+                self.assertIs(inner_pg, sys.conversion_graph)
+            # Outer parsing graph restored after inner exits
+            self.assertIs(_parsing_graph.get(), outer_pg)
+
+    def test_use_enables_unit_name_resolution(self):
+        """Custom units on the system's graph are resolvable within use()."""
+        from ucon.core import Unit as _Unit
+        sys = active_system()
+        dim = sys.dimensions["length"]
+        novel = _Unit(name="ucon_test_parsing_unit", dimension=dim, aliases=())
+        extended = sys.with_unit(novel)
+        with use(extended):
+            # The unit should be resolvable via the parsing graph.
+            resolved = extended.resolve_unit("ucon_test_parsing_unit")
+            self.assertEqual(resolved.name, "ucon_test_parsing_unit")
+
+
 if __name__ == "__main__":
     unittest.main()

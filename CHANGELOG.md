@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — v2.0 restructuring for UnitSystem primacy
+## [2.0.0] - 2026-06-07
 
 ### Added
 
@@ -102,9 +102,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   guard.
 - Cold-start import benchmark in `benchmarks/array_operations.py`
   profiling cache-hit vs cache-miss vs TOML-only paths.
+- **`UnitSystem.extend_many(*others)`** — bulk composition that merges
+  multiple systems in a single graph copy. Equivalent to chained
+  `.extend()` calls but O(1) in copy overhead regardless of how many
+  systems are combined.
+- **`KindLattice.copy()`** — returns an independent copy sharing the
+  same frozen `Kind` objects but with separate index dicts. Mutations
+  via `register()` on the copy do not affect the original.
+- **`use()` now sets `_parsing_graph`** — unit name resolution inside a
+  `use(system)` block now resolves against `system.conversion_graph`,
+  eliminating the need for the dual-context-manager pattern
+  (`use()` + `using_conversion_graph()`) in downstream platforms.
 
 ### Fixed
 
+- **`Graph.copy()` no longer shares `_kind_lattice` by reference.**
+  Previously, `Graph.copy()` aliased the lattice object, meaning
+  `define_quantity_kind` in one session could mutate another session's
+  graph in multi-tenant deployments. `copy()` now calls
+  `KindLattice.copy()` to produce an independent index.
 - **`UnitSystem.extend` with `ConflictPolicy.PREFER_OTHER` now correctly
   installs the RHS conversion edge.** Previously, the fall-through in
   `_merge_conversion_graphs` called `Graph.add_edge` to overwrite the LHS
@@ -2728,7 +2744,8 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/ucon/compare/1.11.0...HEAD
+[2.0.0]: https://github.com/withtwoemms/ucon/compare/1.12.0...2.0.0
+[1.12.0]: https://github.com/withtwoemms/ucon/compare/1.11.0...1.12.0
 [1.11.0]: https://github.com/withtwoemms/ucon/compare/1.10.0...1.11.0
 [1.10.0]: https://github.com/withtwoemms/ucon/compare/1.9.2...1.10.0
 [1.9.2]: https://github.com/withtwoemms/ucon/compare/1.9.1...1.9.2

@@ -1092,8 +1092,12 @@ factor = 14.5939
             # Use the built-in lattice from comprehensive.ucon.toml
             original_lattice = base._kind_lattice
             new = base.with_package(pkg)
-            # Lattice unchanged
-            self.assertIs(new._kind_lattice, original_lattice)
+            # Lattice contents preserved (Graph.copy() now creates an
+            # independent copy, so identity check is not appropriate).
+            self.assertEqual(
+                set(new._kind_lattice.names()),
+                set(original_lattice.names()),
+            )
         finally:
             path.unlink()
 

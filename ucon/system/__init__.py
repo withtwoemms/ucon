@@ -51,7 +51,9 @@ from typing import (
 )
 
 from ucon._active import _active
+from ucon.conversion import _graph_context
 from ucon.core import Number, Unit, UnitFactor, UnitProduct
+from ucon.core._parsing_graph import _parsing_graph
 from ucon.core.exceptions import DimensionNotCovered, UnknownUnitError
 from ucon.formulas import FormulaRegistry
 from ucon.kinds import KindLattice
@@ -443,6 +445,72 @@ class UnitSystem:
         merged_graph = _merge_conversion_graphs(
             self.conversion_graph,
             other.conversion_graph,
+            merged_units,
+            on_conflict,
+        )
+
+        return UnitSystem(
+            basis=self.basis,
+            units=merged_units,
+            dimensions=merged_dimensions,
+            base_units=merged_base_units,
+            conversion_graph=merged_graph,
+            basis_graph=self.basis_graph,
+            contexts=merged_contexts,
+            constants=merged_constants,
+        )
+
+    def extend_many(
+        self,
+        *others: 'UnitSystem',
+        on_conflict: ConflictPolicy = ConflictPolicy.RAISE,
+    ) -> 'UnitSystem':
+        """Return a new system combining ``self`` with all ``others``.
+
+        Semantically equivalent to chaining ``.extend()`` calls but
+        performs a single conversion-graph copy regardless of how many
+        systems are merged. This avoids the O(N * graph_size) cost of
+        sequential ``extend()`` when composing many packages.
+
+        Parameters
+        ----------
+        *others : UnitSystem
+            One or more systems to merge into ``self``.
+        on_conflict : ConflictPolicy
+            Collision resolution strategy (same semantics as
+            :meth:`extend`).
+        """
+        if not others:
+            return self
+
+        _validate_conflict_policy(on_conflict)
+
+        merged_units: Mapping[str, Unit] = dict(self.units)
+        merged_dimensions: Mapping[str, 'Dimension'] = dict(self.dimensions)
+        merged_base_units = self.base_units
+        merged_contexts: Mapping[str, 'ConversionContext'] = dict(self.contexts)
+        merged_constants: Mapping[str, 'Constant'] = dict(self.constants)
+
+        for other in others:
+            merged_units = _merge_mapping(
+                merged_units, other.units, "units", on_conflict
+            )
+            merged_dimensions = _merge_mapping(
+                merged_dimensions, other.dimensions, "dimensions", on_conflict
+            )
+            merged_base_units = _merge_base_units(
+                merged_base_units, other.base_units, on_conflict
+            )
+            merged_contexts = _merge_mapping(
+                merged_contexts, other.contexts, "contexts", on_conflict
+            )
+            merged_constants = _merge_mapping(
+                merged_constants, other.constants, "constants", on_conflict
+            )
+
+        merged_graph = _merge_conversion_graphs_bulk(
+            self.conversion_graph,
+            [o.conversion_graph for o in others],
             merged_units,
             on_conflict,
         )
@@ -991,9 +1059,13 @@ def use(
             strict=strict if strict is not None else current.strict,
         )
     token = _active.set(ctx)
+    token_parsing = _parsing_graph.set(system.conversion_graph)
+    token_graph = _graph_context.set(system.conversion_graph)
     try:
         yield ctx
     finally:
+        _graph_context.reset(token_graph)
+        _parsing_graph.reset(token_parsing)
         _active.reset(token)
 
 
@@ -1330,6 +1402,50 @@ def _merge_conversion_graphs(
 
     # Ensure every chosen unit is registered for name lookup. ``copy``
     # already carried over ``a``'s name registry; pick up b-only units.
+    for name, unit_obj in units.items():
+        if name not in new._name_registry_cs:
+            new.register_unit(unit_obj)
+
+    return new
+
+
+def _merge_conversion_graphs_bulk(
+    base: 'ConversionGraph',
+    others: 'list[ConversionGraph]',
+    units: Mapping[str, 'Unit'],
+    on_conflict: ConflictPolicy,
+) -> 'ConversionGraph':
+    """Single-copy bulk merge of multiple graphs into ``base``.
+
+    Like :func:`_merge_conversion_graphs` but merges an arbitrary number
+    of ``others`` into a single copy of ``base``, avoiding repeated
+    deep-copy overhead.
+    """
+    new = base.copy()  # ONE copy for all merges
+    known_edges = _enumerate_unit_edges(base)
+
+    for other in others:
+        for _dim, srcs in other._unit_edges.items():
+            for src, dsts in srcs.items():
+                for dst, m in dsts.items():
+                    key = (src.name, dst.name)
+                    if key in known_edges:
+                        if known_edges[key] == m:
+                            continue
+                        if on_conflict is ConflictPolicy.RAISE:
+                            raise ExtendConflict(
+                                "conversions",
+                                f"{src.name}->{dst.name}",
+                                "extend_many: conversion edges differ between systems",
+                            )
+                        if on_conflict is ConflictPolicy.PREFER_SELF:
+                            continue
+                        new.add_edge(src=src, dst=dst, map=m, overwrite=True)
+                        known_edges[key] = m
+                        continue
+                    new.add_edge(src=src, dst=dst, map=m)
+                    known_edges[key] = m
+
     for name, unit_obj in units.items():
         if name not in new._name_registry_cs:
             new.register_unit(unit_obj)

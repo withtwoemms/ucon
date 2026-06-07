@@ -224,6 +224,21 @@ class KindLattice:
         self._add(kind)
         self._validate_structure()
 
+    # ---------- copying ----------
+
+    def copy(self) -> 'KindLattice':
+        """Return an independent copy of this lattice.
+
+        The new lattice contains the same :class:`Kind` objects (which
+        are frozen dataclasses) but its index dicts are independent —
+        mutations via :meth:`register` on the copy do not affect the
+        original.
+        """
+        new = KindLattice.__new__(KindLattice)
+        new._by_name = dict(self._by_name)
+        new._index = dict(self._index)
+        return new
+
 
 def lca(a: Kind, b: Kind, *, lattice: KindLattice) -> tuple[Kind, JoinPolicy]:
     """Module-level convenience for :meth:`KindLattice.lca`.

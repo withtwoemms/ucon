@@ -95,6 +95,29 @@ def test_lattice_is_descendant_negative():
     assert lat.is_descendant(ke, pe) is False
 
 
+def test_lattice_copy_is_independent():
+    lat, energy, *_ = _energy_lattice()
+    copy = lat.copy()
+
+    # Same contents
+    assert len(copy) == len(lat)
+    assert copy.get("energy") is energy
+    assert copy.get("PE") is lat.get("PE")
+
+    # Mutation on copy does not affect original
+    work = Kind("work", dimension=ENERGY_DIM, parent=energy)
+    copy.register(work)
+    assert "work" in copy
+    assert "work" not in lat
+
+
+def test_lattice_copy_preserves_aliases():
+    lat, *_ = _energy_lattice()
+    copy = lat.copy()
+    # "PE" is an alias for potential_energy
+    assert copy.get("PE").name == "potential_energy"
+
+
 def test_lattice_register_adds_kind():
     lat, energy, *_ = _energy_lattice()
     work = Kind("work", dimension=ENERGY_DIM, parent=energy)
