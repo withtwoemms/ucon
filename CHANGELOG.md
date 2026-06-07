@@ -322,6 +322,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that share `Unit` objects by reference) is unaffected. This makes
   `Bridge` structurally load-bearing at the `Number` layer, mirroring
   what §3.5 already did at the `Vector` layer with `BasisMismatch`.
+- **Test suite restructured to mirror source package layout.** Test files
+  relocated from the flat `tests/ucon/` root into subdirectories that
+  mirror the `ucon/` source tree: `tests/ucon/basis/`,
+  `tests/ucon/conversion/`, `tests/ucon/parsing/`, and the new
+  `tests/ucon/integrations/`. Root-level test files now cover only
+  top-level modules and cross-cutting concerns. No tests added or
+  removed — purely organizational.
+- **`use()` now sets `_graph_context`** — in addition to `_parsing_graph`,
+  `use(system)` explicitly sets the `_graph_context` ContextVar so that
+  `get_default_graph()` resolves on the first check rather than falling
+  through to `_active.system.conversion_graph`.
 
 ### Removed
 
