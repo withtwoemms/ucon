@@ -63,7 +63,7 @@ build-backend = "setuptools.build_meta"
 include = ["ucon*"]
 
 [tool.setuptools.package-data]
-ucon = ["comprehensive.ucon.toml", "*.pyi"]
+ucon = ["comprehensive.ucon.toml", "comprehensive.ucon.cache", "*.pyi"]
 
 [tool.setuptools_scm]
 # Version derived from git tags

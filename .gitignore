@@ -130,3 +130,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# ucon graph cache (generated binary, not source)
+*.ucon.cache
