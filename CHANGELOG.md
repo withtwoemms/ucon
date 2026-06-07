@@ -90,6 +90,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Graph.with_package()` merges the package lattice into
   `graph._kind_lattice`, with package definitions taking precedence on
   name collision. Packages without `[[kinds]]` continue to work unchanged.
+- **`ucon._cache` — marshal-based binary graph cache.** The conversion
+  graph is serialized to a `.ucon.cache` file using `marshal` (primitives
+  only — no code execution on deserialization). Subsequent imports load
+  from cache when fresh, providing ~15-25x speedup over TOML parsing.
+  Invalidation uses mtime comparison, magic header, format version,
+  Python version, and cache schema version; any mismatch silently falls
+  through to TOML. Disable with `UCON_NO_CACHE=1`.
+- `make cache` / `make cache-check` targets — generate and validate the
+  binary graph cache respectively. `cache-check` is suitable as a CI
+  guard.
+- Cold-start import benchmark in `benchmarks/array_operations.py`
+  profiling cache-hit vs cache-miss vs TOML-only paths.
 
 ### Fixed
 
@@ -126,6 +138,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`ucon.units` loads from cache first.** `units.py` attempts
+  `_cache.load_cached_graph()` before falling back to TOML parsing.
+  The cache path is transparent — the resulting `Graph` is identical
+  regardless of source.
+- **Lazy numpy import in `ucon.core._types` and `ucon.maps`.** The
+  top-level `import numpy` is replaced with a `_get_numpy()` accessor
+  that defers the import to first use. This eliminates numpy from the
+  critical import path for pure-scalar workloads and reduces cold-start
+  time when numpy is installed but unused.
 - **Context-global getters replaced with active-UnitSystem substrate.**
   `get_default_graph()`, `get_basis_graph()`, and all resolution paths
   now delegate to the `ActiveContext` carried by the `_active` ContextVar

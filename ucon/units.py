@@ -70,9 +70,14 @@ from ucon.resolver import (
 # ---------------------------------------------------------------------------
 
 from pathlib import Path as _Path
+from ucon._cache import load_cached_graph as _load_cache, write_cached_graph as _write_cache
 from ucon.serialization import from_toml as _from_toml
 
-_graph = _from_toml(_Path(__file__).parent / "comprehensive.ucon.toml")
+_toml_path = _Path(__file__).parent / "comprehensive.ucon.toml"
+_graph = _load_cache(_toml_path)
+if _graph is None:
+    _graph = _from_toml(_toml_path)
+    _write_cache(_graph, _toml_path)
 _units = {name: u for name, u in _graph._name_registry_cs.items() if name == u.name}
 globals().update(_units)
 

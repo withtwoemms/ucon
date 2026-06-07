@@ -40,6 +40,8 @@ help:
 	@echo "  ${CYAN}unit-stubs${RESET}    - Generate ucon/units.pyi"
 	@echo "  ${CYAN}constant-stubs${RESET} - Generate ucon/constants.pyi"
 	@echo "  ${CYAN}dimension-stubs${RESET} - Generate ucon/dimension.pyi"
+	@echo "  ${CYAN}cache${RESET}         - Generate binary graph cache"
+	@echo "  ${CYAN}cache-check${RESET}   - Verify graph cache is fresh and valid (for CI)"
 	@echo "  ${CYAN}base-forms-check${RESET} - Verify base_form literals vs BFS oracle"
 	@echo "  ${CYAN}benchmark${RESET}     - Run array performance benchmarks"
 	@echo "  ${CYAN}benchmark-pint${RESET} - Run benchmarks with pint comparison"
@@ -152,6 +154,7 @@ clean:
 	@rm -rf ${UV_VENV} ${DEPS_INSTALLED} ${UV_INSTALLED}
 	@rm -rf .uv_cache .pytest_cache htmlcov/
 	@rm -f coverage.xml .coverage
+	@rm -f ucon/comprehensive.ucon.cache
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@echo "${CYAN}Clean complete.${RESET}"
 
@@ -162,6 +165,18 @@ clean-all: clean
 
 # --- Stubs ---
 .PHONY: stubs
+.PHONY: cache
+cache: ${DEPS_INSTALLED}
+	@echo "${GREEN}Generating graph cache...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
+		scripts/generate_graph_cache.py
+
+.PHONY: cache-check
+cache-check: ${DEPS_INSTALLED}
+	@echo "${GREEN}Checking graph cache...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} \
+		scripts/generate_graph_cache.py --check
+
 stubs: unit-stubs constant-stubs dimension-stubs
 
 .PHONY: unit-stubs

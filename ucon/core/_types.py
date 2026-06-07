@@ -51,17 +51,26 @@ if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
     from ucon.system import UnitSystem
 
-# --- soft numpy dependency ---
-try:
-    import numpy as np
-    _HAS_NUMPY = True
-except ImportError:
-    np = None  # type: ignore[assignment]
-    _HAS_NUMPY = False
-
 if TYPE_CHECKING:
-    import numpy as np  # noqa: F811
+    import numpy as np
     from numpy.typing import ArrayLike, NDArray
+
+# --- lazy numpy accessor ---
+_np = None
+_np_checked = False
+
+
+def _get_numpy():
+    """Return the numpy module if available, else None. Cached after first call."""
+    global _np, _np_checked
+    if not _np_checked:
+        try:
+            import numpy
+            _np = numpy
+        except ImportError:
+            pass
+        _np_checked = True
+    return _np
 
 
 # =====================================================================
@@ -689,8 +698,9 @@ class Unit:
         <NumberArray [1. 2. 3.] m>
         """
         # Check for array-like inputs
-        if _HAS_NUMPY and (
-            isinstance(quantity, np.ndarray)
+        _np = _get_numpy()
+        if _np is not None and (
+            isinstance(quantity, _np.ndarray)
             or (isinstance(quantity, (list, tuple)) and len(quantity) > 0)
         ):
             return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
@@ -1420,8 +1430,9 @@ class UnitProduct:
         <NumberArray [10. 20. 30.] m/s>
         """
         # Check for array-like inputs
-        if _HAS_NUMPY and (
-            isinstance(quantity, np.ndarray)
+        _np = _get_numpy()
+        if _np is not None and (
+            isinstance(quantity, _np.ndarray)
             or (isinstance(quantity, (list, tuple)) and len(quantity) > 0)
         ):
             return NumberArray(quantities=quantity, unit=self, uncertainty=uncertainty)
@@ -2422,7 +2433,7 @@ _unit_div_cache: dict[tuple, 'UnitProduct'] = {}
 
 def _require_numpy() -> None:
     """Raise ImportError if numpy is not available."""
-    if not _HAS_NUMPY:
+    if _get_numpy() is None:
         raise ImportError(
             "NumPy is required for NumberArray. "
             "Install with: pip install ucon[numpy]"
@@ -2483,14 +2494,14 @@ class NumberArray:
     ):
         _require_numpy()
 
-        self._quantities: NDArray[np.floating] = np.asarray(quantities, dtype=float)
+        self._quantities: NDArray[np.floating] = _np.asarray(quantities, dtype=float)
         self._unit = unit if unit is not None else UnitProduct({})
 
         if uncertainty is not None:
             if isinstance(uncertainty, (int, float)):
                 self._uncertainty: Union[float, NDArray[np.floating], None] = float(uncertainty)
             else:
-                self._uncertainty = np.asarray(uncertainty, dtype=float)
+                self._uncertainty = _np.asarray(uncertainty, dtype=float)
                 if self._uncertainty.shape != self._quantities.shape:
                     raise ValueError(
                         f"Uncertainty shape {self._uncertainty.shape} does not match "
@@ -2556,7 +2567,7 @@ class NumberArray:
             unc = self._uncertainty[key]
 
         # Return Number for scalar index, NumberArray for slice
-        if np.ndim(q) == 0:
+        if _np.ndim(q) == 0:
             unc_val = float(unc) if unc is not None and not isinstance(unc, float) else unc
             return Number(quantity=float(q), unit=self._unit, uncertainty=unc_val)
         else:
@@ -2571,7 +2582,7 @@ class NumberArray:
         """String representation with truncation for large arrays."""
         # Format quantities with truncation for large arrays
         if len(self._quantities) <= 6:
-            q_str = np.array2string(
+            q_str = _np.array2string(
                 self._quantities,
                 separator=', ',
                 precision=4,
@@ -2714,12 +2725,12 @@ class NumberArray:
             new_unc = None
             if self._uncertainty is not None:
                 # For c = a/x, δc = |c| * |δx/x|
-                rel_unc = np.where(
+                rel_unc = _np.where(
                     self._quantities != 0,
-                    np.abs(self._uncertainty / self._quantities),
+                    _np.abs(self._uncertainty / self._quantities),
                     0
                 )
-                new_unc = np.abs(result_q) * rel_unc
+                new_unc = _np.abs(result_q) * rel_unc
 
             # Unit is 1/self.unit
             inv_unit = UnitProduct({}) / self._unit
@@ -2818,7 +2829,7 @@ class NumberArray:
     def __abs__(self) -> 'NumberArray':
         """Absolute value."""
         return NumberArray(
-            quantities=np.abs(self._quantities),
+            quantities=_np.abs(self._quantities),
             unit=self._unit,
             uncertainty=self._uncertainty,
         )
@@ -2919,28 +2930,28 @@ class NumberArray:
             return None
 
         # Convert to arrays for uniform handling
-        a_arr = np.asarray(a)
-        b_arr = np.asarray(b)
+        a_arr = _np.asarray(a)
+        b_arr = _np.asarray(b)
 
         # Relative uncertainties
         if ua is not None:
-            rel_a = np.where(a_arr != 0, np.abs(ua) / np.abs(a_arr), 0.0)
+            rel_a = _np.where(a_arr != 0, _np.abs(ua) / _np.abs(a_arr), 0.0)
         else:
-            rel_a = np.zeros_like(a_arr)
+            rel_a = _np.zeros_like(a_arr)
 
         if ub is not None:
-            rel_b = np.where(b_arr != 0, np.abs(ub) / np.abs(b_arr), 0.0)
+            rel_b = _np.where(b_arr != 0, _np.abs(ub) / _np.abs(b_arr), 0.0)
         else:
-            rel_b = np.zeros_like(b_arr)
+            rel_b = _np.zeros_like(b_arr)
 
-        rel_c = np.sqrt(rel_a**2 + rel_b**2)
-        result = np.abs(a_arr * b_arr) * rel_c
+        rel_c = _np.sqrt(rel_a**2 + rel_b**2)
+        result = _np.abs(a_arr * b_arr) * rel_c
 
         # Return scalar if result is uniform and both inputs were scalar uncertainty
         if isinstance(ua, (float, type(None))) and isinstance(ub, (float, type(None))):
             if result.size == 1:
                 return float(result.flat[0])
-            if np.allclose(result, result.flat[0]):
+            if _np.allclose(result, result.flat[0]):
                 return float(result.flat[0])
 
         return result
@@ -2970,7 +2981,7 @@ class NumberArray:
             return ua
 
         # Quadrature addition
-        result = np.sqrt(np.asarray(ua)**2 + np.asarray(ub)**2)
+        result = _np.sqrt(_np.asarray(ua)**2 + _np.asarray(ub)**2)
 
         # Return scalar if both inputs were scalar
         if isinstance(ua, float) and isinstance(ub, float):
@@ -3058,7 +3069,7 @@ class NumberArray:
         # Propagate uncertainty through conversion
         new_unc = None
         if self._uncertainty is not None:
-            derivative = np.abs(conversion_map.derivative(self._quantities))
+            derivative = _np.abs(conversion_map.derivative(self._quantities))
             new_unc = derivative * self._uncertainty
 
         return NumberArray(quantities=converted, unit=target, uncertainty=new_unc)
@@ -3098,7 +3109,7 @@ class NumberArray:
 
     def sum(self) -> Number:
         """Sum all quantities."""
-        total = float(np.sum(self._quantities))
+        total = float(_np.sum(self._quantities))
 
         # Uncertainty propagation for sum
         unc = None
@@ -3108,13 +3119,13 @@ class NumberArray:
                 unc = self._uncertainty * math.sqrt(len(self))
             else:
                 # Per-element: σ_sum = sqrt(Σσᵢ²)
-                unc = float(np.sqrt(np.sum(self._uncertainty**2)))
+                unc = float(_np.sqrt(_np.sum(self._uncertainty**2)))
 
         return Number(quantity=total, unit=self._unit, uncertainty=unc)
 
     def mean(self) -> Number:
         """Compute the mean."""
-        avg = float(np.mean(self._quantities))
+        avg = float(_np.mean(self._quantities))
 
         # Uncertainty propagation for mean
         unc = None
@@ -3124,21 +3135,21 @@ class NumberArray:
                 unc = self._uncertainty / math.sqrt(len(self))
             else:
                 # Per-element: σ_mean = sqrt(Σσᵢ²) / n
-                unc = float(np.sqrt(np.sum(self._uncertainty**2)) / len(self))
+                unc = float(_np.sqrt(_np.sum(self._uncertainty**2)) / len(self))
 
         return Number(quantity=avg, unit=self._unit, uncertainty=unc)
 
     def std(self, ddof: int = 0) -> Number:
         """Compute the standard deviation."""
-        s = float(np.std(self._quantities, ddof=ddof))
+        s = float(_np.std(self._quantities, ddof=ddof))
         return Number(quantity=s, unit=self._unit, uncertainty=None)
 
     def min(self) -> Number:
         """Return the minimum value."""
-        idx = np.argmin(self._quantities)
+        idx = _np.argmin(self._quantities)
         return self[idx]  # type: ignore
 
     def max(self) -> Number:
         """Return the maximum value."""
-        idx = np.argmax(self._quantities)
+        idx = _np.argmax(self._quantities)
         return self[idx]  # type: ignore
