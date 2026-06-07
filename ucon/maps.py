@@ -39,40 +39,55 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, TYPE_CHECKING
 
-try:
-    import numpy as np
-    _HAS_NUMPY = True
-except ImportError:
-    np = None  # type: ignore[assignment]
-    _HAS_NUMPY = False
-
 if TYPE_CHECKING:
+    import numpy as np
     from numpy.typing import NDArray
     Numeric = Union[float, NDArray[np.floating]]
+
+# --- lazy numpy accessor ---
+_np = None
+_np_checked = False
+
+
+def _get_numpy():
+    """Return the numpy module if available, else None. Cached after first call."""
+    global _np, _np_checked
+    if not _np_checked:
+        try:
+            import numpy
+            _np = numpy
+        except ImportError:
+            pass
+        _np_checked = True
+    return _np
 
 
 def _is_array(x) -> bool:
     """Check if x is a numpy array."""
-    return _HAS_NUMPY and isinstance(x, np.ndarray)
+    np = _get_numpy()
+    return np is not None and isinstance(x, np.ndarray)
 
 
 def _log(x, base: float):
     """Logarithm that works with both scalars and numpy arrays."""
-    if _HAS_NUMPY and isinstance(x, np.ndarray):
+    np = _get_numpy()
+    if np is not None and isinstance(x, np.ndarray):
         return np.log(x) / np.log(base)
     return math.log(x, base)
 
 
 def _exp(base: float, x):
     """Exponentiation that works with both scalars and numpy arrays."""
-    if _HAS_NUMPY and isinstance(x, np.ndarray):
+    np = _get_numpy()
+    if np is not None and isinstance(x, np.ndarray):
         return np.power(base, x)
     return base ** x
 
 
 def _validate_positive(x, name: str = "x") -> None:
     """Validate that x is positive (for logarithm arguments)."""
-    if _HAS_NUMPY and isinstance(x, np.ndarray):
+    np = _get_numpy()
+    if np is not None and isinstance(x, np.ndarray):
         if np.any(x <= 0):
             raise ValueError(f"Logarithm argument must be positive")
         return
