@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import statistics
+import subprocess
 import sys
 import time
 from typing import Any, Callable
@@ -60,6 +61,138 @@ def _bench(func: Callable[[], Any], iterations: int) -> dict[str, float]:
         "p5": _p5_ns(timings),
         "p95": _p95_ns(timings),
     }
+
+
+# ---------------------------------------------------------------------------
+# Load-time benchmarks (subprocess-isolated)
+# ---------------------------------------------------------------------------
+
+_LOAD_SNIPPET = """\
+import time
+t0 = time.perf_counter_ns()
+import ucon
+t1 = time.perf_counter_ns()
+print(t1 - t0)
+"""
+
+
+def _subprocess_import_ns(*, env_extra: dict[str, str] | None = None, runs: int = 10) -> list[int]:
+    """Measure `import ucon` wall time in a fresh subprocess, *runs* times."""
+    import os
+
+    env = os.environ.copy()
+    if env_extra:
+        env.update(env_extra)
+
+    timings: list[int] = []
+    for _ in range(runs):
+        result = subprocess.run(
+            [sys.executable, "-c", _LOAD_SNIPPET],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Subprocess failed: {result.stderr.strip()}")
+        timings.append(int(result.stdout.strip()))
+    return timings
+
+
+def bench_load_time(runs: int) -> dict[str, dict[str, float]]:
+    """Return timing stats for cache-hit and TOML-fallback import paths."""
+    # Cache-hit path (default)
+    cache_timings = _subprocess_import_ns(runs=runs)
+    cache_stats = {
+        "median": _median_ns(cache_timings),
+        "p5": _p5_ns(cache_timings),
+        "p95": _p95_ns(cache_timings),
+    }
+
+    # TOML-fallback path (cache disabled)
+    toml_timings = _subprocess_import_ns(env_extra={"UCON_NO_CACHE": "1"}, runs=runs)
+    toml_stats = {
+        "median": _median_ns(toml_timings),
+        "p5": _p5_ns(toml_timings),
+        "p95": _p95_ns(toml_timings),
+    }
+
+    return {"cache": cache_stats, "toml": toml_stats}
+
+
+_GRAPH_LOAD_SNIPPET = """\
+import time, statistics, json
+from pathlib import Path
+
+toml_path = Path("ucon/comprehensive.ucon.toml")
+iterations = {iterations}
+
+def bench(func):
+    func()  # warmup
+    timings = []
+    for _ in range(iterations):
+        t0 = time.perf_counter_ns()
+        func()
+        t1 = time.perf_counter_ns()
+        timings.append(t1 - t0)
+    return timings
+
+from ucon.serialization import from_toml
+toml_timings = bench(lambda: from_toml(toml_path))
+
+from ucon._cache import load_cached_graph
+cache_timings = bench(lambda: load_cached_graph(toml_path))
+
+print(json.dumps({{"toml": toml_timings, "cache": cache_timings}}))
+"""
+
+
+def bench_graph_load(iterations: int) -> dict[str, dict[str, float]]:
+    """Measure isolated graph-load time in a subprocess (no memory contamination)."""
+    import json
+
+    snippet = _GRAPH_LOAD_SNIPPET.format(iterations=iterations)
+    result = subprocess.run(
+        [sys.executable, "-c", snippet],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Graph load benchmark failed: {result.stderr.strip()}")
+
+    data = json.loads(result.stdout.strip())
+    toml_stats = {
+        "median": _median_ns(data["toml"]),
+        "p5": _p5_ns(data["toml"]),
+        "p95": _p95_ns(data["toml"]),
+    }
+    cache_stats = {
+        "median": _median_ns(data["cache"]),
+        "p5": _p5_ns(data["cache"]),
+        "p95": _p95_ns(data["cache"]),
+    }
+
+    return {"cache": cache_stats, "toml": toml_stats}
+
+
+def _print_load_table(results: dict[str, dict[str, float]]) -> None:
+    header = f"{'Path':<28} {'median':>12} {'p5':>12} {'p95':>12}"
+    print(header)
+    print("-" * len(header))
+
+    for label, key in [("Marshal cache", "cache"), ("TOML (no cache)", "toml")]:
+        s = results[key]
+        print(
+            f"{label:<28} "
+            f"{_fmt_time(s['median']):>12} "
+            f"{_fmt_time(s['p5']):>12} "
+            f"{_fmt_time(s['p95']):>12}"
+        )
+
+    cache_med = results["cache"]["median"]
+    toml_med = results["toml"]["median"]
+    if cache_med > 0:
+        speedup = toml_med / cache_med
+        print(f"\n  Speedup (median): {speedup:.1f}x")
 
 
 # ---------------------------------------------------------------------------
@@ -278,6 +411,17 @@ def main() -> None:
 
     print(f"Benchmarking with {args.iterations} iterations, array sizes: {args.sizes}")
     print(f"Python {sys.version.split()[0]}")
+
+    # --- Graph load (isolated, in-process) ---
+    _print_header("Graph Load (isolated)")
+    graph_results = bench_graph_load(args.iterations)
+    _print_load_table(graph_results)
+
+    # --- Import time (subprocess-isolated) ---
+    load_runs = min(args.iterations, 10)
+    _print_header(f"Import Time (subprocess-isolated, {load_runs} runs)")
+    import_results = bench_load_time(runs=load_runs)
+    _print_load_table(import_results)
 
     # --- Scalar benchmarks ---
     _print_header("Scalar Operations")
