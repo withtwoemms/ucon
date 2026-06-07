@@ -44,6 +44,40 @@ KNOWN_DEFERRED = {
     ("ucon.conversion", "from_toml", "ucon.serialization"),    # structural — avoids cycle
     ("ucon.conversion", "to_toml", "ucon.serialization"),      # structural — avoids cycle
     ("ucon.conversion", "with_package", "ucon.packages"),      # structural — avoids cycle
+    # ------------------------------------------------------------------
+    # ucon._cache — marshal codec for graph cache.
+    #
+    # _cache.py is a Layer-0-adjacent leaf that must be importable before
+    # the heavy ucon.core / ucon.conversion modules. All imports of ucon
+    # submodules are deferred to function bodies so the module's top-level
+    # is stdlib-only (marshal, os, struct, sys, tempfile, pathlib,
+    # warnings, fractions).
+    # ------------------------------------------------------------------
+    ("ucon._cache", "load_cached_graph", "ucon.serialization"),
+    ("ucon._cache", "write_cached_graph", "ucon.serialization"),
+    ("ucon._cache", "_map_to_prim", "ucon.maps"),
+    ("ucon._cache", "_prim_to_map", "ucon.maps"),
+    ("ucon._cache", "_unit_ref", "ucon.core"),
+    ("ucon._cache", "_resolve_unit_ref", "ucon.core"),
+    ("ucon._cache", "_to_primitives", "ucon.basis"),
+    ("ucon._cache", "_to_primitives", "ucon.basis.transforms"),
+    ("ucon._cache", "_to_primitives", "ucon.constants"),
+    ("ucon._cache", "_to_primitives", "ucon.conversion"),
+    ("ucon._cache", "_to_primitives", "ucon.core"),
+    ("ucon._cache", "_to_primitives", "ucon.dimension"),
+    ("ucon._cache", "_to_primitives", "ucon.kinds.types"),
+    ("ucon._cache", "_from_primitives", "ucon.basis"),
+    ("ucon._cache", "_from_primitives", "ucon.basis.transforms"),
+    ("ucon._cache", "_from_primitives", "ucon.constants"),
+    ("ucon._cache", "_from_primitives", "ucon.contexts"),
+    ("ucon._cache", "_from_primitives", "ucon.conversion"),
+    ("ucon._cache", "_from_primitives", "ucon.core"),
+    ("ucon._cache", "_from_primitives", "ucon.dimension"),
+    ("ucon._cache", "_from_primitives", "ucon.kinds.lattice"),
+    ("ucon._cache", "_from_primitives", "ucon.kinds.types"),
+    ("ucon._cache", "_build_kinds_recursive", "ucon.kinds.types"),
+    ("ucon._cache", "_deserialize_product_key", "ucon.core"),
+    ("ucon._cache", "_deserialize_product_tuple_key", "ucon.core"),
 }
 
 
@@ -256,7 +290,7 @@ class TestDeferredImportAudit(unittest.TestCase):
         eliminated, update this number downward.
         """
         self.assertEqual(
-            len(KNOWN_DEFERRED), 3,
+            len(KNOWN_DEFERRED), 28,
             "Update this count when adding or removing KNOWN_DEFERRED entries"
         )
 
