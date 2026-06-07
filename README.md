@@ -199,7 +199,7 @@ state. Full walkthrough: [`examples/system/README.md`](https://github.com/withtw
 | 1.10.0 | `Number.to()` routed through the active `UnitSystem`; top-level `active()` / `use()` exports | Complete |
 | 1.11.0 | Eager `UnitSystem` initialization on import; module-global default-graph singletons deprecated | Complete |
 | 1.12.0 | Cycle-break completion: `_active` and `AlgebraCache` as Layer-0 leaves; AST audit against cross-module injection | Complete |
-| **2.0** | `UnitSystem` algebra (`extend` / `restrict` / `merge` / `with_*`), relations (`subsystem_of` / `compatible_with` / `diff`), cross-system movement (`adopt`, `Bridge`), first-class `Number.kind` with arithmetic dispatch, `ActiveContext` substrate, `strict=True` default | Largely shipped; release pending |
+| **2.0.0** | `UnitSystem` algebra (`extend` / `restrict` / `merge` / `with_*`), relations (`subsystem_of` / `compatible_with` / `diff`), cross-system movement (`adopt`, `Bridge`), first-class `Number.kind` with arithmetic dispatch, `ActiveContext` substrate, `strict=True` default, marshal-based graph cache | Complete |
 
 See full roadmap: [ROADMAP.md](https://github.com/withtwoemms/ucon/blob/main/ROADMAP.md)
 

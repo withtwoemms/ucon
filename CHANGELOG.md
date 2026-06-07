@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Updated README and ROADMAP to reflect v2.0.0 release status.
+
 ## [2.0.0] - 2026-06-07
 
 ### Added
@@ -104,6 +110,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`Number.__repr__` shows kind.** `<500 J [kinetic_energy]>`.
 - **Test suite restructured to mirror source package layout.**
   `tests/ucon/basis/`, `conversion/`, `parsing/`, `integrations/`.
+- **`use()` now sets `_graph_context`** — in addition to `_parsing_graph`,
+  `use(system)` explicitly sets the `_graph_context` ContextVar so that
+  `get_default_graph()` resolves on the first check rather than falling
+  through to `_active.system.conversion_graph`.
 
 ### Removed
 
