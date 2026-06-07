@@ -171,6 +171,80 @@ class TestExtend(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# extend_many()
+# ---------------------------------------------------------------------------
+
+
+class TestExtendMany(unittest.TestCase):
+
+    def test_extend_many_empty_returns_self(self):
+        s = _active()
+        self.assertIs(s.extend_many(), s)
+
+    def test_extend_many_single_equivalent_to_extend(self):
+        s = _active()
+        length = _length_only(s)
+        mass = _mass_only(s)
+        via_extend = length.extend(mass, on_conflict=ConflictPolicy.PREFER_SELF)
+        via_many = length.extend_many(mass, on_conflict=ConflictPolicy.PREFER_SELF)
+        self.assertEqual(set(via_extend.units.keys()), set(via_many.units.keys()))
+        self.assertEqual(
+            set(via_extend.dimensions.keys()),
+            set(via_many.dimensions.keys()),
+        )
+
+    def test_extend_many_multiple_unions_registries(self):
+        s = _active()
+        length = _length_only(s)
+        mass = _mass_only(s)
+        time = s.restrict(dimensions=[s.dimensions["time"]])
+        merged = length.extend_many(
+            mass, time, on_conflict=ConflictPolicy.PREFER_SELF
+        )
+        self.assertIn("length", merged.dimensions)
+        self.assertIn("mass", merged.dimensions)
+        self.assertIn("time", merged.dimensions)
+
+    def test_extend_many_matches_chained_extend(self):
+        s = _active()
+        length = _length_only(s)
+        mass = _mass_only(s)
+        time = s.restrict(dimensions=[s.dimensions["time"]])
+        chained = length.extend(
+            mass, on_conflict=ConflictPolicy.PREFER_SELF
+        ).extend(time, on_conflict=ConflictPolicy.PREFER_SELF)
+        bulk = length.extend_many(
+            mass, time, on_conflict=ConflictPolicy.PREFER_SELF
+        )
+        self.assertEqual(set(chained.units.keys()), set(bulk.units.keys()))
+        self.assertEqual(
+            set(chained.dimensions.keys()),
+            set(bulk.dimensions.keys()),
+        )
+
+    def test_extend_many_raise_on_conflict(self):
+        from ucon.core import Unit as _Unit
+        s = _active()
+        meter = s.units["meter"]
+        clashing = _Unit(
+            name=meter.name,
+            dimension=meter.dimension,
+            aliases=("not_a_meter",),
+        )
+        other = _with_unit_replaced(s, "meter", clashing)
+        with self.assertRaises(ExtendConflict):
+            s.extend_many(other, on_conflict=ConflictPolicy.RAISE)
+
+    def test_extend_many_preserves_self_basis(self):
+        s = _active()
+        mass = _mass_only(s)
+        time = s.restrict(dimensions=[s.dimensions["time"]])
+        out = s.extend_many(mass, time, on_conflict=ConflictPolicy.PREFER_SELF)
+        self.assertEqual(out.basis, s.basis)
+        self.assertIs(out.basis_graph, s.basis_graph)
+
+
+# ---------------------------------------------------------------------------
 # restrict()
 # ---------------------------------------------------------------------------
 
