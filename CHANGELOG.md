@@ -9,362 +9,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `UnitSystem.extend`, `restrict`, `merge`, and `with_unit` /
-  `with_conversion` / `with_basis` / `with_basis_graph` incremental
-  constructors.
-- `UnitSystem.subsystem_of`, `compatible_with`, `diff`, `shared_units`,
-  `shared_dimensions` relation methods.
-- `ConflictPolicy` enum (`RAISE`, `PREFER_SELF`, `PREFER_OTHER`),
-  `ExtendConflict`, `RegistryDiff`, `SystemDiff` — exported from
-  `ucon.system` and re-exported from `ucon`.
-- `UnitSystem.adopt(n)` cross-system value rebinding and `Bridge`
-  dataclass (`src`, `dst`, `rename`, `basis_transform`) with `apply`,
-  `inverse`, `__matmul__`; synonym-only `rename` validated at
-  construction via `InvalidRename`.
-- **`ActiveContext` substrate (v2.0 §3.4)** — frozen dataclass that
-  bundles the active `UnitSystem` with a `FormulaRegistry` (kind-aware
-  arithmetic dispatch table), a `KindLattice` (kind taxonomy), and a
-  `strict` flag. This is the payload now carried by the
-  `ucon._active` ContextVar. Keeping `formulas` and `kinds` off
-  `UnitSystem` is deliberate: a system does not own its formulas, and
-  the substrate lets callers swap the dispatch table without
-  rebuilding the system. Single-ContextVar discipline is preserved —
-  the bundle ships as one payload rather than spawning sibling
-  ContextVars for each field.
-- Typed accessors `active_system`, `active_formulas`, `active_kinds`,
-  `active_strict` — the only sanctioned read paths for the bundled
-  fields. Exported from `ucon.system` and re-exported from `ucon`.
-- `ActiveContext`, `FormulaRegistry`, `Kind`, `KindLattice` re-exported
-  from the top-level `ucon` package.
-- Tests under `tests/ucon/system/`: `test_algebra.py`,
-  `test_algebra_laws.py`, `test_relations.py`, `test_adopt.py`,
-  `test_bridge.py`, `test_active_context.py`.
-- **`UnitDefinitionMismatch`** — new public exception raised by
-  `Number.to` and `NumberArray.to` under `strict=True` when the source
-  unit is not in the active conversion graph by object identity.
-  Carries the offending `unit` and the `graph` that did not contain it.
-  Exported from `ucon.core` and re-exported from `ucon`.
-- `ConversionGraph.contains_unit_by_identity(unit)` — new public method
-  that performs `is`-comparison against every node in `_unit_edges`,
-  descending into `UnitProduct` factors. This is the lookup semantics
-  required by strict source-unit resolution; it is intentionally
-  distinct from value-based `__contains__` and `resolve_unit`.
-- **`Number.kind` field (v2.0 §3.4)** — optional `Kind | None = None`
-  slot on `Number`, validated against the unit's dimension at
-  construction (raises `KindDimensionMismatch` on mismatch) and
-  preserved through every `Number.to(...)` conversion path (fast,
-  scale-only, general). Backward-compatible: existing `Number(...)`
-  constructions without `kind=` are unaffected, and equality is
-  unchanged in this slice — `kind` is carried as metadata alongside
-  `uncertainty` and does not participate in `__eq__`. Kind-aware
-  equality and arithmetic dispatch are reserved for the follow-on
-  §3.4 slices.
-- **`KindDimensionMismatch`** — new public exception raised at
-  `Number.__post_init__` when a supplied `kind`'s dimension does not
-  match the unit's dimension. Carries the offending `kind` and `unit`.
-  Exported from `ucon.core` and re-exported from `ucon`.
-- **`KindMismatch`** — new public exception raised when kinded and
-  unkinded `Number`s are added or subtracted under `strict=True`.
-  Carries the `kinded` kind and the `unkinded_side` (`"left"` or
-  `"right"`). Exported from `ucon.core` and re-exported from `ucon`.
-- **`KindConstraint`** — annotation marker parallel to
-  `DimensionConstraint`. Enables `Number[kind]` and
-  `Number[Dimension.X, kind]` subscript syntax for kind-constrained
-  parameters. Exported from `ucon.core` and re-exported from `ucon`.
-- **Named dimensions `MOLAR_ENERGY`, `MOLAR_ENTROPY`, `SPECIFIC_ENERGY`.**
-  Three new derived dimensions added to `ucon.dimension` for KOQ
-  degeneracy clusters: molar energy (M·L²·T⁻²·N⁻¹), molar entropy
-  (M·L²·T⁻²·Θ⁻¹·N⁻¹), and specific energy (L²·T⁻² — the shared
-  dimension of Gy, Sv, and J/kg).
-- **Built-in `KindLattice` (25 kinds, 8 clusters).** The
-  `comprehensive.ucon.toml` now ships `[[kinds]]` sections covering
-  the fundamental KOQ degeneracy clusters identified from the UnitSafe
-  benchmark: energy/torque, frequency/activity, absorbed dose/dose
-  equivalent, voltage/EMF, molar energy thermodynamic potentials,
-  molar entropy/heat capacity, real/apparent/reactive power, and
-  pressure/stress. The lattice loads at import time and is accessible
-  via `active_kinds()`.
-- **`load_package()` / `with_package()` support for `[[kinds]]`.**
-  `UnitPackage` gains an optional `kinds: KindLattice | None` field.
-  `load_package()` parses `[[kinds]]` sections via `parse_kinds_payload()`.
-  `Graph.with_package()` merges the package lattice into
-  `graph._kind_lattice`, with package definitions taking precedence on
-  name collision. Packages without `[[kinds]]` continue to work unchanged.
-- **`ucon._cache` — marshal-based binary graph cache.** The conversion
-  graph is serialized to a `.ucon.cache` file using `marshal` (primitives
-  only — no code execution on deserialization). Subsequent imports load
-  from cache when fresh, providing ~15-25x speedup over TOML parsing.
-  Invalidation uses mtime comparison, magic header, format version,
-  Python version, and cache schema version; any mismatch silently falls
-  through to TOML. Disable with `UCON_NO_CACHE=1`.
-- `make cache` / `make cache-check` targets — generate and validate the
-  binary graph cache respectively. `cache-check` is suitable as a CI
-  guard.
-- Cold-start import benchmark in `benchmarks/array_operations.py`
-  profiling cache-hit vs cache-miss vs TOML-only paths.
-- **`UnitSystem.extend_many(*others)`** — bulk composition that merges
-  multiple systems in a single graph copy. Equivalent to chained
-  `.extend()` calls but O(1) in copy overhead regardless of how many
-  systems are combined.
-- **`KindLattice.copy()`** — returns an independent copy sharing the
-  same frozen `Kind` objects but with separate index dicts. Mutations
-  via `register()` on the copy do not affect the original.
-- **`use()` now sets `_parsing_graph`** — unit name resolution inside a
-  `use(system)` block now resolves against `system.conversion_graph`,
-  eliminating the need for the dual-context-manager pattern
-  (`use()` + `using_conversion_graph()`) in downstream platforms.
+- **`UnitSystem` composition API.** `extend`, `extend_many`, `restrict`,
+  `merge`, `with_unit` / `with_conversion` / `with_basis` /
+  `with_basis_graph` incremental constructors. `extend_many(*others)`
+  merges multiple systems in a single graph copy.
+- **`UnitSystem` relation methods.** `subsystem_of`, `compatible_with`,
+  `diff`, `shared_units`, `shared_dimensions`.
+- **`ConflictPolicy`** enum (`RAISE`, `PREFER_SELF`, `PREFER_OTHER`)
+  and `ExtendConflict` exception for controlling merge behavior.
+- **Cross-system value movement.** `UnitSystem.adopt(n)` for rebinding
+  and `Bridge` dataclass with `apply`, `inverse`, `__matmul__` for
+  explicit cross-system transfers with optional renames and basis
+  transforms.
+- **`ActiveContext`** — frozen dataclass bundling the active `UnitSystem`
+  with `FormulaRegistry`, `KindLattice`, and `strict` flag. Typed
+  accessors: `active_system`, `active_formulas`, `active_kinds`,
+  `active_strict`.
+- **`Number.kind` field** — optional `Kind` slot validated against the
+  unit's dimension at construction. Preserved through all `.to()`
+  conversion paths. Does not participate in `__eq__`.
+- **Kind-of-Quantity exceptions.** `KindDimensionMismatch` (kind/unit
+  dimension conflict), `KindMismatch` (kinded ± unkinded under strict
+  mode), `UnitDefinitionMismatch` (unit not in graph by identity).
+- **`KindConstraint`** — annotation marker enabling `Number[kind]` and
+  `Number[Dimension.X, kind]` subscript syntax.
+- **Named dimensions** `MOLAR_ENERGY`, `MOLAR_ENTROPY`,
+  `SPECIFIC_ENERGY` for KOQ degeneracy clusters.
+- **Built-in `KindLattice` (25 kinds, 8 clusters)** loaded from
+  `comprehensive.ucon.toml`. Covers energy/torque, frequency/activity,
+  absorbed dose/dose equivalent, voltage/EMF, molar thermodynamic
+  potentials, power variants, and pressure/stress.
+- **`[[kinds]]` in TOML.** `load_package()` / `with_package()` parse
+  and merge `[[kinds]]` sections. `to_toml()` emits them.
+- **`KindLattice.copy()`** — independent copy with shared frozen `Kind`
+  objects.
+- **Marshal-based graph cache (`ucon._cache`).** ~15-25x import speedup.
+  Invalidation via mtime + header checks; silent TOML fallback. Disable
+  with `UCON_NO_CACHE=1`. New `make cache` / `make cache-check` targets.
+- `ConversionGraph.contains_unit_by_identity(unit)` for strict
+  source-unit resolution.
 
 ### Fixed
 
 - **`Graph.copy()` no longer shares `_kind_lattice` by reference.**
-  Previously, `Graph.copy()` aliased the lattice object, meaning
-  `define_quantity_kind` in one session could mutate another session's
-  graph in multi-tenant deployments. `copy()` now calls
-  `KindLattice.copy()` to produce an independent index.
-- **`UnitSystem.extend` with `ConflictPolicy.PREFER_OTHER` now correctly
-  installs the RHS conversion edge.** Previously, the fall-through in
-  `_merge_conversion_graphs` called `Graph.add_edge` to overwrite the LHS
-  edge, but `add_edge` enforced cyclic consistency against the existing
-  reverse edge and raised `CyclicInconsistency`. `Graph.add_edge` now
-  accepts `overwrite=True`, which removes the prior forward+inverse edges
-  before insertion so the cyclic check sees clean state.
-- **`Graph.with_package()` now resolves constant `kind=` references against
-  the package's merged kind lattice**, not just the ambient context.
-  Packages defining both novel kinds and constants referencing those kinds
-  now load correctly. `ConstantDef.materialize()` accepts an optional
-  `kind_lattice` parameter for local resolution.
-- **`Graph.contains_unit_by_identity` no longer scans every dimension on
-  every call.** The check is on the hot path of `Number.to` / `NumberArray.to`
-  under `strict=True` (the v2.0 default); the previous implementation
-  iterated `_unit_edges` across all dimensions, then iterated
-  `_name_registry_cs`, before returning. The lookup is now scoped to
-  `_unit_edges[unit.dimension]` for the per-dimension scan and a single
-  `_name_registry_cs.get(unit.name)` identity check for the
-  product-only-unit fallback. Behavior is unchanged; the new
-  `tests/ucon/conversion/test_graph.py::TestContainsUnitByIdentity`
-  pins the identity-vs-name semantics and the dimension-scoped
-  invariant. Restores most of the per-conversion overhead introduced
-  in #259, with the largest improvement on temperature (affine)
-  conversion.
+  Mutations via `define_quantity_kind` in one session no longer
+  propagate to other sessions sharing the parent graph.
+- **`UnitSystem.extend` with `PREFER_OTHER` now correctly installs the
+  RHS conversion edge.** `Graph.add_edge` accepts `overwrite=True` to
+  clear prior edges before insertion.
+- **`Graph.with_package()` resolves constant `kind=` references against
+  the package's merged lattice**, not just the ambient context.
+- **Strict-mode conversion overhead reduced.** `contains_unit_by_identity`
+  scoped to the relevant dimension rather than scanning all edges.
 - **`Dimension.__eq__` performance regression addressed.** Identity
-  short-circuit (`self is other`) and `__hash__` fast-path avoid the
-  full vector comparison for repeated algebra on the same dimension
-  objects. Restores Unit algebra throughput after the dimension-cache
-  removal.
+  short-circuit and `__hash__` fast-path restore algebra throughput.
 
 ### Changed
 
-- **`ucon.units` loads from cache first.** `units.py` attempts
-  `_cache.load_cached_graph()` before falling back to TOML parsing.
-  The cache path is transparent — the resulting `Graph` is identical
-  regardless of source.
-- **Lazy numpy import in `ucon.core._types` and `ucon.maps`.** The
-  top-level `import numpy` is replaced with a `_get_numpy()` accessor
-  that defers the import to first use. This eliminates numpy from the
-  critical import path for pure-scalar workloads and reduces cold-start
-  time when numpy is installed but unused.
-- **Context-global getters replaced with active-UnitSystem substrate.**
-  `get_default_graph()`, `get_basis_graph()`, and all resolution paths
-  now delegate to the `ActiveContext` carried by the `_active` ContextVar
-  rather than consulting independent module-level sentinels. This
-  eliminates the class of bugs where context managers disagreed about
-  which graph was current.
-- **Basis/graph resolution centralized into `ucon._active`.**
-  `get_default_basis()` and `get_basis_graph()` resolve exclusively
-  via `active().system.basis` and `active().system.basis_graph`
-  respectively, making the active `UnitSystem` the single source of
-  truth for all resolution paths.
-- **Basis context globals retired.** `get_default_basis`,
-  `get_basis_graph`, `using_basis`, and `using_basis_graph` are removed.
-  All four were deprecated in v1.x; their functionality is subsumed by
-  `use(system)` and `active_system().basis` / `.basis_graph`.
-- **TOML becomes authoritative for Dimensions.** Dimension definitions
-  (including symbols) are now loaded from `comprehensive.ucon.toml`
-  rather than being hard-coded in `ucon/dimension.py`. The generated
-  `dimension.pyi` stub reflects the TOML-declared catalog. This
-  completes the TOML-takeover trajectory for all three registries
-  (units, constants, dimensions).
-- **Module-level mutable dimension caches deleted.** The dimension
-  algebra caches (`_DIM_MUL_CACHE`, `_DIM_DIV_CACHE`, `_DIM_POW_CACHE`)
-  that formerly lived as module globals on `ucon.dimension` are removed.
-  All dimension algebra routes through the per-`UnitSystem` `AlgebraCache`
-  accessible via the active context. This eliminates the last category
-  of module-level mutable state.
-- **Removed `_DEFAULT_ALGEBRA_CACHE` module-level global.** `_get_active_cache()`
-  now returns a fresh `AlgebraCache()` when no active context exists (bootstrap
-  only). Dimension algebra during import runs uncached; post-init behavior
-  is unchanged.
-- **Pydantic kind integration (v2.0 §3.4).** The `ucon.pydantic` adapter
-  now supports `Kind` constraints alongside `Dimension` constraints.
-  `Number[kind]`, `Number[Dimension.X, kind]`, and `Number[kind, Dimension.X]`
-  subscripts work as Pydantic field types. Kind survives JSON round-trip
-  via a new `"kind"` key in the wire format (`null` when absent).
-  Kind-constrained fields validate kind identity with lattice descendancy.
-  JSON schema generation includes the `kind` property and describes kind
-  constraints in the `description` field. Unknown kind strings raise
-  `ValueError` during deserialization.
-- **TOML kind round-trip on `Constant` (v2.0 §3.4).** The `Constant`
-  dataclass gains an optional `kind: Kind | None = None` field.
-  `Constant.as_number()` now passes `kind` through to `Number`.
-  `_serialize_constant()` writes `kind = "<canonical>"` when set
-  (omitted when `None` for backward compatibility). `from_toml()`
-  reads the optional `kind` key from constant specs and resolves it
-  via `active_kinds()`; unknown kind names raise `GraphLoadError`.
-  `ConstantDef` in `ucon.packages` gains a parallel `kind: str | None`
-  field, and `load_package()` parses the `kind` key from TOML constant
-  definitions. Existing TOML files without `kind` keys are unaffected.
-- **`[[kinds]]` TOML serialization (v2.0 §3.4).** `to_toml()` accepts an
-  optional `kinds: KindLattice` keyword argument and emits `[[kinds]]`
-  sections (name, dimension, parent, join_policy, aliases). `from_toml()`
-  parses `[[kinds]]` via `parse_kinds_payload()` and stores the result on
-  `graph._kind_lattice`. Constant kind resolution prefers the locally-parsed
-  lattice, falling back to `active_kinds()`. TOML files without `[[kinds]]`
-  load with `_kind_lattice = None` (backward compatible).
-- **`@enforce_dimensions` extended with kind validation (v2.0 §3.4).**
-  Parameters annotated as `Number[kind]` are validated for kind identity
-  (or lattice descendancy via the active `KindLattice`). Joint
-  annotations `Number[Dimension.X, kind]` check both dimension and kind.
-  `Number.__class_getitem__` now accepts `Kind`, `(Dimension, Kind)`, and
-  `(Kind, Dimension)` subscripts — order-insensitive. Descendancy
-  semantics: `Number[energy]` accepts `kinetic_energy` when it is a child
-  of `energy` in the active lattice.
-- **Kind-aware arithmetic dispatch (v2.0 §4.3, §4.4, §4.9).**
-  `Number.__mul__` and `Number.__truediv__` consult the active
-  `FormulaRegistry` when both operands carry a `kind`; the matched
-  `KindFormula`'s `output_kind` stamps the result. `Number.__add__`
-  and `Number.__sub__` consult the active `KindLattice`: same-kind
-  preserves, different-kind joins at LCA or raises `JoinRefused`.
-  Scalar operations preserve kind (S1); same-kind division yields
-  `kind=None` (S2). Strict mode refuses kinded + unkinded addition
-  (`KindMismatch`); permissive mode warns and inherits the present
-  kind. Fast path: when both operands have `kind=None`, no registry
-  or lattice is consulted.
-
-- **Internal rename: `UnitProduct._residual_scale_factor` →
-  `UnitProduct.canonical_scale`.** Same semantics, same default (`1.0`),
-  same propagation algebra. The field is becoming a contract-bearing
-  piece of the canonical form rather than a defensively-accessed
-  implementation cache. Affects downstream code that reads
-  `getattr(unit_product, '_residual_scale_factor', 1.0)`; the field
-  starts with no underscore and the default behavior is preserved.
-
-- **`UnitProduct.__init__` canonical-form contract codified
-  (per-UnitFactor grain).** The constructor now (1) accepts an optional
-  second positional argument, `canonical_scale: float = 1.0`, which is
-  composed into the final `canonical_scale` of the constructed product;
-  (2) accesses `key.canonical_scale` directly on flattened nested
-  products instead of going through `getattr(..., 1.0)`; and (3)
-  **absorbs** the scale of any dimensionless (NONE-dim) factor into
-  `canonical_scale` before dropping the factor, where previously such
-  factors' scales were silently discarded. Single-argument call sites
-  are unaffected (default `1.0` for the new parameter, default `1.0`
-  absorption when no NONE-dim factors are present). The new parameter
-  enables the idempotence guarantee: `UnitProduct(u.factors,
-  u.canonical_scale)` is structurally equal to `u`.
-
-  The canonical form is per-UnitFactor grain: cross-scale variants of
-  the same base unit (e.g. `mg` and `kg`) are distinct UnitFactors and
-  both survive, preserving downstream composition (`mg/kg * kg == mg`)
-  and display fidelity (shorthand `"mg/kg"`). Same-scale duplicates
-  collapse normally. Property tests live in
-  `tests/ucon/core/test_unitproduct_canonical.py`.
-
-- **Parsing layer composes `canonical_scale` unconditionally.**
-  `_multiply` and `_divide` in `ucon/parsing/units.py` now access
-  `canonical_scale` directly and compose it unconditionally, replacing
-  the defensive `getattr(..., 1.0)` fallbacks and conditional guards
-  that existed before the field was contract-bearing.
-
-- **`Number.__repr__` extended for `kind`.** A bound `kind` now renders
-  as a bracketed tag after the unit shorthand:
-  `<500 J [kinetic_energy]>` (or `<500 ± 0.5 J [kinetic_energy]>` with
-  uncertainty). Existing `kind`-less reprs are byte-identical to the
-  prior release. The repr is now assembled from an optional-parts list
-  so the forthcoming aspects channel can append `#aspect` tokens
-  without restructuring the existing channels.
-
-- **BREAKING: `ucon.active()` now returns `ActiveContext`** rather
-  than `UnitSystem`. Migration: call `active_system()` where the
-  previous code wanted the `UnitSystem`, or access `active().system`
-  explicitly. The renaming is mechanical at call sites; the type
-  change is the breaking surface. This BREAKING change is
-  v2.0-gated and consistent with the `[Unreleased]` lineup.
-- **`use(system, *, formulas=None, kinds=None, strict=None)`** —
-  the context-manager now accepts optional overrides for each
-  `ActiveContext` field. Unset fields inherit from the enclosing
-  context, so nested `use(...)` blocks compose without forcing
-  callers to re-specify untouched fields. Outermost-block inheritance
-  defaults are `FormulaRegistry()`, `KindLattice()`, `strict=True`.
-- **Eager init in `ucon/__init__.py`** now constructs an
-  `ActiveContext(system=..., formulas=FormulaRegistry(),
-  kinds=KindLattice(), strict=True)` and pushes it onto
-  `ucon._active` at import time. The active-system tier in
-  `get_default_graph()` and `get_basis_graph()` is therefore always
-  hit, and the legacy module-level fallback path is dead code.
-- Internal sites that previously read `_active.get()` directly and
-  treated the payload as a `UnitSystem` (`Number.to`, `NumberArray.to`,
-  `BasisGraph` accessor, `ConversionGraph` accessor,
-  `_get_active_cache`) now extract `.system` from the `ActiveContext`
-  payload. The cascade is invisible to public callers; existing
-  user code that only goes through public entry points is unaffected.
-- `UnitSystem.from_globals(...)` deprecation message updated to point
-  at `active_system()` instead of the (now-breaking) `active()`.
-- **BREAKING (v2.0 §3.4): `Number.to` and `NumberArray.to` enforce
-  identity-based source-unit resolution under `strict=True` (the v2.0
-  default).** A `Number` whose `unit` is not in the active conversion
-  graph by object identity now raises `ucon.UnitDefinitionMismatch`
-  instead of being silently re-resolved by name. Remediation:
-  `system.adopt(n)` when systems share unit names, or
-  `Bridge(src, dst, ...).apply(n)` when names or bases diverge.
-  Per-scope opt-out: `with use(system, strict=False): ...` preserves
-  v1.x name-based ergonomics. The common case (a single active
-  `UnitSystem`, or systems derived via `extend` / `restrict` / `with_*`
-  that share `Unit` objects by reference) is unaffected. This makes
-  `Bridge` structurally load-bearing at the `Number` layer, mirroring
-  what §3.5 already did at the `Vector` layer with `BasisMismatch`.
-- **Test suite restructured to mirror source package layout.** Test files
-  relocated from the flat `tests/ucon/` root into subdirectories that
-  mirror the `ucon/` source tree: `tests/ucon/basis/`,
-  `tests/ucon/conversion/`, `tests/ucon/parsing/`, and the new
-  `tests/ucon/integrations/`. Root-level test files now cover only
-  top-level modules and cross-cutting concerns. No tests added or
-  removed — purely organizational.
-- **`use()` now sets `_graph_context`** — in addition to `_parsing_graph`,
-  `use(system)` explicitly sets the `_graph_context` ContextVar so that
-  `get_default_graph()` resolves on the first check rather than falling
-  through to `_active.system.conversion_graph`.
+- **BREAKING: `active()` returns `ActiveContext`** instead of
+  `UnitSystem`. Migration: use `active_system()` or `active().system`.
+- **BREAKING: `Number.to` enforces identity-based source-unit resolution
+  under `strict=True` (the default).** Units not in the active graph by
+  identity raise `UnitDefinitionMismatch`. Remediation: `system.adopt(n)`
+  or `Bridge`. Opt-out: `use(system, strict=False)`.
+- **`use()` expanded.** Accepts `formulas`, `kinds`, `strict` overrides
+  with enclosing-context inheritance. Sets both `_parsing_graph` and
+  `_graph_context`, providing full name resolution and conversion
+  context without additional context managers.
+- **`UnitProduct.canonical_scale`** (renamed from
+  `_residual_scale_factor`). Now a public contract-bearing field.
+  Constructor absorbs dimensionless-factor scales and accepts an
+  optional `canonical_scale` positional argument for idempotent
+  reconstruction.
+- **Kind-aware arithmetic dispatch.** `__mul__`/`__truediv__` consult
+  `FormulaRegistry`; `__add__`/`__sub__` consult `KindLattice` (LCA
+  join or `JoinRefused`). Scalar ops preserve kind; same-kind division
+  yields `kind=None`. Strict mode refuses kinded ± unkinded.
+- **`@enforce_dimensions` extended with kind validation.** `Number[kind]`
+  and `Number[Dimension.X, kind]` annotations checked via lattice
+  descendancy.
+- **Pydantic adapter supports `Kind` constraints.** Kind survives JSON
+  round-trip; schema generation includes kind metadata.
+- **`Constant` gains optional `kind` field.** Serialized to/from TOML;
+  `as_number()` passes kind through.
+- **TOML authoritative for Dimensions.** Definitions loaded from
+  `comprehensive.ucon.toml`; `dimension.pyi` generated from TOML.
+- **All resolution centralized on `ActiveContext`.** `get_default_graph()`,
+  `get_basis_graph()`, and all conversion paths delegate to the active
+  `UnitSystem`. Module-level mutable state eliminated.
+- **Cache-first graph loading.** `ucon.units` loads from `.ucon.cache`
+  when fresh, falling back to TOML transparently.
+- **Lazy numpy import.** Deferred to first use in `core._types` and
+  `maps`, eliminating numpy from the cold-start path.
+- **`Number.__repr__` shows kind.** `<500 J [kinetic_energy]>`.
+- **Test suite restructured to mirror source package layout.**
+  `tests/ucon/basis/`, `conversion/`, `parsing/`, `integrations/`.
 
 ### Removed
 
-- **`_none` sentinel retired.** The module-level `_none = Unit()` in
-  `ucon.core._types` is deleted. All sites that returned or defaulted
-  to `_none` now use `UnitProduct({})` — the multiplicative identity
-  whose contract was established in Phase 2. External code that
-  imported `_none` from `ucon.core` or `ucon.quantity` should migrate
-  to structural checks: `unit == UnitProduct({})` or
-  `unit.factors == {}`.
-- **All v1.x deprecated symbols removed (Phase 5 breaking removals).**
-  The following public API symbols, deprecated during the v1.x series,
-  are deleted:
-  - `get_unit_by_name()` — use `parse_unit()` instead.
-  - `using_graph()` — use `using_conversion_graph()` instead.
-  - `set_default_graph()` / `reset_default_graph()` — graph ownership
-    moved to `UnitSystem`; use `use(system)` for scoping.
-  - `set_default_basis_graph()` / `reset_default_basis_graph()` — same;
-    use `using_basis_graph()` or `use(system)`.
-  - `UnitSystem.conversions` property — use `conversion_graph` instead.
-  - `UnitSystem(conversions=...)` kwarg — use `conversion_graph=`.
-  - `UnitSystem.from_globals()` — use `active_system()` instead.
-  - `units.have(name)` — use `parse_unit(name)` with a try/except.
-  - `_DIM_MUL_CACHE` / `_DIM_DIV_CACHE` / `_DIM_POW_CACHE` PEP-562
-    shims on `ucon.dimension` — algebra caches are now per-`UnitSystem`
-    via `AlgebraCache`.
-  - Module-level `_default_graph` and `_default_basis_graph` globals —
-    `get_default_graph()` and `get_basis_graph()` now resolve
-    exclusively via `ContextVar` and active `UnitSystem`.
+- **`_none` sentinel.** Use `UnitProduct({})` instead.
+- **All v1.x deprecated symbols:**
+  - `get_unit_by_name()` → `parse_unit()`
+  - `using_graph()` → `using_conversion_graph()`
+  - `set_default_graph()` / `reset_default_graph()` → `use(system)`
+  - `set_default_basis_graph()` / `reset_default_basis_graph()` → `use(system)`
+  - `UnitSystem.conversions` → `conversion_graph`
+  - `UnitSystem(conversions=...)` → `conversion_graph=`
+  - `UnitSystem.from_globals()` → `active_system()`
+  - `units.have(name)` → `parse_unit(name)` with try/except
+  - `_DIM_MUL_CACHE` / `_DIM_DIV_CACHE` / `_DIM_POW_CACHE` PEP-562 shims
+  - Module-level `_default_graph` / `_default_basis_graph` globals
   - `get_default_basis()` / `get_basis_graph()` / `using_basis()` /
-    `using_basis_graph()` — basis resolution is now exclusively via
-    `active_system().basis` and `active_system().basis_graph`.
+    `using_basis_graph()`
 
 ## [1.12.0] - 2026-05-23
 
