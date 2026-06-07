@@ -588,7 +588,7 @@ class Graph:
         new._loaded_packages = self._loaded_packages  # frozenset is immutable, share reference
         new._package_constants = self._package_constants  # tuple is immutable, share reference
         new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
-        new._kind_lattice = self._kind_lattice  # KindLattice is immutable, share ref
+        new._kind_lattice = self._kind_lattice.copy() if self._kind_lattice is not None else None
         return new
 
     def register_context(self, ctx: 'ConversionContext') -> None:
