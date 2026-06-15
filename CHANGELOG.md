@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated README and ROADMAP to reflect v2.0.0 release status.
 
+## [2.0.1] - 2026-06-15
+
+### Fixed
+
+- Gray, sievert, rad_dose, and rem now carry `specific_energy` dimension
+  instead of `energy`. These units are J/kg (m²·s⁻²), not J (kg·m²·s⁻²).
+  The prior assignment prevented constructing kinded `Number` values for
+  `absorbed_dose` and `dose_equivalent` quantity kinds.
+
 ## [2.0.0] - 2026-06-07
 
 ### Added

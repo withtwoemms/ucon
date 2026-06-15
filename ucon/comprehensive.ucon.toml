@@ -1029,7 +1029,7 @@ aliases = [
 
 [[units]]
 name = "gray"
-dimension = "energy"
+dimension = "specific_energy"
 aliases = [
     "Gy",
     "Gy(RBE)",
@@ -1366,7 +1366,7 @@ aliases = [
 
 [[units]]
 name = "sievert"
-dimension = "energy"
+dimension = "specific_energy"
 aliases = [
     "Sv",
     "Sv(RBE)",
@@ -3271,7 +3271,7 @@ aliases = [
 
 [[units]]
 name = "rad_dose"
-dimension = "energy"
+dimension = "specific_energy"
 aliases = [
     "rad_absorbed",
 ]
@@ -3285,7 +3285,7 @@ factors = [
 
 [[units]]
 name = "rem"
-dimension = "energy"
+dimension = "specific_energy"
 aliases = [
     "rem",
 ]
