@@ -78,9 +78,10 @@ def install_default_active_context() -> None:
     system = build_default_system()
     graph = system.conversion_graph
     kinds = getattr(graph, '_kind_lattice', None) or KindLattice()
+    formulas = getattr(graph, '_formula_registry', None) or FormulaRegistry()
     _active_var.set(ActiveContext(
         system=system,
-        formulas=FormulaRegistry(),
+        formulas=formulas,
         kinds=kinds,
         strict=True,
     ))
