@@ -874,7 +874,8 @@ class UnitSystem:
                 raise UnknownUnitError(unit.unit.name)
             rebound = UnitFactor(self.units[unit.unit.name], unit.scale)
             return Number(
-                quantity=n.quantity, unit=rebound, uncertainty=n.uncertainty
+                quantity=n.quantity, unit=rebound, uncertainty=n.uncertainty,
+                kind=n.kind,
             )
         if isinstance(unit, Unit):
             if unit.name not in self.units:
@@ -883,6 +884,7 @@ class UnitSystem:
                 quantity=n.quantity,
                 unit=self.units[unit.name],
                 uncertainty=n.uncertainty,
+                kind=n.kind,
             )
         if isinstance(unit, UnitProduct):
             rebound_factors: Dict['UnitFactor', float] = {}
@@ -897,10 +899,12 @@ class UnitSystem:
                 quantity=n.quantity,
                 unit=UnitProduct(rebound_factors),
                 uncertainty=n.uncertainty,
+                kind=n.kind,
             )
         # Number with no unit — return as-is.
         return Number(
-            quantity=n.quantity, unit=unit, uncertainty=n.uncertainty
+            quantity=n.quantity, unit=unit, uncertainty=n.uncertainty,
+            kind=n.kind,
         )
 
 
@@ -1187,7 +1191,8 @@ class Bridge:
                 raise UnknownUnitError(target_name)
             rebound = UnitFactor(self.dst.units[target_name], unit.scale)
             return Number(
-                quantity=n.quantity, unit=rebound, uncertainty=n.uncertainty
+                quantity=n.quantity, unit=rebound, uncertainty=n.uncertainty,
+                kind=n.kind,
             )
         if isinstance(unit, Unit):
             target_name = _rebind_name(unit.name)
@@ -1197,6 +1202,7 @@ class Bridge:
                 quantity=n.quantity,
                 unit=self.dst.units[target_name],
                 uncertainty=n.uncertainty,
+                kind=n.kind,
             )
         if isinstance(unit, UnitProduct):
             rebound_factors: Dict['UnitFactor', float] = {}
@@ -1212,9 +1218,11 @@ class Bridge:
                 quantity=n.quantity,
                 unit=UnitProduct(rebound_factors),
                 uncertainty=n.uncertainty,
+                kind=n.kind,
             )
         return Number(
-            quantity=n.quantity, unit=unit, uncertainty=n.uncertainty
+            quantity=n.quantity, unit=unit, uncertainty=n.uncertainty,
+            kind=n.kind,
         )
 
     def inverse(self) -> 'Bridge':

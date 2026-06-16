@@ -115,5 +115,39 @@ class TestAdoptNoConversion(unittest.TestCase):
         self.assertEqual(out.quantity, n.quantity)
 
 
+class TestAdoptKindPreservation(unittest.TestCase):
+    """``adopt`` preserves ``Number.kind`` through cross-system movement."""
+
+    def test_adopt_preserves_kind_plain_unit(self):
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        s = _active()
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        joule = s.units["joule"]
+        n = Number(100.0, joule, kind=ke)
+        out = s.adopt(n)
+        self.assertIs(out.kind, ke)
+        self.assertEqual(out.quantity, 100.0)
+
+    def test_adopt_preserves_kind_unit_product(self):
+        from ucon.dimension import VELOCITY
+        from ucon.kinds import Kind
+        s = _active()
+        speed_kind = Kind("speed", dimension=VELOCITY)
+        meter = s.units["meter"]
+        second = s.units["second"]
+        product = UnitProduct({meter: 1.0, second: -1.0})
+        n = Number(10.0, product, kind=speed_kind)
+        out = s.adopt(n)
+        self.assertIs(out.kind, speed_kind)
+
+    def test_adopt_unkinded_stays_none(self):
+        s = _active()
+        meter = s.units["meter"]
+        n = Number(5.0, meter)
+        out = s.adopt(n)
+        self.assertIsNone(out.kind)
+
+
 if __name__ == "__main__":
     unittest.main()
