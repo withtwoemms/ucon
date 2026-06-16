@@ -27,7 +27,10 @@ change.
 
 from __future__ import annotations
 
-from typing import Iterable, Iterator
+from typing import TYPE_CHECKING, Iterable, Iterator
+
+if TYPE_CHECKING:
+    from ucon.dimension import Dimension
 
 from ucon.kinds.exceptions import (
     AliasCollision,
@@ -223,6 +226,25 @@ class KindLattice:
         """
         self._add(kind)
         self._validate_structure()
+
+    # ---------- reverse lookup ----------
+
+    def kinds_for_dimension(self, dimension: Dimension) -> list[Kind]:
+        """Return all kinds registered for the given dimension.
+
+        Returns an empty list if no kinds refine the dimension.
+
+        Parameters
+        ----------
+        dimension : Dimension
+            The dimension to query.
+
+        Returns
+        -------
+        list[Kind]
+            Kinds whose :attr:`~Kind.dimension` equals *dimension*.
+        """
+        return [k for k in self._by_name.values() if k.dimension == dimension]
 
     # ---------- copying ----------
 
