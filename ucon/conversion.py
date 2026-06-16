@@ -589,6 +589,7 @@ class Graph:
         new._package_constants = self._package_constants  # tuple is immutable, share reference
         new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
         new._kind_lattice = self._kind_lattice.copy() if self._kind_lattice is not None else None
+        new._formula_registry = self._formula_registry if hasattr(self, '_formula_registry') else None
         return new
 
     def register_context(self, ctx: 'ConversionContext') -> None:
