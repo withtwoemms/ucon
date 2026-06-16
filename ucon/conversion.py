@@ -1182,6 +1182,7 @@ class Graph:
         path: Union[str, 'Path'],
         *,
         kinds: 'KindLattice | None' = None,
+        formulas: 'FormulaRegistry | None' = None,
     ) -> None:
         """Export this graph to a TOML file.
 
@@ -1191,6 +1192,9 @@ class Graph:
             Destination file path.
         kinds : KindLattice or None
             Optional kind lattice to serialize as ``[[kinds]]`` sections.
+        formulas : FormulaRegistry or None
+            Optional formula registry to serialize as ``[[formulas]]``
+            sections.
 
         Raises
         ------
@@ -1198,7 +1202,7 @@ class Graph:
             If ``tomli_w`` is not installed.
         """
         from ucon.serialization import to_toml
-        to_toml(self, path, kinds=kinds)
+        to_toml(self, path, kinds=kinds, formulas=formulas)
 
     @classmethod
     def from_toml(cls, path: Union[str, 'Path'], *, strict: bool = True) -> 'Graph':
