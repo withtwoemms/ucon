@@ -589,6 +589,7 @@ class Graph:
         new._package_constants = self._package_constants  # tuple is immutable, share reference
         new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
         new._kind_lattice = self._kind_lattice.copy() if self._kind_lattice is not None else None
+        new._formula_registry = self._formula_registry if hasattr(self, '_formula_registry') else None
         return new
 
     def register_context(self, ctx: 'ConversionContext') -> None:
@@ -1182,6 +1183,7 @@ class Graph:
         path: Union[str, 'Path'],
         *,
         kinds: 'KindLattice | None' = None,
+        formulas: 'FormulaRegistry | None' = None,
     ) -> None:
         """Export this graph to a TOML file.
 
@@ -1191,6 +1193,9 @@ class Graph:
             Destination file path.
         kinds : KindLattice or None
             Optional kind lattice to serialize as ``[[kinds]]`` sections.
+        formulas : FormulaRegistry or None
+            Optional formula registry to serialize as ``[[formulas]]``
+            sections.
 
         Raises
         ------
@@ -1198,7 +1203,7 @@ class Graph:
             If ``tomli_w`` is not installed.
         """
         from ucon.serialization import to_toml
-        to_toml(self, path, kinds=kinds)
+        to_toml(self, path, kinds=kinds, formulas=formulas)
 
     @classmethod
     def from_toml(cls, path: Union[str, 'Path'], *, strict: bool = True) -> 'Graph':

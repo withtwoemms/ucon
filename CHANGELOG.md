@@ -7,9 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - YYYY-MM-DD
+
 ### Changed
 
+- **Strict multiplication now guards kinded/unkinded mixing.** Under
+  `strict=True`, multiplying or dividing a kinded `Number` by an unkinded
+  `Number` raises `KindMismatch`, matching addition/subtraction behavior
+  since v2.0.0. Under `strict=False`, a warning is emitted and `kind=None`
+  is returned.
+- **Strict multiplication now requires formulas for kinded operands.**
+  Under `strict=True`, multiplying two kinded `Number`s without a
+  matching formula raises `FormulaNotFound`. Under `strict=False`,
+  `kind=None` is returned (unchanged).
 - Updated README and ROADMAP to reflect v2.0.0 release status.
+
+### Fixed
+
+- `UnitSystem.adopt()` and `Bridge.apply()` now preserve `Number.kind`
+  through cross-system value movement.
+
+### Added
+
+- Built-in `radiation_weighting` formula and `radiation_weighting_factor`
+  kind (dimensionless) in `comprehensive.ucon.toml`. The default
+  `FormulaRegistry` ships pre-populated at boot.
+- `KindLattice.kinds_for_dimension(dimension)` reverse-lookup method.
+- Formula TOML round-trip in serialization (`to_toml` / `from_toml`).
+- Formula support in binary cache codec (`_cache.py`, schema version 2).
 
 ## [2.0.1] - 2026-06-15
 
@@ -2530,6 +2555,8 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.0]: https://github.com/withtwoemms/ucon/compare/2.0.1...2.1.0
+[2.0.1]: https://github.com/withtwoemms/ucon/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/withtwoemms/ucon/compare/1.12.0...2.0.0
 [1.12.0]: https://github.com/withtwoemms/ucon/compare/1.11.0...1.12.0
 [1.11.0]: https://github.com/withtwoemms/ucon/compare/1.10.0...1.11.0

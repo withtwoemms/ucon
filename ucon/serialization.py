@@ -41,12 +41,15 @@ from ucon.basis import (
 from ucon.basis.transforms import ConstantBoundBasisTransform, ConstantBinding
 from ucon.constants import Constant
 from ucon.contexts import ConversionContext, ContextEdge
+from ucon.aspects.types import AspectRule
 from ucon.core import BaseForm, RebasedUnit, Scale, Unit, UnitFactor, UnitProduct
 from ucon.dimension import Dimension, resolve
 from ucon.expressions import ExprResult, evaluate
+from ucon.formulas import FormulaRegistry
 from ucon.graph import ConversionGraph, using_conversion_graph
 from ucon.kinds import JoinPolicy, Kind, KindLattice
 from ucon.kinds.exceptions import KindNotFound
+from ucon.parsing.formulas import parse_formulas_payload
 from ucon.parsing.kinds import parse_kinds_payload
 from ucon.maps import (
     AffineMap,
@@ -55,7 +58,7 @@ from ucon.maps import (
 )
 from ucon.packages import _build_map, _parse_factor
 from ucon.resolver import parse_unit
-from ucon.system import active_kinds
+from ucon.system import active_formulas, active_kinds
 
 __all__ = [
     "FORMAT_VERSION",
@@ -444,6 +447,57 @@ def _dimension_to_expression(dim: Dimension) -> str:
     return f"{num}/{'*'.join(parts_den)}" if parts_den else num
 
 
+def _serialize_formula(formula) -> dict:
+    """Serialize a KindFormula to TOML dict."""
+    d: dict = {"name": formula.name, "expression": formula.expression}
+    d["output_kind"] = formula.output_kind.name
+    if formula.commutative is not True:
+        d["commutative"] = formula.commutative
+    if formula.generalizes:
+        d["generalizes"] = formula.generalizes
+    if formula.notes:
+        d["notes"] = formula.notes
+    # inputs — {binding: {kind: "..."}}
+    inputs: dict = {}
+    for binding, kind in formula.input_kinds.items():
+        inputs[binding] = {"kind": kind.name}
+    d["inputs"] = inputs
+    # aspect_rules — only non-default (non-CARRY)
+    aspect_rules: dict = {}
+    for binding, rule in formula.aspect_rules.items():
+        if rule is not AspectRule.CARRY:
+            aspect_rules[binding] = rule.value
+    if aspect_rules:
+        d["aspect_rules"] = aspect_rules
+    return d
+
+
+def _collect_formulas(graph, explicit_formulas=None, kind_names=None) -> list[dict]:
+    """Collect formulas for serialization.
+
+    Uses *explicit_formulas* if provided, then ``graph._formula_registry``.
+    Unlike ``_collect_kinds``, does **not** fall through to the active
+    context — formulas reference kinds by name, and the export lattice
+    may not contain all kinds the active registry references.
+
+    When *kind_names* is provided, formulas whose input or output kinds
+    are not in the set are silently omitted.
+    """
+    registry = explicit_formulas
+    if registry is None:
+        registry = getattr(graph, '_formula_registry', None)
+    if registry is None or len(registry) == 0:
+        return []
+    result = []
+    for f in registry:
+        if kind_names is not None:
+            all_kinds = {k.name for k in f.input_kinds.values()} | {f.output_kind.name}
+            if not all_kinds <= kind_names:
+                continue
+        result.append(_serialize_formula(f))
+    return result
+
+
 def _collect_kinds(graph, explicit_kinds: 'KindLattice | None') -> list[dict]:
     """Collect kinds for serialization.
 
@@ -472,6 +526,7 @@ def to_toml(
     path: Union[str, Path],
     *,
     kinds: 'KindLattice | None' = None,
+    formulas: 'FormulaRegistry | None' = None,
 ) -> None:
     """Export a ConversionGraph to a TOML file.
 
@@ -485,6 +540,10 @@ def to_toml(
         Optional kind lattice to serialize as ``[[kinds]]`` sections.
         When ``None``, falls back to ``graph._kind_lattice`` then
         ``active_kinds()``.
+    formulas : FormulaRegistry or None
+        Optional formula registry to serialize as ``[[formulas]]``
+        sections. When ``None``, falls back to
+        ``graph._formula_registry`` then ``active_formulas()``.
     """
     try:
         import tomli_w
@@ -566,6 +625,12 @@ def to_toml(
     kinds_list = _collect_kinds(graph, kinds)
     if kinds_list:
         doc["kinds"] = kinds_list
+
+    # [[formulas]]
+    exported_kind_names = {k["name"] for k in kinds_list} if kinds_list else None
+    formulas_list = _collect_formulas(graph, formulas, kind_names=exported_kind_names)
+    if formulas_list:
+        doc["formulas"] = formulas_list
 
     # [[edges]]
     edges = _extract_forward_edges(graph)
@@ -888,6 +953,11 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     if "kinds" in doc:
         kind_lattice = parse_kinds_payload(doc)
         graph._kind_lattice = kind_lattice
+
+    # 6c. Parse formulas (requires kind_lattice to resolve kind references)
+    if "formulas" in doc and kind_lattice is not None:
+        formula_registry = parse_formulas_payload(doc, lattice=kind_lattice)
+        graph._formula_registry = formula_registry
 
     # 7. Materialize constants (before edges so expression factors can
     #    resolve constant symbols like "1 / Eh").

@@ -40,7 +40,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 _MAGIC = b"UCM\x01"
-_CACHE_SCHEMA = 1  # Bump when _to_primitives/_from_primitives change shape
+_CACHE_SCHEMA = 2  # Bump when _to_primitives/_from_primitives change shape
 
 # Header layout: magic(4) + format_ver(2) + py_major(1) + py_minor(1) + cache_ver(1) + reserved(3) = 12
 _HEADER_FMT = "!4sHBBB3s"
@@ -342,6 +342,23 @@ def _to_primitives(graph: "Graph") -> dict:
                 "p": kind.parent.name if kind.parent else None,
                 "jp": kind.join_policy.value,
                 "a": kind.aliases,
+            }
+
+    # --- Pass 5b: Formulas ---
+    if hasattr(graph, '_formula_registry') and graph._formula_registry is not None:
+        from ucon.aspects.types import AspectRule
+
+        for formula in graph._formula_registry:
+            out[f"f:{formula.name}"] = {
+                "_t": "F",
+                "n": formula.name,
+                "e": formula.expression,
+                "ik": {b: k.name for b, k in formula.input_kinds.items()},
+                "ok": formula.output_kind.name,
+                "ar": {b: r.value for b, r in formula.aspect_rules.items()},
+                "g": formula.generalizes,
+                "c": formula.commutative,
+                "no": formula.notes,
             }
 
     # --- Pass 6: Constants ---
@@ -688,6 +705,46 @@ def _from_primitives(raw: dict) -> "Graph":
     if kind_obj_map:
         kind_lattice = KindLattice(kind_obj_map.values())
         graph._kind_lattice = kind_lattice
+
+    # --- Pass 7b: Formulas ---
+    formula_data: list[dict] = []
+    for key, val in raw.items():
+        if not key.startswith("f:"):
+            continue
+        if val.get("_t") != "F":
+            continue
+        formula_data.append(val)
+
+    if formula_data and kind_obj_map:
+        from ucon.aspects.types import AspectRule
+        from ucon.formulas import FormulaRegistry, KindFormula
+
+        formulas = []
+        for fd in formula_data:
+            input_kinds = {}
+            for binding, kind_name in fd["ik"].items():
+                kind = kind_obj_map.get(kind_name)
+                if kind is None:
+                    break
+                input_kinds[binding] = kind
+            else:
+                output_kind = kind_obj_map.get(fd["ok"])
+                if output_kind is not None:
+                    aspect_rules = {
+                        b: AspectRule(r) for b, r in fd.get("ar", {}).items()
+                    }
+                    formulas.append(KindFormula(
+                        name=fd["n"],
+                        expression=fd["e"],
+                        input_kinds=input_kinds,
+                        output_kind=output_kind,
+                        aspect_rules=aspect_rules,
+                        generalizes=fd.get("g", False),
+                        commutative=fd.get("c", True),
+                        notes=fd.get("no", ""),
+                    ))
+        if formulas:
+            graph._formula_registry = FormulaRegistry(formulas)
 
     # --- Pass 8: Constants ---
     constants = []

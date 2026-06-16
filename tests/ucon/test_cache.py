@@ -6,6 +6,7 @@ Tests for the marshal-based graph cache (``ucon._cache``).
 """
 from __future__ import annotations
 
+import marshal
 import os
 import struct
 import unittest
@@ -680,6 +681,264 @@ class TestFractionCodec(unittest.TestCase):
         # Plain int (as stored for integer-valued vector components)
         restored = _prim_to_fraction(5)
         self.assertEqual(restored, Fraction(5))
+
+
+class TestFormulaCodec(unittest.TestCase):
+    """Coverage for formula serialization in the binary cache (v2.1.0)."""
+
+    def test_formula_roundtrip(self):
+        """Formulas survive _to_primitives → _from_primitives on the full graph."""
+        from ucon.serialization import from_toml
+
+        original = from_toml(TOML_PATH)
+        raw = _to_primitives(original)
+
+        # Verify formula key is in the raw dict
+        formula_keys = [k for k in raw if k.startswith("f:")]
+        self.assertGreaterEqual(len(formula_keys), 1)
+
+        restored = _from_primitives(raw)
+        self.assertTrue(hasattr(restored, '_formula_registry'))
+        self.assertIsNotNone(restored._formula_registry)
+
+        rt = restored._formula_registry.get("radiation_weighting")
+        self.assertEqual(rt.name, "radiation_weighting")
+        self.assertEqual(rt.expression, "D * w_R")
+        self.assertEqual(rt.output_kind.name, "dose_equivalent")
+        self.assertEqual(set(rt.input_kinds.keys()), {"D", "w_R"})
+        self.assertTrue(rt.commutative)
+
+        from ucon.aspects.types import AspectRule
+        self.assertEqual(rt.aspect_rules["w_R"], AspectRule.CONSUME)
+
+    def test_formula_missing_input_kind_skipped(self):
+        """Formula with unknown input kind is silently dropped."""
+        from ucon.serialization import from_toml
+
+        original = from_toml(TOML_PATH)
+        raw = _to_primitives(original)
+
+        # Corrupt the formula's input kind reference
+        formula_key = [k for k in raw if k.startswith("f:")][0]
+        raw[formula_key]["ik"]["D"] = "nonexistent_kind"
+
+        restored = _from_primitives(raw)
+        reg = getattr(restored, '_formula_registry', None)
+        # Formula should be skipped — either registry is None or formula is absent
+        if reg is not None:
+            with self.assertRaises(Exception):
+                reg.get(raw[formula_key]["n"])
+
+    def test_formula_missing_output_kind_skipped(self):
+        """Formula with unknown output kind is silently dropped."""
+        from ucon.serialization import from_toml
+
+        original = from_toml(TOML_PATH)
+        raw = _to_primitives(original)
+
+        # Corrupt the formula's output kind reference
+        formula_key = [k for k in raw if k.startswith("f:")][0]
+        raw[formula_key]["ok"] = "nonexistent_kind"
+
+        restored = _from_primitives(raw)
+        reg = getattr(restored, '_formula_registry', None)
+        if reg is not None:
+            with self.assertRaises(Exception):
+                reg.get(raw[formula_key]["n"])
+
+    def test_formula_without_kinds_skipped(self):
+        """Formula data with no kind data produces no registry."""
+        raw = {
+            "f:orphan": {
+                "_t": "F",
+                "n": "orphan",
+                "e": "x * y",
+                "ik": {"x": "missing_a", "y": "missing_b"},
+                "ok": "missing_c",
+                "ar": {},
+                "g": False,
+                "c": True,
+                "no": "",
+            },
+            "_meta": {"loaded_packages": ()},
+        }
+        restored = _from_primitives(raw)
+        reg = getattr(restored, '_formula_registry', None)
+        self.assertIsNone(reg)
+
+    def test_full_graph_formula_roundtrip(self):
+        """Formulas survive the full write_cached_graph → load_cached_graph path."""
+        import shutil
+        import tempfile
+
+        from ucon.serialization import from_toml
+
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            toml_copy = tmpdir / "test.ucon.toml"
+            shutil.copy2(TOML_PATH, toml_copy)
+
+            graph = from_toml(toml_copy)
+            self.assertIsNotNone(getattr(graph, '_formula_registry', None))
+
+            ok = write_cached_graph(graph, toml_copy)
+            self.assertTrue(ok)
+
+            restored = load_cached_graph(toml_copy)
+            self.assertIsNotNone(restored)
+            reg = getattr(restored, '_formula_registry', None)
+            self.assertIsNotNone(reg)
+
+            rt = reg.get("radiation_weighting")
+            self.assertEqual(rt.name, "radiation_weighting")
+            self.assertEqual(rt.output_kind.name, "dose_equivalent")
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestNonDictPayload(unittest.TestCase):
+    """load_cached_graph rejects non-dict marshal payloads."""
+
+    def test_non_dict_payload_returns_none(self):
+        import shutil
+        import sys as _sys
+        import tempfile
+
+        from ucon.serialization import FORMAT_VERSION
+
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            toml_copy = tmpdir / "test.ucon.toml"
+            shutil.copy2(TOML_PATH, toml_copy)
+
+            our_major, _ = (int(x) for x in FORMAT_VERSION.split("."))
+            header = struct.pack(
+                _HEADER_FMT,
+                _MAGIC,
+                our_major,
+                _sys.version_info.major,
+                _sys.version_info.minor,
+                _CACHE_SCHEMA,
+                b"\x00\x00\x00",
+            )
+            payload = marshal.dumps([1, 2, 3])  # list, not dict
+            cache_path = toml_copy.with_suffix(".cache")
+            cache_path.write_bytes(header + payload)
+
+            result = load_cached_graph(toml_copy)
+            self.assertIsNone(result)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestWriteOsReplaceFailure(unittest.TestCase):
+    """write_cached_graph handles os.replace failure."""
+
+    def test_os_replace_failure_returns_false(self):
+        import shutil
+        import tempfile
+
+        from ucon.serialization import from_toml
+
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            toml_copy = tmpdir / "test.ucon.toml"
+            shutil.copy2(TOML_PATH, toml_copy)
+            graph = from_toml(toml_copy)
+
+            with mock.patch("os.replace", side_effect=OSError("mock failure")):
+                result = write_cached_graph(graph, toml_copy)
+            self.assertFalse(result)
+
+            # No .cache file should be left behind
+            cache_path = toml_copy.with_suffix(".cache")
+            self.assertFalse(cache_path.exists())
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestFractionFromString(unittest.TestCase):
+    """_prim_to_fraction handles string input."""
+
+    def test_fraction_from_string(self):
+        from fractions import Fraction
+
+        from ucon._cache import _prim_to_fraction
+
+        result = _prim_to_fraction("3/7")
+        self.assertEqual(result, Fraction(3, 7))
+
+    def test_fraction_from_decimal_string(self):
+        from fractions import Fraction
+
+        from ucon._cache import _prim_to_fraction
+
+        result = _prim_to_fraction("0.5")
+        self.assertEqual(result, Fraction(1, 2))
+
+
+class TestProductTupleKeyUnknownScale(unittest.TestCase):
+    """_deserialize_product_tuple_key falls back to Scale.one for unknown scales."""
+
+    def test_unknown_scale_defaults_to_one(self):
+        from ucon._cache import _deserialize_product_tuple_key
+        from ucon.core import Scale, Unit
+        from ucon.dimension import LENGTH
+
+        meter = Unit(name="meter", dimension=LENGTH)
+        unit_map = {"meter": meter}
+
+        ser = [("meter", "length", "bogus_scale", 1)]
+        result = _deserialize_product_tuple_key(ser, unit_map)
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0][2], Scale.one)
+
+
+class TestContextCodecPrimitives(unittest.TestCase):
+    """Context serialization/deserialization at primitives level."""
+
+    def test_context_codec_roundtrip(self):
+        """ConversionContext survives _to_primitives → _from_primitives."""
+        from ucon.contexts import ContextEdge, ConversionContext
+        from ucon.core import Unit
+        from ucon.dimension import LENGTH
+        from ucon.maps import LinearMap
+
+        meter = Unit(name="meter", dimension=LENGTH)
+        foot = Unit(name="foot", dimension=LENGTH)
+
+        edge = ContextEdge(src=meter, dst=foot, map=LinearMap(a=3.28084))
+        ctx = ConversionContext(
+            name="test_ctx",
+            edges=(edge,),
+            description="A test context",
+        )
+
+        graph = Graph()
+        dim = meter.dimension
+        graph._unit_edges[dim] = {}
+        graph._unit_edges[dim][meter] = {foot: LinearMap(a=3.28084)}
+        graph._unit_edges[dim][foot] = {meter: LinearMap(a=1.0 / 3.28084)}
+        graph._name_registry["meter"] = meter
+        graph._name_registry_cs["meter"] = meter
+        graph._name_registry["foot"] = foot
+        graph._name_registry_cs["foot"] = foot
+        graph.register_context(ctx)
+
+        raw = _to_primitives(graph)
+        cx_keys = [k for k in raw if k.startswith("cx:")]
+        self.assertEqual(len(cx_keys), 1)
+        self.assertEqual(raw[cx_keys[0]]["n"], "test_ctx")
+        self.assertEqual(raw[cx_keys[0]]["desc"], "A test context")
+        self.assertEqual(len(raw[cx_keys[0]]["edges"]), 1)
+
+        restored = _from_primitives(raw)
+        self.assertIn("test_ctx", restored._contexts)
+        rest_ctx = restored._contexts["test_ctx"]
+        self.assertEqual(rest_ctx.name, "test_ctx")
+        self.assertEqual(rest_ctx.description, "A test context")
+        self.assertEqual(len(rest_ctx.edges), 1)
 
 
 if __name__ == "__main__":

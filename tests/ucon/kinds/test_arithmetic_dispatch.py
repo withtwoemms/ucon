@@ -104,9 +104,10 @@ class TestMulFormulaStampsKind:
 
 
 class TestMulNoFormula:
-    """__mul__: no formula match → kind=None."""
+    """__mul__: no formula match behavior under strict vs permissive."""
 
-    def test_mul_no_formula_yields_none(self) -> None:
+    def test_mul_no_formula_strict_raises(self) -> None:
+        """strict=True: kinded × kinded without formula → FormulaNotFound."""
         kind_a = Kind("kind_a", dimension=FORCE)
         kind_b = Kind("kind_b", dimension=LENGTH)
 
@@ -114,23 +115,103 @@ class TestMulNoFormula:
         lattice = KindLattice([kind_a, kind_b])
         sys = active_system()
 
-        with use(sys, formulas=registry, kinds=lattice):
+        with use(sys, formulas=registry, kinds=lattice, strict=True):
+            a = Number(10, newton, kind=kind_a)
+            b = Number(5, meter, kind=kind_b)
+            with pytest.raises(FormulaNotFound):
+                a * b
+
+    def test_mul_no_formula_permissive_yields_none(self) -> None:
+        """strict=False: kinded × kinded without formula → kind=None."""
+        kind_a = Kind("kind_a", dimension=FORCE)
+        kind_b = Kind("kind_b", dimension=LENGTH)
+
+        registry = FormulaRegistry()  # empty
+        lattice = KindLattice([kind_a, kind_b])
+        sys = active_system()
+
+        with use(sys, formulas=registry, kinds=lattice, strict=False):
             a = Number(10, newton, kind=kind_a)
             b = Number(5, meter, kind=kind_b)
             result = a * b
             assert result.kind is None
 
+    def test_div_no_formula_strict_raises(self) -> None:
+        """strict=True: kinded / kinded without formula → FormulaNotFound."""
+        kind_a = Kind("kind_a", dimension=FORCE)
+        kind_b = Kind("kind_b", dimension=LENGTH)
+
+        registry = FormulaRegistry()  # empty
+        lattice = KindLattice([kind_a, kind_b])
+        sys = active_system()
+
+        with use(sys, formulas=registry, kinds=lattice, strict=True):
+            a = Number(10, newton, kind=kind_a)
+            b = Number(5, meter, kind=kind_b)
+            with pytest.raises(FormulaNotFound):
+                a / b
+
+
+class TestMulKindedUnkindedStrict:
+    """__mul__: kinded × unkinded under strict=True → KindMismatch."""
+
+    def test_mul_kinded_left_unkinded_right_raises(self) -> None:
+        force_kind = Kind("force", dimension=FORCE)
+        sys = active_system()
+
+        with use(sys, strict=True):
+            a = Number(10, newton, kind=force_kind)
+            b = Number(5, meter)
+            with pytest.raises(KindMismatch) as exc_info:
+                a * b
+            exc = exc_info.value
+            assert exc.kinded is force_kind
+            assert exc.unkinded_side == "right"
+
+    def test_mul_unkinded_left_kinded_right_raises(self) -> None:
+        distance_kind = Kind("distance", dimension=LENGTH)
+        sys = active_system()
+
+        with use(sys, strict=True):
+            a = Number(10, newton)
+            b = Number(5, meter, kind=distance_kind)
+            with pytest.raises(KindMismatch) as exc_info:
+                a * b
+            exc = exc_info.value
+            assert exc.kinded is distance_kind
+            assert exc.unkinded_side == "left"
+
+    def test_div_kinded_unkinded_strict_raises(self) -> None:
+        force_kind = Kind("force", dimension=FORCE)
+        sys = active_system()
+
+        with use(sys, strict=True):
+            a = Number(10, newton, kind=force_kind)
+            b = Number(5, meter)
+            with pytest.raises(KindMismatch):
+                a / b
+
+
+class TestMulKindedUnkindedPermissive:
+    """__mul__: kinded × unkinded under strict=False → warns, kind=None."""
+
+    def test_mul_kinded_unkinded_permissive_warns(self) -> None:
+        force_kind = Kind("force", dimension=FORCE)
+        sys = active_system()
+
+        with use(sys, strict=False):
+            a = Number(10, newton, kind=force_kind)
+            b = Number(5, meter)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                result = a * b
+            assert result.kind is None
+            assert len(w) == 1
+            assert "force" in str(w[0].message)
+
 
 class TestMulUnkindedFastPath:
-    """__mul__: Q19 fast path — one or both operands unkinded → kind=None,
-    no registry consulted."""
-
-    def test_mul_one_unkinded_yields_none(self) -> None:
-        force_kind = Kind("force", dimension=FORCE)
-        a = Number(10, newton, kind=force_kind)
-        b = Number(5, meter)  # unkinded
-        result = a * b
-        assert result.kind is None
+    """__mul__: both operands unkinded → kind=None, no registry consulted."""
 
     def test_mul_both_unkinded_yields_none(self) -> None:
         a = Number(10, newton)
@@ -187,7 +268,7 @@ class TestDivFormulaStampsKind:
             result = p / v
             assert result.kind is force_kind
 
-    def test_div_no_formula_yields_none(self) -> None:
+    def test_div_no_formula_permissive_yields_none(self) -> None:
         kind_a = Kind("kind_a", dimension=FORCE)
         kind_b = Kind("kind_b", dimension=LENGTH)
 
@@ -195,7 +276,7 @@ class TestDivFormulaStampsKind:
         lattice = KindLattice([kind_a, kind_b])
         sys = active_system()
 
-        with use(sys, formulas=registry, kinds=lattice):
+        with use(sys, formulas=registry, kinds=lattice, strict=False):
             a = Number(10, newton, kind=kind_a)
             b = Number(5, meter, kind=kind_b)
             result = a / b

@@ -5166,3 +5166,24 @@ parent = "pressure"
 name = "mechanical_stress"
 dimension = "pressure"
 parent = "pressure"
+
+[[kinds]]
+name = "radiation_weighting_factor"
+dimension = "none"
+
+# ── Formulas ──────────────────────────────────────────────────────────
+#
+# Kind-aware arithmetic dispatch tables.  Each formula declares its
+# input kinds, output kind, and optional aspect rules.
+
+[[formulas]]
+name = "radiation_weighting"
+expression = "D * w_R"
+output_kind = "dose_equivalent"
+commutative = true
+notes = "H = D * w_R (ICRP 103). Radiation weighting converts absorbed dose (gray) to dose equivalent (sievert)."
+  [formulas.inputs]
+  D   = { kind = "absorbed_dose" }
+  w_R = { kind = "radiation_weighting_factor" }
+  [formulas.aspect_rules]
+  w_R = "consume"

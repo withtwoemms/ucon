@@ -262,5 +262,39 @@ class TestBridgeApplyOrder(unittest.TestCase):
         self.assertIsNot(out.unit, src.units["meter"])
 
 
+class TestBridgeKindPreservation(unittest.TestCase):
+    """``Bridge.apply`` preserves ``Number.kind``."""
+
+    def test_bridge_apply_preserves_kind(self):
+        from ucon.dimension import ENERGY
+        from ucon.kinds import Kind
+        s = _active()
+        ke = Kind("kinetic_energy", dimension=ENERGY)
+        n = Number(100.0, s.units["joule"], kind=ke)
+        b = Bridge(src=s, dst=s)
+        out = b.apply(n)
+        self.assertIs(out.kind, ke)
+        self.assertEqual(out.quantity, 100.0)
+
+    def test_bridge_apply_unkinded_stays_none(self):
+        s = _active()
+        n = Number(100.0, s.units["joule"])
+        b = Bridge(src=s, dst=s)
+        out = b.apply(n)
+        self.assertIsNone(out.kind)
+
+    def test_bridge_apply_preserves_kind_with_rename(self):
+        from ucon.dimension import LENGTH
+        from ucon.kinds import Kind
+        src = _active()
+        dst = _system_with_metre_synonym()
+        distance_kind = Kind("distance", dimension=LENGTH)
+        b = Bridge(src=src, dst=dst, rename={"meter": "metre"})
+        n = Number(5.0, src.units["meter"], kind=distance_kind)
+        out = b.apply(n)
+        self.assertIs(out.kind, distance_kind)
+        self.assertEqual(out.unit.name, "metre")
+
+
 if __name__ == "__main__":
     unittest.main()

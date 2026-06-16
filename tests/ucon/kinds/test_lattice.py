@@ -124,3 +124,31 @@ def test_lattice_register_adds_kind():
     lat.register(work)
     assert lat.get("work") is work
     assert lat.is_descendant(work, energy)
+
+
+# ---------------------------------------------------------------------------
+# kinds_for_dimension
+# ---------------------------------------------------------------------------
+
+def test_kinds_for_dimension_returns_matching():
+    lat, energy, ke, pe, grav = _energy_lattice()
+    result = lat.kinds_for_dimension(ENERGY_DIM)
+    assert len(result) == 4
+    names = {k.name for k in result}
+    assert names == {"energy", "kinetic_energy", "potential_energy", "gravitational_pe"}
+
+
+def test_kinds_for_dimension_unknown_returns_empty():
+    lat, *_ = _energy_lattice()
+    result = lat.kinds_for_dimension(TIME)
+    assert result == []
+
+
+def test_kinds_for_dimension_filters_correctly():
+    """Kinds of a different dimension are excluded."""
+    energy = Kind("energy", dimension=ENERGY_DIM)
+    mass_kind = Kind("inertial_mass", dimension=MASS)
+    lat = KindLattice([energy, mass_kind])
+    result = lat.kinds_for_dimension(ENERGY_DIM)
+    assert len(result) == 1
+    assert result[0].name == "energy"
