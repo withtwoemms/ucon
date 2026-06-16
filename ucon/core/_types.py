@@ -2083,11 +2083,33 @@ class Number:
         """Resolve the result kind for multiplication or division.
 
         Consults the active ``FormulaRegistry`` when both operands
-        carry a ``kind``. Returns the formula's ``output_kind``, or
-        ``None`` if no formula matches or either operand is unkinded.
+        carry a ``kind``.  Under ``strict=True``, kinded × unkinded
+        raises ``KindMismatch`` and kinded × kinded without a matching
+        formula raises ``FormulaNotFound``.  Under permissive mode,
+        mixed operations warn and return ``None``; missing formulas
+        silently return ``None``.
         """
-        if self.kind is None or other.kind is None:
+        # Both unkinded — nothing to resolve
+        if self.kind is None and other.kind is None:
             return None
+        # Mixed: one kinded, one unkinded
+        if self.kind is None or other.kind is None:
+            ctx = _sys_active_var.get()
+            if ctx is not None and ctx.strict:
+                present = self.kind if self.kind is not None else other.kind
+                side = "right" if self.kind is not None else "left"
+                raise KindMismatch(kinded=present, unkinded_side=side)
+            # permissive: warn, return None (no kind to inherit for mul)
+            if _sys_active_var.get() is not None:
+                import warnings
+                present = self.kind or other.kind
+                warnings.warn(
+                    f"Multiplying kinded ({present.name!r}) and unkinded "
+                    f"Numbers; kind=None assumed",
+                    stacklevel=3,
+                )
+            return None
+        # Both kinded — consult the formula registry
         ctx = _sys_active_var.get()
         if ctx is None:
             return None
@@ -2099,6 +2121,8 @@ class Number:
             )
             return result_kind
         except FormulaNotFound:
+            if ctx.strict:
+                raise
             return None
 
     def _resolve_add_kind(self, other: 'Number') -> 'Kind | None':

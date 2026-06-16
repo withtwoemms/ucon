@@ -102,7 +102,8 @@ class UnitDefinitionMismatch(Exception):
 class KindMismatch(Exception):
     """Kinded and unkinded Numbers combined under strict mode.
 
-    Raised by ``Number.__add__`` / ``Number.__sub__`` when one operand
+    Raised by ``Number.__add__`` / ``Number.__sub__`` /
+    ``Number.__mul__`` / ``Number.__truediv__`` when one operand
     has ``kind`` set and the other does not, and the active context has
     ``strict=True``.
 
