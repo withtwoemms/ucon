@@ -2555,6 +2555,8 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.0]: https://github.com/withtwoemms/ucon/compare/2.0.1...2.1.0
+[2.0.1]: https://github.com/withtwoemms/ucon/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/withtwoemms/ucon/compare/1.12.0...2.0.0
 [1.12.0]: https://github.com/withtwoemms/ucon/compare/1.11.0...1.12.0
 [1.11.0]: https://github.com/withtwoemms/ucon/compare/1.10.0...1.11.0
