@@ -2079,7 +2079,7 @@ class Number:
 
     # --- Kind dispatch helpers ---
 
-    def _resolve_mul_kind(self, other: 'Number') -> 'Kind | None':
+    def _resolve_mul_kind(self, other: 'Number', *, op: str = "Multiplying") -> 'Kind | None':
         """Resolve the result kind for multiplication or division.
 
         Consults the active ``FormulaRegistry`` when both operands
@@ -2104,7 +2104,7 @@ class Number:
                 import warnings
                 present = self.kind or other.kind
                 warnings.warn(
-                    f"Multiplying kinded ({present.name!r}) and unkinded "
+                    f"{op} kinded ({present.name!r}) and unkinded "
                     f"Numbers; kind=None assumed",
                     stacklevel=3,
                 )
@@ -2302,7 +2302,7 @@ class Number:
         new_quantity = self.quantity / other.quantity
         return Number(quantity=new_quantity, unit=unit_quot,
                       uncertainty=compute_uncertainty(new_quantity),
-                      kind=self._resolve_mul_kind(other))
+                      kind=self._resolve_mul_kind(other, op="Dividing"))
 
     def __eq__(self, other: _Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
