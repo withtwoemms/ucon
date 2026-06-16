@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.1.0] - YYYY-MM-DD
+## [2.1.1] - 2026-06-16
+
+### Fixed
+
+- Permissive-mode warning for kinded/unkinded arithmetic now uses the
+  correct verb: "Dividing" for `__truediv__`, "Multiplying" for
+  `__mul__`. Previously both paths emitted "Multiplying".
+
+## [2.1.0] - 2026-06-16
 
 ### Changed
 
@@ -2555,6 +2563,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.1]: https://github.com/withtwoemms/ucon/compare/2.1.0...2.1.1
 [2.1.0]: https://github.com/withtwoemms/ucon/compare/2.0.1...2.1.0
 [2.0.1]: https://github.com/withtwoemms/ucon/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/withtwoemms/ucon/compare/1.12.0...2.0.0
