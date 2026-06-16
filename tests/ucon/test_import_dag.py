@@ -66,6 +66,9 @@ KNOWN_DEFERRED = {
     ("ucon._cache", "_to_primitives", "ucon.core"),
     ("ucon._cache", "_to_primitives", "ucon.dimension"),
     ("ucon._cache", "_to_primitives", "ucon.kinds.types"),
+    ("ucon._cache", "_to_primitives", "ucon.aspects.types"),  # formula cache codec
+    ("ucon._cache", "_from_primitives", "ucon.aspects.types"),  # formula cache codec
+    ("ucon._cache", "_from_primitives", "ucon.formulas"),       # formula cache codec
     ("ucon._cache", "_from_primitives", "ucon.basis"),
     ("ucon._cache", "_from_primitives", "ucon.basis.transforms"),
     ("ucon._cache", "_from_primitives", "ucon.constants"),
@@ -290,7 +293,7 @@ class TestDeferredImportAudit(unittest.TestCase):
         eliminated, update this number downward.
         """
         self.assertEqual(
-            len(KNOWN_DEFERRED), 28,
+            len(KNOWN_DEFERRED), 31,
             "Update this count when adding or removing KNOWN_DEFERRED entries"
         )
 

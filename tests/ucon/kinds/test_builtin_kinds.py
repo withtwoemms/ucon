@@ -18,7 +18,7 @@ class TestBuiltinKindsLoaded:
     """Verify the lattice boots with the expected 25 kinds."""
 
     def test_lattice_count(self, lattice: KindLattice) -> None:
-        assert len(lattice) == 25
+        assert len(lattice) == 26
 
     def test_all_root_kinds_present(self, lattice: KindLattice) -> None:
         roots = ["energy", "frequency", "specific_energy", "voltage",

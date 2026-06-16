@@ -2892,7 +2892,7 @@ class TestKindsSerialization:
         from ucon.system import active_kinds
 
         original = active_kinds()
-        assert len(original) == 25, "Expected 25 built-in kinds"
+        assert len(original) == 26, "Expected 26 built-in kinds"
 
         graph = get_default_graph()
         path = tmp_path / "builtin_kinds_rt.ucon.toml"
@@ -2996,3 +2996,166 @@ class TestKindsSerialization:
         with patch('ucon.serialization.active_kinds', side_effect=RuntimeError("no context")):
             result = _collect_kinds(None, None)
         assert result == []
+
+
+class TestFormulasSerialization:
+    """Tests for formula TOML round-trip (v2.1.0)."""
+
+    def test_serialize_formula_basic(self):
+        """_serialize_formula produces expected keys."""
+        from ucon.dimension import ENERGY, FORCE, LENGTH
+        from ucon.kinds import Kind
+        from ucon.formulas import KindFormula
+        from ucon.serialization import _serialize_formula
+
+        force_kind = Kind("force", dimension=FORCE)
+        distance_kind = Kind("distance", dimension=LENGTH)
+        work_kind = Kind("work", dimension=ENERGY)
+
+        formula = KindFormula(
+            name="work",
+            expression="F * d",
+            input_kinds={"F": force_kind, "d": distance_kind},
+            output_kind=work_kind,
+        )
+        d = _serialize_formula(formula)
+        assert d["name"] == "work"
+        assert d["expression"] == "F * d"
+        assert d["output_kind"] == "work"
+        assert d["inputs"]["F"]["kind"] == "force"
+        assert d["inputs"]["d"]["kind"] == "distance"
+        # commutative=True is default, so omitted
+        assert "commutative" not in d
+        # no aspect_rules
+        assert "aspect_rules" not in d
+
+    def test_serialize_formula_with_aspect_rules(self):
+        """_serialize_formula emits aspect_rules for non-CARRY rules."""
+        from ucon.dimension import ENERGY, NONE
+        from ucon.kinds import Kind
+        from ucon.formulas import KindFormula
+        from ucon.aspects.types import AspectRule
+        from ucon.serialization import _serialize_formula
+
+        absorbed = Kind("absorbed_dose", dimension=ENERGY)
+        weight_factor = Kind("weighting_factor", dimension=NONE)
+        equivalent = Kind("equivalent_dose", dimension=ENERGY)
+
+        formula = KindFormula(
+            name="weighting",
+            expression="D * w_R",
+            input_kinds={"D": absorbed, "w_R": weight_factor},
+            output_kind=equivalent,
+            aspect_rules={"w_R": AspectRule.CONSUME},
+            commutative=False,
+        )
+        d = _serialize_formula(formula)
+        assert d["commutative"] is False
+        assert d["aspect_rules"] == {"w_R": "consume"}
+
+    def test_formulas_roundtrip(self, tmp_path):
+        """Formulas survive to_toml → from_toml round-trip."""
+        from ucon.dimension import ENERGY, FORCE, LENGTH
+        from ucon.kinds import Kind, KindLattice
+        from ucon.formulas import FormulaRegistry, KindFormula
+
+        force_kind = Kind("force", dimension=FORCE)
+        distance_kind = Kind("distance", dimension=LENGTH)
+        work_kind = Kind("work", dimension=ENERGY)
+        lattice = KindLattice([force_kind, distance_kind, work_kind])
+
+        formula = KindFormula(
+            name="work",
+            expression="F * d",
+            input_kinds={"F": force_kind, "d": distance_kind},
+            output_kind=work_kind,
+            notes="W = F × d",
+        )
+        registry = FormulaRegistry([formula])
+
+        graph = get_default_graph()
+        path = tmp_path / "formulas_rt.ucon.toml"
+        graph.to_toml(path, kinds=lattice, formulas=registry)
+
+        restored = from_toml(path)
+        assert restored._formula_registry is not None
+        assert "work" in restored._formula_registry
+        rt = restored._formula_registry.get("work")
+        assert rt.expression == "F * d"
+        assert rt.output_kind.name == "work"
+        assert set(rt.input_kinds.keys()) == {"F", "d"}
+        assert rt.notes == "W = F × d"
+
+    def test_formulas_with_aspect_rules_roundtrip(self, tmp_path):
+        """Aspect rules survive round-trip."""
+        from ucon.dimension import ENERGY, NONE
+        from ucon.kinds import Kind, KindLattice
+        from ucon.formulas import FormulaRegistry, KindFormula
+        from ucon.aspects.types import AspectRule
+
+        absorbed = Kind("absorbed_dose", dimension=ENERGY)
+        wf = Kind("weight_factor", dimension=NONE)
+        equivalent = Kind("equivalent_dose", dimension=ENERGY)
+        lattice = KindLattice([absorbed, wf, equivalent])
+
+        formula = KindFormula(
+            name="dose_weighting",
+            expression="D * w",
+            input_kinds={"D": absorbed, "w": wf},
+            output_kind=equivalent,
+            aspect_rules={"w": AspectRule.CONSUME},
+            commutative=False,
+        )
+        registry = FormulaRegistry([formula])
+
+        graph = get_default_graph()
+        path = tmp_path / "aspect_rt.ucon.toml"
+        graph.to_toml(path, kinds=lattice, formulas=registry)
+
+        restored = from_toml(path)
+        rt = restored._formula_registry.get("dose_weighting")
+        assert rt.commutative is False
+        assert rt.aspect_rules["w"] == AspectRule.CONSUME
+
+    def test_no_formulas_section_when_empty(self, tmp_path):
+        """TOML without formulas omits the [[formulas]] section."""
+        from ucon.formulas import FormulaRegistry
+
+        graph = get_default_graph()
+        path = tmp_path / "no_formulas.ucon.toml"
+        graph.to_toml(path, formulas=FormulaRegistry())
+
+        with open(path, "rb") as f:
+            doc = tomllib.load(f)
+        assert "formulas" not in doc
+
+    def test_from_toml_without_formulas_backward_compat(self, tmp_path):
+        """TOML without [[formulas]] loads with _formula_registry = None."""
+        doc = _with_preamble({
+            "package": {"format_version": FORMAT_VERSION},
+            "units": [{"name": "meter", "dimension": "length"}],
+        })
+        path = _write_toml(tmp_path, doc)
+        g = from_toml(path)
+        assert not hasattr(g, '_formula_registry') or g._formula_registry is None
+
+
+class TestBuiltinFormulas:
+    """Tests for built-in formulas shipped in comprehensive.ucon.toml."""
+
+    def test_radiation_formula_loaded_at_boot(self):
+        """radiation_weighting formula exists in the active context."""
+        from ucon.system import active_formulas
+        registry = active_formulas()
+        formula = registry.get("radiation_weighting")
+        assert formula.name == "radiation_weighting"
+        assert formula.output_kind.name == "dose_equivalent"
+        assert "D" in formula.input_kinds
+        assert "w_R" in formula.input_kinds
+
+    def test_radiation_weighting_factor_kind_exists(self):
+        """radiation_weighting_factor kind is in the active lattice."""
+        from ucon.system import active_kinds
+        lattice = active_kinds()
+        kind = lattice.get("radiation_weighting_factor")
+        assert kind.dimension.name == "none"
