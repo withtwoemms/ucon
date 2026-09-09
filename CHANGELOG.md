@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Edge factors may now reference declared constants.** (#279)
+  `_parse_factor` resolves symbols in factor/offset expressions against the
+  package's own `[[constants]]` section (symbols and aliases, including
+  NFKC-normalized spellings — Python's tokenizer folds `gₙ` to `gn`), so
+  `factor = "gₙ"` and `factor = "1 / gₙ"` evaluate instead of raising
+  `PackageLoadError`. This unblocks every constant-bearing package —
+  including ucon's own bundled `comprehensive.ucon.toml`, which previously
+  failed to `load_package` on its first constant-licensed edge. A symbol
+  that is not a valid Python identifier (e.g. `μ₀`) may be used as the
+  entire factor string; unresolvable symbols still refuse, now naming the
+  available symbols.
+
+## [2.1.2] - 2026-09-09
+
+### Fixed
+
 - **Customary-unit prefactors corrected — conversion results change at the
   ppm level.** (#278) 33 US-customary/imperial catalog values were corrupted
   in families: the entire inch chain (inch, foot, yard, mile, mil, hand,
@@ -2587,6 +2603,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.2]: https://github.com/withtwoemms/ucon/compare/2.1.1...2.1.2
 [2.1.1]: https://github.com/withtwoemms/ucon/compare/2.1.0...2.1.1
 [2.1.0]: https://github.com/withtwoemms/ucon/compare/2.0.1...2.1.0
 [2.0.1]: https://github.com/withtwoemms/ucon/compare/2.0.0...2.0.1
