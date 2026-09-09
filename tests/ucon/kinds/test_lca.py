@@ -9,9 +9,11 @@ import pytest
 
 from ucon.dimension import LENGTH, MASS, TIME
 from ucon.kinds import (
+    DisjointKinds,
     JoinPolicy,
     JoinRefused,
     Kind,
+    KindError,
     KindLattice,
     lca as module_lca,
 )
@@ -62,11 +64,39 @@ def test_lca_across_multiple_levels():
 
 
 def test_lca_disjoint_trees_raises_value_error():
+    # Backward compatibility (#281): pre-2.1.x handlers caught ValueError;
+    # DisjointKinds subclasses it, so this must keep passing unchanged.
     energy = Kind("energy", dimension=ENERGY_DIM)
     power = Kind("power", dimension=POWER_DIM)
     lat = KindLattice([energy, power])
     with pytest.raises(ValueError, match="no common ancestor"):
         lat.lca(energy, power)
+
+
+def test_lca_disjoint_roots_raises_typed_refusal():
+    """#281: disjoint roots yield a typed KindError verdict, not a bare
+    ValueError — same dimension, two roots, no common ancestor."""
+    a = Kind("a", dimension=ENERGY_DIM)
+    b = Kind("b", dimension=ENERGY_DIM)
+    lat = KindLattice([a, b])
+    with pytest.raises(DisjointKinds) as exc_info:
+        lat.lca(a, b)
+    assert exc_info.value.left == a
+    assert exc_info.value.right == b
+
+
+def test_disjoint_kinds_is_catchable_as_kind_error():
+    """#281: `except KindError` handlers now see the disjoint-roots verdict."""
+    a = Kind("a", dimension=ENERGY_DIM)
+    b = Kind("b", dimension=ENERGY_DIM)
+    lat = KindLattice([a, b])
+    try:
+        lat.lca(a, b)
+    except KindError as e:
+        assert isinstance(e, DisjointKinds)
+        assert isinstance(e, ValueError)
+    else:  # pragma: no cover
+        pytest.fail("expected DisjointKinds")
 
 
 def test_lca_surfaces_refuse_policy():

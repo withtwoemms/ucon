@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Disjoint kind roots now raise a typed refusal.** (#281)
+  `KindLattice.lca` on kinds from disjoint trees raised a bare
+  `ValueError` — the one kind-layer refusal outside the typed
+  `KindError` taxonomy, with no payload and indistinguishable from a
+  programming error. It now raises `DisjointKinds`, which carries
+  `left`/`right` attributes and subclasses **both** `KindError` and
+  `ValueError`, so `except KindError` handlers start working while every
+  existing `except ValueError` handler keeps working. Exported via
+  `ucon.kinds` beside the other kind exceptions.
+
+## [2.1.4] - 2026-09-09
+
+### Fixed
+
 - **Paths through composite edge endpoints now resolve.** (#280) A package
   binding a unit to a composite SI expression (edge `dst = "meter^3"`)
   created a node invisible to unit-level path search: `us_gallon →
@@ -2619,6 +2633,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.4]: https://github.com/withtwoemms/ucon/compare/2.1.3...2.1.4
 [2.1.3]: https://github.com/withtwoemms/ucon/compare/2.1.2...2.1.3
 [2.1.2]: https://github.com/withtwoemms/ucon/compare/2.1.1...2.1.2
 [2.1.1]: https://github.com/withtwoemms/ucon/compare/2.1.0...2.1.1
