@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Customary-unit prefactors corrected — conversion results change at the
+  ppm level.** (#278) 33 US-customary/imperial catalog values were corrupted
+  in families: the entire inch chain (inch, foot, yard, mile, mil, hand,
+  fathom, league, point, pica) shared a 3.2e−8 relative error, the pound
+  chain (pound, ounce, dram, grain, pennyweight, stone, short_ton, long_ton)
+  shared 1.19e−6, the US gallon chain (gallon, quart, pint, cup, gill,
+  fluid_ounce, tablespoon, teaspoon, minim, barrel) shared 2.0e−7, and
+  slug/poundal/psi/ksi/foot_pound carried truncation errors — the seed
+  constants were corrupt, not the individual literals, so every derived
+  value inherited the drift. All values are now derived from four exact
+  statutory seeds (inch 0.0254 m, pound 0.45359237 kg — the 1959
+  international yard-and-pound agreement — US gallon 231 in³, imperial
+  gallon 4.54609e−3 m³) composed in `Fraction` and converted to float once.
+  Six conversion edges carrying the same corrupted or truncated constants
+  (`foot→meter`, `gallon→liter`, `kilogram→pound`, `kilogram→slug`,
+  `newton→poundal`, `pascal→psi`, plus `foot_pound→joule` at 1 ULP) were
+  corrected identically. **Any downstream result computed through these
+  units shifts by up to ~1.8e−6 relative (psi/ksi worst).** A regression
+  test (`tests/ucon/test_customary_prefactors.py`) re-derives every
+  customary prefactor and seed-derivable edge factor from the exact seeds,
+  so future drift fails CI naming the unit.
+
 ## [2.1.1] - 2026-06-16
 
 ### Fixed
