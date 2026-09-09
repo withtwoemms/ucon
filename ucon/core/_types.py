@@ -377,13 +377,28 @@ class BaseForm:
 
     Invariants:
         - ``prefactor`` is positive and finite
-        - ``factors`` references only base units of the unit's own basis
-        - dimensionally consistent with the parent Unit's ``dimension``
+        - ``factors`` references only canonical (SI) base units
+        - for SI-basis units, dimensionally consistent with the parent
+          Unit's ``dimension``; purely multiplicative CGS-mechanical
+          units (dyne, erg, poise, stokes, barye, galileo, kayser,
+          langley) carry their exact SI-equivalent factorization even
+          though their own ``dimension`` lives in the CGS basis
         - immutable; set at Unit construction; never mutated
 
-    Affine units (kelvin/celsius/fahrenheit) and logarithmic units (dB, Np)
-    cannot be represented as a single (prefactor, factors) pair and have
-    ``base_form = None``.
+    ``base_form = None`` means no single (prefactor, factors)
+    representation exists, for one of two reasons:
+
+    - **chart structure** — affine units (celsius, fahrenheit) have an
+      offset no pure scaling can express, and logarithmic units (dB, Np,
+      pH) are levels, not scalings;
+    - **cross-basis dimensional scoping** — electromagnetic CGS units
+      (gauss, maxwell, statvolt, abohm, …) have dimensional exponents
+      that genuinely differ from their SI counterparts', so an
+      SI factorization would be dimensionally ill-typed; conversion
+      routes through ``RebasedUnit`` edges instead.
+
+    Never infer a unit's chart/scale structure from ``base_form is
+    None`` alone — the two causes above are unrelated.
     """
     factors: tuple  # tuple[tuple[Unit, float], ...]
     prefactor: float = 1.0

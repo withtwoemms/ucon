@@ -87,10 +87,20 @@ def _coerce_to_si(value: Number, *, system: "UnitSystem | None" = None) -> Numbe
     unit = value.unit
 
     # --- algebraic path (base_form available) ---
+    # For SI-dimensioned units the algebraic result is final. For
+    # cross-basis units (CGS-mechanical dyne, erg, poise, … carry
+    # SI-factored base_forms as of #283) the graph is preferred — it lands
+    # on the *named* coherent SI unit (joule, pascal_second) rather than an
+    # anonymous product — with the algebraic result kept as the fallback
+    # for graphs that cannot reach an SI target.
+    algebraic_fallback: Number | None = None
+
     if isinstance(unit, UnitProduct):
         result = _coerce_product_to_si(value)
         if result is not value:
-            return result
+            if all(uf.unit.dimension.vector.basis == SI for uf in unit.factors):
+                return result
+            algebraic_fallback = result
     elif isinstance(unit, Unit) and unit.base_form is not None:
         bf = unit.base_form
         # Verify factors are SI-basis before using them
@@ -98,10 +108,16 @@ def _coerce_to_si(value: Number, *, system: "UnitSystem | None" = None) -> Numbe
             si_unit = UnitProduct({u: e for u, e in bf.factors})
             si_qty = value.quantity * bf.prefactor
             si_unc = value.uncertainty * bf.prefactor if value.uncertainty else None
-            return Number(si_qty, si_unit, uncertainty=si_unc)
+            result = Number(si_qty, si_unit, uncertainty=si_unc)
+            if unit.dimension.vector.basis == SI:
+                return result
+            algebraic_fallback = result
 
-    # --- graph path (CGS units without SI base_form) ---
-    return _coerce_via_graph(value, system=system)
+    # --- graph path (cross-basis units; named SI targets preferred) ---
+    graph_result = _coerce_via_graph(value, system=system)
+    if graph_result is not value:
+        return graph_result
+    return algebraic_fallback if algebraic_fallback is not None else value
 
 
 def _coerce_product_to_si(value: Number) -> Number:

@@ -846,6 +846,14 @@ aliases = [
     "Ba",
 ]
 
+[units.base_form]
+prefactor = 0.1
+factors = [
+    ["kilogram", 1.0],
+    ["meter", -1.0],
+    ["second", -2.0],
+]
+
 [[units]]
 name = "biot"
 dimension = "cgs_emu_current"
@@ -1019,6 +1027,13 @@ aliases = [
     "Gal",
 ]
 
+[units.base_form]
+prefactor = 0.01
+factors = [
+    ["meter", 1.0],
+    ["second", -2.0],
+]
+
 [[units]]
 name = "gilbert"
 dimension = "cgs_emu_current"
@@ -1167,6 +1182,12 @@ aliases = [
     "K_wave",
 ]
 
+[units.base_form]
+prefactor = 100.0
+factors = [
+    ["meter", -1.0],
+]
+
 [[units]]
 name = "liter"
 dimension = "volume"
@@ -1203,6 +1224,13 @@ name = "langley"
 dimension = "cgs_radiant_exposure"
 aliases = [
     "Ly_rad",
+]
+
+[units.base_form]
+prefactor = 41840.0
+factors = [
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
@@ -1261,6 +1289,14 @@ name = "poise"
 dimension = "cgs_dynamic_viscosity"
 aliases = [
     "P",
+]
+
+[units.base_form]
+prefactor = 0.1
+factors = [
+    ["kilogram", 1.0],
+    ["meter", -1.0],
+    ["second", -1.0],
 ]
 
 [[units]]
@@ -1362,6 +1398,13 @@ name = "stokes"
 dimension = "cgs_kinematic_viscosity"
 aliases = [
     "St",
+]
+
+[units.base_form]
+prefactor = 0.0001
+factors = [
+    ["meter", 2.0],
+    ["second", -1.0],
 ]
 
 [[units]]
@@ -2156,6 +2199,14 @@ aliases = [
     "dyn",
 ]
 
+[units.base_form]
+prefactor = 1e-05
+factors = [
+    ["meter", 1.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
+]
+
 [[units]]
 name = "electron_volt"
 dimension = "natural_energy"
@@ -2190,6 +2241,14 @@ name = "erg"
 dimension = "cgs_energy"
 aliases = [
     "erg",
+]
+
+[units.base_form]
+prefactor = 1e-07
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -2.0],
 ]
 
 [[units]]
