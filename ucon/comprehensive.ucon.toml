@@ -1441,7 +1441,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 907.1858188712795
+prefactor = 907.18474
 factors = [
     ["kilogram", 1.0],
 ]
@@ -1744,7 +1744,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.15898732643883529
+prefactor = 0.158987294928
 factors = [
     ["meter", 3.0],
 ]
@@ -1923,7 +1923,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.00023658828339112394
+prefactor = 0.0002365882365
 factors = [
     ["meter", 3.0],
 ]
@@ -2130,7 +2130,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.0017718473024829677
+prefactor = 0.0017718451953125
 factors = [
     ["kilogram", 1.0],
 ]
@@ -2144,7 +2144,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.0015551756894936224
+prefactor = 0.00155517384
 factors = [
     ["kilogram", 1.0],
 ]
@@ -2201,7 +2201,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1.828799941478402
+prefactor = 1.8288
 factors = [
     ["meter", 1.0],
 ]
@@ -2230,7 +2230,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.3047999902464003
+prefactor = 0.3048
 factors = [
     ["meter", 1.0],
 ]
@@ -2244,7 +2244,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 2.9573535423890493e-05
+prefactor = 2.95735295625e-05
 factors = [
     ["meter", 3.0],
 ]
@@ -2272,7 +2272,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1.3558179483314
+prefactor = 1.3558179483314003
 factors = [
     ["meter", 2.0],
     ["kilogram", 1.0],
@@ -2331,7 +2331,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.003785412534257983
+prefactor = 0.003785411784
 factors = [
     ["meter", 3.0],
 ]
@@ -2360,7 +2360,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.00011829414169556197
+prefactor = 0.00011829411825
 factors = [
     ["meter", 3.0],
 ]
@@ -2382,7 +2382,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 6.479898706223426e-05
+prefactor = 6.479891e-05
 factors = [
     ["kilogram", 1.0],
 ]
@@ -2424,7 +2424,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.1015999967488001
+prefactor = 0.1016
 factors = [
     ["meter", 1.0],
 ]
@@ -2531,7 +2531,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1016.0481171358331
+prefactor = 1016.0469088
 factors = [
     ["kilogram", 1.0],
 ]
@@ -2545,7 +2545,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.025399999187200026
+prefactor = 0.0254
 factors = [
     ["meter", 1.0],
 ]
@@ -2678,7 +2678,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 6894744.825494008
+prefactor = 6894757.293168361
 factors = [
     ["meter", -1.0],
     ["kilogram", 1.0],
@@ -2701,7 +2701,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.45359290943563974
+prefactor = 0.45359237
 factors = [
     ["kilogram", 1.0],
 ]
@@ -2730,7 +2730,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 6894.744825494008
+prefactor = 6894.757293168362
 factors = [
     ["meter", -1.0],
     ["kilogram", 1.0],
@@ -2746,7 +2746,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 4828.031845502982
+prefactor = 4828.032
 factors = [
     ["meter", 1.0],
 ]
@@ -2886,7 +2886,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1609.3439485009937
+prefactor = 1609.344
 factors = [
     ["meter", 1.0],
 ]
@@ -2899,7 +2899,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 2.5399999187200026e-05
+prefactor = 2.54e-05
 factors = [
     ["meter", 1.0],
 ]
@@ -2972,7 +2972,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 6.16115321331052e-08
+prefactor = 6.1611519921875e-08
 factors = [
     ["meter", 3.0],
 ]
@@ -3060,7 +3060,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.028349556839727483
+prefactor = 0.028349523125
 factors = [
     ["kilogram", 1.0],
 ]
@@ -3134,7 +3134,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.138255
+prefactor = 0.138254954376
 factors = [
     ["meter", 1.0],
     ["kilogram", 1.0],
@@ -3200,7 +3200,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.0042333331978666715
+prefactor = 0.004233333333333334
 factors = [
     ["meter", 1.0],
 ]
@@ -3214,7 +3214,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.0004731765667822479
+prefactor = 0.000473176473
 factors = [
     ["meter", 3.0],
 ]
@@ -3234,7 +3234,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.00035277776648888926
+prefactor = 0.00035277777777777776
 factors = [
     ["meter", 1.0],
 ]
@@ -3256,7 +3256,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.0009463531335644958
+prefactor = 0.000946352946
 factors = [
     ["meter", 3.0],
 ]
@@ -3386,7 +3386,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 14.5939
+prefactor = 14.593902937206364
 factors = [
     ["kilogram", 1.0],
 ]
@@ -3406,7 +3406,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 6.350300732098956
+prefactor = 6.35029318
 factors = [
     ["kilogram", 1.0],
 ]
@@ -3475,7 +3475,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 1.4786767711945246e-05
+prefactor = 1.478676478125e-05
 factors = [
     ["meter", 3.0],
 ]
@@ -3488,7 +3488,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 4.9289225706484154e-06
+prefactor = 4.92892159375e-06
 factors = [
     ["meter", 3.0],
 ]
@@ -3561,7 +3561,7 @@ aliases = [
 ]
 
 [units.base_form]
-prefactor = 0.914399970739201
+prefactor = 0.9144
 factors = [
     ["meter", 1.0],
 ]
@@ -3898,7 +3898,7 @@ factor = 12
 [[edges]]
 src = "foot"
 dst = "meter"
-factor = 0.3047999902464003
+factor = 0.3048
 
 [[edges]]
 src = "foot"
@@ -3918,7 +3918,7 @@ factor = 10.763910417
 [[edges]]
 src = "foot_pound"
 dst = "joule"
-factor = 1.3558179483314
+factor = 1.3558179483314003
 
 [[edges]]
 src = "fraction"
@@ -3974,7 +3974,7 @@ factor = 201.168
 [[edges]]
 src = "gallon"
 dst = "liter"
-factor = 3.785412534257983
+factor = 3.785411784
 
 [[edges]]
 src = "gallon"
@@ -4139,12 +4139,12 @@ factor = 0.001
 [[edges]]
 src = "kilogram"
 dst = "pound"
-factor = 2.20462
+factor = 2.2046226218487757
 
 [[edges]]
 src = "kilogram"
 dst = "slug"
-factor = 0.06852177964766101
+factor = 0.06852176585679176
 
 [[edges]]
 src = "kilogram_force"
@@ -4259,7 +4259,7 @@ factor = 0.2248089430997105
 [[edges]]
 src = "newton"
 dst = "poundal"
-factor = 7.233011464323171
+factor = 7.233013851209894
 
 [[edges]]
 src = "newton"
@@ -4279,7 +4279,7 @@ factor = 0.0625
 [[edges]]
 src = "pascal"
 dst = "psi"
-factor = 0.000145038
+factor = 0.0001450377377302092
 
 [[edges]]
 src = "pascal"

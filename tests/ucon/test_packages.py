@@ -67,15 +67,15 @@ class TestEdgeDef(unittest.TestCase):
 
     def test_edge_def_creation(self):
         """EdgeDef can be created with valid attributes."""
-        edge_def = EdgeDef(src='meter', dst='foot', factor=3.28084)
+        edge_def = EdgeDef(src='meter', dst='foot', factor=1 / 0.3048)
         self.assertEqual(edge_def.src, 'meter')
         self.assertEqual(edge_def.dst, 'foot')
-        self.assertEqual(edge_def.factor, 3.28084)
+        self.assertEqual(edge_def.factor, 1 / 0.3048)
 
     def test_edge_def_materialize(self):
         """EdgeDef.materialize() adds edge to graph."""
         graph = get_default_graph().copy()
-        edge_def = EdgeDef(src='meter', dst='foot', factor=3.28084)
+        edge_def = EdgeDef(src='meter', dst='foot', factor=1 / 0.3048)
 
         # Edge already exists in default graph, but materialize should work
         edge_def.materialize(graph)
@@ -100,7 +100,7 @@ class TestEdgeDefAffine(unittest.TestCase):
 
     def test_edge_def_default_offset_zero(self):
         """EdgeDef defaults offset to 0.0 for backward compatibility."""
-        edge_def = EdgeDef(src='meter', dst='foot', factor=3.28084)
+        edge_def = EdgeDef(src='meter', dst='foot', factor=1 / 0.3048)
         self.assertEqual(edge_def.offset, 0.0)
 
     def test_edge_def_materialize_affine(self):
@@ -770,10 +770,10 @@ class TestEdgeDefMapSpec(unittest.TestCase):
 
     def test_map_spec_none_uses_factor(self):
         """When map_spec is None, factor/offset shorthand applies."""
-        edge = EdgeDef(src='meter', dst='foot', factor=3.28084)
+        edge = EdgeDef(src='meter', dst='foot', factor=1 / 0.3048)
         m = edge._build_edge_map()
         self.assertIsInstance(m, LinearMap)
-        self.assertAlmostEqual(m(1), 3.28084)
+        self.assertAlmostEqual(m(1), 1 / 0.3048)
 
     def test_map_spec_none_with_offset_uses_affine(self):
         """When map_spec is None and offset non-zero, AffineMap is used."""
@@ -785,10 +785,10 @@ class TestEdgeDefMapSpec(unittest.TestCase):
 
     def test_map_spec_linear(self):
         """map_spec with type='linear' creates LinearMap."""
-        edge = EdgeDef(src='meter', dst='foot', map_spec={'type': 'linear', 'a': 3.28084})
+        edge = EdgeDef(src='meter', dst='foot', map_spec={'type': 'linear', 'a': 1 / 0.3048})
         m = edge._build_edge_map()
         self.assertIsInstance(m, LinearMap)
-        self.assertAlmostEqual(m(1), 3.28084)
+        self.assertAlmostEqual(m(1), 1 / 0.3048)
 
     def test_map_spec_affine(self):
         """map_spec with type='affine' creates AffineMap."""
