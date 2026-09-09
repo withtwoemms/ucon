@@ -14,10 +14,15 @@ means any future drift fails this test naming the exact unit.
 """
 
 import os
-import tomllib
+import sys
 from fractions import Fraction as F
 
 import pytest
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 # ---- exact seeds -----------------------------------------------------------
 INCH = F(254, 10000)                      # 1959 yard-and-pound agreement
