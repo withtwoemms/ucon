@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Re-adding an identical `Kind` object is now an idempotent no-op.**
+  (#284) `KindLattice._add` distinguished name collisions from alias
+  collisions with a guard that skipped the identical-object case, so the
+  same `Kind` appearing twice (e.g. once in a constructor list and once
+  via an overlapping collection) fell through to a self-referential
+  `AliasCollision` ("Alias 'foo' collides with existing entry 'foo'") —
+  no alias involved, and the "collision" was the object with itself.
+  Re-registering the identical object now returns quietly; a *distinct*
+  object with the same name still raises `NameCollision`, and
+  `AliasCollision` is reachable only when an alias is actually involved.
+
+## [2.1.5] - 2026-09-09
+
+### Fixed
+
 - **Disjoint kind roots now raise a typed refusal.** (#281)
   `KindLattice.lca` on kinds from disjoint trees raised a bare
   `ValueError` — the one kind-layer refusal outside the typed
@@ -2633,6 +2648,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.5]: https://github.com/withtwoemms/ucon/compare/2.1.4...2.1.5
 [2.1.4]: https://github.com/withtwoemms/ucon/compare/2.1.3...2.1.4
 [2.1.3]: https://github.com/withtwoemms/ucon/compare/2.1.2...2.1.3
 [2.1.2]: https://github.com/withtwoemms/ucon/compare/2.1.1...2.1.2

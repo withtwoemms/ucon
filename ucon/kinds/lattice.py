@@ -72,10 +72,18 @@ class KindLattice:
     # ---------- ingestion / indexing ----------
 
     def _add(self, kind: Kind) -> None:
-        """Register a kind in the flat namespace. Raises on collision."""
+        """Register a kind in the flat namespace. Raises on collision.
+
+        Re-adding the *identical object* is an idempotent no-op — its name
+        and aliases are already registered. A distinct object with the same
+        name raises :class:`NameCollision`; a name that collides with
+        another kind's alias raises :class:`AliasCollision`.
+        """
         if kind.name in self._index:
             existing = self._index[kind.name]
-            if existing.name == kind.name and existing is not kind:
+            if existing is kind:
+                return
+            if existing.name == kind.name:
                 raise NameCollision(kind.name)
             raise AliasCollision(kind.name, existing.name)
         self._by_name[kind.name] = kind
