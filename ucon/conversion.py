@@ -757,7 +757,21 @@ class Graph:
         # Both plain Units
         if isinstance(src, Unit) and not isinstance(src, UnitProduct):
             if isinstance(dst, Unit) and not isinstance(dst, UnitProduct):
-                result = self._convert_units(src=src, dst=dst)
+                try:
+                    result = self._convert_units(src=src, dst=dst)
+                except ConversionNotFound as unit_miss:
+                    # A package may bind a unit to a composite expression
+                    # (edge dst = "meter^3"); such product edges are
+                    # invisible to unit-level BFS. Retry in product space,
+                    # where base-form sibling links unify composite nodes
+                    # with named units. Only failed lookups take this path.
+                    try:
+                        result = self._bfs_product_path(
+                            src=UnitProduct.from_unit(src),
+                            dst=UnitProduct.from_unit(dst),
+                        )
+                    except ConversionNotFound:
+                        raise unit_miss
                 self._conversion_cache[cache_key] = result
                 return result
 
@@ -880,6 +894,43 @@ class Graph:
             f"No cross-dimensional path from {start} to {target}"
         )
 
+    def _product_from_key(self, key: tuple) -> UnitProduct | None:
+        """Reconstruct a UnitProduct from a product-edge key.
+
+        Product-edge neighbors are discovered by key alone; rebuilding the
+        product lets the search continue expanding from them (unit edges,
+        base-form siblings). Returns ``None`` when any unit name in the key
+        does not resolve in this graph's registry.
+        """
+        factors = {}
+        for name, _dim, scale, exp in key:
+            unit = self._name_registry_cs.get(name) or self._name_registry.get(name.lower())
+            if unit is None:
+                return None
+            factors[UnitFactor(unit, scale)] = exp
+        return UnitProduct(factors)
+
+    def _base_form_siblings(self, product: UnitProduct):
+        """Yield ``(unit, map)`` for registered units sharing *product*'s base form.
+
+        A product like ``meter³`` and a registered unit like ``liter``
+        decompose to the same base-unit signature; they are the same
+        physical node up to the ratio of prefactors. Yields each such unit
+        with the ``LinearMap`` taking product-values to unit-values.
+        """
+        try:
+            base, prefactor = product.to_base_form()
+        except (AttributeError, TypeError):
+            return
+        sig = tuple(sorted((u.name, e) for u, e in base.items()))
+        for unit in set(self._name_registry.values()):
+            bf = unit.base_form
+            if bf is None or not bf.prefactor:
+                continue
+            unit_sig = tuple(sorted((u.name, e) for u, e in bf.factors))
+            if unit_sig == sig:
+                yield unit, LinearMap(prefactor / bf.prefactor)
+
     def _bfs_product_path(self, *, src: UnitProduct, dst: UnitProduct) -> Map:
         """
         BFS to find conversion path through product AND unit edges.
@@ -887,7 +938,10 @@ class Graph:
         Used for cross-dimension conversions where vectors match but dimensions differ
         (e.g., gallon → liter → m³).
 
-        Traverses both product edges and unit edges (for single-unit products).
+        Traverses product edges, unit edges (for single-unit products), and
+        base-form sibling links (a product node and a registered unit with
+        the same base-form signature are the same node up to a prefactor
+        ratio — e.g. ``meter³`` ↔ ``liter``).
         """
         src_key = self._product_key(src)
         dst_key = self._product_key(dst)
@@ -912,8 +966,7 @@ class Graph:
                         continue
 
                     composed = edge_map @ current_map
-                    # We don't have the UnitProduct for neighbor_key, but we can reconstruct later
-                    visited[neighbor_key] = (composed, None)
+                    visited[neighbor_key] = (composed, self._product_from_key(neighbor_key))
 
                     if neighbor_key == dst_key:
                         return composed
@@ -947,6 +1000,26 @@ class Graph:
                                 return composed
 
                             queue.append(neighbor_key)
+
+            # Base-form siblings: a product node and a registered unit with
+            # the same base-form signature are the same physical node up to
+            # a prefactor ratio (meter³ ↔ liter). This is what makes an edge
+            # bound to a composite expression reachable from named units.
+            if current_product is not None:
+                for sibling, sibling_map in self._base_form_siblings(current_product):
+                    neighbor_prod = UnitProduct.from_unit(sibling)
+                    neighbor_key = self._product_key(neighbor_prod)
+
+                    if neighbor_key in visited:
+                        continue
+
+                    composed = sibling_map @ current_map
+                    visited[neighbor_key] = (composed, neighbor_prod)
+
+                    if neighbor_key == dst_key:
+                        return composed
+
+                    queue.append(neighbor_key)
 
         raise ConversionNotFound(f"No product path from {src} to {dst}")
 

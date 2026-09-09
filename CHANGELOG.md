@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Paths through composite edge endpoints now resolve.** (#280) A package
+  binding a unit to a composite SI expression (edge `dst = "meter^3"`)
+  created a node invisible to unit-level path search: `us_gallon →
+  meter^3` converted, `meter^3 → liter` converted, but `us_gallon → liter`
+  raised `ConversionNotFound`. Path search now unifies a product node with
+  any registered unit sharing its base-form signature (same factors; the
+  prefactor ratio becomes the map, e.g. `meter³ ↔ liter` at ×1000), and
+  unit-level lookups fall back into product space on failure. Only
+  previously-failing lookups change; `__eq__` across the
+  `Unit`/`UnitProduct` boundary is deliberately untouched (full identity
+  unification is scheduled for the next major).
+
+## [2.1.3] - 2026-09-09
+
+### Fixed
+
 - **Edge factors may now reference declared constants.** (#279)
   `_parse_factor` resolves symbols in factor/offset expressions against the
   package's own `[[constants]]` section (symbols and aliases, including
@@ -2603,6 +2619,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.3]: https://github.com/withtwoemms/ucon/compare/2.1.2...2.1.3
 [2.1.2]: https://github.com/withtwoemms/ucon/compare/2.1.1...2.1.2
 [2.1.1]: https://github.com/withtwoemms/ucon/compare/2.1.0...2.1.1
 [2.1.0]: https://github.com/withtwoemms/ucon/compare/2.0.1...2.1.0
