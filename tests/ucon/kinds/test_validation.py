@@ -55,6 +55,26 @@ def test_duplicate_primary_name_raises():
     assert exc.value.name == "foo"
 
 
+def test_identical_object_readd_is_idempotent():
+    """#284: the same Kind object appearing twice is harmless — previously
+    this fell through to a self-referential AliasCollision
+    ("Alias 'foo' collides with existing entry 'foo'")."""
+    k = Kind("foo", dimension=ENERGY_DIM, aliases=("f",))
+    lat = KindLattice([k, k])
+    assert lat.get("foo") is k
+    assert lat.get("f") is k
+
+
+def test_distinct_same_name_objects_raise_name_collision():
+    """#284: a *distinct* object with the same name is a NameCollision —
+    never an AliasCollision when no alias is involved."""
+    a = Kind("foo", dimension=ENERGY_DIM)
+    b = Kind("foo", dimension=ENERGY_DIM)
+    with pytest.raises(NameCollision) as exc:
+        KindLattice([a, b])
+    assert exc.value.name == "foo"
+
+
 # --------- alias collisions ---------
 
 def test_alias_collides_with_other_alias():
