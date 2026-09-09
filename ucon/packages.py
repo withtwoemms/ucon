@@ -48,6 +48,7 @@ from typing import TYPE_CHECKING
 
 import ast
 import operator
+import unicodedata
 
 from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
@@ -64,18 +65,28 @@ if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
 
 
-def _parse_factor(value) -> float:
+def _parse_factor(value, constants: 'dict[str, float] | None' = None) -> float:
     """Parse a factor value from TOML.
 
-    Accepts either a numeric value (int/float) or an arithmetic expression
-    string containing integers, ``/``, and ``*``.  This allows TOML files
-    to express exact ratios like ``"1852 / 3600"`` instead of truncated
-    decimals like ``0.514444``.
+    Accepts a numeric value (int/float) or an arithmetic expression string
+    containing numeric literals, declared constant symbols, ``/``, and
+    ``*``.  This allows TOML files to express exact ratios like
+    ``"1852 / 3600"`` instead of truncated decimals like ``0.514444``, and
+    physically-licensed factors like ``"gₙ"`` or ``"1 / gₙ"`` instead of
+    hand-copied constant values.
 
     Parameters
     ----------
     value : int, float, or str
         The factor as a number or arithmetic expression.
+    constants : dict[str, float], optional
+        Declared constant symbols (and aliases) available to the
+        expression, as produced by the package's ``[[constants]]``
+        section.  Keys must include NFKC-normalized spellings: Python's
+        tokenizer normalizes identifiers, so ``gₙ`` reaches the AST as
+        ``gn``.  A symbol that is not a valid Python identifier (e.g.
+        ``μ₀``) can still be used as the entire factor string, but not
+        inside an arithmetic expression.
 
     Returns
     -------
@@ -85,12 +96,21 @@ def _parse_factor(value) -> float:
     Raises
     ------
     PackageLoadError
-        If the string is not a valid arithmetic expression.
+        If the string is not a valid arithmetic expression, or references
+        a symbol not present in *constants*.
     """
     if isinstance(value, (int, float)):
         return float(value)
     if not isinstance(value, str):
         raise PackageLoadError(f"factor must be a number or expression string, got {type(value).__name__}")
+
+    constants = constants or {}
+    stripped = value.strip()
+
+    # Bare-symbol fast path: serves symbols that are not valid Python
+    # identifiers (μ₀ has a subscript digit, which the tokenizer rejects).
+    if stripped in constants:
+        return float(constants[stripped])
 
     _OPS = {
         ast.Mult: operator.mul,
@@ -105,20 +125,32 @@ def _parse_factor(value) -> float:
             return float(node.value)
         if hasattr(ast, 'Num') and isinstance(node, ast.Num):  # Python 3.7 compat
             return float(node.n)
+        if isinstance(node, ast.Name):
+            if node.id in constants:
+                return float(constants[node.id])
+            available = ', '.join(sorted(constants)) or '(none declared)'
+            raise PackageLoadError(
+                f"Unknown constant symbol {node.id!r} in factor: {value!r}. "
+                f"Symbols available from [[constants]]: {available}"
+            )
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS[type(node.op)](_eval_node(node.operand))
         if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
             return _OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))
         raise PackageLoadError(
             f"Unsupported expression in factor: {value!r}. "
-            "Only numeric literals with * and / are allowed."
+            "Only numeric literals, declared constant symbols, * and / are allowed."
         )
 
     try:
-        tree = ast.parse(value.strip(), mode='eval')
+        tree = ast.parse(stripped, mode='eval')
         return _eval_node(tree)
     except SyntaxError:
-        raise PackageLoadError(f"Invalid factor expression: {value!r}")
+        raise PackageLoadError(
+            f"Invalid factor expression: {value!r}. "
+            "Note: a constant symbol that is not a valid identifier "
+            "(e.g. μ₀) may only be used as the entire factor string."
+        )
 
 
 def _get_dimension_map() -> dict[str, Dimension]:
@@ -552,6 +584,17 @@ def load_package(path: str | Path) -> UnitPackage:
         for u in data.get("units", [])
     )
 
+    # Constant symbols available to edge-factor expressions.  Keyed by the
+    # declared symbol, each alias, and their NFKC normalizations — Python's
+    # tokenizer NFKC-normalizes identifiers, so "gₙ" reaches the AST as
+    # "gn" and both spellings must resolve.
+    constant_values: dict[str, float] = {}
+    for c in data.get("constants", []):
+        val = float(c["value"])
+        for key in (c["symbol"], *c.get("aliases", ())):
+            constant_values.setdefault(key, val)
+            constant_values.setdefault(unicodedata.normalize("NFKC", key), val)
+
     # Parse edges
     # Supports two forms:
     #   factor/offset shorthand: { src, dst, factor, offset? }
@@ -567,8 +610,8 @@ def load_package(path: str | Path) -> UnitPackage:
         return EdgeDef(
             src=e["src"],
             dst=e["dst"],
-            factor=_parse_factor(e["factor"]),
-            offset=_parse_factor(e.get("offset", 0.0)),
+            factor=_parse_factor(e["factor"], constant_values),
+            offset=_parse_factor(e.get("offset", 0.0), constant_values),
             rel_uncertainty=float(e.get("rel_uncertainty", 0.0)),
         )
 

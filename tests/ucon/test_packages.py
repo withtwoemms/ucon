@@ -446,6 +446,109 @@ class TestParseFactorEdgeCases(unittest.TestCase):
             _parse_factor("x * y")
 
 
+class TestConstantFactors(unittest.TestCase):
+    """Edge factors may reference declared [[constants]] symbols (#279)."""
+
+    CONSTANTS = {
+        'gₙ': 9.80665, 'gn': 9.80665,   # declared + NFKC spelling
+        'c': 299792458.0,
+        'g0': 9.80665,                   # alias
+        'μ₀': 1.25663706127e-06,         # not a valid Python identifier
+    }
+
+    def test_bare_symbol(self):
+        """A factor that is exactly a declared symbol resolves."""
+        from ucon.packages import _parse_factor
+        self.assertEqual(_parse_factor("gₙ", self.CONSTANTS), 9.80665)
+
+    def test_symbol_in_expression(self):
+        """Symbols participate in * and / expressions."""
+        from ucon.packages import _parse_factor
+        self.assertAlmostEqual(_parse_factor("1 / gₙ", self.CONSTANTS), 1 / 9.80665)
+        self.assertEqual(_parse_factor("c * 2", self.CONSTANTS), 2 * 299792458.0)
+
+    def test_nfkc_normalization(self):
+        """gₙ inside an expression reaches the AST as 'gn' and still resolves."""
+        from ucon.packages import _parse_factor
+        self.assertEqual(_parse_factor("gₙ * 1000", self.CONSTANTS), 9806.65)
+
+    def test_alias_resolves(self):
+        """Constant aliases resolve like symbols."""
+        from ucon.packages import _parse_factor
+        self.assertEqual(_parse_factor("g0", self.CONSTANTS), 9.80665)
+
+    def test_non_identifier_symbol_bare_only(self):
+        """μ₀ works as the entire factor string but not inside expressions."""
+        from ucon.packages import _parse_factor
+        self.assertEqual(_parse_factor("μ₀", self.CONSTANTS), 1.25663706127e-06)
+        with self.assertRaises(PackageLoadError) as ctx:
+            _parse_factor("2 * μ₀", self.CONSTANTS)
+        self.assertIn('entire factor string', str(ctx.exception))
+
+    def test_unknown_symbol_names_available(self):
+        """An unresolvable symbol errors, listing declared symbols."""
+        from ucon.packages import _parse_factor
+        with self.assertRaises(PackageLoadError) as ctx:
+            _parse_factor("k_B * 2", self.CONSTANTS)
+        self.assertIn('k_B', str(ctx.exception))
+        self.assertIn('gn', str(ctx.exception))
+
+    def test_no_constants_still_raises(self):
+        """Without a constants mapping, symbols raise as before."""
+        from ucon.packages import _parse_factor
+        with self.assertRaises(PackageLoadError):
+            _parse_factor("gₙ")
+
+    def test_load_package_resolves_constant_factor(self):
+        """End-to-end: [[constants]] symbol used in an edge factor and offset."""
+        toml_content = '''
+[package]
+name = "const_factor_test"
+version = "1.0.0"
+
+[[units]]
+name = "test_gee"
+dimension = "acceleration"
+aliases = ["tg"]
+
+[[constants]]
+symbol = "gₙ"
+name = "standard gravity"
+value = 9.80665
+unit = "m/s^2"
+category = "exact"
+aliases = ["g0"]
+
+[[edges]]
+src = "test_gee"
+dst = "meter_per_second_squared"
+factor = "gₙ"
+'''
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.toml', delete=False
+        ) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            pkg = load_package(path)
+            self.assertEqual(pkg.edges[0].factor, 9.80665)
+        finally:
+            path.unlink()
+
+    def test_bundled_catalog_loads(self):
+        """Acceptance: ucon's own comprehensive.ucon.toml loads (#279)."""
+        import os
+        import ucon as ucon_pkg
+        path = os.path.join(
+            os.path.dirname(ucon_pkg.__file__), 'comprehensive.ucon.toml')
+        pkg = load_package(path)
+        self.assertGreater(len(pkg.constants), 0)
+        kgf = [e for e in pkg.edges if e.src == 'kilogram_force']
+        self.assertEqual(kgf[0].factor, 9.80665)
+
+
 class TestEdgeDefUnknownDst(unittest.TestCase):
     """Test EdgeDef.materialize() with unknown destination unit."""
 
