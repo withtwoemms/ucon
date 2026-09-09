@@ -94,12 +94,12 @@ def test_bad_cross_dimension_raises_crossdimensionparent():
 
 
 def test_bad_name_collision_raises_collision_error():
-    # The parser hands duplicate-name entries to the lattice as a single
-    # rebuilt Kind, so the lattice surfaces an AliasCollision rather
-    # than a NameCollision. Either is acceptable evidence that the
-    # loader rejected the bad fixture; the canonical NameCollision path
-    # is exercised directly in tests/ucon/kinds/test_validation.py.
-    with pytest.raises((NameCollision, AliasCollision)):
+    # The parser itself rejects duplicate [[kinds]] names (#284): it is
+    # the only layer that sees both declarations, since it collapses them
+    # into one rebuilt Kind before the lattice ever loads. (Previously the
+    # rejection happened downstream by accident, as a self-referential
+    # AliasCollision from the lattice's identical-object double-add.)
+    with pytest.raises(NameCollision):
         load_kinds_file(FIXTURES / "bad_name_collision.ucon.toml")
 
 

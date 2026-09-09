@@ -40,7 +40,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
-from ucon.kinds import JoinPolicy, Kind, KindLattice
+from ucon.kinds import JoinPolicy, Kind, KindLattice, NameCollision
 from ucon.parsing.dimensions import parse_dimension
 
 
@@ -82,6 +82,15 @@ def parse_kinds_payload(payload: dict[str, Any]) -> KindLattice:
             raise ValueError(f"Kind entry missing 'name': {raw!r}")
         if "dimension" not in raw:
             raise ValueError(f"Kind {name!r} missing 'dimension'")
+        if name in rough:
+            # Two [[kinds]] entries declaring the same name. Historically
+            # this was caught downstream by accident: the parser collapsed
+            # both entries into one Kind and the lattice's double-add of
+            # the identical object raised a (self-referential)
+            # AliasCollision. The lattice's identical-object re-add is an
+            # idempotent no-op as of #284, so the loader — the only layer
+            # that sees both declarations — rejects the duplicate itself.
+            raise NameCollision(name)
         rough[name] = raw
         order.append(name)
 
