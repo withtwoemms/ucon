@@ -27,6 +27,7 @@ __all__ = [
     "AliasCollision",
     "JoinRefused",
     "KindNotFound",
+    "DisjointKinds",
 ]
 
 
@@ -111,6 +112,25 @@ class KindNotFound(KindError):
     def __init__(self, name: str) -> None:
         self.name = name
         super().__init__(f"Unknown kind: {name!r}")
+
+
+class DisjointKinds(KindError, ValueError):
+    """Two kinds belong to disjoint trees — no common ancestor exists.
+
+    Raised by :meth:`KindLattice.lca` when the operands' ancestor chains
+    never intersect. Distinct roots cannot be joined; this is a verdict
+    ("independent kinds, no conversion"), not a programming error, so it
+    joins the :class:`KindError` taxonomy with ``left``/``right``
+    attributes for diagnostics. It also subclasses :class:`ValueError`
+    so existing ``except ValueError`` handlers continue to work.
+    """
+
+    def __init__(self, left: "Kind", right: "Kind") -> None:
+        self.left = left
+        self.right = right
+        super().__init__(
+            f"Kinds {left.name!r} and {right.name!r} have no common ancestor"
+        )
 
 
 class JoinRefused(KindError):

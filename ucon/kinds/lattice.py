@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 from ucon.kinds.exceptions import (
     AliasCollision,
     CrossDimensionParent,
+    DisjointKinds,
     JoinRefused,
     KindCycle,
     KindNotFound,
@@ -188,18 +189,18 @@ class KindLattice:
         ------
         KindNotFound
             If ``a`` or ``b`` refer to unregistered kinds.
-        ValueError
+        DisjointKinds
             If ``a`` and ``b`` belong to disjoint trees (no common
-            ancestor). Distinct roots cannot be joined.
+            ancestor). Distinct roots cannot be joined. Subclasses both
+            :class:`KindError` and :class:`ValueError`, so pre-2.1.x
+            ``except ValueError`` handlers keep working.
         """
         chain_a = self.ancestors(a)
         chain_b_set = {k.name for k in self.ancestors(b)}
         for node in chain_a:
             if node.name in chain_b_set:
                 return node, node.join_policy
-        raise ValueError(
-            f"Kinds {a.name!r} and {b.name!r} have no common ancestor"
-        )
+        raise DisjointKinds(a, b)
 
     def join(self, a: Kind, b: Kind) -> Kind:
         """LCA-based join that honors ``join_policy``.

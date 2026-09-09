@@ -19,6 +19,7 @@ v2.0.0 the lattice becomes a member of ``UnitSystem``.
 from ucon.kinds.exceptions import (
     AliasCollision,
     CrossDimensionParent,
+    DisjointKinds,
     JoinRefused,
     KindCycle,
     KindError,
@@ -46,4 +47,5 @@ __all__ = [
     "AliasCollision",
     "KindNotFound",
     "JoinRefused",
+    "DisjointKinds",
 ]
