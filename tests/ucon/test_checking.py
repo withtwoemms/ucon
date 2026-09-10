@@ -872,5 +872,54 @@ class TestKindDispatchWithoutContext(unittest.TestCase):
             _active.reset(token)
 
 
+class TestCoerceToSiRouting(unittest.TestCase):
+    """Routing coverage for the #283 _coerce_to_si restructure.
+
+    The function has four routes: SI unit → immediate algebraic return;
+    all-SI product → immediate algebraic return; cross-basis with SI
+    base_form → graph preferred, algebraic fallback (covered in
+    TestEnforceDimensionsCrossBasis / TestCoerceToSiAlgebraic); and
+    no-base_form / uncoercible → graph, else unchanged.
+    """
+
+    def test_si_unit_with_base_form_returns_algebraic(self):
+        """An SI-dimensioned unit (foot) coerces algebraically at once."""
+        from ucon.checking import _coerce_to_si
+        n = Number(2.0, units.foot)
+        result = _coerce_to_si(n)
+        self.assertIsNot(result, n)
+        self.assertAlmostEqual(result.quantity, 2 * 0.3048)
+        self.assertIsInstance(result.unit, UnitProduct)
+
+    def test_all_si_product_returns_algebraic(self):
+        """A product whose factors are all SI-dimensioned (foot²) coerces
+        algebraically at once."""
+        from ucon.checking import _coerce_to_si
+        from ucon.resolver import parse_unit
+        n = Number(1.0, parse_unit('foot^2'))
+        result = _coerce_to_si(n)
+        self.assertIsNot(result, n)
+        self.assertAlmostEqual(result.quantity, 0.3048 ** 2)
+
+    def test_unit_without_base_form_routes_to_graph(self):
+        """An EM CGS unit (gauss, base_form=None by design — #283) skips
+        the algebraic path entirely; with no graph coercion available the
+        value returns unchanged rather than raising."""
+        from ucon.checking import _coerce_to_si
+        n = Number(1.0, units.gauss)
+        result = _coerce_to_si(n)
+        self.assertEqual(result.quantity, 1.0)
+        self.assertEqual(getattr(result.unit, 'name', None), 'gauss')
+
+    def test_uncoercible_product_returns_unchanged(self):
+        """A product containing a base_form-less factor (gauss·s) cannot
+        coerce algebraically; when the graph also has no route, the
+        original Number is returned untouched — never a partial result."""
+        from ucon.checking import _coerce_to_si
+        n = Number(1.0, units.gauss * units.second)
+        result = _coerce_to_si(n)
+        self.assertIs(result, n)
+
+
 if __name__ == "__main__":
     unittest.main()
