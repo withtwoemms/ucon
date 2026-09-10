@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Mechanical CGS units now carry exact SI-factored `base_form`s.**
+  (#283) `base_form is None` conflated three unrelated causes: chart
+  structure (celsius, dB — no factorization exists), basis scoping
+  (dyne — an exact factorization exists but was never recorded), and
+  pseudo-dimensions (degree). Eight purely multiplicative CGS-mechanical
+  units — dyne, erg, poise, stokes, barye, galileo, kayser, langley —
+  are now populated with their exact SI equivalents, so `None` recovers
+  meaning: either no factorization exists, or (electromagnetic CGS:
+  gauss, maxwell, statvolt, …) the factorization is dimensionally
+  ill-typed across bases and conversion routes through `RebasedUnit`
+  edges. The `BaseForm` contract docstring now states all of this
+  explicitly, including: never infer chart/scale structure from
+  `base_form is None`. `enforce_dimensions` cross-basis coercion still
+  lands on named SI units (joule, pascal·second) — the graph route is
+  preferred and the algebraic decomposition is a fallback — and every
+  `base_form` consumer (base-form conversion shortcut, composite-path
+  sibling links from #280) now covers these CGS units.
+
+## [2.1.6] - 2026-09-09
+
+### Fixed
+
 - **Re-adding an identical `Kind` object is now an idempotent no-op.**
   (#284) `KindLattice._add` distinguished name collisions from alias
   collisions with a guard that skipped the identical-object case, so the
@@ -19,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Re-registering the identical object now returns quietly; a *distinct*
   object with the same name still raises `NameCollision`, and
   `AliasCollision` is reachable only when an alias is actually involved.
+  Relatedly, the kinds parser now rejects duplicate `[[kinds]]` names
+  itself (`NameCollision`) — that rejection previously happened only by
+  accident, via the self-referential lattice collision this release
+  fixes. *(Entry added retroactively with the 2.1.7 re-sectioning.)*
 
 ## [2.1.5] - 2026-09-09
 
@@ -2648,6 +2674,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.6]: https://github.com/withtwoemms/ucon/compare/2.1.5...2.1.6
 [2.1.5]: https://github.com/withtwoemms/ucon/compare/2.1.4...2.1.5
 [2.1.4]: https://github.com/withtwoemms/ucon/compare/2.1.3...2.1.4
 [2.1.3]: https://github.com/withtwoemms/ucon/compare/2.1.2...2.1.3

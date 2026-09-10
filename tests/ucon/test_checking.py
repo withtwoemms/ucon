@@ -14,6 +14,17 @@ else:
     from typing_extensions import Annotated
 
 from ucon import Dimension, Number, units, enforce_dimensions, DimensionConstraint, KindConstraint
+from ucon._active import _active
+from ucon.checking import (
+    _coerce_product_to_si,
+    _coerce_to_si,
+    _coerce_via_graph,
+    _dimensions_compatible,
+    _get_dimension,
+)
+from ucon.dimension import Dimension as DimClass
+from ucon.graph import ConversionNotFound, get_default_graph
+from ucon.resolver import parse_unit
 from ucon.basis import Basis, Vector
 from ucon.basis.builtin import SI, CGS
 from ucon.core import Unit, UnitProduct, UnitFactor, Scale, BaseForm
@@ -161,13 +172,11 @@ class TestGetDimension(unittest.TestCase):
     """Tests for the _get_dimension helper."""
 
     def test_extracts_dimension_from_unit_product(self):
-        from ucon.checking import _get_dimension
         n = units.meter(5)
         dim = _get_dimension(n)
         self.assertEqual(dim, Dimension.length)
 
     def test_raises_type_error_for_non_unit(self):
-        from ucon.checking import _get_dimension
         # Construct a Number whose .unit is neither Unit nor UnitProduct
         n = Number.__new__(Number)
         object.__setattr__(n, '_quantity', 1.0)
@@ -182,16 +191,13 @@ class TestDimensionsCompatible(unittest.TestCase):
     """Tests for the _dimensions_compatible function."""
 
     def test_same_dimension_is_compatible(self):
-        from ucon.checking import _dimensions_compatible
         self.assertTrue(_dimensions_compatible(Dimension.length, Dimension.length))
 
     def test_different_dimension_same_basis_incompatible(self):
-        from ucon.checking import _dimensions_compatible
         self.assertFalse(_dimensions_compatible(Dimension.length, Dimension.time))
 
     def test_cross_basis_compatible(self):
         """CGS dynamic_viscosity is compatible with SI dynamic_viscosity."""
-        from ucon.checking import _dimensions_compatible
         cgs_dim = units.poise.dimension
         si_dim = Dimension.dynamic_viscosity
         self.assertNotEqual(cgs_dim.vector.basis, si_dim.vector.basis)
@@ -199,16 +205,12 @@ class TestDimensionsCompatible(unittest.TestCase):
 
     def test_cross_basis_incompatible(self):
         """CGS dynamic_viscosity is NOT compatible with SI energy."""
-        from ucon.checking import _dimensions_compatible
         cgs_dim = units.poise.dimension
         si_dim = Dimension.energy
         self.assertFalse(_dimensions_compatible(cgs_dim, si_dim))
 
     def test_no_transform_path_returns_false(self):
         """Dimensions with no BasisGraph path are incompatible."""
-        from ucon.checking import _dimensions_compatible
-        from ucon.dimension import Dimension as DimClass
-        from ucon.basis import Basis, Vector
 
         # Create a dimension on a fictitious basis with no transforms registered
         fake_basis = Basis("FakeBasis", ["x", "y"])
@@ -283,7 +285,6 @@ class TestDimensionsCompatibleAdversarial(unittest.TestCase):
 
     def test_si_actual_vs_cgs_expected(self):
         """SI actual, CGS expected — only the expected side needs transform."""
-        from ucon.checking import _dimensions_compatible
         si_force = Dimension.force
         cgs_force = units.dyne.dimension
         # actual is SI (skip transform), expected is CGS (needs transform)
@@ -291,12 +292,10 @@ class TestDimensionsCompatibleAdversarial(unittest.TestCase):
 
     def test_si_actual_vs_cgs_expected_incompatible(self):
         """SI energy vs CGS force — different physical quantities."""
-        from ucon.checking import _dimensions_compatible
         self.assertFalse(_dimensions_compatible(Dimension.energy, units.dyne.dimension))
 
     def test_both_non_si_same_basis_different_dimensions(self):
         """Two CGS dimensions on same basis, different vectors — should be False."""
-        from ucon.checking import _dimensions_compatible
         cgs_force = units.dyne.dimension
         cgs_viscosity = units.poise.dimension
         self.assertFalse(_dimensions_compatible(cgs_force, cgs_viscosity))
@@ -310,7 +309,6 @@ class TestCoerceToSiAlgebraic(unittest.TestCase):
 
     def test_plain_unit_with_si_base_form(self):
         """Non-SI unit with SI base_form factors coerces algebraically (lines 87-93)."""
-        from ucon.checking import _coerce_to_si
         basis = self._make_custom_basis()
         dim = Dimension(Vector(basis, (1, 0, 0)), name='talg_length')
         bf = BaseForm(factors=((units.meter, 1.0),), prefactor=0.3048)
@@ -322,7 +320,6 @@ class TestCoerceToSiAlgebraic(unittest.TestCase):
 
     def test_plain_unit_with_si_base_form_uncertainty(self):
         """Uncertainty is scaled by base_form prefactor."""
-        from ucon.checking import _coerce_to_si
         basis = self._make_custom_basis()
         dim = Dimension(Vector(basis, (1, 0, 0)), name='talg_length2')
         bf = BaseForm(factors=((units.meter, 1.0),), prefactor=0.3048)
@@ -333,7 +330,6 @@ class TestCoerceToSiAlgebraic(unittest.TestCase):
 
     def test_plain_unit_with_non_si_base_form_falls_to_graph(self):
         """Non-SI base_form factors fall through to graph path (line 89 false)."""
-        from ucon.checking import _coerce_to_si
         basis = self._make_custom_basis()
         dim = Dimension(Vector(basis, (1, 0, 0)), name='talg_x')
         non_si_base = Unit(name='talg_base', dimension=dim, aliases=('tb',))
@@ -346,7 +342,6 @@ class TestCoerceToSiAlgebraic(unittest.TestCase):
 
     def test_plain_unit_no_base_form_falls_to_graph(self):
         """Unit with base_form=None falls through to graph path."""
-        from ucon.checking import _coerce_to_si
         # CGS units have base_form=None
         n = Number(1.0, units.dyne)
         result = _coerce_to_si(n)
@@ -356,7 +351,6 @@ class TestCoerceToSiAlgebraic(unittest.TestCase):
 
     def test_product_with_si_base_form_coerces_algebraically(self):
         """UnitProduct whose factors all have SI base_forms coerces (lines 83-85)."""
-        from ucon.checking import _coerce_to_si
         basis = self._make_custom_basis()
         bf_len = BaseForm(factors=((units.meter, 1.0),), prefactor=0.3048)
         bf_time = BaseForm(factors=((units.second, 1.0),), prefactor=1.0)
@@ -374,7 +368,6 @@ class TestCoerceProductToSiAdversarial(unittest.TestCase):
 
     def test_factor_without_base_form_returns_unchanged(self):
         """Product factor with base_form=None aborts algebraic coercion (line 106-107)."""
-        from ucon.checking import _coerce_product_to_si
         basis = Basis('TestProd', ['x', 'y'])
         dim = Dimension(Vector(basis, (1, 0)), name='tp_x')
         no_bf = Unit(name='tp_nobase', dimension=dim, aliases=('tnb',))  # base_form=None
@@ -385,7 +378,6 @@ class TestCoerceProductToSiAdversarial(unittest.TestCase):
 
     def test_factor_with_non_si_base_form_returns_unchanged(self):
         """Product factor with non-SI base_form factors returns unchanged (line 108-109)."""
-        from ucon.checking import _coerce_product_to_si
         basis = Basis('TestProd2', ['x', 'y'])
         dim = Dimension(Vector(basis, (1, 0)), name='tp2_x')
         foreign_base = Unit(name='tp2_base', dimension=dim, aliases=('t2b',))
@@ -398,7 +390,6 @@ class TestCoerceProductToSiAdversarial(unittest.TestCase):
 
     def test_successful_product_coercion_with_uncertainty(self):
         """Product coercion scales uncertainty by abs(combined_prefactor) (line 115)."""
-        from ucon.checking import _coerce_product_to_si
         basis = Basis('TestProd3', ['length', 'time'])
         bf_len = BaseForm(factors=((units.meter, 1.0),), prefactor=100.0)
         bf_time = BaseForm(factors=((units.second, 1.0),), prefactor=60.0)
@@ -423,14 +414,12 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
 
     def test_si_input_returns_unchanged(self):
         """SI unit hits early return (line 137)."""
-        from ucon.checking import _coerce_via_graph
         n = Number(1.0, units.meter)
         result = _coerce_via_graph(n)
         self.assertIs(result, n)
 
     def test_no_transform_path_returns_unchanged(self):
         """Unknown basis with no BasisGraph entry returns unchanged (lines 138-139)."""
-        from ucon.checking import _coerce_via_graph
         fake_basis = Basis('Isolated', ['q'])
         fake_dim = Dimension(Vector(fake_basis, (1,)), name='isolated_q')
         fake_unit = Unit(name='iso_unit', dimension=fake_dim, aliases=('iu',))
@@ -440,7 +429,6 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
 
     def test_no_target_in_graph_returns_unchanged(self):
         """Dimension with no units in graph returns unchanged (line 163)."""
-        from ucon.checking import _coerce_via_graph
         n = Number(1.0, units.dyne)
         with patch('ucon.checking.get_default_graph') as mock_gg:
             mock_g = MagicMock()
@@ -451,8 +439,6 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
 
     def test_conversion_exception_returns_unchanged(self):
         """graph.convert raising returns unchanged (lines 167-168)."""
-        from ucon.checking import _coerce_via_graph
-        from ucon.graph import get_default_graph, ConversionNotFound
         real_graph = get_default_graph()
         n = Number(1.0, units.dyne)
         with patch('ucon.checking.get_default_graph') as mock_gg:
@@ -465,9 +451,6 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
 
     def test_fallback_loop_when_no_coherent_unit(self):
         """Fallback loop (lines 155-160) picks a unit when no prefactor==1.0 exists."""
-        from ucon.checking import _coerce_via_graph
-        from ucon.graph import get_default_graph
-        from ucon.system import active_system
 
         bg = active_system().basis_graph
         cgs_force = units.dyne.dimension
@@ -494,8 +477,6 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
 
     def test_uncertainty_propagated_via_conversion_a(self):
         """Uncertainty propagated using conversion.a when available (line 173)."""
-        from ucon.checking import _coerce_via_graph
-        from ucon.graph import get_default_graph
 
         n = Number(1.0, units.dyne, uncertainty=0.1)
         result = _coerce_via_graph(n)
@@ -505,8 +486,6 @@ class TestCoerceViaGraphAdversarial(unittest.TestCase):
 
     def test_uncertainty_none_when_conversion_lacks_a(self):
         """Uncertainty is None when conversion object lacks .a attribute (line 173 else)."""
-        from ucon.checking import _coerce_via_graph
-        from ucon.graph import get_default_graph
         real_graph = get_default_graph()
 
         n = Number(1.0, units.dyne, uncertainty=0.1)
@@ -842,7 +821,6 @@ class TestKindDispatchWithoutContext(unittest.TestCase):
 
     def test_resolve_mul_kind_no_active_context(self):
         """_resolve_mul_kind returns None when no active context exists."""
-        from ucon._active import _active
         ke = Kind("kinetic_energy", dimension=ENERGY)
         pe = Kind("potential_energy", dimension=ENERGY)
         a = Number(10, units.joule, kind=ke)
@@ -856,7 +834,6 @@ class TestKindDispatchWithoutContext(unittest.TestCase):
 
     def test_resolve_add_kind_different_kinds_no_context(self):
         """_resolve_add_kind raises TypeError for different kinds without context."""
-        from ucon._active import _active
         ke = Kind("kinetic_energy", dimension=ENERGY)
         pe = Kind("potential_energy", dimension=ENERGY)
         a = Number(10, units.joule, kind=ke)
@@ -870,6 +847,50 @@ class TestKindDispatchWithoutContext(unittest.TestCase):
             self.assertIn("without an active context", str(ctx.exception))
         finally:
             _active.reset(token)
+
+
+class TestCoerceToSiRouting(unittest.TestCase):
+    """Routing coverage for the #283 _coerce_to_si restructure.
+
+    The function has four routes: SI unit → immediate algebraic return;
+    all-SI product → immediate algebraic return; cross-basis with SI
+    base_form → graph preferred, algebraic fallback (covered in
+    TestEnforceDimensionsCrossBasis / TestCoerceToSiAlgebraic); and
+    no-base_form / uncoercible → graph, else unchanged.
+    """
+
+    def test_si_unit_with_base_form_returns_algebraic(self):
+        """An SI-dimensioned unit (foot) coerces algebraically at once."""
+        n = Number(2.0, units.foot)
+        result = _coerce_to_si(n)
+        self.assertIsNot(result, n)
+        self.assertAlmostEqual(result.quantity, 2 * 0.3048)
+        self.assertIsInstance(result.unit, UnitProduct)
+
+    def test_all_si_product_returns_algebraic(self):
+        """A product whose factors are all SI-dimensioned (foot²) coerces
+        algebraically at once."""
+        n = Number(1.0, parse_unit('foot^2'))
+        result = _coerce_to_si(n)
+        self.assertIsNot(result, n)
+        self.assertAlmostEqual(result.quantity, 0.3048 ** 2)
+
+    def test_unit_without_base_form_routes_to_graph(self):
+        """An EM CGS unit (gauss, base_form=None by design — #283) skips
+        the algebraic path entirely; with no graph coercion available the
+        value returns unchanged rather than raising."""
+        n = Number(1.0, units.gauss)
+        result = _coerce_to_si(n)
+        self.assertEqual(result.quantity, 1.0)
+        self.assertEqual(getattr(result.unit, 'name', None), 'gauss')
+
+    def test_uncoercible_product_returns_unchanged(self):
+        """A product containing a base_form-less factor (gauss·s) cannot
+        coerce algebraically; when the graph also has no route, the
+        original Number is returned untouched — never a partial result."""
+        n = Number(1.0, units.gauss * units.second)
+        result = _coerce_to_si(n)
+        self.assertIs(result, n)
 
 
 if __name__ == "__main__":
