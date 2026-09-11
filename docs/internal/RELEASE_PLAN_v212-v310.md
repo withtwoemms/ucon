@@ -2,9 +2,13 @@
 
 > Delivery path for issues #278–#285 and the three design workstreams
 > (packages, aspects, Turnstile). Sequencing rationale lives here; design
-> detail lives in the ADRs (`ADR_aspect-stratum.md`, `ADR_turnstile.md`) and
-> their evidence records once landed in `docs/internal/`.
+> detail lives in `decisions/008-aspect-stratum.md`,
+> `decisions/009-turnstile.md`, and their records under `evidence/`.
 
+**Authority note:** `ROADMAP.md` is the milestone authority for the
+version trajectory; this document is the subordinate *delivery record*
+— sequencing rationale, dependency graph, and per-release choreography
+at a finer grain than ROADMAP's charter permits.
 **Status:** Adopted (2026-09-09); revised 2026-09-09 — the patch train
 ships as **one tag per issue** (2.1.2–2.1.7), not a single bundled 2.1.2.
 The per-issue rhythm proved itself in delivery: each tag maps to exactly
