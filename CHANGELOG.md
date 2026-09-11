@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **Internal design corpus landed in-repo.** ADRs 008 (aspect stratum),
+  009 (Turnstile), 010 (chart nomenclature), and 011 (currency via kinds
+  and rate contexts) join the `docs/internal/decisions/` series, with
+  their evidence records under `docs/internal/evidence/`. The operator-flow
+  decision-tables design and the Turnstile implementation brief land under
+  `docs/internal/proposals/` with supersession notes; the v2.1.2→v3.1.0
+  release plans, the superseded v2.2.0 aspects implementation plans, the
+  extend-basis issue report, and `docs/internal/tickets/` (cited by
+  CLAUDE.md as a source of truth but previously untracked) are now
+  version-controlled.
+
+## [2.1.7] - 2026-09-09
+
 ### Fixed
 
 - **Mechanical CGS units now carry exact SI-factored `base_form`s.**
@@ -2674,6 +2689,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.7]: https://github.com/withtwoemms/ucon/compare/2.1.6...2.1.7
 [2.1.6]: https://github.com/withtwoemms/ucon/compare/2.1.5...2.1.6
 [2.1.5]: https://github.com/withtwoemms/ucon/compare/2.1.4...2.1.5
 [2.1.4]: https://github.com/withtwoemms/ucon/compare/2.1.3...2.1.4
