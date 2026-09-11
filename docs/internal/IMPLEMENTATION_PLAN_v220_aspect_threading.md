@@ -2,7 +2,7 @@
 > [`decisions/008-aspect-stratum.md`](decisions/008-aspect-stratum.md):
 > the flat-`AspectSet` data model this plan is built on was withdrawn
 > (an unkeyed set cannot distinguish conflict from absence). The aspect
-> release moves to v2.3.0 per `RELEASE_PLAN_v212-v310.md`. Kept for the
+> release moves to v2.3.0 (see `ROADMAP.md`). Kept for the
 > Laws framing and code grounding, parts of which survive in the ADR.
 
 # Implementation Plan: ucon v2.2.0 — Aspects as Orthogonal Discriminators

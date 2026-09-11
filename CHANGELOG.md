@@ -14,9 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and rate contexts) join the `docs/internal/decisions/` series, with
   their evidence records under `docs/internal/evidence/`. The operator-flow
   decision-tables design and the Turnstile implementation brief land under
-  `docs/internal/proposals/` with supersession notes; the v2.1.2→v3.1.0
-  release plans, the superseded v2.2.0 aspects implementation plans, the
-  extend-basis issue report, and `docs/internal/tickets/` (cited by
+  `docs/internal/proposals/` with supersession notes; the superseded v2.2.0
+  aspects implementation plans, the extend-basis issue report, and `docs/internal/tickets/` (cited by
   CLAUDE.md as a source of truth but previously untracked) are now
   version-controlled.
 
