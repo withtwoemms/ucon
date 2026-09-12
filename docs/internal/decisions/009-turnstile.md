@@ -4,7 +4,7 @@
 **Target release:** 3.1.0 (minor; new refusals on previously-wrong paths are fixes)
 **Prerequisites:** 2.2.0 infrastructure (#279, #280, #282); 3.0.0 pseudo-dimension retirement, `Number` frozen, #280-full identity
 **Supersedes:** `PROPOSAL_turnstile-completeness-v2.md`; the "compile once per signature" framing
-**Evidence:** `../evidence/turnstile-prerequisites.md` §1–§6; `../evidence/aspect-turnstile-case-studies.md` cases 2, 3, 4, 6
+**Evidence:** executed prototype fixtures and live-2.1.1 probes; results are summarized inline via the `[vetted]`/`[live]` markers (full records in internal working notes)
 
 ---
 

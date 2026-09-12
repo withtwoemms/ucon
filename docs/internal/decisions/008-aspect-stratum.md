@@ -3,7 +3,7 @@
 **Status:** Accepted — design closed 2026-09-09 (`QualifiedKind` bundle proposed and withdrawn the same day; see §11)
 **Target release:** 2.3.0 (minor, additive)
 **Supersedes:** `AspectSet` flat model (2.1.1); `AspectPosition` and `AspectFacet` (v4/v6 §5); v1 (2026-09-07) and v2 (2026-09-08) of this ADR
-**Evidence:** `../evidence/turnstile-prerequisites.md` §7–§8; `../evidence/aspect-turnstile-case-studies.md` cases 1, 5
+**Evidence:** executed prototype fixtures and live-2.1.1 probes; results are summarized inline via the `[vetted]`/`[live]` markers (full records in internal working notes)
 
 ---
 

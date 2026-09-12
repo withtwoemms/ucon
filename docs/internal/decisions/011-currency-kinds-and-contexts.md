@@ -2,8 +2,8 @@
 
 **Status:** Accepted (2026-09-10) — implementation tracked in #292
 **Context:** Currency support has been wanted since the sovereign-potential
-demo used `mass` as a stand-in ("working but semantically dishonest" —
-`../ISSUE_REPORT_ucon-extend-basis-design-note.md`). Currency is the
+demo used `mass` as a stand-in for currency — "working but semantically
+dishonest," per the extend-basis design note (internal). Currency is the
 canonical stress test for a units system: units interconvertible only
 through dated, revisable tables; sums meaningful only within one currency;
 comparisons that silently lie across inflation bases. The ecosystem

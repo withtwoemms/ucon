@@ -9,19 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-- **Internal design corpus landed in-repo.** ADRs 008 (aspect stratum),
-  009 (Turnstile), 010 (chart nomenclature), and 011 (currency via kinds
-  and rate contexts) join the `docs/internal/decisions/` series, with
-  their evidence records under `docs/internal/evidence/`. The operator-flow
-  decision-tables design and the Turnstile implementation brief land under
-  `docs/internal/proposals/` with supersession notes; the superseded v2.2.0
-  aspects implementation plans, the extend-basis issue report, and `docs/internal/tickets/` (cited by
-  CLAUDE.md as a source of truth but previously untracked) are now
-  version-controlled. The how-ucon-achieves-type-safety explainer is
-  rewritten against v2.1.x reality: the kind lattice joins the
-  enforcement-layer story, fictional pre-v2 API is corrected to the
-  conversion-graph surface, and the not-yet-caught boundary (numeral-
-  scheme safety, scheduled per ADR 009) is stated honestly.
+- **Internal design records landed in-repo.** ADRs 008 (aspect
+  stratum), 009 (Turnstile), 010 (chart nomenclature), and 011
+  (currency via kinds and rate contexts) join the
+  `docs/internal/decisions/` series; the operator-flow decision-tables
+  design and the Turnstile implementation brief land under
+  `docs/internal/proposals/` with supersession notes. The
+  how-ucon-achieves-type-safety explainer is rewritten against v2.1.x
+  reality: the kind lattice joins the enforcement-layer story,
+  fictional pre-v2 API is corrected to the conversion-graph surface,
+  and the not-yet-caught boundary (numeral-scheme safety, scheduled
+  per ADR 009) is stated honestly.
 
 ## [2.1.7] - 2026-09-09
 
