@@ -54,6 +54,7 @@ _LAZY = {
     "load_formulas_file": ("ucon.parsing.formulas", "load_formulas_file"),
     "parse_aspects_payload": ("ucon.parsing.aspects", "parse_aspects_payload"),
     "load_aspects_file": ("ucon.parsing.aspects", "load_aspects_file"),
+    "rewrite_namespace": ("ucon.parsing.namespaces", "rewrite_namespace"),
 }
 
 
@@ -89,4 +90,5 @@ __all__ = [
     "load_formulas_file",
     "parse_aspects_payload",
     "load_aspects_file",
+    "rewrite_namespace",
 ]
