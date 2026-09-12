@@ -40,6 +40,7 @@ else:
 
 from ucon._active import _active as _sys_active_var
 from ucon.aspects.exceptions import AspectNotApplicable
+from ucon.aspects.resolution import resolve_add_aspects, resolve_mul_aspects
 from ucon.aspects.types import Aspect
 from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
@@ -1793,7 +1794,7 @@ class Number:
                 quantity=canonical_q,
                 unit=self.unit,
                 uncertainty=new_uncertainty,
-            )
+            )._carry(self.aspects)
 
         # Single factor at exp 1.0: return as plain Unit for ergonomic output
         if len(base_dict) == 1:
@@ -1803,13 +1804,13 @@ class Number:
                     quantity=canonical_q,
                     unit=key.unit,
                     uncertainty=new_uncertainty,
-                )
+                )._carry(self.aspects)
 
         return Number(
             quantity=canonical_q,
             unit=UnitProduct(base_dict),
             uncertainty=new_uncertainty,
-        )
+        )._carry(self.aspects)
 
     def same_dimension_as(self, other) -> bool:
         """Return True if ``self`` and ``other`` share a dimension.
@@ -1879,7 +1880,8 @@ class Number:
         """
         if not isinstance(self.unit, UnitProduct):
             # Plain Unit already has no scale
-            return Number(quantity=self.quantity, unit=self.unit, uncertainty=self.uncertainty)
+            return Number(quantity=self.quantity, unit=self.unit,
+                          uncertainty=self.uncertainty)._carry(self.aspects)
 
         # Compute the combined scale factor
         scale_factor = self.unit.fold_scale()
@@ -1901,7 +1903,7 @@ class Number:
             quantity=self.quantity * scale_factor,
             unit=base_unit,
             uncertainty=new_uncertainty,
-        )
+        )._carry(self.aspects)
 
     def to(
         self,
@@ -2010,7 +2012,8 @@ class Number:
                 new_unc = math.sqrt(dy_meas**2 + dy_factor**2)
                 if new_unc == 0.0:
                     new_unc = None
-            return Number(quantity=converted, unit=target, uncertainty=new_unc, kind=self.kind)
+            return Number(quantity=converted, unit=target, uncertainty=new_unc,
+                          kind=self.kind)._carry(self.aspects)
 
         # --- General path: wrap into UnitProducts ---
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
@@ -2022,7 +2025,8 @@ class Number:
             new_uncertainty = None
             if self.uncertainty is not None:
                 new_uncertainty = self.uncertainty * abs(factor)
-            return Number(quantity=self.quantity * factor, unit=target, uncertainty=new_uncertainty, kind=self.kind)
+            return Number(quantity=self.quantity * factor, unit=target,
+                          uncertainty=new_uncertainty, kind=self.kind)._carry(self.aspects)
 
         # Pass raw Units to graph.convert() when possible, so the graph
         # can use _convert_units() which handles cross-basis via rebased units.
@@ -2074,7 +2078,8 @@ class Number:
             if new_uncertainty == 0.0:
                 new_uncertainty = None
 
-        return Number(quantity=converted_quantity, unit=target, uncertainty=new_uncertainty, kind=self.kind)
+        return Number(quantity=converted_quantity, unit=target,
+                      uncertainty=new_uncertainty, kind=self.kind)._carry(self.aspects)
 
     def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
         """Check if conversion is just a scale change (same base units)."""
@@ -2107,6 +2112,51 @@ class Number:
 
     def as_ratio(self):
         return Ratio(self)
+
+    # --- Aspect dispatch helpers ---
+
+    def _carry(self, aspects: 'FrozenSet[Aspect]') -> 'Number':
+        """Attach resolved aspects to an arithmetic/threading result.
+
+        This is the carriage channel (ADR 008): it bypasses the
+        attachment ``applies_to`` check, because carriage may
+        legitimately land an aspect out of its family's scope — e.g. a
+        weighting standard riding a product whose kind degraded. The
+        attachment check governs user *claims*; carriage records
+        provenance the arithmetic already vetted.
+        """
+        if aspects:
+            object.__setattr__(self, 'aspects', aspects)
+        return self
+
+    def _resolve_add_aspects(self, other: 'Number', *, op: str = "Adding") -> 'FrozenSet[Aspect]':
+        """Family-wise aspect resolution for addition/subtraction.
+
+        The strict bit is the only ambient input (mirroring the kind
+        stratum): strict refuses partial presence, permissive inherits
+        with a warning. With no active context, inherit silently —
+        the same fallback ``_resolve_add_kind`` uses.
+        """
+        if not self.aspects and not other.aspects:
+            return frozenset()
+        ctx = _sys_active_var.get()
+        return resolve_add_aspects(
+            self.aspects, other.aspects,
+            strict=(ctx is not None and ctx.strict),
+            warn=(ctx is not None),
+            op=op,
+        )
+
+    def _resolve_mul_aspects(self, other: 'Number', *, op: str = "Multiplying") -> 'FrozenSet[Aspect]':
+        """Family-wise aspect resolution for multiplication/division.
+
+        Partial presence follows the family's multiplication policy
+        (``carry``): a factor's provenance survives multiplication by
+        an unqualified operand. No ambient input at all.
+        """
+        if not self.aspects and not other.aspects:
+            return frozenset()
+        return resolve_mul_aspects(self.aspects, other.aspects, op=op)
 
     # --- Kind dispatch helpers ---
 
@@ -2206,7 +2256,7 @@ class Number:
                 unit=self.unit,
                 uncertainty=new_uncertainty,
                 kind=self.kind,  # scalar preserves kind
-            )
+            )._carry(self.aspects)
 
         if not isinstance(other, Number):
             return NotImplemented
@@ -2221,12 +2271,13 @@ class Number:
             rel_c = math.sqrt(rel_a**2 + rel_b**2)
             new_uncertainty = abs(result_quantity) * rel_c if rel_c > 0 else None
 
+        result_aspects = self._resolve_mul_aspects(other)
         return Number(
             quantity=result_quantity,
             unit=self.unit * other.unit,
             uncertainty=new_uncertainty,
             kind=self._resolve_mul_kind(other),
-        )
+        )._carry(result_aspects)
 
     def __add__(self, other: 'Number') -> 'Number':
         if not isinstance(other, Number):
@@ -2239,8 +2290,9 @@ class Number:
                 f"{self.unit.dimension} vs {other.unit.dimension}"
             )
 
-        # Kind lattice dispatch
+        # Kind lattice dispatch, then family-wise aspect resolution
         result_kind = self._resolve_add_kind(other)
+        result_aspects = self._resolve_add_aspects(other)
 
         # Uncertainty propagation for addition: δc = sqrt(δa² + δb²)
         new_uncertainty = None
@@ -2254,7 +2306,7 @@ class Number:
             unit=self.unit,
             uncertainty=new_uncertainty,
             kind=result_kind,
-        )
+        )._carry(result_aspects)
 
     def __sub__(self, other: 'Number') -> 'Number':
         if not isinstance(other, Number):
@@ -2269,6 +2321,7 @@ class Number:
 
         # Kind lattice dispatch — same rules as addition
         result_kind = self._resolve_add_kind(other)
+        result_aspects = self._resolve_add_aspects(other, op="Subtracting")
 
         # Uncertainty propagation for subtraction: δc = sqrt(δa² + δb²)
         new_uncertainty = None
@@ -2282,7 +2335,7 @@ class Number:
             unit=self.unit,
             uncertainty=new_uncertainty,
             kind=result_kind,
-        )
+        )._carry(result_aspects)
 
     def __truediv__(self, other: _Quantifiable) -> "Number":
         # Allow dividing by a Ratio (interpret as its evaluated Number)
@@ -2299,7 +2352,7 @@ class Number:
                 unit=self.unit,
                 uncertainty=new_uncertainty,
                 kind=self.kind,  # scalar preserves kind
-            )
+            )._carry(self.aspects)
 
         if not isinstance(other, Number):
             raise TypeError(f"Cannot divide Number by non-Number/Ratio type: {type(other)}")
@@ -2324,15 +2377,18 @@ class Number:
             den = other._canonical_magnitude
             result = num / den
             return Number(quantity=result, unit=UnitProduct({}),
-                          uncertainty=compute_uncertainty(result), kind=None)
+                          uncertainty=compute_uncertainty(result), kind=None,
+                          )._carry(self._resolve_mul_aspects(other, op="Dividing"))
 
         # --- Case 2: Dimensionful result -----------------------------------
         # For "real" physical results like g/mL, m/s², etc., preserve the
         # user's chosen unit scales symbolically. Only divide the raw quantities.
         new_quantity = self.quantity / other.quantity
+        result_aspects = self._resolve_mul_aspects(other, op="Dividing")
         return Number(quantity=new_quantity, unit=unit_quot,
                       uncertainty=compute_uncertainty(new_quantity),
-                      kind=self._resolve_mul_kind(other, op="Dividing"))
+                      kind=self._resolve_mul_kind(other, op="Dividing"),
+                      )._carry(result_aspects)
 
     def __eq__(self, other: _Quantifiable) -> bool:
         if not isinstance(other, (Number, Ratio)):
@@ -2376,7 +2432,7 @@ class Number:
             quantity=new_quantity,
             unit=new_unit,
             uncertainty=new_uncertainty,
-        )
+        )._carry(self.aspects)
 
     def __repr__(self):
         # Build the repr from optional parts so each metadata channel
@@ -2433,14 +2489,17 @@ class Ratio:
         unit = self.numerator.unit / self.denominator.unit
 
         # Dimensionless result: fold all scale factors into magnitude
+        result_aspects = self.numerator._resolve_mul_aspects(
+            self.denominator, op="Dividing")
         if not unit.dimension:
             num = self.numerator._canonical_magnitude
             den = self.denominator._canonical_magnitude
-            return Number(quantity=num / den, unit=UnitProduct({}))
+            return Number(quantity=num / den,
+                          unit=UnitProduct({}))._carry(result_aspects)
 
         # Dimensionful result: preserve user's chosen scales symbolically
         numeric = self.numerator.quantity / self.denominator.quantity
-        return Number(quantity=numeric, unit=unit)
+        return Number(quantity=numeric, unit=unit)._carry(result_aspects)
 
     def __mul__(self, another_ratio: 'Ratio') -> 'Ratio':
         if self.numerator.unit == another_ratio.denominator.unit:

@@ -876,7 +876,7 @@ class UnitSystem:
             return Number(
                 quantity=n.quantity, unit=rebound, uncertainty=n.uncertainty,
                 kind=n.kind,
-            )
+            )._carry(n.aspects)
         if isinstance(unit, Unit):
             if unit.name not in self.units:
                 raise UnknownUnitError(unit.name)
@@ -885,7 +885,7 @@ class UnitSystem:
                 unit=self.units[unit.name],
                 uncertainty=n.uncertainty,
                 kind=n.kind,
-            )
+            )._carry(n.aspects)
         if isinstance(unit, UnitProduct):
             rebound_factors: Dict['UnitFactor', float] = {}
             for factor, exponent in unit.factors.items():
@@ -900,12 +900,12 @@ class UnitSystem:
                 unit=UnitProduct(rebound_factors),
                 uncertainty=n.uncertainty,
                 kind=n.kind,
-            )
+            )._carry(n.aspects)
         # Number with no unit — return as-is.
         return Number(
             quantity=n.quantity, unit=unit, uncertainty=n.uncertainty,
             kind=n.kind,
-        )
+        )._carry(n.aspects)
 
 
 
@@ -1193,7 +1193,7 @@ class Bridge:
             return Number(
                 quantity=n.quantity, unit=rebound, uncertainty=n.uncertainty,
                 kind=n.kind,
-            )
+            )._carry(n.aspects)
         if isinstance(unit, Unit):
             target_name = _rebind_name(unit.name)
             if target_name not in self.dst.units:
@@ -1203,7 +1203,7 @@ class Bridge:
                 unit=self.dst.units[target_name],
                 uncertainty=n.uncertainty,
                 kind=n.kind,
-            )
+            )._carry(n.aspects)
         if isinstance(unit, UnitProduct):
             rebound_factors: Dict['UnitFactor', float] = {}
             for factor, exponent in unit.factors.items():
@@ -1219,11 +1219,11 @@ class Bridge:
                 unit=UnitProduct(rebound_factors),
                 uncertainty=n.uncertainty,
                 kind=n.kind,
-            )
+            )._carry(n.aspects)
         return Number(
             quantity=n.quantity, unit=unit, uncertainty=n.uncertainty,
             kind=n.kind,
-        )
+        )._carry(n.aspects)
 
     def inverse(self) -> 'Bridge':
         """Return the reverse bridge ``dst → src``.

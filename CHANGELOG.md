@@ -22,6 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Family-wise aspect resolution in Number arithmetic.** Addition and
+  subtraction resolve per family: equal positions carry, differing
+  positions join at their LCA under the ancestor's policy (`refuse`
+  raises `AspectRefused`), and partial presence consults the ambient
+  strict bit — strict refuses, permissive inherits with a warning.
+  Multiplication and division follow the carry rule: a factor's
+  provenance rides the product even past kind degradation, and partial
+  presence carries per the family's `multiplication_policy`. No path
+  drops a position silently. Single-operand operations (`.to()`,
+  scalar `*`/`/`, `**`, `simplify()`, `to_base()`, `Ratio.evaluate()`,
+  `UnitSystem.adopt()`, `Bridge.apply()`) thread aspects unchanged.
+  `resolve_add_aspects` / `resolve_mul_aspects` ship via
+  `ucon.aspects`.
 - **`Number.aspects`** — additive `frozenset[Aspect]` field, default
   empty; `Number.kind` and every existing idiom untouched. `applies_to`
   is enforced at construction (the one sanctioned kind-read in the
