@@ -23,12 +23,18 @@ import warnings
 
 import pytest
 
-from importlib.metadata import PackageNotFoundError, version
+try:
+    from importlib.metadata import PackageNotFoundError, version
+except ImportError:  # Python 3.7: stdlib importlib.metadata is 3.8+
+    PackageNotFoundError = Exception  # type: ignore[assignment, misc]
+    version = None  # type: ignore[assignment]
 
 from ucon.dimension import Dimension, _build_standard_dimensions
 
 
-def _installed_major() -> int | None:
+def _installed_major() -> "int | None":
+    if version is None:
+        return None
     try:
         return int(version("ucon").split(".")[0])
     except (PackageNotFoundError, ValueError):
