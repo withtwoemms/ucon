@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Test suite: function-local imports hoisted to module top.** ~1,250
+  local import lines across 40 test files move to module scope per the
+  no-local-imports rule; `integrations/` keeps its module-level
+  try/except optional-dependency guards; two genuinely distinct private
+  helpers (`_get_numpy` in `core._types` vs `maps`) hoist under aliases.
+  No behavior change (suite results identical before/after).
 - **v2.2.0 delivers the aspect stratum; package infrastructure moves
   to v2.3.0.** Release reassignment per
   [decisions/008](docs/internal/decisions/008-aspect-stratum.md) and

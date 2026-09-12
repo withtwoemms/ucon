@@ -15,6 +15,9 @@ import unittest
 from ucon import units, Scale
 from ucon.core import UnitProduct
 from ucon.quantity import Number
+from ucon.maps import AffineMap
+from ucon.maps import LinearMap
+from ucon.maps import LinearMap, AffineMap
 
 
 class TestUncertaintyConstruction(unittest.TestCase):
@@ -239,19 +242,16 @@ class TestMapDerivative(unittest.TestCase):
     """Test Map.derivative() implementations."""
 
     def test_linear_map_derivative(self):
-        from ucon.maps import LinearMap
         m = LinearMap(3.28084)
         self.assertAlmostEqual(m.derivative(0), 3.28084, places=9)
         self.assertAlmostEqual(m.derivative(100), 3.28084, places=9)
 
     def test_affine_map_derivative(self):
-        from ucon.maps import AffineMap
         m = AffineMap(5/9, -32 * 5/9)  # F to C
         self.assertAlmostEqual(m.derivative(0), 5/9, places=9)
         self.assertAlmostEqual(m.derivative(100), 5/9, places=9)
 
     def test_composed_map_derivative(self):
-        from ucon.maps import LinearMap, AffineMap
         # Compose: first scale by 2, then add 10
         inner = LinearMap(2)
         outer = AffineMap(1, 10)

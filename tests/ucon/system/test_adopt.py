@@ -19,6 +19,9 @@ import unittest
 import ucon
 from ucon import Number, Unit, UnitFactor, UnitProduct, UnknownUnitError
 from ucon.system import UnitSystem
+from ucon.dimension import ENERGY
+from ucon.dimension import VELOCITY
+from ucon.kinds import Kind
 
 
 def _active() -> UnitSystem:
@@ -119,8 +122,6 @@ class TestAdoptKindPreservation(unittest.TestCase):
     """``adopt`` preserves ``Number.kind`` through cross-system movement."""
 
     def test_adopt_preserves_kind_plain_unit(self):
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind
         s = _active()
         ke = Kind("kinetic_energy", dimension=ENERGY)
         joule = s.units["joule"]
@@ -130,8 +131,6 @@ class TestAdoptKindPreservation(unittest.TestCase):
         self.assertEqual(out.quantity, 100.0)
 
     def test_adopt_preserves_kind_unit_product(self):
-        from ucon.dimension import VELOCITY
-        from ucon.kinds import Kind
         s = _active()
         speed_kind = Kind("speed", dimension=VELOCITY)
         meter = s.units["meter"]

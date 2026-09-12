@@ -37,6 +37,17 @@ from ucon.graph import (
     using_conversion_graph,
 )
 from ucon.maps import LinearMap, AffineMap, Map
+from ucon.basis import NoTransformPath
+from ucon.constants import Constant
+from ucon.contexts import ConversionContext, ContextEdge
+from ucon.contexts import spectroscopy, using_context
+from ucon.kinds import Kind, KindLattice
+from ucon.maps import ComposedMap
+from ucon.maps import LogMap
+from ucon.packages import EdgeDef
+from ucon.packages import UnitPackage, EdgeDef
+from ucon.packages import UnitPackage, PackageLoadError
+from ucon.packages import UnitPackage, UnitDef, EdgeDef
 
 
 # -----------------------------------------------------------------------
@@ -47,7 +58,6 @@ class TestAddEdgeBasisGraphValidation(unittest.TestCase):
     """add_edge raises NoTransformPath when basis_graph rejects unconnected bases."""
 
     def test_disconnected_bases_raise_no_transform_path(self):
-        from ucon.basis import NoTransformPath
 
         # Create two disconnected bases
         comp_a = BasisComponent("X", "X")
@@ -155,7 +165,6 @@ class TestCrossDimensionalBFS(unittest.TestCase):
     """Cross-dimensional BFS finds path through context edges."""
 
     def test_cross_dimensional_path_via_context(self):
-        from ucon.contexts import spectroscopy, using_context
         # spectroscopy context adds meter→hertz (cross-dimensional)
         with using_context(spectroscopy):
             graph = get_default_graph()
@@ -453,7 +462,6 @@ class TestWithPackage(unittest.TestCase):
     """with_package loads units, edges, and constants from a UnitPackage."""
 
     def test_with_package_basic(self):
-        from ucon.packages import UnitPackage, UnitDef, EdgeDef
 
         pkg = UnitPackage(
             name="test_pkg",
@@ -485,7 +493,6 @@ class TestWithPackage(unittest.TestCase):
         self.assertIn("test_pkg", extended._loaded_packages)
 
     def test_with_package_missing_requires(self):
-        from ucon.packages import UnitPackage, PackageLoadError
 
         pkg = UnitPackage(
             name="dependent_pkg",
@@ -502,7 +509,6 @@ class TestWithPackage(unittest.TestCase):
         self.assertIn("nonexistent_pkg", str(ctx.exception))
 
     def test_package_edge_already_covered_skips(self):
-        from ucon.packages import UnitPackage, EdgeDef
 
         # meter→foot already exists in the default graph
         pkg = UnitPackage(
@@ -522,7 +528,6 @@ class TestWithPackage(unittest.TestCase):
         self.assertIn("redundant_pkg", extended._loaded_packages)
 
     def test_package_edge_unresolvable_unit_not_covered(self):
-        from ucon.packages import EdgeDef
 
         # Edge referencing a unit that doesn't exist in the graph
         edge_def = EdgeDef(src="nonexistent_src", dst="nonexistent_dst", factor=1.0)
@@ -874,7 +879,6 @@ class _StubMap(Map):
         return self
 
     def __matmul__(self, other):
-        from ucon.maps import ComposedMap
         return ComposedMap(outer=self, inner=other)
 
     def __pow__(self, n):
@@ -901,7 +905,6 @@ class TestMapsEqualFallbacks(unittest.TestCase):
 
     def test_fallback_to_second_try_block(self):
         """Lines 1032, 1034: first try raises at 0.0, second try succeeds."""
-        from ucon.maps import LogMap
         # LogMap raises ValueError at x=0.0 (log(0) is undefined).
         m1 = LogMap(scale=10)  # 10 * log10(x)
         m2 = LogMap(scale=20)  # 20 * log10(x)
@@ -912,7 +915,6 @@ class TestMapsEqualFallbacks(unittest.TestCase):
 
     def test_fallback_second_try_equal(self):
         """Second try block returns True when maps agree at 1.0 and 2.0."""
-        from ucon.maps import LogMap
         m1 = LogMap(scale=10)
         m2 = LogMap(scale=10)  # identical
         # First try raises at 0.0, second try checks 1.0 and 2.0 → agree → True
@@ -1118,7 +1120,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_constants_length_mismatch(self):
         """Line 1107: different number of constants."""
-        from ucon.constants import Constant
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         c = Constant(
@@ -1131,7 +1132,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_constants_field_mismatch(self):
         """Line 1113: same number of constants but different fields."""
-        from ucon.constants import Constant
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         c1 = Constant(
@@ -1150,7 +1150,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_constants_unit_dimension_mismatch(self):
         """Line 1116: constants have same fields but different unit dimensions."""
-        from ucon.constants import Constant
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         c1 = Constant(
@@ -1359,7 +1358,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_context_key_mismatch(self):
         """Line 1188: different context names."""
-        from ucon.contexts import ConversionContext, ContextEdge
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         ctx = ConversionContext(
@@ -1374,7 +1372,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_context_description_mismatch(self):
         """Line 1192: same context name but different descriptions."""
-        from ucon.contexts import ConversionContext, ContextEdge
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         edge = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
@@ -1386,7 +1383,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_context_edge_count_mismatch(self):
         """Line 1194: same context name but different number of edges."""
-        from ucon.contexts import ConversionContext, ContextEdge
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         edge1 = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
@@ -1399,7 +1395,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_context_edge_src_mismatch(self):
         """Line 1197: same context structure but different edge source."""
-        from ucon.contexts import ConversionContext, ContextEdge
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         edge1 = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
@@ -1412,7 +1407,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_context_edge_dst_mismatch(self):
         """Line 1199: same context structure but different edge destination."""
-        from ucon.contexts import ConversionContext, ContextEdge
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         edge1 = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
@@ -1425,7 +1419,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_context_edge_map_mismatch(self):
         """Line 1201: same context structure but different edge map."""
-        from ucon.contexts import ConversionContext, ContextEdge
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         edge1 = ContextEdge(src=units.meter, dst=units.hertz, map=LinearMap(299792458))
@@ -1444,7 +1437,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_kind_lattice_asymmetric_none(self):
         """Line 1403: one graph has kind lattice, the other does not."""
-        from ucon.kinds import Kind, KindLattice
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         lattice = KindLattice([Kind("energy", dimension=Dimension.energy)])
@@ -1454,7 +1446,6 @@ class TestGraphEquality(unittest.TestCase):
 
     def test_kind_lattice_name_mismatch(self):
         """Line 1406: both graphs have kind lattices with different names."""
-        from ucon.kinds import Kind, KindLattice
         g1 = self._make_minimal_graph()
         g2 = self._make_minimal_graph()
         g1._kind_lattice = KindLattice([Kind("energy", dimension=Dimension.energy)])

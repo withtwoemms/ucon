@@ -11,6 +11,10 @@ from fractions import Fraction
 from ucon.dimension import Dimension, resolve, basis, SI
 from ucon.basis import Basis, BasisComponent, BasisGraph, Vector
 from ucon.system import active_system, use
+from ucon import parse_dimension
+from ucon.basis.builtin import CGS
+from ucon.system import active_system
+import ucon.dimension as dim_mod
 
 
 class TestDimensionConstruction(unittest.TestCase):
@@ -180,7 +184,6 @@ class TestDimensionAlgebraOpsRouting(unittest.TestCase):
     def test_cross_basis_multiplication_routes_via_ops(self):
         """SI length * CGS length yields an area-shaped dimension via
         graph-mediated projection."""
-        from ucon.basis.builtin import CGS
 
         si_length = Dimension.length
         cgs_length = Dimension.from_components(CGS, length=1)
@@ -197,7 +200,6 @@ class TestDimensionAlgebraOpsRouting(unittest.TestCase):
     def test_cross_basis_division_routes_via_ops(self):
         """SI length / CGS time yields a velocity-shaped dimension via
         graph-mediated projection."""
-        from ucon.basis.builtin import CGS
 
         si_length = Dimension.length
         cgs_time = Dimension.from_components(CGS, time=1)
@@ -278,7 +280,6 @@ class TestDimensionAlgebraCacheKeying(unittest.TestCase):
         """
         import gc
 
-        from ucon import parse_dimension
 
         self.assertEqual(parse_dimension("L^2"), Dimension.area)
         gc.collect()  # encourage id reuse for the next parse
@@ -297,14 +298,12 @@ class TestDimensionAlgebraCacheRouting(unittest.TestCase):
 
     def test_default_state_populates_active_system_cache(self):
         """v1.11: With eager init, algebra always routes through the active system cache."""
-        from ucon.system import active_system
         cache = active_system()._algebra_cache
         cache.clear()
         _ = Dimension.length * Dimension.time
         self.assertGreater(len(cache.mul), 0)
 
     def test_use_block_routes_to_system_cache(self):
-        from ucon.system import active_system, use
         system = active_system()
         system._algebra_cache.clear()
         with use(system):
@@ -316,7 +315,6 @@ class TestDimensionAlgebraCacheRouting(unittest.TestCase):
         self.assertGreater(len(system._algebra_cache.pow), 0)
 
     def test_unknown_module_attribute_still_raises(self):
-        import ucon.dimension as dim_mod
         with self.assertRaises(AttributeError):
             dim_mod._DIM_NOT_A_CACHE
 
@@ -505,7 +503,6 @@ class TestDimensionRepr(unittest.TestCase):
 
     def test_repr_unnamed_dimension_falls_back_to_vector(self):
         """Dimensions constructed without a name repr as their vector."""
-        from ucon.basis.builtin import CGS
 
         # A CGS-basis dimension is not in the SI _REGISTRY and is created
         # without a ``name``, exercising the ``__repr__`` fallback branch.

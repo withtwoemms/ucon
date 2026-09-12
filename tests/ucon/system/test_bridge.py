@@ -27,6 +27,10 @@ from ucon import (
     UnknownUnitError,
 )
 from ucon.system import UnitSystem
+from ucon import UnitProduct
+from ucon.dimension import ENERGY
+from ucon.dimension import LENGTH
+from ucon.kinds import Kind
 
 
 def _active() -> UnitSystem:
@@ -70,7 +74,6 @@ class TestBridgeIdentity(unittest.TestCase):
         self.assertIs(out.unit, s.units["meter"])
 
     def test_identity_bridge_applies_to_unit_product(self):
-        from ucon import UnitProduct
         s = _active()
         b = Bridge(src=s, dst=s)
         product = UnitProduct({s.units["meter"]: 1.0, s.units["second"]: -1.0})
@@ -266,8 +269,6 @@ class TestBridgeKindPreservation(unittest.TestCase):
     """``Bridge.apply`` preserves ``Number.kind``."""
 
     def test_bridge_apply_preserves_kind(self):
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind
         s = _active()
         ke = Kind("kinetic_energy", dimension=ENERGY)
         n = Number(100.0, s.units["joule"], kind=ke)
@@ -284,8 +285,6 @@ class TestBridgeKindPreservation(unittest.TestCase):
         self.assertIsNone(out.kind)
 
     def test_bridge_apply_preserves_kind_with_rename(self):
-        from ucon.dimension import LENGTH
-        from ucon.kinds import Kind
         src = _active()
         dst = _system_with_metre_synonym()
         distance_kind = Kind("distance", dimension=LENGTH)

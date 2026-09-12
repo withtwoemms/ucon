@@ -15,6 +15,7 @@ from ucon.graph import (
     using_conversion_graph,
 )
 from ucon.maps import LinearMap, AffineMap
+from ucon import active
 
 
 class TestConversionGraphEdgeManagement(unittest.TestCase):
@@ -404,7 +405,6 @@ class TestGetDefaultGraphTierFallthrough(unittest.TestCase):
         ``ctx.system.conversion_graph`` rather than treated as a
         ``UnitSystem`` directly.
         """
-        from ucon import active
         ctx = active()
         # Sanity: payload is the ActiveContext bundle, not a UnitSystem.
         self.assertFalse(hasattr(ctx, "conversion_graph"))

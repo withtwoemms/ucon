@@ -12,6 +12,23 @@ try:
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
+from ucon import units
+from ucon.core import Scale
+from ucon.core import UnitProduct
+from ucon.core._types import _scale_factor_cache
+from ucon.dimension import Dimension
+from ucon.integrations.numpy import NumberArray
+from ucon.maps import AffineMap
+from ucon.maps import ExpMap
+from ucon.maps import LinearMap
+from ucon.maps import LogMap
+from ucon.quantity import Number
+from fractions import Fraction
+from ucon.core._types import (
+    _parsing_graph,
+    _scale_factor_cache,
+    _sys_active_var,
+)
 
 
 @unittest.skipUnless(HAS_NUMPY, "NumPy not installed")
@@ -19,48 +36,40 @@ class TestNumberArrayBasic(unittest.TestCase):
     """Test NumberArray construction and basic properties."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
         self.foot = units.foot
         self.second = units.second
 
     def test_create_from_list(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         self.assertEqual(len(arr), 3)
         self.assertEqual(arr.shape, (3,))
         self.assertEqual(arr.unit, self.meter)
 
     def test_create_from_ndarray(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray(np.array([1.0, 2.0, 3.0]), unit=self.meter)
         self.assertEqual(len(arr), 3)
         np.testing.assert_array_equal(arr.quantities, np.array([1.0, 2.0, 3.0]))
 
     def test_default_unit_is_dimensionless(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0])
         self.assertEqual(arr.unit, UnitProduct({}))
 
     def test_uniform_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter, uncertainty=0.1)
         self.assertEqual(arr.uncertainty, 0.1)
 
     def test_per_element_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         unc = [0.1, 0.2, 0.3]
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter, uncertainty=unc)
         np.testing.assert_array_equal(arr.uncertainty, np.array(unc))
 
     def test_uncertainty_shape_mismatch_raises(self):
-        from ucon.integrations.numpy import NumberArray
         with self.assertRaises(ValueError) as ctx:
             NumberArray([1.0, 2.0, 3.0], unit=self.meter, uncertainty=[0.1, 0.2])
         self.assertIn("shape", str(ctx.exception))
 
     def test_ndim_property(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         self.assertEqual(arr.ndim, 1)
 
@@ -68,7 +77,6 @@ class TestNumberArrayBasic(unittest.TestCase):
         self.assertEqual(arr_2d.ndim, 2)
 
     def test_dtype_property(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1, 2, 3], unit=self.meter)
         self.assertEqual(arr.dtype, np.float64)
 
@@ -78,12 +86,9 @@ class TestNumberArrayIndexing(unittest.TestCase):
     """Test NumberArray indexing and iteration."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
 
     def test_scalar_index_returns_number(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         elem = arr[0]
         self.assertIsInstance(elem, Number)
@@ -91,7 +96,6 @@ class TestNumberArrayIndexing(unittest.TestCase):
         self.assertEqual(elem.unit, self.meter)
 
     def test_slice_returns_numberarray(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0, 4.0], unit=self.meter)
         sliced = arr[1:3]
         self.assertIsInstance(sliced, NumberArray)
@@ -99,20 +103,16 @@ class TestNumberArrayIndexing(unittest.TestCase):
         np.testing.assert_array_equal(sliced.quantities, np.array([2.0, 3.0]))
 
     def test_index_with_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         elem = arr[0]
         self.assertEqual(elem.uncertainty, 0.1)
 
     def test_index_with_per_element_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=[0.1, 0.2])
         self.assertEqual(arr[0].uncertainty, 0.1)
         self.assertEqual(arr[1].uncertainty, 0.2)
 
     def test_iteration_yields_numbers(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         elements = list(arr)
         self.assertEqual(len(elements), 3)
@@ -125,37 +125,31 @@ class TestNumberArrayArithmetic(unittest.TestCase):
     """Test NumberArray arithmetic operations."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
         self.second = units.second
 
     def test_multiply_by_scalar(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = arr * 2
         np.testing.assert_array_equal(result.quantities, np.array([2.0, 4.0, 6.0]))
         self.assertEqual(result.unit, self.meter)
 
     def test_multiply_by_scalar_with_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         result = arr * 2
         self.assertEqual(result.uncertainty, 0.2)
 
     def test_rmul(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = 2 * arr
         np.testing.assert_array_equal(result.quantities, np.array([2.0, 4.0, 6.0]))
 
     def test_divide_by_scalar(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([2.0, 4.0, 6.0], unit=self.meter)
         result = arr / 2
         np.testing.assert_array_equal(result.quantities, np.array([1.0, 2.0, 3.0]))
 
     def test_multiply_numberarrays(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0], unit=self.meter)
         b = NumberArray([3.0, 4.0], unit=self.second)
         result = a * b
@@ -165,7 +159,6 @@ class TestNumberArrayArithmetic(unittest.TestCase):
         self.assertIn('s', str(result.unit))
 
     def test_multiply_numberarrays_incompatible_shapes(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         b = NumberArray([1.0, 2.0], unit=self.meter)
         with self.assertRaises(ValueError) as ctx:
@@ -173,14 +166,12 @@ class TestNumberArrayArithmetic(unittest.TestCase):
         self.assertIn("not broadcast-compatible", str(ctx.exception))
 
     def test_add_same_unit(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0], unit=self.meter)
         b = NumberArray([0.5, 0.5], unit=self.meter)
         result = a + b
         np.testing.assert_array_equal(result.quantities, np.array([1.5, 2.5]))
 
     def test_add_different_unit_raises(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0], unit=self.meter)
         b = NumberArray([1.0, 2.0], unit=self.second)
         with self.assertRaises(ValueError) as ctx:
@@ -188,20 +179,17 @@ class TestNumberArrayArithmetic(unittest.TestCase):
         self.assertIn("different units", str(ctx.exception))
 
     def test_subtract(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([3.0, 4.0], unit=self.meter)
         b = NumberArray([1.0, 1.0], unit=self.meter)
         result = a - b
         np.testing.assert_array_equal(result.quantities, np.array([2.0, 3.0]))
 
     def test_negation(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, -2.0, 3.0], unit=self.meter)
         result = -arr
         np.testing.assert_array_equal(result.quantities, np.array([-1.0, 2.0, -3.0]))
 
     def test_abs(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([-1.0, 2.0, -3.0], unit=self.meter)
         result = abs(arr)
         np.testing.assert_array_equal(result.quantities, np.array([1.0, 2.0, 3.0]))
@@ -212,15 +200,12 @@ class TestNumberArrayConversion(unittest.TestCase):
     """Test NumberArray unit conversion."""
 
     def setUp(self):
-        from ucon import units
-        from ucon.core import Scale
         self.meter = units.meter
         self.foot = units.foot
         self.kilometer = Scale.kilo * units.meter
         self.centimeter = Scale.centi * units.meter
 
     def test_scale_only_conversion(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.kilometer)
         result = arr.to(self.meter)
         np.testing.assert_array_almost_equal(
@@ -229,14 +214,12 @@ class TestNumberArrayConversion(unittest.TestCase):
         self.assertEqual(result.unit, self.meter)
 
     def test_conversion_with_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0], unit=self.kilometer, uncertainty=0.1)
         result = arr.to(self.meter)
         # Uncertainty should scale by same factor
         self.assertAlmostEqual(result.uncertainty, 100.0)
 
     def test_graph_based_conversion(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = arr.to(self.foot)
         # 1 meter ≈ 3.28084 feet
@@ -245,9 +228,6 @@ class TestNumberArrayConversion(unittest.TestCase):
 
     def test_is_scale_only_conversion_factor_count_mismatch(self):
         """Different factor counts return False (length-mismatch fast path)."""
-        from ucon import units
-        from ucon.core import UnitProduct
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0], unit=self.meter)
         src = UnitProduct.from_unit(self.meter)
         # Build a composite (meter * second) — 2 factors, vs src with 1.
@@ -256,9 +236,6 @@ class TestNumberArrayConversion(unittest.TestCase):
 
     def test_is_scale_only_conversion_dimension_mismatch(self):
         """Same factor count but different dimensions returns False."""
-        from ucon import units
-        from ucon.core import UnitProduct
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0], unit=self.meter)
         src = UnitProduct.from_unit(self.meter)
         dst = UnitProduct.from_unit(units.second)
@@ -266,7 +243,6 @@ class TestNumberArrayConversion(unittest.TestCase):
 
     def test_graph_based_conversion_with_uncertainty(self):
         """Covers uncertainty propagation through ``conversion_map.derivative``."""
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         result = arr.to(self.foot)
         # δ propagates by the conversion derivative (~3.28084).
@@ -277,8 +253,6 @@ class TestNumberArrayConversion(unittest.TestCase):
 
     def test_cache_hit_propagates_uncertainty(self):
         """Cache-hit fast path scales uncertainty by ``abs(factor)``."""
-        from ucon.core._types import _scale_factor_cache
-        from ucon.integrations.numpy import NumberArray
         # Seed the cache with a known factor so the next ``.to()`` call
         # exercises the cache-hit branch (including uncertainty scaling).
         cache_key = (self.meter, self.foot)
@@ -306,12 +280,6 @@ class TestNumberArrayConversion(unittest.TestCase):
         both the parsing-graph ContextVar and the active-system ContextVar
         hold ``None``, conversion has no graph to consult.
         """
-        from ucon.core._types import (
-            _parsing_graph,
-            _scale_factor_cache,
-            _sys_active_var,
-        )
-        from ucon.integrations.numpy import NumberArray
 
         arr = NumberArray([1.0], unit=self.meter)
         # Make sure the scale-only fast path can't satisfy the request and
@@ -336,12 +304,9 @@ class TestNumberArrayUncertaintyPropagation(unittest.TestCase):
     """Test uncertainty propagation through arithmetic."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
 
     def test_multiplication_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         # a = [10, 20] ± 1
         # b = 2 ± 0.1
         # For c = a * b:
@@ -356,7 +321,6 @@ class TestNumberArrayUncertaintyPropagation(unittest.TestCase):
         self.assertAlmostEqual(result.uncertainty[0], expected_unc_1, places=5)
 
     def test_addition_uncertainty_quadrature(self):
-        from ucon.integrations.numpy import NumberArray
         # δ(a+b) = sqrt(δa² + δb²)
         a = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         b = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.2)
@@ -368,7 +332,6 @@ class TestNumberArrayUncertaintyPropagation(unittest.TestCase):
 
     def test_addition_uncertainty_only_on_left(self):
         """``δa + None`` propagates ``δa`` through (covers None-ub branch)."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         b = NumberArray([1.0, 2.0], unit=self.meter)  # no uncertainty
         result = a + b
@@ -378,7 +341,6 @@ class TestNumberArrayUncertaintyPropagation(unittest.TestCase):
 
     def test_addition_uncertainty_only_on_right(self):
         """``None + δb`` propagates ``δb`` through (covers None-ua branch)."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0], unit=self.meter)  # no uncertainty
         b = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.2)
         result = a + b
@@ -388,8 +350,6 @@ class TestNumberArrayUncertaintyPropagation(unittest.TestCase):
 
     def test_multiplication_uncertainty_only_on_left(self):
         """``δa * None`` covers the ``rel_b = zeros_like`` branch."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
         scalar = Number(quantity=2.0, unit=self.meter)  # no uncertainty
         result = arr * scalar
@@ -400,8 +360,6 @@ class TestNumberArrayUncertaintyPropagation(unittest.TestCase):
 
     def test_multiplication_uncertainty_only_on_right(self):
         """``None * δb`` covers the ``rel_a = zeros_like`` branch."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([10.0, 20.0], unit=self.meter)  # no uncertainty
         scalar = Number(quantity=2.0, unit=self.meter, uncertainty=0.1)
         result = arr * scalar
@@ -416,36 +374,30 @@ class TestCallableSyntax(unittest.TestCase):
     """Test unit callable syntax with arrays."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
         self.second = units.second
 
     def test_unit_callable_with_list(self):
-        from ucon.integrations.numpy import NumberArray
         arr = self.meter([1.0, 2.0, 3.0])
         self.assertIsInstance(arr, NumberArray)
         self.assertEqual(len(arr), 3)
         self.assertEqual(arr.unit, self.meter)
 
     def test_unit_callable_with_ndarray(self):
-        from ucon.integrations.numpy import NumberArray
         arr = self.meter(np.array([1.0, 2.0, 3.0]))
         self.assertIsInstance(arr, NumberArray)
 
     def test_unit_callable_scalar_still_returns_number(self):
-        from ucon.quantity import Number
         n = self.meter(5.0)
         self.assertIsInstance(n, Number)
 
     def test_unitproduct_callable_with_list(self):
-        from ucon.integrations.numpy import NumberArray
         velocity_unit = self.meter / self.second
         arr = velocity_unit([10, 20, 30])
         self.assertIsInstance(arr, NumberArray)
         self.assertEqual(len(arr), 3)
 
     def test_unit_callable_with_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         arr = self.meter([1.0, 2.0, 3.0], uncertainty=0.1)
         self.assertIsInstance(arr, NumberArray)
         self.assertEqual(arr.uncertainty, 0.1)
@@ -456,35 +408,30 @@ class TestMapArraySupport(unittest.TestCase):
     """Test that Maps work with array inputs."""
 
     def test_linearmap_with_array(self):
-        from ucon.maps import LinearMap
         m = LinearMap(2.0)
         arr = np.array([1.0, 2.0, 3.0])
         result = m(arr)
         np.testing.assert_array_equal(result, np.array([2.0, 4.0, 6.0]))
 
     def test_affinemap_with_array(self):
-        from ucon.maps import AffineMap
         m = AffineMap(2.0, 10.0)  # y = 2*x + 10
         arr = np.array([0.0, 5.0, 10.0])
         result = m(arr)
         np.testing.assert_array_equal(result, np.array([10.0, 20.0, 30.0]))
 
     def test_logmap_with_array(self):
-        from ucon.maps import LogMap
         m = LogMap(scale=10, base=10)  # 10 * log10(x) - dB power
         arr = np.array([1.0, 10.0, 100.0])
         result = m(arr)
         np.testing.assert_array_almost_equal(result, np.array([0.0, 10.0, 20.0]))
 
     def test_expmap_with_array(self):
-        from ucon.maps import ExpMap
         m = ExpMap(scale=0.1, base=10)  # 10^(0.1*x) - inverse of dB
         arr = np.array([0.0, 10.0, 20.0])
         result = m(arr)
         np.testing.assert_array_almost_equal(result, np.array([1.0, 10.0, 100.0]))
 
     def test_linearmap_derivative_with_array(self):
-        from ucon.maps import LinearMap
         m = LinearMap(2.0)
         arr = np.array([1.0, 2.0, 3.0])
         deriv = m.derivative(arr)
@@ -492,7 +439,6 @@ class TestMapArraySupport(unittest.TestCase):
         self.assertEqual(deriv, 2.0)
 
     def test_logmap_derivative_with_array(self):
-        from ucon.maps import LogMap
         m = LogMap(scale=10, base=10)
         arr = np.array([1.0, 10.0, 100.0])
         deriv = m.derivative(arr)
@@ -506,128 +452,102 @@ class TestNumberArrayComparison(unittest.TestCase):
     """Test comparison operators returning boolean arrays."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
         self.second = units.second
 
     def test_eq_with_scalar(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = arr == 2.0
         np.testing.assert_array_equal(result, np.array([False, True, False]))
 
     def test_eq_with_number(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         result = arr == n
         np.testing.assert_array_equal(result, np.array([False, True, False]))
 
     def test_eq_with_numberarray(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         b = NumberArray([1.0, 5.0, 3.0], unit=self.meter)
         result = a == b
         np.testing.assert_array_equal(result, np.array([True, False, True]))
 
     def test_ne_with_scalar(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = arr != 2.0
         np.testing.assert_array_equal(result, np.array([True, False, True]))
 
     def test_lt_with_scalar(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = arr < 2.0
         np.testing.assert_array_equal(result, np.array([True, False, False]))
 
     def test_le_with_scalar(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = arr <= 2.0
         np.testing.assert_array_equal(result, np.array([True, True, False]))
 
     def test_gt_with_scalar(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = arr > 2.0
         np.testing.assert_array_equal(result, np.array([False, False, True]))
 
     def test_ge_with_scalar(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = arr >= 2.0
         np.testing.assert_array_equal(result, np.array([False, True, True]))
 
     def test_ne_with_number(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         np.testing.assert_array_equal(arr != n, np.array([True, False, True]))
 
     def test_ne_with_numberarray(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         b = NumberArray([1.0, 5.0, 3.0], unit=self.meter)
         np.testing.assert_array_equal(a != b, np.array([False, True, False]))
 
     def test_lt_with_number(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         np.testing.assert_array_equal(arr < n, np.array([True, False, False]))
 
     def test_lt_with_numberarray(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         b = NumberArray([2.0, 2.0, 2.0], unit=self.meter)
         np.testing.assert_array_equal(a < b, np.array([True, False, False]))
 
     def test_le_with_number(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         np.testing.assert_array_equal(arr <= n, np.array([True, True, False]))
 
     def test_le_with_numberarray(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         b = NumberArray([2.0, 2.0, 2.0], unit=self.meter)
         np.testing.assert_array_equal(a <= b, np.array([True, True, False]))
 
     def test_gt_with_number(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         np.testing.assert_array_equal(arr > n, np.array([False, False, True]))
 
     def test_gt_with_numberarray(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         b = NumberArray([2.0, 2.0, 2.0], unit=self.meter)
         np.testing.assert_array_equal(a > b, np.array([False, False, True]))
 
     def test_ge_with_number(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.meter)
         np.testing.assert_array_equal(arr >= n, np.array([False, True, True]))
 
     def test_ge_with_numberarray(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         b = NumberArray([2.0, 2.0, 2.0], unit=self.meter)
         np.testing.assert_array_equal(a >= b, np.array([False, True, True]))
 
     def test_comparison_returns_notimplemented_for_unsupported_type(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0], unit=self.meter)
         self.assertEqual(arr.__ne__("string"), NotImplemented)
         self.assertEqual(arr.__lt__("string"), NotImplemented)
@@ -636,7 +556,6 @@ class TestNumberArrayComparison(unittest.TestCase):
         self.assertEqual(arr.__ge__("string"), NotImplemented)
 
     def test_comparison_different_unit_raises(self):
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0], unit=self.meter)
         b = NumberArray([1.0, 2.0], unit=self.second)
         with self.assertRaises(ValueError) as ctx:
@@ -644,7 +563,6 @@ class TestNumberArrayComparison(unittest.TestCase):
         self.assertIn("different units", str(ctx.exception))
 
     def test_comparison_for_filtering(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0, 4.0, 5.0], unit=self.meter)
         mask = arr > 2.5
         filtered = arr.quantities[mask]
@@ -656,12 +574,10 @@ class TestNumberArrayBroadcasting(unittest.TestCase):
     """Test numpy broadcasting support."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
 
     def test_mul_broadcasting_1d_scalar_array(self):
         """Test (3,) * (1,) broadcasting."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)  # shape (3,)
         b = NumberArray([2.0], unit=self.meter)  # shape (1,)
         result = a * b
@@ -669,7 +585,6 @@ class TestNumberArrayBroadcasting(unittest.TestCase):
 
     def test_mul_broadcasting_2d_1d(self):
         """Test (2, 3) * (3,) broadcasting."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([[1, 2, 3], [4, 5, 6]], unit=self.meter)  # shape (2, 3)
         b = NumberArray([1, 2, 3], unit=self.meter)  # shape (3,)
         result = a * b
@@ -678,7 +593,6 @@ class TestNumberArrayBroadcasting(unittest.TestCase):
 
     def test_add_broadcasting_2d_1d(self):
         """Test (2, 3) + (3,) broadcasting."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([[1, 2, 3], [4, 5, 6]], unit=self.meter)  # shape (2, 3)
         b = NumberArray([10, 20, 30], unit=self.meter)  # shape (3,)
         result = a + b
@@ -687,7 +601,6 @@ class TestNumberArrayBroadcasting(unittest.TestCase):
 
     def test_sub_broadcasting(self):
         """Test (3,) - (1,) broadcasting."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([10.0, 20.0, 30.0], unit=self.meter)
         b = NumberArray([5.0], unit=self.meter)
         result = a - b
@@ -695,7 +608,6 @@ class TestNumberArrayBroadcasting(unittest.TestCase):
 
     def test_div_broadcasting(self):
         """Test (2, 2) / (2,) broadcasting."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([[4, 6], [8, 10]], unit=self.meter)
         b = NumberArray([2, 2], unit=self.meter)
         result = a / b
@@ -704,7 +616,6 @@ class TestNumberArrayBroadcasting(unittest.TestCase):
 
     def test_comparison_broadcasting(self):
         """Test comparison with broadcasting."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([[1, 2], [3, 4]], unit=self.meter)
         b = NumberArray([2, 3], unit=self.meter)
         result = a < b
@@ -713,7 +624,6 @@ class TestNumberArrayBroadcasting(unittest.TestCase):
 
     def test_incompatible_shapes_raise(self):
         """Test that truly incompatible shapes raise error."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1, 2, 3], unit=self.meter)  # shape (3,)
         b = NumberArray([1, 2], unit=self.meter)  # shape (2,) - not compatible
         with self.assertRaises(ValueError) as ctx:
@@ -726,12 +636,9 @@ class TestNumberArrayReductions(unittest.TestCase):
     """Test reduction operations (sum, mean, etc.)."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
 
     def test_sum(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0, 4.0], unit=self.meter)
         total = arr.sum()
         self.assertIsInstance(total, Number)
@@ -739,36 +646,30 @@ class TestNumberArrayReductions(unittest.TestCase):
         self.assertEqual(total.unit, self.meter)
 
     def test_sum_with_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0, 4.0], unit=self.meter, uncertainty=0.1)
         total = arr.sum()
         # σ_sum = σ * sqrt(n) for uniform uncertainty
         self.assertAlmostEqual(total.uncertainty, 0.1 * math.sqrt(4))
 
     def test_mean(self):
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([2.0, 4.0, 6.0], unit=self.meter)
         avg = arr.mean()
         self.assertIsInstance(avg, Number)
         self.assertEqual(avg.quantity, 4.0)
 
     def test_mean_with_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0, 4.0], unit=self.meter, uncertainty=0.2)
         avg = arr.mean()
         # σ_mean = σ / sqrt(n) for uniform uncertainty
         self.assertAlmostEqual(avg.uncertainty, 0.2 / math.sqrt(4))
 
     def test_std(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([2.0, 4.0, 6.0, 8.0], unit=self.meter)
         s = arr.std()
         expected = np.std([2.0, 4.0, 6.0, 8.0])
         self.assertAlmostEqual(s.quantity, expected)
 
     def test_min_max(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([3.0, 1.0, 4.0, 1.0, 5.0], unit=self.meter)
         self.assertEqual(arr.min().quantity, 1.0)
         self.assertEqual(arr.max().quantity, 5.0)
@@ -779,14 +680,11 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
     """Extended arithmetic tests for coverage."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
         self.second = units.second
 
     def test_divide_by_number(self):
         """Test NumberArray / Number."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([10.0, 20.0, 30.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.second)
         result = arr / n
@@ -794,8 +692,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_divide_by_number_with_uncertainty(self):
         """Test NumberArray / Number with uncertainty propagation."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
         n = Number(quantity=2.0, unit=self.second, uncertainty=0.1)
         result = arr / n
@@ -803,21 +699,18 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_divide_by_scalar_with_uncertainty(self):
         """Test NumberArray / scalar with uncertainty."""
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
         result = arr / 2
         self.assertEqual(result.uncertainty, 0.5)
 
     def test_rdiv_scalar_by_array(self):
         """Test scalar / NumberArray."""
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([2.0, 4.0, 5.0], unit=self.meter)
         result = 10.0 / arr
         np.testing.assert_array_equal(result.quantities, np.array([5.0, 2.5, 2.0]))
 
     def test_rdiv_scalar_by_array_with_uncertainty(self):
         """Test scalar / NumberArray with uncertainty."""
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
         result = 100.0 / arr
         self.assertIsNotNone(result.uncertainty)
@@ -827,8 +720,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_add_number_to_array(self):
         """Test NumberArray + Number."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=10.0, unit=self.meter)
         result = arr + n
@@ -836,8 +727,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_add_number_with_uncertainty(self):
         """Test NumberArray + Number with uncertainty."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         n = Number(quantity=10.0, unit=self.meter, uncertainty=0.2)
         result = arr + n
@@ -848,8 +737,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_radd_number(self):
         """Test Number + NumberArray (radd)."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0], unit=self.meter)
         n = Number(quantity=10.0, unit=self.meter)
         result = n + arr  # triggers __radd__
@@ -857,8 +744,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_sub_number_from_array(self):
         """Test NumberArray - Number."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([10.0, 20.0, 30.0], unit=self.meter)
         n = Number(quantity=5.0, unit=self.meter)
         result = arr - n
@@ -866,8 +751,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_rsub_number(self):
         """Test Number - NumberArray (rsub)."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0], unit=self.meter)
         n = Number(quantity=10.0, unit=self.meter)
         result = n - arr  # triggers __rsub__
@@ -875,8 +758,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_rsub_number_with_uncertainty(self):
         """Test Number - NumberArray with uncertainty."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         n = Number(quantity=10.0, unit=self.meter, uncertainty=0.2)
         result = n - arr
@@ -887,7 +768,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_pos(self):
         """Test unary positive (+arr)."""
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, -2.0, 3.0], unit=self.meter, uncertainty=0.1)
         result = +arr
         np.testing.assert_array_equal(result.quantities, arr.quantities)
@@ -895,7 +775,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_pos_with_per_element_uncertainty(self):
         """Test unary positive with per-element uncertainty."""
-        from ucon.integrations.numpy import NumberArray
         unc = np.array([0.1, 0.2, 0.3])
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter, uncertainty=unc)
         result = +arr
@@ -903,8 +782,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_multiply_number_by_array(self):
         """Test Number * NumberArray."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.quantity import Number
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         n = Number(quantity=2.0, unit=self.second)
         result = arr * n
@@ -912,7 +789,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_divide_arrays_incompatible_shapes(self):
         """Test division with incompatible shapes raises."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         b = NumberArray([1.0, 2.0], unit=self.second)
         with self.assertRaises(ValueError) as ctx:
@@ -921,7 +797,6 @@ class TestNumberArrayArithmeticExtended(unittest.TestCase):
 
     def test_divide_arrays_with_uncertainty(self):
         """Test NumberArray / NumberArray with uncertainty."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([10.0, 20.0], unit=self.meter, uncertainty=1.0)
         b = NumberArray([2.0, 4.0], unit=self.second, uncertainty=0.1)
         result = a / b
@@ -933,12 +808,10 @@ class TestNumberArrayReductionsExtended(unittest.TestCase):
     """Extended reduction tests for coverage."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
 
     def test_sum_with_per_element_uncertainty(self):
         """Test sum with per-element uncertainty."""
-        from ucon.integrations.numpy import NumberArray
         unc = np.array([0.1, 0.2, 0.3])
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter, uncertainty=unc)
         total = arr.sum()
@@ -948,7 +821,6 @@ class TestNumberArrayReductionsExtended(unittest.TestCase):
 
     def test_mean_with_per_element_uncertainty(self):
         """Test mean with per-element uncertainty."""
-        from ucon.integrations.numpy import NumberArray
         unc = np.array([0.1, 0.2, 0.3])
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter, uncertainty=unc)
         avg = arr.mean()
@@ -962,33 +834,27 @@ class TestNumberArrayNumpyIntegration(unittest.TestCase):
     """Test numpy integration features."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
 
     def test_asarray(self):
         """Test np.asarray(NumberArray)."""
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = np.asarray(arr)
         np.testing.assert_array_equal(result, np.array([1.0, 2.0, 3.0]))
 
     def test_asarray_with_dtype(self):
         """Test np.asarray with dtype conversion."""
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         result = np.asarray(arr, dtype=np.float32)
         self.assertEqual(result.dtype, np.float32)
 
     def test_dimension_property(self):
         """Test dimension property."""
-        from ucon.integrations.numpy import NumberArray
-        from ucon.dimension import Dimension
         arr = NumberArray([1.0, 2.0], unit=self.meter)
         self.assertEqual(arr.dimension, Dimension.length)
 
     def test_dimension_property_dimensionless(self):
         """Test dimension property for dimensionless."""
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0])
         # dimensionless unit may have None dimension
         dim = arr.dimension
@@ -1000,11 +866,9 @@ class TestNumberArrayRepr(unittest.TestCase):
     """Test string representation."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
 
     def test_small_array_repr(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
         s = repr(arr)
         self.assertIn("m", s)
@@ -1012,13 +876,11 @@ class TestNumberArrayRepr(unittest.TestCase):
         self.assertIn("3", s)
 
     def test_large_array_truncation(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray(list(range(100)), unit=self.meter)
         s = repr(arr)
         self.assertIn("...", s)
 
     def test_repr_with_uncertainty(self):
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         s = repr(arr)
         self.assertIn("±", s)
@@ -1029,63 +891,50 @@ class TestNumberArrayNotImplemented(unittest.TestCase):
     """Test NotImplemented return for unsupported operand types."""
 
     def setUp(self):
-        from ucon import units
-        from ucon.integrations.numpy import NumberArray
         self.meter = units.meter
         self.arr = NumberArray([1.0, 2.0, 3.0], unit=self.meter)
 
     def test_mul_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__mul__("string")
         self.assertIs(result, NotImplemented)
 
     def test_truediv_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__truediv__("string")
         self.assertIs(result, NotImplemented)
 
     def test_add_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__add__("string")
         self.assertIs(result, NotImplemented)
 
     def test_sub_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__sub__("string")
         self.assertIs(result, NotImplemented)
 
     def test_rsub_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__rsub__("string")
         self.assertIs(result, NotImplemented)
 
     def test_eq_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__eq__("string")
         self.assertIs(result, NotImplemented)
 
     def test_lt_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__lt__("string")
         self.assertIs(result, NotImplemented)
 
     def test_le_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__le__("string")
         self.assertIs(result, NotImplemented)
 
     def test_gt_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__gt__("string")
         self.assertIs(result, NotImplemented)
 
     def test_ge_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__ge__("string")
         self.assertIs(result, NotImplemented)
 
     def test_ne_unsupported(self):
-        from ucon.integrations.numpy import NumberArray
         result = self.arr.__ne__("string")
         self.assertIs(result, NotImplemented)
 
@@ -1095,19 +944,16 @@ class TestNumberArrayUncertaintyEdgeCases(unittest.TestCase):
     """Test uncertainty propagation edge cases."""
 
     def setUp(self):
-        from ucon import units
         self.meter = units.meter
 
     def test_mul_both_no_uncertainty(self):
         """Multiplying arrays with no uncertainty returns no uncertainty."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0], unit=self.meter)
         result = a * 2
         self.assertIsNone(result.uncertainty)
 
     def test_add_one_uncertainty_one_none(self):
         """Adding arrays where one has uncertainty propagates it."""
-        from ucon.integrations.numpy import NumberArray
         a = NumberArray([1.0, 2.0], unit=self.meter, uncertainty=0.1)
         b = NumberArray([3.0, 4.0], unit=self.meter)
         result = a + b
@@ -1116,7 +962,6 @@ class TestNumberArrayUncertaintyEdgeCases(unittest.TestCase):
 
     def test_repr_per_element_uncertainty(self):
         """Per-element uncertainty shows [...] in repr."""
-        from ucon.integrations.numpy import NumberArray
         arr = NumberArray([1.0, 2.0], unit=self.meter,
                          uncertainty=np.array([0.1, 0.2]))
         r = repr(arr)

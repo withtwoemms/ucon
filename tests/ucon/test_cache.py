@@ -24,6 +24,38 @@ from ucon._cache import (
     write_cached_graph,
 )
 from ucon.conversion import Graph
+from ucon.core._types import _get_numpy as _types_get_numpy
+from ucon.maps import _get_numpy as _maps_get_numpy
+from ucon import units
+from ucon._cache import _deserialize_product_tuple_key
+from ucon._cache import _deserialize_product_tuple_key, _serialize_product_key
+from ucon._cache import _fraction_to_prim, _prim_to_fraction
+from ucon._cache import _map_to_prim, _prim_to_map
+from ucon._cache import _prim_to_fraction
+from ucon._cache import _prim_to_map
+from ucon._cache import _resolve_unit_ref, _unit_ref
+from ucon.aspects.types import AspectRule
+from ucon.contexts import ContextEdge, ConversionContext
+from ucon.core import NumberArray
+from ucon.core import NumberArray, Unit
+from ucon.core import Scale, Unit
+from ucon.core import Scale, Unit, UnitFactor
+from ucon.core import Scale, Unit, UnitFactor, UnitProduct
+from ucon.core import Unit
+from ucon.dimension import LENGTH
+from ucon.dimension import LENGTH, MASS
+from ucon.dimension import LENGTH, TIME
+from ucon.maps import AffineMap
+from ucon.maps import AffineMap, ComposedMap, LinearMap
+from ucon.maps import ExpMap
+from ucon.maps import LinearMap
+from ucon.maps import LogMap
+from ucon.maps import Map
+from ucon.maps import ReciprocalMap
+from ucon.maps import _is_array
+from ucon.serialization import FORMAT_VERSION
+from ucon.serialization import FORMAT_VERSION, from_toml
+from ucon.serialization import from_toml
 
 
 TOML_PATH = Path(__file__).resolve().parent.parent.parent / "ucon" / "comprehensive.ucon.toml"
@@ -34,7 +66,6 @@ class TestRoundTrip(unittest.TestCase):
 
     def test_roundtrip_unit_count(self):
         """Unit registries match after round-trip."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -47,7 +78,6 @@ class TestRoundTrip(unittest.TestCase):
 
     def test_roundtrip_edge_count(self):
         """Edge counts match after round-trip."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -69,7 +99,6 @@ class TestRoundTrip(unittest.TestCase):
 
     def test_roundtrip_product_edge_count(self):
         """Product edge counts match."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -81,7 +110,6 @@ class TestRoundTrip(unittest.TestCase):
 
     def test_roundtrip_constants(self):
         """Constant count matches."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -94,7 +122,6 @@ class TestRoundTrip(unittest.TestCase):
 
     def test_roundtrip_kinds(self):
         """Kind lattice count matches."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -107,7 +134,6 @@ class TestRoundTrip(unittest.TestCase):
 
     def test_roundtrip_rebased(self):
         """Rebased unit count matches."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -119,7 +145,6 @@ class TestRoundTrip(unittest.TestCase):
 
     def test_conversion_after_roundtrip(self):
         """Conversions produce correct results from cached graph."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -150,7 +175,6 @@ class TestCacheIO(unittest.TestCase):
         import tempfile
         import shutil
 
-        from ucon.serialization import from_toml
 
         tmpdir = Path(tempfile.mkdtemp())
         try:
@@ -179,7 +203,6 @@ class TestCacheIO(unittest.TestCase):
         import shutil
         import time
 
-        from ucon.serialization import from_toml
 
         tmpdir = Path(tempfile.mkdtemp())
         try:
@@ -249,7 +272,6 @@ class TestEnvDisable(unittest.TestCase):
 
     def test_env_disables_write(self):
         """write_cached_graph returns False when disabled."""
-        from ucon.serialization import from_toml
 
         graph = from_toml(TOML_PATH)
         with mock.patch.dict(os.environ, {"UCON_NO_CACHE": "1"}):
@@ -265,7 +287,6 @@ class TestHeaderValidation(unittest.TestCase):
         import shutil
         import sys as _sys
 
-        from ucon.serialization import FORMAT_VERSION, from_toml
 
         toml_copy = tmpdir / "test.ucon.toml"
         shutil.copy2(TOML_PATH, toml_copy)
@@ -383,8 +404,6 @@ class TestMapCodecCoverage(unittest.TestCase):
     """Codec coverage for all Map types."""
 
     def test_linear_map_roundtrip(self):
-        from ucon._cache import _map_to_prim, _prim_to_map
-        from ucon.maps import LinearMap
 
         m = LinearMap(a=2.54, rel_uncertainty=0.001)
         prim = _map_to_prim(m)
@@ -393,8 +412,6 @@ class TestMapCodecCoverage(unittest.TestCase):
         self.assertAlmostEqual(restored.rel_uncertainty, 0.001)
 
     def test_affine_map_roundtrip(self):
-        from ucon._cache import _map_to_prim, _prim_to_map
-        from ucon.maps import AffineMap
 
         m = AffineMap(a=1.8, b=32.0, rel_uncertainty=0.0)
         prim = _map_to_prim(m)
@@ -403,8 +420,6 @@ class TestMapCodecCoverage(unittest.TestCase):
         self.assertAlmostEqual(restored.b, 32.0)
 
     def test_log_map_roundtrip(self):
-        from ucon._cache import _map_to_prim, _prim_to_map
-        from ucon.maps import LogMap
 
         m = LogMap(scale=20.0, base=10.0, reference=1e-12, offset=0.0)
         prim = _map_to_prim(m)
@@ -414,8 +429,6 @@ class TestMapCodecCoverage(unittest.TestCase):
         self.assertAlmostEqual(restored.reference, 1e-12)
 
     def test_exp_map_roundtrip(self):
-        from ucon._cache import _map_to_prim, _prim_to_map
-        from ucon.maps import ExpMap
 
         m = ExpMap(scale=0.05, base=10.0, reference=1e-12, offset=0.0)
         prim = _map_to_prim(m)
@@ -424,8 +437,6 @@ class TestMapCodecCoverage(unittest.TestCase):
         self.assertAlmostEqual(restored.base, 10.0)
 
     def test_reciprocal_map_roundtrip(self):
-        from ucon._cache import _map_to_prim, _prim_to_map
-        from ucon.maps import ReciprocalMap
 
         m = ReciprocalMap(a=1000.0, rel_uncertainty=0.002)
         prim = _map_to_prim(m)
@@ -434,8 +445,6 @@ class TestMapCodecCoverage(unittest.TestCase):
         self.assertAlmostEqual(restored.rel_uncertainty, 0.002)
 
     def test_composed_map_roundtrip(self):
-        from ucon._cache import _map_to_prim, _prim_to_map
-        from ucon.maps import AffineMap, ComposedMap, LinearMap
 
         inner = LinearMap(a=2.0)
         outer = AffineMap(a=1.5, b=10.0)
@@ -448,8 +457,6 @@ class TestMapCodecCoverage(unittest.TestCase):
         self.assertAlmostEqual(restored.outer.b, 10.0)
 
     def test_unknown_map_type_raises(self):
-        from ucon._cache import _map_to_prim, _prim_to_map
-        from ucon.maps import Map
 
         class FakeMap(Map):
             def __call__(self, x): return x
@@ -459,7 +466,6 @@ class TestMapCodecCoverage(unittest.TestCase):
             _map_to_prim(FakeMap())
 
     def test_unknown_prim_type_raises(self):
-        from ucon._cache import _prim_to_map
 
         with self.assertRaises(ValueError):
             _prim_to_map({"_t": "UNKNOWN"})
@@ -469,42 +475,35 @@ class TestLazyNumpy(unittest.TestCase):
     """Lazy numpy accessor defers import."""
 
     def test_get_numpy_returns_module_when_available(self):
-        from ucon.core._types import _get_numpy
 
-        np = _get_numpy()
+        np = _types_get_numpy()
         # numpy is installed in the test env
         self.assertIsNotNone(np)
         self.assertEqual(np.__name__, "numpy")
 
     def test_get_numpy_caches_result(self):
-        from ucon.core._types import _get_numpy
 
-        first = _get_numpy()
-        second = _get_numpy()
+        first = _types_get_numpy()
+        second = _types_get_numpy()
         self.assertIs(first, second)
 
     def test_maps_get_numpy_returns_module(self):
-        from ucon.maps import _get_numpy
 
-        np = _get_numpy()
+        np = _maps_get_numpy()
         self.assertIsNotNone(np)
         self.assertEqual(np.__name__, "numpy")
 
     def test_is_array_with_ndarray(self):
         import numpy as np
-        from ucon.maps import _is_array
 
         self.assertTrue(_is_array(np.array([1, 2, 3])))
 
     def test_is_array_with_list(self):
-        from ucon.maps import _is_array
 
         self.assertFalse(_is_array([1, 2, 3]))
 
     def test_number_array_still_works(self):
         """NumberArray construction works with lazy numpy."""
-        from ucon.core import NumberArray, Unit
-        from ucon.dimension import LENGTH
 
         u = Unit(name="_test_lazy_np", dimension=LENGTH)
         arr = NumberArray(quantities=[1.0, 2.0, 3.0], unit=u)
@@ -512,12 +511,9 @@ class TestLazyNumpy(unittest.TestCase):
 
     def test_unit_call_with_list_returns_number_array(self):
         """Unit.__call__ with list delegates to NumberArray via lazy numpy."""
-        from ucon.core import Unit
-        from ucon.dimension import LENGTH
 
         u = Unit(name="_test_lazy_np_call", dimension=LENGTH)
         result = u([1.0, 2.0])
-        from ucon.core import NumberArray
         self.assertIsInstance(result, NumberArray)
 
 
@@ -526,7 +522,6 @@ class TestCacheFirstLoading(unittest.TestCase):
 
     def test_units_module_has_meter(self):
         """Basic sanity: units loaded (from cache or TOML)."""
-        from ucon import units
 
         self.assertTrue(hasattr(units, "meter"))
         self.assertEqual(units.meter.name, "meter")
@@ -536,7 +531,6 @@ class TestCacheFirstLoading(unittest.TestCase):
         cache_path = TOML_PATH.with_suffix(".cache")
         # The cache is written on first import if missing.
         # In CI or fresh env, it may not exist yet — trigger write.
-        from ucon.serialization import from_toml
 
         graph = from_toml(TOML_PATH)
         write_cached_graph(graph, TOML_PATH)
@@ -547,9 +541,6 @@ class TestProductKeySerialization(unittest.TestCase):
     """Coverage for _serialize_product_key / _deserialize_product_tuple_key."""
 
     def test_product_key_roundtrip(self):
-        from ucon._cache import _deserialize_product_tuple_key, _serialize_product_key
-        from ucon.core import Scale, Unit, UnitFactor
-        from ucon.dimension import LENGTH, MASS
 
         meter = Unit(name="meter", dimension=LENGTH)
         kg = Unit(name="kilogram", dimension=MASS)
@@ -568,7 +559,6 @@ class TestProductKeySerialization(unittest.TestCase):
         self.assertEqual(restored[1][0], "kilogram")
 
     def test_product_key_missing_unit_returns_none(self):
-        from ucon._cache import _deserialize_product_tuple_key
 
         ser = [("nonexistent", "LENGTH", "one", 1)]
         result = _deserialize_product_tuple_key(ser, {})
@@ -579,9 +569,6 @@ class TestUnitRefCodec(unittest.TestCase):
     """Coverage for _unit_ref / _resolve_unit_ref with UnitProduct."""
 
     def test_unit_ref_plain_unit(self):
-        from ucon._cache import _resolve_unit_ref, _unit_ref
-        from ucon.core import Unit
-        from ucon.dimension import LENGTH
 
         meter = Unit(name="meter", dimension=LENGTH)
         ref = _unit_ref(meter)
@@ -593,9 +580,6 @@ class TestUnitRefCodec(unittest.TestCase):
         self.assertIs(restored, meter)
 
     def test_unit_ref_unit_product(self):
-        from ucon._cache import _resolve_unit_ref, _unit_ref
-        from ucon.core import Scale, Unit, UnitFactor, UnitProduct
-        from ucon.dimension import LENGTH, TIME
 
         meter = Unit(name="meter", dimension=LENGTH)
         second = Unit(name="second", dimension=TIME)
@@ -617,7 +601,6 @@ class TestContextRoundTrip(unittest.TestCase):
 
     def test_contexts_preserved(self):
         """If the graph has contexts, they survive cache round-trip."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         if not original._contexts:
@@ -643,7 +626,6 @@ class TestWriteFailurePath(unittest.TestCase):
         import tempfile
         import shutil
 
-        from ucon.serialization import from_toml
 
         tmpdir = Path(tempfile.mkdtemp())
         try:
@@ -665,7 +647,6 @@ class TestFractionCodec(unittest.TestCase):
     def test_fraction_roundtrip(self):
         from fractions import Fraction
 
-        from ucon._cache import _fraction_to_prim, _prim_to_fraction
 
         # Standard fraction
         f = Fraction(3, 7)
@@ -676,7 +657,6 @@ class TestFractionCodec(unittest.TestCase):
     def test_integer_as_fraction(self):
         from fractions import Fraction
 
-        from ucon._cache import _prim_to_fraction
 
         # Plain int (as stored for integer-valued vector components)
         restored = _prim_to_fraction(5)
@@ -688,7 +668,6 @@ class TestFormulaCodec(unittest.TestCase):
 
     def test_formula_roundtrip(self):
         """Formulas survive _to_primitives → _from_primitives on the full graph."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -708,12 +687,10 @@ class TestFormulaCodec(unittest.TestCase):
         self.assertEqual(set(rt.input_kinds.keys()), {"D", "w_R"})
         self.assertTrue(rt.commutative)
 
-        from ucon.aspects.types import AspectRule
         self.assertEqual(rt.aspect_rules["w_R"], AspectRule.CONSUME)
 
     def test_formula_missing_input_kind_skipped(self):
         """Formula with unknown input kind is silently dropped."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -731,7 +708,6 @@ class TestFormulaCodec(unittest.TestCase):
 
     def test_formula_missing_output_kind_skipped(self):
         """Formula with unknown output kind is silently dropped."""
-        from ucon.serialization import from_toml
 
         original = from_toml(TOML_PATH)
         raw = _to_primitives(original)
@@ -771,7 +747,6 @@ class TestFormulaCodec(unittest.TestCase):
         import shutil
         import tempfile
 
-        from ucon.serialization import from_toml
 
         tmpdir = Path(tempfile.mkdtemp())
         try:
@@ -804,7 +779,6 @@ class TestNonDictPayload(unittest.TestCase):
         import sys as _sys
         import tempfile
 
-        from ucon.serialization import FORMAT_VERSION
 
         tmpdir = Path(tempfile.mkdtemp())
         try:
@@ -838,7 +812,6 @@ class TestWriteOsReplaceFailure(unittest.TestCase):
         import shutil
         import tempfile
 
-        from ucon.serialization import from_toml
 
         tmpdir = Path(tempfile.mkdtemp())
         try:
@@ -863,7 +836,6 @@ class TestFractionFromString(unittest.TestCase):
     def test_fraction_from_string(self):
         from fractions import Fraction
 
-        from ucon._cache import _prim_to_fraction
 
         result = _prim_to_fraction("3/7")
         self.assertEqual(result, Fraction(3, 7))
@@ -871,7 +843,6 @@ class TestFractionFromString(unittest.TestCase):
     def test_fraction_from_decimal_string(self):
         from fractions import Fraction
 
-        from ucon._cache import _prim_to_fraction
 
         result = _prim_to_fraction("0.5")
         self.assertEqual(result, Fraction(1, 2))
@@ -881,9 +852,6 @@ class TestProductTupleKeyUnknownScale(unittest.TestCase):
     """_deserialize_product_tuple_key falls back to Scale.one for unknown scales."""
 
     def test_unknown_scale_defaults_to_one(self):
-        from ucon._cache import _deserialize_product_tuple_key
-        from ucon.core import Scale, Unit
-        from ucon.dimension import LENGTH
 
         meter = Unit(name="meter", dimension=LENGTH)
         unit_map = {"meter": meter}
@@ -900,10 +868,6 @@ class TestContextCodecPrimitives(unittest.TestCase):
 
     def test_context_codec_roundtrip(self):
         """ConversionContext survives _to_primitives → _from_primitives."""
-        from ucon.contexts import ContextEdge, ConversionContext
-        from ucon.core import Unit
-        from ucon.dimension import LENGTH
-        from ucon.maps import LinearMap
 
         meter = Unit(name="meter", dimension=LENGTH)
         foot = Unit(name="foot", dimension=LENGTH)

@@ -36,6 +36,8 @@ from ucon import (
     use,
 )
 from ucon._active import _active as _active_var
+from ucon.core import Unit as _Unit
+from ucon.core._parsing_graph import _parsing_graph
 
 
 class TestActiveContextType(unittest.TestCase):
@@ -207,14 +209,12 @@ class TestUseSetsParsigGraph(unittest.TestCase):
     """``use()`` sets ``_parsing_graph`` so name resolution works."""
 
     def test_parsing_graph_set_inside_use(self):
-        from ucon.core._parsing_graph import _parsing_graph
         sys = active_system()
         with use(sys):
             pg = _parsing_graph.get()
             self.assertIs(pg, sys.conversion_graph)
 
     def test_parsing_graph_restored_after_use(self):
-        from ucon.core._parsing_graph import _parsing_graph
         before = _parsing_graph.get()
         sys = active_system()
         with use(sys):
@@ -222,7 +222,6 @@ class TestUseSetsParsigGraph(unittest.TestCase):
         self.assertIs(_parsing_graph.get(), before)
 
     def test_nested_use_parsing_graph_restores_correctly(self):
-        from ucon.core._parsing_graph import _parsing_graph
         sys = active_system()
         with use(sys) as outer_ctx:
             outer_pg = _parsing_graph.get()
@@ -235,7 +234,6 @@ class TestUseSetsParsigGraph(unittest.TestCase):
 
     def test_use_enables_unit_name_resolution(self):
         """Custom units on the system's graph are resolvable within use()."""
-        from ucon.core import Unit as _Unit
         sys = active_system()
         dim = sys.dimensions["length"]
         novel = _Unit(name="ucon_test_parsing_unit", dimension=dim, aliases=())

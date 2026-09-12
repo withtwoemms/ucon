@@ -18,6 +18,8 @@ from ucon import units, Scale, Dimension, Number
 from ucon.core import Unit, UnitProduct, UnitFactor
 from ucon.resolver import parse_unit
 from ucon.units import UnknownUnitError
+from ucon.parsing import ParseError
+from ucon.resolver import register_unit
 
 
 class TestSimpleUnitLookup(unittest.TestCase):
@@ -525,13 +527,11 @@ class TestRecursiveDescentParser(unittest.TestCase):
 
     def test_unbalanced_parentheses_error(self):
         """GIVEN W/(m²*K (missing close paren) THEN raises ValueError with position."""
-        from ucon.parsing import ParseError
         with self.assertRaises((ValueError, ParseError)):
             parse_unit("W/(m²*K")
 
     def test_extra_close_paren_error(self):
         """Extra closing parenthesis should raise error."""
-        from ucon.parsing import ParseError
         with self.assertRaises((ValueError, ParseError)):
             parse_unit("W/(m²*K))")
 
@@ -598,7 +598,6 @@ class TestResolverEdgeCases(unittest.TestCase):
 
     def test_register_unit_empty_name_noop(self):
         """register_unit with empty name does nothing."""
-        from ucon.resolver import register_unit
         u = Unit(name='', dimension=Dimension.length)
         # Should not raise, should be no-op
         register_unit(u)

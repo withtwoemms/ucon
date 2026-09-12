@@ -57,6 +57,8 @@ from ucon.dimension import (
     DYNAMIC_VISCOSITY,
     KINEMATIC_VISCOSITY,
 )
+from ucon.core import UnitProduct
+from ucon.core import UnitProduct, UnitFactor, Scale
 
 
 class TestCGSDimensionIsolation(unittest.TestCase):
@@ -451,28 +453,24 @@ class TestCrossBasisProductFallback(unittest.TestCase):
         self.graph = get_default_graph()
 
     def test_poise_product_to_pascal_second_product(self):
-        from ucon.core import UnitProduct, UnitFactor, Scale
         src = UnitProduct.from_unit(units.poise)
         dst = UnitProduct({UnitFactor(units.pascal_second, Scale.one): 1})
         m = self.graph.convert(src=src, dst=dst)
         self.assertAlmostEqual(m(1), 0.1, places=5)
 
     def test_stokes_product_to_square_meter_per_second_product(self):
-        from ucon.core import UnitProduct
         src = UnitProduct.from_unit(units.stokes)
         dst = UnitProduct.from_unit(units.square_meter_per_second)
         m = self.graph.convert(src=src, dst=dst)
         self.assertAlmostEqual(m(1), 1e-4, places=9)
 
     def test_galileo_product_to_meter_per_second_squared_product(self):
-        from ucon.core import UnitProduct
         src = UnitProduct.from_unit(units.galileo)
         dst = UnitProduct.from_unit(units.meter_per_second_squared)
         m = self.graph.convert(src=src, dst=dst)
         self.assertAlmostEqual(m(1), 0.01, places=5)
 
     def test_reyn_product_to_pascal_second_product(self):
-        from ucon.core import UnitProduct
         src = UnitProduct.from_unit(units.reyn)
         dst = UnitProduct.from_unit(units.pascal_second)
         m = self.graph.convert(src=src, dst=dst)
@@ -515,17 +513,14 @@ class TestUnitProductAsUnit(unittest.TestCase):
     """UnitProduct.as_unit() extraction."""
 
     def test_trivial_product_returns_unit(self):
-        from ucon.core import UnitProduct
         prod = UnitProduct.from_unit(units.meter)
         self.assertEqual(prod.as_unit(), units.meter)
 
     def test_scaled_product_returns_none(self):
-        from ucon.core import UnitProduct, UnitFactor, Scale
         prod = UnitProduct({UnitFactor(units.meter, Scale.kilo): 1})
         self.assertIsNone(prod.as_unit())
 
     def test_multi_factor_product_returns_none(self):
-        from ucon.core import UnitProduct, UnitFactor, Scale
         prod = UnitProduct({
             UnitFactor(units.meter, Scale.one): 1,
             UnitFactor(units.second, Scale.one): -1,
@@ -533,7 +528,6 @@ class TestUnitProductAsUnit(unittest.TestCase):
         self.assertIsNone(prod.as_unit())
 
     def test_exponent_product_returns_none(self):
-        from ucon.core import UnitProduct, UnitFactor, Scale
         prod = UnitProduct({UnitFactor(units.meter, Scale.one): 2})
         self.assertIsNone(prod.as_unit())
 

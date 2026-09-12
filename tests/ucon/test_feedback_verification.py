@@ -32,6 +32,8 @@ from ucon.basis import (
 from ucon.basis.builtin import SI
 from ucon.dimension import resolve
 from ucon.system import active_system, use
+from ucon.basis.builtin import CGS, CGS_ESU, NATURAL, PLANCK, ATOMIC
+from ucon.resolver import parse_unit
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +231,6 @@ class TestTriage1BareComponentDimensions:
         either succeeds OR fails with a structured exception (not a crash).
         Run with -v to see which cases land on which side.
         """
-        from ucon.resolver import parse_unit
 
         try:
             result = parse_unit(spec)
@@ -243,7 +244,6 @@ class TestTriage1BareComponentDimensions:
 
     def test_summary_table(self) -> None:
         """Print a registry-shaped summary of all six cases at once."""
-        from ucon.resolver import parse_unit
 
         cases = ["M", "M¹", "M^1", "M·T⁻¹", "mass", "mass^1"]
         rows = []
@@ -275,7 +275,6 @@ class TestTriage1BareComponentDimensions:
 def test_standard_graph_includes_expected_basis_transforms() -> None:
     """Confirm the standard graph wiring is intact under current main."""
     graph = active_system().basis_graph
-    from ucon.basis.builtin import CGS, CGS_ESU, NATURAL, PLANCK, ATOMIC
 
     # SI -> CGS, CGS_ESU, NATURAL, PLANCK, ATOMIC must all be reachable.
     for target in (CGS, CGS_ESU, NATURAL, PLANCK, ATOMIC):

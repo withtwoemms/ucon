@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 
 from ucon.aspects import AspectSet
+from ucon.aspects import join_aspects
 
 
 def test_aspect_set_literal_is_a_frozenset():
@@ -132,7 +133,6 @@ def test_aspect_set_set_algebra_returns_frozenset():
 
 def test_aspect_set_subclass_compatible_with_internal_signatures():
     # An AspectSet must drop into any place that expects frozenset[str].
-    from ucon.aspects import join_aspects
 
     a = AspectSet("calibrated", "ICRP103")
     b = AspectSet("calibrated", "smoothed")

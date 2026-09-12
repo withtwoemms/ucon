@@ -29,6 +29,7 @@ from ucon.graph import (
 )
 from ucon.maps import LinearMap
 from ucon.resolver import parse_unit
+from ucon.graph import DimensionMismatch
 
 US_GALLON_M3 = 0.003785411784  # 231 in³, exact
 
@@ -97,7 +98,6 @@ class TestCompositeEndpointPaths(unittest.TestCase):
     def test_dimension_mismatch_not_swallowed_by_fallback(self):
         """The fallback fires only on ConversionNotFound; dimension errors
         propagate untouched."""
-        from ucon.graph import DimensionMismatch
         with using_conversion_graph(self.graph):
             with self.assertRaises(DimensionMismatch):
                 self.graph.convert(src=self.gallon, dst=units.kilogram)

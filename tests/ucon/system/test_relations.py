@@ -27,6 +27,7 @@ import ucon
 from ucon import ContextEdge
 from ucon.maps import LinearMap
 from ucon.system import BaseUnits, RegistryDiff, SystemDiff, UnitSystem
+from ucon.core import Unit as _Unit
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +118,6 @@ class TestSubsystemOf(unittest.TestCase):
         self.assertFalse(s.subsystem_of(length))
 
     def test_redefined_unit_breaks_subsystem(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         meter = s.units["meter"]
         rebadged = _Unit(
@@ -151,7 +151,6 @@ class TestSubsystemOf(unittest.TestCase):
         self.assertFalse(s.subsystem_of(other))
 
     def test_missing_conversion_edge_breaks_subsystem(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         length = s.dimensions["length"]
         a = _Unit(name="ucon_rel_a", dimension=length, aliases=())
@@ -190,7 +189,6 @@ class TestCompatibleWith(unittest.TestCase):
         self.assertTrue(s.compatible_with(length))
 
     def test_redefined_unit_makes_incompatible(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         meter = s.units["meter"]
         rebadged = _Unit(
@@ -223,7 +221,6 @@ class TestCompatibleWith(unittest.TestCase):
         self.assertFalse(other.compatible_with(s))
 
     def test_disagreeing_conversion_edge_makes_incompatible(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         length = s.dimensions["length"]
         a = _Unit(name="ucon_rel_compat_a", dimension=length, aliases=())
@@ -280,7 +277,6 @@ class TestDiff(unittest.TestCase):
         self.assertEqual(d.units.removed, frozenset())
 
     def test_diff_redefined_when_unit_replaced(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         meter = s.units["meter"]
         rebadged = _Unit(

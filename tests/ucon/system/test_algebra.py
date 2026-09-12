@@ -25,6 +25,8 @@ from ucon.system import (
     ExtendConflict,
     UnitSystem,
 )
+from ucon.basis import BasisGraph
+from ucon.core import Unit as _Unit
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +112,6 @@ class TestExtend(unittest.TestCase):
         s = _active()
         # Build a conflict by overriding the existing 'meter' definition.
         meter = s.units["meter"]
-        from ucon.core import Unit as _Unit
         clashing = _Unit(
             name=meter.name,
             dimension=meter.dimension,
@@ -125,7 +126,6 @@ class TestExtend(unittest.TestCase):
     def test_extend_prefer_self_keeps_lhs(self):
         s = _active()
         meter = s.units["meter"]
-        from ucon.core import Unit as _Unit
         clashing = _Unit(
             name=meter.name,
             dimension=meter.dimension,
@@ -138,7 +138,6 @@ class TestExtend(unittest.TestCase):
     def test_extend_prefer_other_takes_rhs(self):
         s = _active()
         meter = s.units["meter"]
-        from ucon.core import Unit as _Unit
         clashing = _Unit(
             name=meter.name,
             dimension=meter.dimension,
@@ -223,7 +222,6 @@ class TestExtendMany(unittest.TestCase):
         )
 
     def test_extend_many_raise_on_conflict(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         meter = s.units["meter"]
         clashing = _Unit(
@@ -322,7 +320,6 @@ class TestMerge(unittest.TestCase):
     def test_merge_resolver_called_only_on_conflict(self):
         s = _active()
         meter = s.units["meter"]
-        from ucon.core import Unit as _Unit
         rhs_meter = _Unit(
             name=meter.name,
             dimension=meter.dimension,
@@ -362,7 +359,6 @@ class TestMerge(unittest.TestCase):
         self.assertEqual(set(result.dimensions.keys()), set(s.dimensions.keys()))
 
     def test_merge_adopts_rhs_only_unit_without_invoking_resolver(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         length = s.dimensions["length"]
         novel = _Unit(name="ucon_merge_rhs_only", dimension=length, aliases=())
@@ -390,7 +386,6 @@ class TestMerge(unittest.TestCase):
 class TestWithUnit(unittest.TestCase):
 
     def test_with_unit_adds_to_registry(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         length = s.dimensions["length"]
         # Use a name guaranteed not to clash with existing units.
@@ -406,7 +401,6 @@ class TestWithUnit(unittest.TestCase):
         self.assertIs(out, s)
 
     def test_with_unit_conflict_raises(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         meter = s.units["meter"]
         clashing = _Unit(
@@ -421,7 +415,6 @@ class TestWithUnit(unittest.TestCase):
 class TestWithConversion(unittest.TestCase):
 
     def test_with_conversion_registers_edge(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         length = s.dimensions["length"]
         a = _Unit(name="ucon_test_a", dimension=length, aliases=())
@@ -515,7 +508,6 @@ class TestExtendConversionEdgeConflict(unittest.TestCase):
     """
 
     def _conflicting_pair(self):
-        from ucon.core import Unit as _Unit
         s = _active()
         length = s.dimensions["length"]
         a = _Unit(name="ucon_edge_a", dimension=length, aliases=())
@@ -568,7 +560,6 @@ class TestWithBasisGraph(unittest.TestCase):
         self.assertIs(s.with_basis_graph(s.basis_graph), s)
 
     def test_with_basis_graph_different_returns_new_system(self):
-        from ucon.basis import BasisGraph
         s = _active()
         other_graph = BasisGraph()
         out = s.with_basis_graph(other_graph)

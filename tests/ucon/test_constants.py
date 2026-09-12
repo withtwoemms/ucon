@@ -9,6 +9,10 @@ import pytest
 
 from ucon import Constant, Number, units, constants
 from ucon.dimension import Dimension
+from ucon import Constant
+from ucon import constants
+from ucon.constants import all_constants
+from ucon.constants import get_constant_by_symbol
 
 
 class TestConstantClass:
@@ -392,14 +396,12 @@ class TestConstantEnumeration:
 
     def test_all_constants_returns_26(self):
         """all_constants() returns list of 26 constants."""
-        from ucon.constants import all_constants
         result = all_constants()
         assert len(result) == 26
         assert all(isinstance(c, Constant) for c in result)
 
     def test_all_constants_categories(self):
         """all_constants() includes all three categories."""
-        from ucon.constants import all_constants
         cats = {c.category for c in all_constants()}
         assert "exact" in cats
         assert "derived" in cats
@@ -407,39 +409,33 @@ class TestConstantEnumeration:
 
     def test_get_constant_by_symbol_direct(self):
         """get_constant_by_symbol() finds by direct symbol."""
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("c")
         assert c is not None
         assert c.name == "speed of light in vacuum"
 
     def test_get_constant_by_symbol_unicode_alias(self):
         """get_constant_by_symbol() finds via unicode alias map."""
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("k_B")
         assert c is not None
         assert c.symbol == "k"
 
     def test_get_constant_by_symbol_ascii_alias(self):
         """get_constant_by_symbol() finds via ASCII alias map."""
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("hbar")
         assert c is not None
         assert c.symbol == "\u210f"
 
     def test_get_constant_by_symbol_not_found(self):
         """get_constant_by_symbol() returns None for unknown."""
-        from ucon.constants import get_constant_by_symbol
         assert get_constant_by_symbol("NONEXISTENT") is None
 
     def test_get_constant_by_symbol_all_unicode(self):
         """All documented unicode aliases resolve."""
-        from ucon.constants import get_constant_by_symbol
         for sym in ['c', 'h', 'e', 'G', 'R', 'NA', 'N_A', 'k']:
             assert get_constant_by_symbol(sym) is not None, f"Failed for {sym!r}"
 
     def test_get_constant_by_symbol_all_ascii(self):
         """All documented ASCII aliases resolve."""
-        from ucon.constants import get_constant_by_symbol
         for sym in ['hbar', 'alpha', 'epsilon_0', 'mu_0', 'm_e', 'm_p', 'm_n']:
             assert get_constant_by_symbol(sym) is not None, f"Failed for {sym!r}"
 
@@ -483,11 +479,9 @@ class TestModuleExports:
 
     def test_constant_exported_from_ucon(self):
         """Constant class is exported from ucon."""
-        from ucon import Constant
         assert Constant is not None
 
     def test_constants_module_exported(self):
         """constants module is exported from ucon."""
-        from ucon import constants
         assert constants is not None
         assert hasattr(constants, 'speed_of_light')

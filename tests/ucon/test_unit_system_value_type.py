@@ -25,6 +25,37 @@ from ucon.system import (
     active_system,
     use,
 )
+from ucon import Dimension as Dim
+from ucon import Dimension, units as _units_module
+from ucon.basis.builtin import SI
+from ucon.basis.graph import BasisGraph
+from ucon.basis.ops import unify
+from ucon.basis.transforms import BasisTransform
+from ucon.basis.types import Basis
+from ucon.basis.types import Basis, BasisComponent
+from ucon.basis.types import Basis, BasisComponent, BasisMismatch
+from ucon.checking import enforce_dimensions
+from ucon.core import DimensionConstraint, Number
+from ucon.core import Number, Unit
+from ucon.core import Unit
+from ucon.core import Unit, UnitProduct
+from ucon.core import UnitProduct
+from ucon.dimension import Dimension
+from ucon.dimension import Dimension as Dim
+from ucon.graph import ConversionGraph
+from ucon.parsing.dimensions import parse_dimension
+from ucon.parsing.quantity import parse
+from ucon.resolver import parse_unit
+from ucon.system import BaseUnits as BU  # noqa: F401
+from ucon.system import UnitSystem
+from ucon.system import UnitSystem as US  # noqa: F401
+from ucon.system import active as a, use as u  # noqa: F401
+from ucon.system import use
+from ucon.units import kelvin, meter
+from ucon.units import meter
+from ucon.units import meter as real_meter
+from ucon.units import meter, second
+from ucon.units import second
 
 
 class TestAlgebraCache(unittest.TestCase):
@@ -123,15 +154,12 @@ class TestActiveAndUse(unittest.TestCase):
 
 class TestPublicSurface(unittest.TestCase):
     def test_baseunits_importable_from_ucon_system(self):
-        from ucon.system import BaseUnits as BU  # noqa: F401
         self.assertIs(BU, BaseUnits)
 
     def test_unitsystem_importable_from_ucon_system(self):
-        from ucon.system import UnitSystem as US  # noqa: F401
         self.assertIs(US, UnitSystem)
 
     def test_use_and_active_importable_from_ucon_system(self):
-        from ucon.system import active as a, use as u  # noqa: F401
         self.assertTrue(callable(a))
         self.assertTrue(callable(u))
 
@@ -162,7 +190,6 @@ class TestUnitSystemDifferentialEquality(unittest.TestCase):
         self.assertIs(s.__eq__(None), NotImplemented)
 
     def test_different_base_units_not_equal(self):
-        from ucon import Dimension, units as _units_module
         s = active_system()
         twin = self._twin(
             s,
@@ -173,7 +200,6 @@ class TestUnitSystemDifferentialEquality(unittest.TestCase):
         self.assertNotEqual(s, twin)
 
     def test_different_basis_not_equal(self):
-        from ucon.basis.types import Basis
         s = active_system()
         twin = self._twin(s, basis=Basis("Synthetic", ["x", "y"]))
         self.assertNotEqual(s, twin)
@@ -278,7 +304,6 @@ class TestBaseUnitsHashOrderStability(unittest.TestCase):
     """``BaseUnits.__hash__`` must be invariant under bases insertion order."""
 
     def test_hash_independent_of_insertion_order(self):
-        from ucon import Dimension, units as _units_module
         s1 = BaseUnits(name="X", bases={
             Dimension.length: _units_module.meter,
             Dimension.mass: _units_module.kilogram,
@@ -303,7 +328,6 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
     """
 
     def test_number_to_accepts_system_kwarg(self):
-        from ucon.units import meter
         system = active_system()
         result = meter(100).to("km", system=system)
         self.assertAlmostEqual(result.quantity, 0.1)
@@ -313,16 +337,12 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         # takes precedence. We verify this by passing a "wrong" graph
         # via graph= and observing the conversion still succeeds via
         # system.conversion_graph.
-        from ucon.graph import ConversionGraph
-        from ucon.units import meter
         bogus_graph = ConversionGraph()  # empty, would fail conversion
         system = active_system()
         result = meter(100).to("km", graph=bogus_graph, system=system)
         self.assertAlmostEqual(result.quantity, 0.1)
 
     def test_parse_unit_accepts_system_kwarg(self):
-        from ucon.resolver import parse_unit
-        from ucon.core import Unit
         system = active_system()
         unit = parse_unit("meter", system=system)
         self.assertIsInstance(unit, Unit)
@@ -330,8 +350,6 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
     def test_parse_unit_system_override_short_circuits(self):
         # If system.units has a direct entry for the name, parse_unit
         # returns that without consulting the global registry.
-        from ucon.resolver import parse_unit
-        from ucon.units import meter as real_meter
         # Build a minimal custom system: only "widget" is in units.
         # Because parse_unit consults system.units first, "widget"
         # resolves; bare "meter" still falls through to the global
@@ -345,7 +363,6 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         # When system.units does not have the name, parse_unit falls
         # back to the global registry so prefix decomposition still
         # works.
-        from ucon.resolver import parse_unit
         class _EmptySystem:
             units = {}
         result = parse_unit("km", system=_EmptySystem())
@@ -354,22 +371,17 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         self.assertIsNotNone(result)
 
     def test_parse_quantity_threads_system(self):
-        from ucon.parsing.quantity import parse
         system = active_system()
         n = parse("60 mph", system=system)
         self.assertEqual(n.quantity, 60.0)
 
     def test_parse_dimension_accepts_system_kwarg(self):
-        from ucon.parsing.dimensions import parse_dimension
-        from ucon.dimension import Dimension as Dim
         system = active_system()
         result = parse_dimension("length", system=system)
         self.assertEqual(result, Dim.length)
 
     def test_parse_dimension_system_overrides_basis(self):
         # When basis= is omitted, system.basis is used as the default.
-        from ucon.parsing.dimensions import parse_dimension
-        from ucon.basis.builtin import SI
         system = active_system()
         # SI basis is the default; verify "M" parses against system.basis.
         self.assertEqual(system.basis, SI)
@@ -379,10 +391,6 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
     def test_enforce_dimensions_factory_form(self):
         # @enforce_dimensions(system=sys) returns a decorator that
         # validates and coerces against the supplied system.
-        from ucon import Dimension as Dim
-        from ucon.checking import enforce_dimensions
-        from ucon.core import DimensionConstraint, Number
-        from ucon.units import meter, second
 
         system = active_system()
 
@@ -397,10 +405,6 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
         self.assertIsNotNone(result)
 
     def test_enforce_dimensions_factory_rejects_wrong_dim(self):
-        from ucon import Dimension as Dim
-        from ucon.checking import enforce_dimensions
-        from ucon.core import DimensionConstraint, Number
-        from ucon.units import meter, second
 
         system = active_system()
 
@@ -417,10 +421,6 @@ class TestUnitSystemEntryPointKwargs(unittest.TestCase):
     def test_enforce_dimensions_bare_form_still_works(self):
         # Backward-compatibility: @enforce_dimensions (no parens) is
         # the legacy form. It must continue to function.
-        from ucon import Dimension as Dim
-        from ucon.checking import enforce_dimensions
-        from ucon.core import DimensionConstraint, Number
-        from ucon.units import meter, second
 
         @enforce_dimensions
         def speed(
@@ -445,9 +445,6 @@ class TestCompoundParserSystemRouting(unittest.TestCase):
     def test_composite_resolves_via_system_units(self):
         # A composite expression "widget/widget2" resolves entirely from
         # system.units, even though neither name is in the global registry.
-        from ucon.core import Unit, UnitProduct
-        from ucon.resolver import parse_unit
-        from ucon.units import meter, second
 
         class _CurrencyLikeSystem:
             # Stand-ins: pretend `meter`-shaped unit acts as "widget"
@@ -466,9 +463,6 @@ class TestCompoundParserSystemRouting(unittest.TestCase):
     def test_composite_mixes_system_and_global_factors(self):
         # When system.units provides one factor and the other is in the
         # global registry, both should resolve.
-        from ucon.core import UnitProduct
-        from ucon.resolver import parse_unit
-        from ucon.units import meter
 
         class _PartialSystem:
             units = {"widget": meter}
@@ -480,8 +474,6 @@ class TestCompoundParserSystemRouting(unittest.TestCase):
     def test_composite_falls_back_when_system_empty(self):
         # If system.units is empty, composite parsing falls through to
         # the global registry exactly as it does without ``system=``.
-        from ucon.core import UnitProduct
-        from ucon.resolver import parse_unit
 
         class _EmptySystem:
             units = {}
@@ -492,8 +484,6 @@ class TestCompoundParserSystemRouting(unittest.TestCase):
     def test_composite_without_system_still_works(self):
         # Backward-compatibility: parse_unit("m/s") with no system= must
         # still resolve via the global registry.
-        from ucon.core import UnitProduct
-        from ucon.resolver import parse_unit
 
         result = parse_unit("m/s")
         self.assertIsInstance(result, UnitProduct)
@@ -501,8 +491,6 @@ class TestCompoundParserSystemRouting(unittest.TestCase):
     def test_system_factor_wins_over_global(self):
         # When a token exists in both ``system.units`` and the global
         # registry, ``system.units`` takes precedence at the factor level.
-        from ucon.resolver import parse_unit
-        from ucon.units import kelvin, meter
 
         class _ShadowingSystem:
             # Map "m" to ``kelvin`` — a deliberately wrong global meaning
@@ -520,9 +508,6 @@ class TestCompoundParserSystemRouting(unittest.TestCase):
     def test_composite_with_exponent_threads_system(self):
         # Exponents inside composites: ensure system.units lookups still
         # work for tokens that carry exponents.
-        from ucon.core import UnitProduct
-        from ucon.resolver import parse_unit
-        from ucon.units import meter, second
 
         class _Sys:
             units = {"widget": meter, "widget2": second}
@@ -550,11 +535,6 @@ class TestCrossBasisArithmetic(unittest.TestCase):
 
         import numpy as np
 
-        from ucon.basis.builtin import SI
-        from ucon.basis.graph import BasisGraph
-        from ucon.basis.transforms import BasisTransform
-        from ucon.basis.types import Basis, BasisComponent
-        from ucon.system import UnitSystem
 
         si_components = tuple(SI)
         combined = Basis(
@@ -588,13 +568,10 @@ class TestCrossBasisArithmetic(unittest.TestCase):
     def test_unify_via_common_combined_basis(self):
         # 3-way unification: vectors in disjoint bases meet in a common
         # combined basis when no direct path exists.
-        from ucon.basis.ops import unify
-        from ucon.dimension import Dimension
 
         sys, currency, combined = self._build_combined_currency_si_system()
         usd_dim = Dimension.from_components(currency, currency=1)
 
-        from ucon.dimension import Dimension as Dim
         currency_vec = usd_dim.vector
         time_vec = Dim.time.vector
 
@@ -605,10 +582,6 @@ class TestCrossBasisArithmetic(unittest.TestCase):
     def test_cross_basis_number_multiply_inside_use(self):
         # The headline acceptance gate: USD * second succeeds inside
         # ``with use(sys):`` when sys.basis_graph embeds both bases.
-        from ucon.core import Number, Unit
-        from ucon.dimension import Dimension
-        from ucon.system import use
-        from ucon.units import second
 
         sys, currency, combined = self._build_combined_currency_si_system()
         usd_dim = Dimension.from_components(currency, currency=1)
@@ -625,10 +598,6 @@ class TestCrossBasisArithmetic(unittest.TestCase):
     def test_cross_basis_number_multiply_outside_use_still_raises(self):
         # When the active system's basis_graph has no transform for the
         # domain basis, cross-basis multiply must still raise.
-        from ucon.basis.types import Basis, BasisComponent, BasisMismatch
-        from ucon.core import Number, Unit
-        from ucon.dimension import Dimension
-        from ucon.units import second
 
         # Use a unique basis name to avoid hits on the algebra cache
         # populated by earlier tests (e.g. test_cross_basis_number_multiply_inside_use).

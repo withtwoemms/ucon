@@ -14,6 +14,7 @@ import pytest
 
 from ucon import units
 from ucon.maps import LogMap, ExpMap
+from ucon.core import Scale
 
 
 class TestLogMapReference:
@@ -161,7 +162,6 @@ class TestLogarithmicConversions:
 
     def test_milliwatt_to_dbm_via_watt(self):
         """1 mW = 0 dBm (via watt conversion)"""
-        from ucon.core import Scale
         # milliwatt = gram with milli scale, but we need to use watt with milli scale
         milliwatt = units.watt(1e-3)  # 1 mW as 0.001 W
         dbm = milliwatt.to(units.decibel_milliwatt)

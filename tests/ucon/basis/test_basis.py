@@ -11,6 +11,9 @@ from ucon.basis import Basis, BasisComponent, BasisTransform, Vector
 from ucon.basis import ops
 from ucon.basis.graph import BasisGraph
 from ucon.system import active_system, use
+from ucon.basis import BasisGraph
+from ucon.basis import BasisGraph, NoTransformPath
+from ucon.basis import LossyProjection
 
 
 # -----------------------------------------------------------------------------
@@ -469,7 +472,6 @@ class TestVectorCrossBasisArithmetic:
     @pytest.fixture
     def graph_with_embedding(self, si_to_economic):
         """A BasisGraph carrying only the SI -> economic embedding."""
-        from ucon.basis.graph import BasisGraph
         graph = BasisGraph()
         graph.add_transform(si_to_economic)
         return graph
@@ -670,7 +672,6 @@ class TestBasisTransform:
 
     def test_lossy_projection_raises(self, si_basis, si_to_cgs):
         """GIVEN a vector with non-zero dropped component, THEN LossyProjection raised."""
-        from ucon.basis import LossyProjection
 
         # SI current: I^1
         si_current = Vector(si_basis, (Fraction(0), Fraction(0), Fraction(0), Fraction(1)))
@@ -997,14 +998,12 @@ class TestBasisGraph:
 
     def test_empty_graph(self):
         """GIVEN a new graph, THEN it has no transforms."""
-        from ucon.basis import BasisGraph
 
         graph = BasisGraph()
         assert "0 bases" in repr(graph)
 
     def test_add_transform(self, si_basis, cgs_basis, si_to_cgs):
         """GIVEN a transform, THEN it is registered."""
-        from ucon.basis import BasisGraph
 
         graph = BasisGraph()
         graph.add_transform(si_to_cgs)
@@ -1014,7 +1013,6 @@ class TestBasisGraph:
 
     def test_get_transform_identity(self, si_basis):
         """GIVEN same source and target, THEN identity returned."""
-        from ucon.basis import BasisGraph
 
         graph = BasisGraph()
         transform = graph.get_transform(si_basis, si_basis)
@@ -1023,7 +1021,6 @@ class TestBasisGraph:
 
     def test_get_transform_no_path(self, si_basis, game_basis):
         """GIVEN no path between bases, THEN NoTransformPath raised."""
-        from ucon.basis import BasisGraph, NoTransformPath
 
         graph = BasisGraph()
 
@@ -1038,7 +1035,6 @@ class TestBasisGraph:
         self, si_basis, cgs_basis, cgs_esu_basis, si_to_cgs, cgs_to_cgs_esu
     ):
         """GIVEN SI->CGS and CGS->CGS-ESU, THEN SI->CGS-ESU is composed."""
-        from ucon.basis import BasisGraph
 
         graph = BasisGraph()
         graph.add_transform(si_to_cgs)
@@ -1059,7 +1055,6 @@ class TestBasisGraph:
 
     def test_caching(self, si_basis, cgs_basis, cgs_esu_basis, si_to_cgs, cgs_to_cgs_esu):
         """GIVEN transitive path, THEN composed transform is cached."""
-        from ucon.basis import BasisGraph
 
         graph = BasisGraph()
         graph.add_transform(si_to_cgs)
@@ -1072,7 +1067,6 @@ class TestBasisGraph:
 
     def test_cache_invalidation(self, si_basis, cgs_basis, si_to_cgs):
         """GIVEN a cached transform, WHEN new transform added, THEN cache cleared."""
-        from ucon.basis import BasisGraph
 
         graph = BasisGraph()
         graph.add_transform(si_to_cgs)
@@ -1088,7 +1082,6 @@ class TestBasisGraph:
 
     def test_are_connected(self, si_basis, cgs_basis, game_basis, si_to_cgs):
         """GIVEN a graph, THEN are_connected returns correct results."""
-        from ucon.basis import BasisGraph
 
         graph = BasisGraph()
         graph.add_transform(si_to_cgs)
@@ -1101,7 +1094,6 @@ class TestBasisGraph:
         self, si_basis, cgs_basis, cgs_esu_basis, game_basis, si_to_cgs, cgs_to_cgs_esu
     ):
         """GIVEN a graph, THEN reachable_from returns all connected bases."""
-        from ucon.basis import BasisGraph
 
         graph = BasisGraph()
         graph.add_transform(si_to_cgs)
@@ -1116,7 +1108,6 @@ class TestBasisGraph:
 
     def test_with_transform(self, si_basis, cgs_basis, game_basis, si_to_cgs):
         """GIVEN a graph, THEN with_transform returns new graph (copy-on-extend)."""
-        from ucon.basis import BasisGraph
 
         base_graph = BasisGraph()
         base_graph.add_transform(si_to_cgs)
@@ -1142,7 +1133,6 @@ class TestBasisGraph:
 
     def test_add_transform_pair(self, cgs_basis):
         """GIVEN forward and reverse transforms, THEN both registered."""
-        from ucon.basis import BasisGraph
 
         graph = BasisGraph()
 
