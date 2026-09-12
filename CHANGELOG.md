@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **v2.2.0 delivers the aspect stratum; package infrastructure moves
+  to v2.3.0.** Release reassignment per
+  [decisions/008](docs/internal/decisions/008-aspect-stratum.md) and
+  [ROADMAP.md](ROADMAP.md). The never-exported flat `AspectSet` model
+  will be removed outright with the stratum's arrival (it was never
+  public: no aspect symbol has ever shipped through
+  `ucon/__init__.py`).
+
 ### Documentation
 
 - **Internal design records landed in-repo.** ADRs 008 (aspect
