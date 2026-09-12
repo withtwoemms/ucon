@@ -26,6 +26,7 @@ from ucon import (
     UnitDef,
     UnitPackage,
 )
+from ucon.aspects import AspectError
 from ucon.graph import ConversionGraph
 from ucon.maps import AffineMap, ExpMap, LinearMap, LogMap, ReciprocalMap
 from ucon.constants import Constant
@@ -395,6 +396,154 @@ class TestWithPackage(unittest.TestCase):
             meter = parse_unit('m')
             m = graph.convert(src=nmi, dst=meter)
             self.assertAlmostEqual(m(1), 1852, places=0)
+
+
+class TestPackageNamespacing(unittest.TestCase):
+    """D3 full qualification for package vocabularies (#285).
+
+    ``namespace = "pkg"`` in ``[package]`` qualifies every declared
+    kind and aspect (aliases included) at load; two packages sharing
+    an unqualified vocabulary therefore compose without collision —
+    the load-bearing case #285 tracks.
+    """
+
+    RADSAFE = '''
+[package]
+name = "radsafe"
+namespace = "radsafe"
+
+[[kinds]]
+name = "dose"
+dimension = "L²/T²"
+aliases = ["H"]
+
+[[kinds]]
+name = "ambient_dose"
+dimension = "L²/T²"
+parent = "dose"
+
+[[aspects]]
+name = "weighting_standard"
+applies_to = ["dose"]
+
+[[aspects]]
+name = "icrp103"
+parent = "weighting_standard"
+
+[[constants]]
+symbol = "H_ref"
+name = "reference dose"
+value = 1.0
+unit = "joule"
+kind = "dose"
+'''
+
+    PHARMA = '''
+[package]
+name = "pharma"
+namespace = "pharma"
+
+[[kinds]]
+name = "dose"
+dimension = "M"
+aliases = ["H"]
+
+[[aspects]]
+name = "weighting_standard"
+'''
+
+    @staticmethod
+    def _load(toml_content):
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.toml', delete=False
+        ) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            return load_package(path)
+        finally:
+            path.unlink()
+
+    def test_kinds_qualified_aliases_included(self):
+        pkg = self._load(self.RADSAFE)
+        self.assertEqual(
+            set(pkg.kinds.names()),
+            {'radsafe:dose', 'radsafe:ambient_dose'},
+        )
+        # aliases qualify too — an unqualified alias would collide
+        # across packages exactly the way an unqualified name would
+        self.assertIn('radsafe:H', pkg.kinds)
+        self.assertEqual(pkg.kinds.get('radsafe:H').name, 'radsafe:dose')
+        self.assertEqual(
+            pkg.kinds.get('radsafe:ambient_dose').parent.name,
+            'radsafe:dose',
+        )
+
+    def test_aspects_qualified_with_applies_to(self):
+        pkg = self._load(self.RADSAFE)
+        self.assertIn('radsafe:weighting_standard', pkg.aspects)
+        icrp = pkg.aspects.get('radsafe:icrp103')
+        self.assertEqual(icrp.parent.name, 'radsafe:weighting_standard')
+        self.assertEqual(
+            pkg.aspects.get('radsafe:weighting_standard').applies_to,
+            frozenset({'radsafe:dose'}),
+        )
+
+    def test_constant_kind_reference_qualified(self):
+        pkg = self._load(self.RADSAFE)
+        self.assertEqual(pkg.constants[0].kind, 'radsafe:dose')
+
+    def test_invalid_namespace_raises_package_load_error(self):
+        bad = '[package]\nname = "x"\nnamespace = "a:b"\n'
+        with self.assertRaises(PackageLoadError) as ctx:
+            self._load(bad)
+        self.assertIn('namespace', str(ctx.exception))
+
+    def test_invalid_aspects_raise_package_load_error(self):
+        bad = '''
+[package]
+name = "x"
+
+[[aspects]]
+name = "child"
+parent = "ghost"
+'''
+        with self.assertRaises(PackageLoadError) as ctx:
+            self._load(bad)
+        self.assertIn('[[aspects]]', str(ctx.exception))
+
+    def test_same_vocabulary_packages_compose(self):
+        """The #285 payoff: radsafe:dose (specific energy) and
+        pharma:dose (mass) — plus their shared alias 'H' — coexist
+        because qualification separates them in the flat index."""
+        radsafe = self._load(self.RADSAFE)
+        pharma = self._load(self.PHARMA)
+        graph = get_default_graph().with_package(radsafe).with_package(pharma)
+        self.assertIn('radsafe:dose', graph._kind_lattice)
+        self.assertIn('pharma:dose', graph._kind_lattice)
+        self.assertIn('radsafe:H', graph._kind_lattice)
+        self.assertIn('pharma:H', graph._kind_lattice)
+        self.assertIn('radsafe:weighting_standard', graph._aspect_forest)
+        self.assertIn('pharma:weighting_standard', graph._aspect_forest)
+
+    def test_with_package_aspects_do_not_mutate_original(self):
+        pkg = self._load(self.RADSAFE)
+        base = get_default_graph()
+        base_forest = base._aspect_forest
+        extended = base.with_package(pkg)
+        self.assertIn('radsafe:icrp103', extended._aspect_forest)
+        self.assertIs(base._aspect_forest, base_forest)
+
+    def test_unqualified_aspect_collision_is_loud(self):
+        """Without namespaces, same-named aspect declarations refuse at
+        composition — no silent override. (Kinds are omitted here; the
+        kind layer raises its own collision first when present.)"""
+        template = '[package]\nname = "{n}"\n\n[[aspects]]\nname = "weighting_standard"\n'
+        a = self._load(template.format(n='a'))
+        b = self._load(template.format(n='b'))
+        with self.assertRaises(AspectError):
+            get_default_graph().with_package(a).with_package(b)
 
 
 class TestParseFactorEdgeCases(unittest.TestCase):

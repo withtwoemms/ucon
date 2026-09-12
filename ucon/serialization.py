@@ -52,6 +52,7 @@ from ucon.kinds.exceptions import KindNotFound
 from ucon.parsing.aspects import parse_aspects_payload
 from ucon.parsing.formulas import parse_formulas_payload
 from ucon.parsing.kinds import parse_kinds_payload
+from ucon.parsing.namespaces import rewrite_namespace
 from ucon.maps import (
     AffineMap,
     LinearMap,
@@ -817,6 +818,11 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
         doc = tomllib.load(f)
 
     _check_format_version(doc)
+
+    # Apply the namespace rewriter (no-op without package.namespace) so
+    # hand-authored files may use the shorthand; to_toml always emits
+    # fully qualified names and never emits a namespace key.
+    doc = rewrite_namespace(doc)
 
     # 1. Build bases
     basis_map: dict[str, Basis] = {}

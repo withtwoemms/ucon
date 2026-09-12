@@ -2945,6 +2945,32 @@ class TestAspectsSerialization:
         restored.to_toml(second)   # forest comes from graph._aspect_forest
         assert _collect_aspects(restored, None) == _collect_aspects(None, forest)
 
+    def test_from_toml_applies_namespace_shorthand(self, tmp_path):
+        """A hand-authored file may declare package.namespace; from_toml
+        qualifies kinds and aspects before parsing (#285). to_toml never
+        emits the shorthand, so round-trips stay fully qualified."""
+        source = tmp_path / "shorthand.ucon.toml"
+        source.write_text(
+            '[package]\n'
+            'name = "radsafe"\n'
+            'format_version = "1.0"\n'
+            'namespace = "radsafe"\n'
+            '\n'
+            '[[kinds]]\n'
+            'name = "dose"\n'
+            'dimension = "L²/T²"\n'
+            '\n'
+            '[[aspects]]\n'
+            'name = "weighting_standard"\n'
+            'applies_to = ["dose"]\n'
+        )
+        restored = from_toml(source)
+        assert set(restored._kind_lattice.names()) == {"radsafe:dose"}
+        forest = restored._aspect_forest
+        assert "radsafe:weighting_standard" in forest
+        assert forest.get("radsafe:weighting_standard").applies_to == \
+            frozenset({"radsafe:dose"})
+
 
 class TestFormulasSerialization:
     """Tests for formula TOML round-trip (v2.1.0)."""
