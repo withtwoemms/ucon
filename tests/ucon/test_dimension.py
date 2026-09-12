@@ -5,6 +5,8 @@
 Tests for the new Dimension dataclass in ucon.dimension.
 """
 
+import pytest
+
 import unittest
 from fractions import Fraction
 
@@ -37,6 +39,7 @@ class TestDimensionConstruction(unittest.TestCase):
         force = Dimension.from_components(M=1, L=1, T=-2, name="force")
         self.assertEqual(force, Dimension.force)
 
+    @pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")
     def test_pseudo_dimension(self):
         """Test creating pseudo-dimension."""
         angle = Dimension.pseudo("angle", name="angle")

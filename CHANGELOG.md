@@ -68,6 +68,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AspectNotApplicable` via `ucon/__init__.py`. (#296, ADR 008 —
   resolution, `Number.aspects`, and TOML arrive in the same release.)
 
+### Deprecated
+
+- **Pseudo-dimensions.** `Dimension.pseudo(...)` now emits
+  `PendingDeprecationWarning` citing the migration path (declare a
+  `Kind` over the dimensionless dimension — kinds carry the semantic
+  isolation pseudo-dimensions approximate) and the removal version
+  (3.0.0, together with the TOML `tag` schema). The builtin four
+  (`angle`, `solid_angle`, `ratio`, `count`) stay silent at import
+  and retire with the schema.
+
 ### Changed
 
 - **Test suite: function-local imports hoisted to module top.** ~1,250

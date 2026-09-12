@@ -34,6 +34,7 @@ Dimension(velocity)
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import TYPE_CHECKING
@@ -328,6 +329,15 @@ class Dimension(metaclass=_DimensionMeta):
         >>> ANGLE == NONE
         False
         """
+        warnings.warn(
+            "Pseudo-dimensions are deprecated and will be removed in "
+            "ucon 3.0.0. Declare a Kind over the dimensionless "
+            "dimension instead: kinds carry the semantic isolation "
+            "pseudo-dimensions approximate, and participate in "
+            "lattice joins and formula dispatch.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
         if basis is None:
             basis = resolve_basis(fallback=SI)
         if name is None:
@@ -652,7 +662,12 @@ def _build_standard_dimensions() -> tuple[
         name: str,
         symbol: str | None = None,
     ) -> "Dimension":
-        dim = Dimension.pseudo(tag, name=name, symbol=symbol)
+        # The deprecation rung targets caller declarations; the builtin
+        # four retire with the TOML schema at 3.0.0, and warning here
+        # would fire on every `import ucon`.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PendingDeprecationWarning)
+            dim = Dimension.pseudo(tag, name=name, symbol=symbol)
         attrs[name] = dim
         return dim
 
