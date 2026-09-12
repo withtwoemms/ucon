@@ -31,7 +31,7 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
-from typing import TYPE_CHECKING, Dict, Iterator, Tuple, Union, Any
+from typing import TYPE_CHECKING, Any, Dict, FrozenSet, Iterator, Tuple, Union
 
 if sys.version_info >= (3, 9):
     from typing import Annotated
@@ -39,6 +39,8 @@ else:
     from typing_extensions import Annotated  # type: ignore[assignment]
 
 from ucon._active import _active as _sys_active_var
+from ucon.aspects.exceptions import AspectNotApplicable
+from ucon.aspects.types import Aspect
 from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
 from ucon.core.exceptions import KindDimensionMismatch, KindMismatch, UnitDefinitionMismatch
@@ -1533,12 +1535,26 @@ class Number:
     unit: Union[Unit, UnitProduct] = None
     uncertainty: Union[float, None] = None
     kind: Union[Kind, None] = None
+    aspects: FrozenSet[Aspect] = frozenset()
 
     def __post_init__(self):
         if self.unit is None:
             object.__setattr__(self, 'unit', UnitProduct({}))
         if self.kind is not None and self.kind.dimension != self.unit.dimension:
             raise KindDimensionMismatch(kind=self.kind, unit=self.unit)
+        if not isinstance(self.aspects, frozenset):
+            object.__setattr__(self, 'aspects', frozenset(self.aspects))
+        # applies_to is an attachment invariant (ADR 008 §5): the one
+        # sanctioned construction-time kind-read. A family restricted to
+        # specific kinds refuses attachment to any other kind — and to
+        # unkinded Numbers; only wildcard ("*") or unrestricted families
+        # attach kind-independently.
+        for _aspect in self.aspects:
+            _family = _aspect.root
+            _allowed = _family.applies_to
+            if _allowed and "*" not in _allowed:
+                if self.kind is None or self.kind.name not in _allowed:
+                    raise AspectNotApplicable(family=_family, kind=self.kind)
 
     def __class_getitem__(cls, key):
         """Enable ``Number[Dimension]``, ``Number[Kind]``, and
@@ -2379,6 +2395,8 @@ class Number:
             parts.append(sh)
         if self.kind is not None:
             parts.append(f"[{self.kind.name}]")
+        for _name in sorted(a.name for a in self.aspects):
+            parts.append(f"#{_name}")
         return f"<{' '.join(parts)}>"
 
 

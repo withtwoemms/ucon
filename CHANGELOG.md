@@ -22,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Number.aspects`** — additive `frozenset[Aspect]` field, default
+  empty; `Number.kind` and every existing idiom untouched. `applies_to`
+  is enforced at construction (the one sanctioned kind-read in the
+  aspect layer): a restricted family refuses attachment to the wrong
+  kind — or to an unkinded Number — at the moment the claim is made;
+  wildcard (`"*"`) and unrestricted families attach kind-independently.
+  `repr` gains sorted `#aspect` tokens.
 - **`AspectForest`** — family-grouped aspect trees, each family running
   on a private, mirrored kind-lattice engine (the engine untouched;
   the vetted isomorphism preserved by construction). Root-as-⊤ turns
