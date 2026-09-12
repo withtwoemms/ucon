@@ -14,6 +14,7 @@ These tests verify that Number.to() works correctly with the default graph for:
 import unittest
 
 from ucon import units
+from ucon.core import Scale
 
 
 class TestTemperatureConversions(unittest.TestCase):
@@ -377,7 +378,6 @@ class TestInformationConversions(unittest.TestCase):
 
     def test_kilobyte_to_bit(self):
         """1 KB = 8000 b (using Scale.kilo)"""
-        from ucon.core import Scale
         kilobyte = Scale.kilo * units.byte
         result = kilobyte(1).to(units.bit)
         self.assertAlmostEqual(result.quantity, 8000, places=0)

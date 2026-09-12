@@ -16,6 +16,7 @@ from ucon.basis import Vector
 from ucon.core import UnitFactor, UnitProduct, _ScaleDescriptor
 from ucon.dimension import all_dimensions, resolve, SI
 from fractions import Fraction
+from ucon.basis.builtin import SI
 
 
 class TestDimension(unittest.TestCase):
@@ -24,7 +25,6 @@ class TestDimension(unittest.TestCase):
         # Group non-pseudo dimensions by basis and verify uniqueness within
         # each SI partition. CGS-ESU legitimately has degenerate dimensions
         # (e.g., charge and magnetic flux share the same vector).
-        from ucon.basis.builtin import SI
         seen = set()
         for dim in all_dimensions():
             if dim.is_pseudo:
@@ -269,7 +269,6 @@ class TestDimensionEdgeCases(unittest.TestCase):
         # Hashes should be unique per distinct dimension (including pseudo-dimensions)
         # CGS-ESU has legitimate dimensional degeneracies (e.g., charge == magnetic_flux)
         # so we check uniqueness within SI only, and verify all dims are hashable.
-        from ucon.basis.builtin import SI
         dims = all_dimensions()
         # Verify each dimension can be used in a set (hashable)
         dim_set = set(dims)

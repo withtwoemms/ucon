@@ -28,6 +28,13 @@ from ucon import (
 )
 from ucon.graph import ConversionGraph
 from ucon.maps import AffineMap, ExpMap, LinearMap, LogMap, ReciprocalMap
+from ucon.constants import Constant
+from ucon.dimension import ENERGY
+from ucon.kinds import Kind, KindLattice
+from ucon.packages import ConstantDef
+from ucon.packages import _build_map
+from ucon.packages import _parse_factor
+import ucon as ucon_pkg
 
 
 class TestUnitDef(unittest.TestCase):
@@ -395,53 +402,44 @@ class TestParseFactorEdgeCases(unittest.TestCase):
 
     def test_parse_factor_int(self):
         """_parse_factor handles plain int."""
-        from ucon.packages import _parse_factor
         self.assertEqual(_parse_factor(42), 42.0)
 
     def test_parse_factor_float(self):
         """_parse_factor handles plain float."""
-        from ucon.packages import _parse_factor
         self.assertEqual(_parse_factor(3.14), 3.14)
 
     def test_parse_factor_expression_division(self):
         """_parse_factor handles division expression."""
-        from ucon.packages import _parse_factor
         result = _parse_factor("1852 / 3600")
         self.assertAlmostEqual(result, 1852 / 3600)
 
     def test_parse_factor_expression_multiplication(self):
         """_parse_factor handles multiplication expression."""
-        from ucon.packages import _parse_factor
         result = _parse_factor("2 * 3")
         self.assertEqual(result, 6.0)
 
     def test_parse_factor_unary_negation(self):
         """_parse_factor handles unary negation: '-1.5'."""
-        from ucon.packages import _parse_factor
         result = _parse_factor("-1.5")
         self.assertEqual(result, -1.5)
 
     def test_parse_factor_invalid_type_raises(self):
         """_parse_factor raises for non-numeric non-string."""
-        from ucon.packages import _parse_factor
         with self.assertRaises(PackageLoadError):
             _parse_factor([1, 2, 3])
 
     def test_parse_factor_unsupported_op_raises(self):
         """_parse_factor raises for unsupported operator (addition)."""
-        from ucon.packages import _parse_factor
         with self.assertRaises(PackageLoadError):
             _parse_factor("1 + 2")
 
     def test_parse_factor_syntax_error_raises(self):
         """_parse_factor raises for unparseable string."""
-        from ucon.packages import _parse_factor
         with self.assertRaises(PackageLoadError):
             _parse_factor("not a number @#$")
 
     def test_parse_factor_variable_name_raises(self):
         """_parse_factor raises for variable names."""
-        from ucon.packages import _parse_factor
         with self.assertRaises(PackageLoadError):
             _parse_factor("x * y")
 
@@ -458,28 +456,23 @@ class TestConstantFactors(unittest.TestCase):
 
     def test_bare_symbol(self):
         """A factor that is exactly a declared symbol resolves."""
-        from ucon.packages import _parse_factor
         self.assertEqual(_parse_factor("gₙ", self.CONSTANTS), 9.80665)
 
     def test_symbol_in_expression(self):
         """Symbols participate in * and / expressions."""
-        from ucon.packages import _parse_factor
         self.assertAlmostEqual(_parse_factor("1 / gₙ", self.CONSTANTS), 1 / 9.80665)
         self.assertEqual(_parse_factor("c * 2", self.CONSTANTS), 2 * 299792458.0)
 
     def test_nfkc_normalization(self):
         """gₙ inside an expression reaches the AST as 'gn' and still resolves."""
-        from ucon.packages import _parse_factor
         self.assertEqual(_parse_factor("gₙ * 1000", self.CONSTANTS), 9806.65)
 
     def test_alias_resolves(self):
         """Constant aliases resolve like symbols."""
-        from ucon.packages import _parse_factor
         self.assertEqual(_parse_factor("g0", self.CONSTANTS), 9.80665)
 
     def test_non_identifier_symbol_bare_only(self):
         """μ₀ works as the entire factor string but not inside expressions."""
-        from ucon.packages import _parse_factor
         self.assertEqual(_parse_factor("μ₀", self.CONSTANTS), 1.25663706127e-06)
         with self.assertRaises(PackageLoadError) as ctx:
             _parse_factor("2 * μ₀", self.CONSTANTS)
@@ -487,7 +480,6 @@ class TestConstantFactors(unittest.TestCase):
 
     def test_unknown_symbol_names_available(self):
         """An unresolvable symbol errors, listing declared symbols."""
-        from ucon.packages import _parse_factor
         with self.assertRaises(PackageLoadError) as ctx:
             _parse_factor("k_B * 2", self.CONSTANTS)
         self.assertIn('k_B', str(ctx.exception))
@@ -495,7 +487,6 @@ class TestConstantFactors(unittest.TestCase):
 
     def test_no_constants_still_raises(self):
         """Without a constants mapping, symbols raise as before."""
-        from ucon.packages import _parse_factor
         with self.assertRaises(PackageLoadError):
             _parse_factor("gₙ")
 
@@ -540,7 +531,6 @@ factor = "gₙ"
     def test_bundled_catalog_loads(self):
         """Acceptance: ucon's own comprehensive.ucon.toml loads (#279)."""
         import os
-        import ucon as ucon_pkg
         path = os.path.join(
             os.path.dirname(ucon_pkg.__file__), 'comprehensive.ucon.toml')
         pkg = load_package(path)
@@ -718,7 +708,6 @@ class TestConstantDef(unittest.TestCase):
 
     def test_constant_def_creation(self):
         """ConstantDef can be created with valid attributes."""
-        from ucon.packages import ConstantDef
         const_def = ConstantDef(
             symbol='vs',
             name='speed of sound in dry air at 20C',
@@ -734,8 +723,6 @@ class TestConstantDef(unittest.TestCase):
 
     def test_constant_def_materialize(self):
         """ConstantDef.materialize() creates a Constant object."""
-        from ucon.packages import ConstantDef
-        from ucon.constants import Constant
         const_def = ConstantDef(
             symbol='vs',
             name='speed of sound',
@@ -753,7 +740,6 @@ class TestConstantDef(unittest.TestCase):
 
     def test_constant_def_with_uncertainty(self):
         """ConstantDef propagates uncertainty to Constant."""
-        from ucon.packages import ConstantDef
         const_def = ConstantDef(
             symbol='G_local',
             name='local gravitational acceleration',
@@ -772,7 +758,6 @@ class TestConstantDef(unittest.TestCase):
 
     def test_constant_def_unknown_unit_raises(self):
         """ConstantDef.materialize() raises for unknown unit."""
-        from ucon.packages import ConstantDef
         const_def = ConstantDef(
             symbol='x',
             name='unknown',
@@ -824,7 +809,6 @@ category = "exact"
 
     def test_with_package_materializes_constants(self):
         """with_package() materializes constants onto graph."""
-        from ucon.constants import Constant
 
         pkg = UnitPackage(
             name='test_constants',
@@ -846,7 +830,6 @@ category = "exact"
 
     def test_package_constants_accumulate(self):
         """Multiple with_package() calls accumulate constants."""
-        from ucon.packages import ConstantDef
         pkg1 = UnitPackage(
             name='pkg1',
             constants=(
@@ -928,21 +911,18 @@ class TestEdgeDefMapSpec(unittest.TestCase):
 
     def test_map_spec_unknown_type_raises(self):
         """map_spec with unknown type raises PackageLoadError."""
-        from ucon.packages import _build_map
         with self.assertRaises(PackageLoadError) as ctx:
             _build_map({'type': 'quantum'})
         self.assertIn('quantum', str(ctx.exception))
 
     def test_map_spec_missing_type_raises(self):
         """map_spec without type key raises PackageLoadError."""
-        from ucon.packages import _build_map
         with self.assertRaises(PackageLoadError) as ctx:
             _build_map({'scale': 10})
         self.assertIn('type', str(ctx.exception))
 
     def test_map_spec_invalid_params_raises(self):
         """map_spec with invalid constructor params raises PackageLoadError."""
-        from ucon.packages import _build_map
         with self.assertRaises(PackageLoadError):
             _build_map({'type': 'linear', 'nonexistent_param': 5})
 
@@ -1140,8 +1120,6 @@ parent = "energy"
 
     def test_with_package_merges_kinds_into_existing_lattice(self):
         """with_package() merges package kinds into existing graph lattice."""
-        from ucon.kinds import Kind, KindLattice
-        from ucon.dimension import ENERGY
 
         # Build a base lattice with just "energy"
         energy_kind = Kind("energy", dimension=ENERGY)
@@ -1255,7 +1233,6 @@ name = "oops"
         The fix passes the merged kind lattice to materialize() so local
         resolution succeeds.
         """
-        from ucon.packages import ConstantDef
 
         path = self._write_toml('''
 [package]

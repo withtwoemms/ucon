@@ -16,6 +16,12 @@ import unittest
 
 from ucon import units
 from ucon.quantity import Number as CoreNumber
+from ucon.core import Dimension
+from ucon.dimension import ENERGY
+from ucon.integrations.pydantic import Number
+from ucon.integrations.pydantic import Number, constrained_number
+from ucon.kinds import Kind, KindLattice
+from ucon.system import active_system, use
 
 
 class TestPydanticIntegration(unittest.TestCase):
@@ -25,7 +31,6 @@ class TestPydanticIntegration(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -79,7 +84,6 @@ class TestPydanticSerialization(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -139,7 +143,6 @@ class TestPydanticRoundtrip(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -193,7 +196,6 @@ class TestPydanticScaledUnits(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -239,7 +241,6 @@ class TestPydanticCompositeUnits(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -309,7 +310,6 @@ class TestPydanticValidationErrors(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.integrations.pydantic import Number
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -353,8 +353,6 @@ class TestPydanticDimensionConstraints(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.integrations.pydantic import Number
-            from ucon.core import Dimension
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -424,8 +422,6 @@ class TestPydanticConstrainedNumber(unittest.TestCase):
         try:
             from pydantic import BaseModel, ValidationError
             from pydantic.functional_validators import AfterValidator
-            from ucon.integrations.pydantic import Number, constrained_number
-            from ucon.core import Dimension
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number
@@ -474,8 +470,6 @@ class TestPydanticJsonSchema(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel
-            from ucon.integrations.pydantic import Number
-            from ucon.core import Dimension
             cls.BaseModel = BaseModel
             cls.Number = Number
             cls.Dimension = Dimension
@@ -504,11 +498,6 @@ class TestPydanticKindIntegration(unittest.TestCase):
     def setUpClass(cls):
         try:
             from pydantic import BaseModel, ValidationError
-            from ucon.integrations.pydantic import Number
-            from ucon.core import Dimension
-            from ucon.dimension import ENERGY
-            from ucon.kinds import Kind, KindLattice
-            from ucon.system import active_system, use
             cls.BaseModel = BaseModel
             cls.ValidationError = ValidationError
             cls.Number = Number

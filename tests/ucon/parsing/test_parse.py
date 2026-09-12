@@ -8,6 +8,7 @@ import pytest
 from ucon import parse, Number, using_conversion_graph, CGS
 from ucon.units import UnknownUnitError, meter, second, kilogram, hour, mile
 from ucon.parsing import _Tokenizer, _TokenType, ParseError
+from ucon.resolver import parse_unit
 
 
 class TestParseBasicQuantities:
@@ -250,13 +251,11 @@ class TestParserErrors:
 
     def test_number_in_unit_position_raises(self):
         """A bare number (other than 1) in unit position raises ParseError."""
-        from ucon.resolver import parse_unit
         with pytest.raises(ParseError, match="Expected unit"):
             parse_unit("5*m")
 
     def test_operator_in_unit_position_raises(self):
         """An operator at the start of an expression raises ParseError."""
-        from ucon.resolver import parse_unit
         with pytest.raises(ParseError, match="Expected unit"):
             parse_unit("*m")
 

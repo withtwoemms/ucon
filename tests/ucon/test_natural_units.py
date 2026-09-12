@@ -20,6 +20,7 @@ from ucon.basis import (
 )
 from ucon.basis.builtin import NATURAL, SI
 from ucon.basis.transforms import NATURAL_TO_SI, SI_TO_NATURAL
+from ucon.basis import BasisTransform
 
 
 # -----------------------------------------------------------------------------
@@ -431,7 +432,6 @@ class TestConstantBoundBasisTransform:
 
     def test_as_basis_transform(self):
         """GIVEN ConstantBoundBasisTransform, THEN as_basis_transform works."""
-        from ucon.basis import BasisTransform
 
         plain = SI_TO_NATURAL.as_basis_transform()
         assert isinstance(plain, BasisTransform)

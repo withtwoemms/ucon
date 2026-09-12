@@ -8,6 +8,7 @@ from ucon import units
 from ucon.core import UnitProduct, UnitFactor, Scale, Unit
 from ucon import Dimension
 from ucon.quantity import Number, Ratio
+from ucon.units import UnknownUnitError
 
 
 class TestNumber(unittest.TestCase):
@@ -652,7 +653,6 @@ class TestNumberToStringTarget(unittest.TestCase):
 
     def test_to_string_unknown_unit_raises(self):
         """Unknown string target raises UnknownUnitError."""
-        from ucon.units import UnknownUnitError
         with self.assertRaises(UnknownUnitError):
             units.meter(1).to("not_a_unit")
 

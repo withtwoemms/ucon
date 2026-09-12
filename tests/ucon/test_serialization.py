@@ -40,6 +40,63 @@ from ucon.serialization import (
     to_toml,
     from_toml,
 )
+from ucon import Dimension
+from ucon import units
+from ucon.aspects.types import AspectRule
+from ucon.basis import Basis, BasisComponent
+from ucon.basis import Basis, BasisGraph, BasisTransform
+from ucon.basis import Basis, BasisTransform
+from ucon.basis import Basis, Vector
+from ucon.basis import Vector
+from ucon.basis.builtin import SI
+from ucon.constants import Constant
+from ucon.contexts import ConversionContext, ContextEdge
+from ucon.contexts import ConversionContext, ContextEdge, using_context
+from ucon.contexts import _add_context_edge
+from ucon.conversion import ConversionGraph
+from ucon.core import RebasedUnit
+from ucon.core import RebasedUnit, Unit
+from ucon.core import Scale
+from ucon.core import Unit
+from ucon.core import UnitFactor, Scale, UnitProduct
+from ucon.dimension import Dimension
+from ucon.dimension import ENERGY
+from ucon.dimension import ENERGY, FORCE, LENGTH
+from ucon.dimension import ENERGY, NONE
+from ucon.dimension import _STANDARD_ATTRS
+from ucon.formulas import FormulaRegistry
+from ucon.formulas import FormulaRegistry, KindFormula
+from ucon.formulas import KindFormula
+from ucon.kinds import JoinPolicy, Kind
+from ucon.kinds import JoinPolicy, Kind, KindLattice
+from ucon.kinds import JoinPolicy, KindLattice
+from ucon.kinds import JoinRefused
+from ucon.kinds import Kind
+from ucon.kinds import Kind, KindLattice
+from ucon.kinds import KindLattice
+from ucon.maps import Map
+from ucon.packages import ConstantDef
+from ucon.packages import ConstantDef, PackageLoadError
+from ucon.packages import _build_map
+from ucon.packages import _build_map, PackageLoadError
+from ucon.packages import _find_map_class
+from ucon.packages import _resolve_value
+from ucon.packages import load_package
+from ucon.resolver import parse_unit
+from ucon.serialization import _collect_kinds
+from ucon.serialization import _collect_transforms
+from ucon.serialization import _collect_units
+from ucon.serialization import _dimension_to_expression
+from ucon.serialization import _serialize_formula
+from ucon.serialization import _serialize_kind
+from ucon.system import active_formulas
+from ucon.system import active_kinds
+from ucon.system import active_system, use
+from ucon.basis.transforms import (
+    BasisComponent,
+    ConstantBinding,
+    ConstantBoundBasisTransform,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +287,6 @@ class TestRoundTrip:
         graph.to_toml(path)
         restored = ConversionGraph.from_toml(path)
 
-        from ucon import units
 
         # Test meter → foot conversion
         src = units.meter
@@ -247,7 +303,6 @@ class TestRoundTrip:
         graph.to_toml(path)
         restored = ConversionGraph.from_toml(path)
 
-        from ucon import units
 
         with using_conversion_graph(restored):
             # celsius → kelvin
@@ -265,7 +320,6 @@ class TestRoundTrip:
         graph.to_toml(path)
         restored = ConversionGraph.from_toml(path)
 
-        from ucon import units
 
         with using_conversion_graph(restored):
             # watt → dBm: 10*log10(P/1mW)
@@ -281,7 +335,6 @@ class TestRoundTrip:
         graph.to_toml(path)
         restored = ConversionGraph.from_toml(path)
 
-        from ucon import units
 
         with using_conversion_graph(restored):
             # dyne → newton (CGS → SI)
@@ -310,7 +363,6 @@ class TestRoundTrip:
         the definitional decomposition.  This test asserts each unit's
         ``(prefactor, factors)`` pair is preserved bit-for-bit.
         """
-        from ucon.core import RebasedUnit
 
         def iter_units(g):
             seen: set[int] = set()
@@ -395,7 +447,6 @@ class TestRoundTrip:
 class TestPackageRoundTrip:
     def test_loaded_packages_preserved(self, tmp_path):
         """loaded_packages survives round-trip."""
-        from ucon.packages import load_package
 
         graph = get_default_graph()
         pkg = load_package("examples/units/aerospace.ucon.toml")
@@ -409,7 +460,6 @@ class TestPackageRoundTrip:
 
     def test_constant_unit_roundtrip(self, tmp_path):
         """Constant unit expressions (e.g., 'm/s') survive round-trip."""
-        from ucon.packages import load_package
 
         graph = get_default_graph()
         pkg = load_package("examples/units/aerospace.ucon.toml")
@@ -434,7 +484,6 @@ class TestPackageRoundTrip:
 class TestGraphEquality:
     def test_product_edge_equality(self):
         """__eq__ detects product edge differences."""
-        from ucon import units
         g1 = get_default_graph()
         g2 = g1.copy()
         assert g1 == g2
@@ -449,8 +498,6 @@ class TestGraphEquality:
 
     def test_equality_is_symmetric(self):
         """A == B implies B == A; extra edges in B detected from A's side."""
-        from ucon import units
-        from ucon.dimension import Dimension
 
         g1 = ConversionGraph()
         g2 = ConversionGraph()
@@ -476,8 +523,6 @@ class TestGraphEquality:
 
     def test_different_package_constants(self):
         """Graphs with different _package_constants are not equal."""
-        from ucon.constants import Constant
-        from ucon import units
 
         g1 = get_default_graph()
         g2 = g1.copy()
@@ -500,7 +545,6 @@ class TestGraphEquality:
 
     def test_cross_basis_edge_map_difference_detected(self):
         """Tampered cross-basis edge map causes inequality."""
-        from ucon.core import RebasedUnit
 
         g1 = get_default_graph()
         g2 = g1.copy()
@@ -524,8 +568,6 @@ class TestGraphEquality:
 
     def test_constant_name_difference_detected(self):
         """Constants with different name/source fields cause inequality."""
-        from ucon.constants import Constant
-        from ucon.packages import load_package
 
         g1 = get_default_graph()
         pkg = load_package("examples/units/aerospace.ucon.toml")
@@ -550,7 +592,6 @@ class TestGraphEquality:
 class TestBuildMapComposed:
     def test_composed_map_from_spec(self):
         """_build_map handles composed type."""
-        from ucon.packages import _build_map
 
         spec = {
             "type": "composed",
@@ -566,7 +607,6 @@ class TestBuildMapComposed:
 
     def test_composed_map_missing_keys(self):
         """_build_map raises on composed without outer/inner."""
-        from ucon.packages import _build_map, PackageLoadError
 
         with pytest.raises(PackageLoadError):
             _build_map({"type": "composed", "outer": {"type": "linear", "a": 1.0}})
@@ -806,8 +846,6 @@ class TestScaledProductEdges:
 
     def test_scaled_product_edge_roundtrip(self, tmp_path):
         """kilo*watt * hour → joule product edge survives export/import."""
-        from ucon import units
-        from ucon.core import UnitFactor, Scale, UnitProduct
 
         graph = get_default_graph()
         kwh = UnitProduct({
@@ -824,8 +862,6 @@ class TestScaledProductEdges:
 
     def test_product_expression_with_prefix(self):
         """parse_unit resolves 'kwatt*hour' with Scale.kilo."""
-        from ucon.core import Scale
-        from ucon.resolver import parse_unit
 
         graph = get_default_graph()
         with using_conversion_graph(graph):
@@ -849,8 +885,6 @@ class TestContextSerialization:
 
     def test_context_roundtrip(self, tmp_path):
         """Register spectroscopy context on graph, export, import, verify equality."""
-        from ucon.contexts import ConversionContext, ContextEdge
-        from ucon import units
 
         graph = get_default_graph()
 
@@ -881,8 +915,6 @@ class TestContextSerialization:
 
     def test_context_edges_in_toml(self, tmp_path):
         """Export graph with context, inspect TOML structure."""
-        from ucon.contexts import ConversionContext, ContextEdge
-        from ucon import units
 
         graph = get_default_graph()
         ctx = ConversionContext(
@@ -916,8 +948,6 @@ class TestContextSerialization:
 
     def test_context_activation_after_roundtrip(self, tmp_path):
         """Import graph with context, activate it, verify conversion works."""
-        from ucon.contexts import ConversionContext, ContextEdge, using_context
-        from ucon import units
 
         c = 299792458.0
 
@@ -944,7 +974,6 @@ class TestContextSerialization:
         with using_conversion_graph(restored):
             # Build a temporary graph with context edges applied
             extended = restored.copy()
-            from ucon.contexts import _add_context_edge
             for edge in restored_ctx.edges:
                 _add_context_edge(extended, edge)
             with using_conversion_graph(extended):
@@ -976,7 +1005,6 @@ class TestSerializeMapEdgeCases:
 
     def test_unknown_map_type_raises(self):
         """Serializing an unknown Map subclass raises TypeError (line 106)."""
-        from ucon.maps import Map
 
         class CustomMap(Map):
             def __call__(self, x): return x
@@ -992,7 +1020,6 @@ class TestSerializeMapEdgeCases:
 
     def test_unit_sort_key(self):
         """_unit_sort_key returns the unit name (line 115)."""
-        from ucon import units
         assert _unit_sort_key(units.meter) == "meter"
 
 
@@ -1003,7 +1030,6 @@ class TestSerializeMapEdgeCases:
 class TestSerializeBasisSymbol:
     def test_component_with_distinct_symbol(self):
         """BasisComponent with symbol != name emits symbol key (line 231)."""
-        from ucon.basis import Basis, BasisComponent
         b = Basis("test", [BasisComponent("length", "L")])
         d = _serialize_basis(b)
         assert d["components"][0]["name"] == "length"
@@ -1011,7 +1037,6 @@ class TestSerializeBasisSymbol:
 
     def test_component_symbol_same_as_name_omits(self):
         """BasisComponent with symbol == name omits symbol key."""
-        from ucon.basis import Basis, BasisComponent
         b = Basis("test", [BasisComponent("length", "length")])
         d = _serialize_basis(b)
         assert "symbol" not in d["components"][0]
@@ -1024,8 +1049,6 @@ class TestSerializeBasisSymbol:
 class TestSerializeConstant:
     def test_constant_with_uncertainty(self):
         """Constant with uncertainty includes uncertainty key (line 315)."""
-        from ucon.constants import Constant
-        from ucon import units
 
         c = Constant(
             symbol="G", name="gravitational constant",
@@ -1038,8 +1061,6 @@ class TestSerializeConstant:
 
     def test_constant_with_nondefault_source(self):
         """Constant with non-CODATA source includes source key (line 316→318)."""
-        from ucon.constants import Constant
-        from ucon import units
 
         c = Constant(
             symbol="k", name="custom constant",
@@ -1052,8 +1073,6 @@ class TestSerializeConstant:
 
     def test_constant_default_source_omitted(self):
         """Constant with default source 'CODATA 2022' omits source key."""
-        from ucon.constants import Constant
-        from ucon import units
 
         c = Constant(
             symbol="c", name="speed of light",
@@ -1092,8 +1111,6 @@ class TestTomlExportImportError:
 class TestCollectTransformsFromBasisGraph:
     def test_basis_graph_transforms_included(self):
         """Transforms from basis_graph._edges are included (line 434)."""
-        from ucon.serialization import _collect_transforms
-        from ucon.basis import Basis, BasisGraph, BasisTransform
         from fractions import Fraction
 
         a = Basis("A", ["x"])
@@ -1118,10 +1135,6 @@ class TestCollectTransformsFromBasisGraph:
 class TestCollectUnitsSkipsRebased:
     def test_rebased_unit_excluded(self):
         """RebasedUnit entries in _name_registry_cs are skipped (line 444)."""
-        from ucon.serialization import _collect_units
-        from ucon.core import RebasedUnit, Unit
-        from ucon.dimension import Dimension
-        from ucon.basis import Basis, BasisTransform
         from fractions import Fraction
 
         a = Basis("A", ["x"])
@@ -1150,8 +1163,6 @@ class TestCollectUnitsSkipsRebased:
 class TestProductKey:
     def test_product_key_basic(self):
         """_product_key produces a sorted tuple of factor metadata (line 488)."""
-        from ucon import units
-        from ucon.core import UnitFactor, Scale, UnitProduct
 
         prod = UnitProduct({
             UnitFactor(units.meter, Scale.one): 1,
@@ -1169,9 +1180,6 @@ class TestProductKey:
 class TestExtractCrossBasisBranches:
     def test_dim_not_in_unit_edges_skipped(self):
         """Rebased unit whose dimension is not in _unit_edges is skipped (line 193)."""
-        from ucon.core import RebasedUnit, Unit
-        from ucon.dimension import Dimension
-        from ucon.basis import Basis, BasisTransform
         from fractions import Fraction
 
         a = Basis("A", ["x"])
@@ -1190,9 +1198,6 @@ class TestExtractCrossBasisBranches:
 
     def test_rebased_not_in_dim_edges_skipped(self):
         """Rebased unit not present as a source in _unit_edges[dim] is skipped (line 195)."""
-        from ucon.core import RebasedUnit, Unit
-        from ucon.dimension import Dimension
-        from ucon.basis import Basis, BasisTransform
         from fractions import Fraction
 
         a = Basis("A", ["x"])
@@ -1429,7 +1434,6 @@ class TestStrictModeBranches:
 class TestResolveUnitFallbacks:
     def test_resolve_from_graph_registry(self):
         """Unit resolved from graph.resolve_unit() when not in unit_map (line 833)."""
-        from ucon import units
 
         graph = get_default_graph()
         # unit_map intentionally missing 'meter'
@@ -1439,7 +1443,6 @@ class TestResolveUnitFallbacks:
 
     def test_resolve_case_insensitive(self):
         """Case-insensitive fallback in _name_registry (line 836)."""
-        from ucon import units
 
         graph = ConversionGraph()
         u = units.meter
@@ -1472,7 +1475,6 @@ class TestResolveContextUnit:
 
     def test_context_unit_fallback_to_local(self):
         """_resolve_context_unit falls back to _resolve_unit on exception (lines 852–855)."""
-        from ucon import units
 
         graph = ConversionGraph()
         graph.register_unit(units.meter)
@@ -1513,7 +1515,6 @@ class TestResolveProductExpression:
 
     def test_fallback_to_local_resolution(self):
         """Resolver failure falls back to _resolve_unit via unit_map."""
-        from ucon import units
 
         graph = ConversionGraph()
         graph.register_unit(units.meter)
@@ -1545,8 +1546,6 @@ class TestResolveProductExpression:
 class TestSerializeDimensionFractional:
     def test_fractional_vector_component(self):
         """Dimension with fractional vector component serializes as string (line 244)."""
-        from ucon.basis import Basis, Vector
-        from ucon.dimension import Dimension
         from fractions import Fraction
 
         b = Basis("test", ["a", "b"])
@@ -1569,8 +1568,6 @@ class TestSerializeDimensionSymbol:
 
     def test_serialize_dimension_with_symbol(self):
         """Dimension with symbol emits symbol key."""
-        from ucon.basis import Basis, Vector
-        from ucon.dimension import Dimension
         from fractions import Fraction
 
         b = Basis("test", ["a"])
@@ -1581,8 +1578,6 @@ class TestSerializeDimensionSymbol:
 
     def test_serialize_dimension_without_symbol_omits_key(self):
         """Dimension without symbol omits the key."""
-        from ucon.basis import Basis, Vector
-        from ucon.dimension import Dimension
         from fractions import Fraction
 
         b = Basis("test", ["a"])
@@ -1593,7 +1588,6 @@ class TestSerializeDimensionSymbol:
 
     def test_symbol_round_trip_via_from_toml(self, tmp_path):
         """A non-standard dimension with a symbol survives TOML round-trip."""
-        from ucon.conversion import ConversionGraph
 
         toml_content = '''
 [package]
@@ -1639,7 +1633,6 @@ class TestDimensionCatalogParity:
         """Every standard dimension lives in the TOML, with matching vector + symbol."""
         from pathlib import Path
 
-        from ucon.dimension import _STANDARD_ATTRS
 
         toml_path = (
             Path(__file__).resolve().parent.parent.parent
@@ -1688,12 +1681,6 @@ class TestDimensionCatalogParity:
 class TestSerializeTransformBindings:
     def test_binding_fractional_target_expression(self):
         """Fractional binding target_expression serializes as string (line 287)."""
-        from ucon.basis import Basis, Vector
-        from ucon.basis.transforms import (
-            ConstantBoundBasisTransform,
-            ConstantBinding,
-            BasisComponent,
-        )
         from fractions import Fraction
 
         a = Basis("A", [BasisComponent("x", "X")])
@@ -1766,8 +1753,6 @@ class TestExportEmptySections:
 class TestContextDescriptionBranch:
     def test_context_without_description(self, tmp_path):
         """Context with empty description omits key in export (line 465→467)."""
-        from ucon.contexts import ConversionContext, ContextEdge
-        from ucon import units
 
         graph = get_default_graph()
         ctx = ConversionContext(
@@ -1800,7 +1785,6 @@ class TestContextDescriptionBranch:
 class TestRemainingCoverage:
     def test_resolve_unit_case_insensitive_fallback(self):
         """Case-different name resolved via _name_registry (line 836)."""
-        from ucon import units
 
         graph = ConversionGraph()
         graph.register_unit(units.meter)
@@ -1848,8 +1832,6 @@ class TestRemainingCoverage:
 
     def test_resolve_product_expression_local_fallback(self):
         """Product expression falls back to local resolution."""
-        from ucon.core import Unit
-        from ucon.dimension import Dimension
 
         # Create a minimal graph and put the unit ONLY in unit_map, not
         # registered in the graph, so parse_unit will fail but
@@ -1864,9 +1846,6 @@ class TestRemainingCoverage:
 
     def test_extract_cross_basis_dst_is_rebased_skipped(self):
         """RebasedUnit dst in cross-basis extraction is skipped (line 198)."""
-        from ucon.core import RebasedUnit, Unit
-        from ucon.dimension import Dimension
-        from ucon.basis import Basis, BasisTransform
         from fractions import Fraction
 
         a = Basis("A", ["x"])
@@ -1966,7 +1945,6 @@ class TestProductExpressionGrammar:
 
     def test_division_basic(self):
         """'meter/second' → meter^1, second^-1."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("meter/second")
@@ -1976,7 +1954,6 @@ class TestProductExpressionGrammar:
 
     def test_division_compound_num(self):
         """'kg*meter/second^2' → kg^1, meter^1, second^-2."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("kg*meter/second^2")
@@ -1987,7 +1964,6 @@ class TestProductExpressionGrammar:
 
     def test_division_then_multiply(self):
         """'meter/second*kilogram' → m^1, s^-1, kg^1 (left-to-right: * is multiply)."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("meter/second*kilogram")
@@ -1998,7 +1974,6 @@ class TestProductExpressionGrammar:
 
     def test_compound_denominator_via_slashes(self):
         """'meter/second/kilogram' → meter^1, second^-1, kg^-1."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("meter/second/kilogram")
@@ -2009,7 +1984,6 @@ class TestProductExpressionGrammar:
 
     def test_triple_slash_dosage(self):
         """'gram/kilogram/day/each' → g^1, kg^-1, day^-1, ea^-1."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("gram/kilogram/day/each")
@@ -2021,7 +1995,6 @@ class TestProductExpressionGrammar:
 
     def test_backward_compat_star(self):
         """'meter*second^-1' still works."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("meter*second^-1")
@@ -2031,7 +2004,6 @@ class TestProductExpressionGrammar:
 
     def test_whitespace_tolerance(self):
         """'meter / second' with whitespace works."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("meter / second")
@@ -2041,8 +2013,6 @@ class TestProductExpressionGrammar:
 
     def test_division_with_prefix(self):
         """'kwatt/hour' → kilo-watt^1, hour^-1."""
-        from ucon.resolver import parse_unit
-        from ucon.core import Scale
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("kwatt/hour")
@@ -2060,8 +2030,6 @@ class TestProductExpressionGrammar:
 
     def test_emitter_slash_notation(self):
         """Product key with meter^1, second^-1 emits 'meter/second'."""
-        from ucon import units
-        from ucon.core import UnitFactor, Scale, UnitProduct
 
         prod = UnitProduct({
             UnitFactor(units.meter, Scale.one): 1,
@@ -2074,8 +2042,6 @@ class TestProductExpressionGrammar:
 
     def test_emitter_all_negative(self):
         """Product key with second^-1 only emits 'second^-1' (no '1/second')."""
-        from ucon import units
-        from ucon.core import UnitFactor, Scale, UnitProduct
 
         prod = UnitProduct({
             UnitFactor(units.second, Scale.one): -1,
@@ -2089,7 +2055,6 @@ class TestProductExpressionGrammar:
 
     def test_left_to_right_star_after_slash(self):
         """'meter^3/kilogram*second^2' → m^3, kg^-1, s^2 (left-to-right)."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("meter^3/kilogram*second^2")
@@ -2100,7 +2065,6 @@ class TestProductExpressionGrammar:
 
     def test_left_to_right_multiple_star_after_slash(self):
         """'joule/mole*kelvin*second' → J^1, mol^-1, K^1, s^1 (left-to-right)."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("joule/mole*kelvin*second")
@@ -2112,7 +2076,6 @@ class TestProductExpressionGrammar:
 
     def test_left_to_right_star_after_slash_with_exponents(self):
         """'watt/meter^2*kelvin^4' → W^1, m^-2, K^4 (left-to-right)."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("watt/meter^2*kelvin^4")
@@ -2123,7 +2086,6 @@ class TestProductExpressionGrammar:
 
     def test_double_slash_all_denominator(self):
         """'meter/second/kilogram' → m^1, s^-1, kg^-1."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("meter/second/kilogram")
@@ -2134,7 +2096,6 @@ class TestProductExpressionGrammar:
 
     def test_slash_with_explicit_negative_exponent(self):
         """'meter/second^-1' → m^1, s^1 (negative exponent in denominator flips)."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("meter/second^-1")
@@ -2144,7 +2105,6 @@ class TestProductExpressionGrammar:
 
     def test_float_exponents(self):
         """'joule/meter^2.0' → joule^1, meter^-2 (float exponents from emitter)."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("joule/meter^2.0")
@@ -2156,7 +2116,6 @@ class TestProductExpressionGrammar:
 
     def test_parens_for_multi_denom(self):
         """'m³/(kg·s²)' → m^3, kg^-1, s^-2 (G constant with explicit parens)."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("m³/(kg·s²)")
@@ -2167,7 +2126,6 @@ class TestProductExpressionGrammar:
 
     def test_parens_stefan_boltzmann(self):
         """'W/(m²·K⁴)' → W^1, m^-2, K^-4."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("W/(m²·K⁴)")
@@ -2178,7 +2136,6 @@ class TestProductExpressionGrammar:
 
     def test_parens_molar_gas(self):
         """'J/(mol·K)' → J^1, mol^-1, K^-1."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("J/(mol·K)")
@@ -2189,7 +2146,6 @@ class TestProductExpressionGrammar:
 
     def test_without_parens_is_left_to_right(self):
         """'m³/kg·s²' without parens is left-to-right: (m³/kg)·s² = m³·s²/kg."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("m³/kg·s²")
@@ -2200,7 +2156,6 @@ class TestProductExpressionGrammar:
 
     def test_unicode_no_slash_all_positive(self):
         """'kg·m·s' → all positive (no slash means no denominator)."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("kg·m·s")
@@ -2211,7 +2166,6 @@ class TestProductExpressionGrammar:
 
     def test_parens_override_left_to_right(self):
         """'kg/(m·s²)·A' → kg^1, m^-1, s^-2, A^1 (parens group then multiply A)."""
-        from ucon.resolver import parse_unit
         graph = get_default_graph()
         with using_conversion_graph(graph):
             result = parse_unit("kg/(m·s²)·A")
@@ -2223,9 +2177,6 @@ class TestProductExpressionGrammar:
 
     def test_shorthand_roundtrip_multi_denom(self):
         """UnitProduct.shorthand (Unicode) round-trips through parse_unit."""
-        from ucon import units
-        from ucon.core import UnitFactor, Scale, UnitProduct
-        from ucon.resolver import parse_unit
 
         prod = UnitProduct({
             UnitFactor(units.meter, Scale.one): 3,
@@ -2245,8 +2196,6 @@ class TestProductExpressionGrammar:
 
     def test_roundtrip_division(self, tmp_path):
         """Product edges with '/' notation survive export + reimport."""
-        from ucon import units
-        from ucon.core import UnitFactor, Scale, UnitProduct
 
         graph = get_default_graph()
         m_per_s = UnitProduct({
@@ -2339,7 +2288,6 @@ class TestMapToDict:
 
     def test_no_map_type_raises(self):
         """Custom Map without _map_type raises TypeError."""
-        from ucon.maps import Map
 
         class BareMap(Map):
             def __call__(self, x): return x
@@ -2372,7 +2320,6 @@ class TestImplicitMapDiscovery:
 
     def test_builtin_types_discovered(self):
         """All built-in map types are discoverable via _find_map_class."""
-        from ucon.packages import _find_map_class
 
         assert _find_map_class("linear") is LinearMap
         assert _find_map_class("affine") is AffineMap
@@ -2381,8 +2328,6 @@ class TestImplicitMapDiscovery:
 
     def test_custom_subclass_discovered(self):
         """A custom Map subclass with _map_type is discovered automatically."""
-        from ucon.packages import _find_map_class
-        from ucon.maps import Map
         from dataclasses import dataclass
 
         @dataclass(frozen=True)
@@ -2401,21 +2346,18 @@ class TestImplicitMapDiscovery:
 
     def test_unknown_type_raises(self):
         """_build_map raises PackageLoadError for unknown type names."""
-        from ucon.packages import _build_map, PackageLoadError
 
         with pytest.raises(PackageLoadError, match="Unknown map type"):
             _build_map({"type": "totally_unknown"})
 
     def test_missing_type_key_raises(self):
         """_build_map raises PackageLoadError when 'type' key is absent."""
-        from ucon.packages import _build_map, PackageLoadError
 
         with pytest.raises(PackageLoadError, match="requires a 'type' key"):
             _build_map({"a": 1.0})
 
     def test_recursive_deserialization(self):
         """Nested map specs are recursively deserialized."""
-        from ucon.packages import _build_map
 
         spec = {
             "type": "composed",
@@ -2432,7 +2374,6 @@ class TestImplicitMapDiscovery:
 
     def test_deeply_nested_recursion(self):
         """Three-level nesting works: composed of composed of linear."""
-        from ucon.packages import _build_map
 
         spec = {
             "type": "composed",
@@ -2451,9 +2392,6 @@ class TestImplicitMapDiscovery:
 
     def test_roundtrip_custom_map(self, tmp_path):
         """Custom Map subclass survives export/import via implicit discovery."""
-        from ucon.maps import Map
-        from ucon import units
-        from ucon.core import UnitFactor, Scale, UnitProduct
         from dataclasses import dataclass
 
         @dataclass(frozen=True)
@@ -2483,7 +2421,6 @@ class TestImplicitMapDiscovery:
 
     def test_list_resolution(self):
         """List values containing map specs are recursively resolved."""
-        from ucon.packages import _resolve_value
 
         result = _resolve_value([
             {"type": "linear", "a": 2.0},
@@ -2494,14 +2431,12 @@ class TestImplicitMapDiscovery:
 
     def test_plain_dict_passthrough(self):
         """A dict without a 'type' key passes through unchanged."""
-        from ucon.packages import _resolve_value
 
         d = {"a": 1.0, "b": 2.0}
         assert _resolve_value(d) is d
 
     def test_scalar_passthrough(self):
         """Scalars pass through _resolve_value unchanged."""
-        from ucon.packages import _resolve_value
 
         assert _resolve_value(3.14) == 3.14
         assert _resolve_value("hello") == "hello"
@@ -2516,10 +2451,6 @@ class TestConstantKindSerialization:
 
     def test_serialize_constant_with_kind(self):
         """_serialize_constant includes kind when set."""
-        from ucon.constants import Constant
-        from ucon import units
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind
 
         ke = Kind("kinetic_energy", dimension=ENERGY)
         c = Constant(
@@ -2532,8 +2463,6 @@ class TestConstantKindSerialization:
 
     def test_serialize_constant_without_kind(self):
         """_serialize_constant omits kind when None."""
-        from ucon.constants import Constant
-        from ucon import units
 
         c = Constant(
             symbol="c", name="speed of light",
@@ -2573,11 +2502,6 @@ class TestConstantKindSerialization:
 
     def test_constant_kind_roundtrip(self, tmp_path):
         """Kind survives export → reimport round-trip on a Constant."""
-        from ucon.constants import Constant
-        from ucon import units
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind, KindLattice
-        from ucon.system import active_system, use
 
         ke = Kind("kinetic_energy", dimension=ENERGY)
         lattice = KindLattice([ke])
@@ -2612,10 +2536,6 @@ class TestConstantKindSerialization:
 
     def test_constant_as_number_preserves_kind(self):
         """Constant.as_number() passes kind through."""
-        from ucon.constants import Constant
-        from ucon import units
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind
 
         ke = Kind("kinetic_energy", dimension=ENERGY)
         c = Constant(
@@ -2632,10 +2552,6 @@ class TestConstantDefKind:
 
     def test_constant_def_with_kind(self):
         """ConstantDef with kind materializes with resolved Kind."""
-        from ucon.packages import ConstantDef
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind, KindLattice
-        from ucon.system import active_system, use
 
         ke = Kind("kinetic_energy", dimension=ENERGY)
         lattice = KindLattice([ke])
@@ -2655,7 +2571,6 @@ class TestConstantDefKind:
 
     def test_constant_def_without_kind(self):
         """ConstantDef without kind materializes with kind=None."""
-        from ucon.packages import ConstantDef
 
         cdef = ConstantDef(
             symbol="c", name="speed of light",
@@ -2668,7 +2583,6 @@ class TestConstantDefKind:
 
     def test_constant_def_unknown_kind_raises(self):
         """ConstantDef with unknown kind raises PackageLoadError."""
-        from ucon.packages import ConstantDef, PackageLoadError
 
         cdef = ConstantDef(
             symbol="x", name="test",
@@ -2690,9 +2604,6 @@ class TestKindsSerialization:
 
     def test_serialize_kind_basic(self):
         """Root kind with default join_policy produces compact dict."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind
-        from ucon.serialization import _serialize_kind
 
         k = Kind("energy", dimension=ENERGY)
         d = _serialize_kind(k)
@@ -2703,9 +2614,6 @@ class TestKindsSerialization:
 
     def test_serialize_kind_with_parent(self):
         """Kind with parent emits parent key."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind
-        from ucon.serialization import _serialize_kind
 
         root = Kind("energy", dimension=ENERGY)
         child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
@@ -2714,9 +2622,6 @@ class TestKindsSerialization:
 
     def test_serialize_kind_with_refuse_policy(self):
         """Non-default join_policy is emitted."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import JoinPolicy, Kind
-        from ucon.serialization import _serialize_kind
 
         k = Kind("energy", dimension=ENERGY, join_policy=JoinPolicy.REFUSE)
         d = _serialize_kind(k)
@@ -2724,9 +2629,6 @@ class TestKindsSerialization:
 
     def test_serialize_kind_default_policy_omitted(self):
         """Default LCA policy is not emitted."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind
-        from ucon.serialization import _serialize_kind
 
         k = Kind("energy", dimension=ENERGY)
         d = _serialize_kind(k)
@@ -2734,9 +2636,6 @@ class TestKindsSerialization:
 
     def test_serialize_kind_with_aliases(self):
         """Kind with aliases emits aliases list."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind
-        from ucon.serialization import _serialize_kind
 
         k = Kind("kinetic_energy", dimension=ENERGY, aliases=("KE", "T"))
         d = _serialize_kind(k)
@@ -2744,9 +2643,6 @@ class TestKindsSerialization:
 
     def test_serialize_kind_empty_aliases_omitted(self):
         """Kind with no aliases does not emit aliases key."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind
-        from ucon.serialization import _serialize_kind
 
         k = Kind("energy", dimension=ENERGY)
         d = _serialize_kind(k)
@@ -2754,8 +2650,6 @@ class TestKindsSerialization:
 
     def test_kinds_section_in_toml(self, tmp_path):
         """to_toml with explicit KindLattice emits [[kinds]] section."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind, KindLattice
 
         root = Kind("energy", dimension=ENERGY)
         child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
@@ -2772,7 +2666,6 @@ class TestKindsSerialization:
 
     def test_no_kinds_section_when_empty(self, tmp_path):
         """to_toml with empty KindLattice omits [[kinds]] section."""
-        from ucon.kinds import KindLattice
 
         graph = get_default_graph()
         path = tmp_path / "no_kinds.ucon.toml"
@@ -2784,8 +2677,6 @@ class TestKindsSerialization:
 
     def test_kinds_roundtrip(self, tmp_path):
         """Kind lattice survives to_toml → from_toml round-trip."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind, KindLattice
 
         root = Kind("energy", dimension=ENERGY)
         child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
@@ -2806,8 +2697,6 @@ class TestKindsSerialization:
 
     def test_kinds_with_aliases_roundtrip(self, tmp_path):
         """Kind aliases survive round-trip."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind, KindLattice
 
         k = Kind("kinetic_energy", dimension=ENERGY, aliases=("KE",))
         lattice = KindLattice([k])
@@ -2823,8 +2712,6 @@ class TestKindsSerialization:
 
     def test_kinds_with_refuse_policy_roundtrip(self, tmp_path):
         """Non-default join_policy survives round-trip."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import JoinPolicy, Kind, KindLattice
 
         k = Kind("energy", dimension=ENERGY, join_policy=JoinPolicy.REFUSE)
         lattice = KindLattice([k])
@@ -2850,16 +2737,12 @@ class TestKindsSerialization:
 
     def test_constant_kind_resolved_from_local_lattice(self, tmp_path):
         """Constant kind field resolves from locally-parsed [[kinds]]."""
-        from ucon.dimension import ENERGY
-        from ucon.kinds import Kind, KindLattice
 
         root = Kind("energy", dimension=ENERGY)
         child = Kind("kinetic_energy", dimension=ENERGY, parent=root)
         lattice = KindLattice([root, child])
 
         # Build a graph with a kinded constant
-        from ucon.constants import Constant
-        from ucon import units
 
         graph = get_default_graph().copy()
         kinded_const = Constant(
@@ -2888,8 +2771,6 @@ class TestKindsSerialization:
 
     def test_builtin_kinds_roundtrip(self, tmp_path):
         """All 25 built-in kinds survive to_toml → from_toml round-trip."""
-        from ucon.kinds import JoinPolicy, KindLattice
-        from ucon.system import active_kinds
 
         original = active_kinds()
         assert len(original) == 26, "Expected 26 built-in kinds"
@@ -2930,7 +2811,6 @@ class TestKindsSerialization:
 
     def test_builtin_kinds_join_semantics_survive_roundtrip(self, tmp_path):
         """REFUSE/LCA join semantics are preserved through round-trip."""
-        from ucon.kinds import JoinRefused
 
         graph = get_default_graph()
         path = tmp_path / "join_semantics_rt.ucon.toml"
@@ -2955,17 +2835,11 @@ class TestKindsSerialization:
 
     def test_dimension_to_expression_named(self):
         """_dimension_to_expression returns name for named dimension."""
-        from ucon.serialization import _dimension_to_expression
-        from ucon.dimension import ENERGY
         result = _dimension_to_expression(ENERGY)
         assert result == "energy"
 
     def test_dimension_to_expression_unnamed_simple(self):
         """_dimension_to_expression builds expression from unnamed vector."""
-        from ucon.serialization import _dimension_to_expression
-        from ucon import Dimension
-        from ucon.basis import Vector
-        from ucon.basis.builtin import SI
         # L/T — anonymous dimension (no name attribute)
         v = Vector(SI, (1, 0, -1, 0, 0, 0, 0, 0))
         dim = Dimension(vector=v)
@@ -2975,10 +2849,6 @@ class TestKindsSerialization:
 
     def test_dimension_to_expression_unnamed_with_exponents(self):
         """_dimension_to_expression handles exponents > 1 and < -1."""
-        from ucon.serialization import _dimension_to_expression
-        from ucon import Dimension
-        from ucon.basis import Vector
-        from ucon.basis.builtin import SI
         # L^2 / T^2 — anonymous dimension with exponents
         v = Vector(SI, (2, 0, -2, 0, 0, 0, 0, 0))
         dim = Dimension(vector=v)
@@ -2990,7 +2860,6 @@ class TestKindsSerialization:
     def test_collect_kinds_runtime_error_fallback(self):
         """_collect_kinds returns [] when active_kinds() raises RuntimeError."""
         from unittest.mock import patch
-        from ucon.serialization import _collect_kinds
         # Pass graph=None (no _kind_lattice attr) and explicit_kinds=None
         # Mock active_kinds to raise RuntimeError
         with patch('ucon.serialization.active_kinds', side_effect=RuntimeError("no context")):
@@ -3003,10 +2872,6 @@ class TestFormulasSerialization:
 
     def test_serialize_formula_basic(self):
         """_serialize_formula produces expected keys."""
-        from ucon.dimension import ENERGY, FORCE, LENGTH
-        from ucon.kinds import Kind
-        from ucon.formulas import KindFormula
-        from ucon.serialization import _serialize_formula
 
         force_kind = Kind("force", dimension=FORCE)
         distance_kind = Kind("distance", dimension=LENGTH)
@@ -3031,11 +2896,6 @@ class TestFormulasSerialization:
 
     def test_serialize_formula_with_aspect_rules(self):
         """_serialize_formula emits aspect_rules for non-CARRY rules."""
-        from ucon.dimension import ENERGY, NONE
-        from ucon.kinds import Kind
-        from ucon.formulas import KindFormula
-        from ucon.aspects.types import AspectRule
-        from ucon.serialization import _serialize_formula
 
         absorbed = Kind("absorbed_dose", dimension=ENERGY)
         weight_factor = Kind("weighting_factor", dimension=NONE)
@@ -3055,9 +2915,6 @@ class TestFormulasSerialization:
 
     def test_formulas_roundtrip(self, tmp_path):
         """Formulas survive to_toml → from_toml round-trip."""
-        from ucon.dimension import ENERGY, FORCE, LENGTH
-        from ucon.kinds import Kind, KindLattice
-        from ucon.formulas import FormulaRegistry, KindFormula
 
         force_kind = Kind("force", dimension=FORCE)
         distance_kind = Kind("distance", dimension=LENGTH)
@@ -3088,10 +2945,6 @@ class TestFormulasSerialization:
 
     def test_formulas_with_aspect_rules_roundtrip(self, tmp_path):
         """Aspect rules survive round-trip."""
-        from ucon.dimension import ENERGY, NONE
-        from ucon.kinds import Kind, KindLattice
-        from ucon.formulas import FormulaRegistry, KindFormula
-        from ucon.aspects.types import AspectRule
 
         absorbed = Kind("absorbed_dose", dimension=ENERGY)
         wf = Kind("weight_factor", dimension=NONE)
@@ -3119,7 +2972,6 @@ class TestFormulasSerialization:
 
     def test_no_formulas_section_when_empty(self, tmp_path):
         """TOML without formulas omits the [[formulas]] section."""
-        from ucon.formulas import FormulaRegistry
 
         graph = get_default_graph()
         path = tmp_path / "no_formulas.ucon.toml"
@@ -3145,7 +2997,6 @@ class TestBuiltinFormulas:
 
     def test_radiation_formula_loaded_at_boot(self):
         """radiation_weighting formula exists in the active context."""
-        from ucon.system import active_formulas
         registry = active_formulas()
         formula = registry.get("radiation_weighting")
         assert formula.name == "radiation_weighting"
@@ -3155,7 +3006,6 @@ class TestBuiltinFormulas:
 
     def test_radiation_weighting_factor_kind_exists(self):
         """radiation_weighting_factor kind is in the active lattice."""
-        from ucon.system import active_kinds
         lattice = active_kinds()
         kind = lattice.get("radiation_weighting_factor")
         assert kind.dimension.name == "none"

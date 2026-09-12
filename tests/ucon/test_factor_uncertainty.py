@@ -12,6 +12,18 @@ import math
 import unittest
 
 from ucon.maps import AffineMap, ComposedMap, LinearMap, ReciprocalMap
+from ucon import units
+from ucon import units, Scale
+from ucon.constants import get_constant_by_symbol
+from ucon.core import Number
+from ucon.core import Unit
+from ucon.dimension import Dimension
+from ucon.graph import ConversionGraph
+from ucon.graph import get_default_graph
+from ucon.packages import EdgeDef
+from ucon.packages import _build_map
+from ucon.serialization import _build_edge_map
+from ucon.serialization import _edge_dict
 
 
 class TestLinearMapRelUncertainty(unittest.TestCase):
@@ -148,9 +160,6 @@ class TestMultiHopAccumulation(unittest.TestCase):
     """Composed uncertainty over multi-hop graph paths."""
 
     def test_three_hop_quadrature(self):
-        from ucon.graph import ConversionGraph
-        from ucon.core import Unit
-        from ucon.dimension import Dimension
 
         graph = ConversionGraph()
         # Create a chain: A -> B -> C -> D with uncertainties
@@ -179,18 +188,14 @@ class TestNumberToBackwardCompat(unittest.TestCase):
     """Number.to() without propagate_factor_uncertainty is unchanged."""
 
     def test_default_no_uncertainty(self):
-        from ucon import units
         result = units.joule(1).to(units.hartree)
         self.assertIsNone(result.uncertainty)
 
     def test_exact_conversion_no_uncertainty(self):
-        from ucon import units
         result = units.meter(1).to(units.foot)
         self.assertIsNone(result.uncertainty)
 
     def test_measurement_uncertainty_still_propagates(self):
-        from ucon import units
-        from ucon.core import Number
         n = Number(quantity=1.0, unit=units.meter, uncertainty=0.01)
         result = n.to(units.foot)
         self.assertIsNotNone(result.uncertainty)
@@ -201,21 +206,17 @@ class TestNumberToWithFactorUncertainty(unittest.TestCase):
     """Number.to() with propagate_factor_uncertainty=True."""
 
     def test_exact_edge_no_uncertainty(self):
-        from ucon import units
         # meter → foot is exact, should produce no uncertainty
         result = units.meter(1).to(units.foot, propagate_factor_uncertainty=True)
         self.assertIsNone(result.uncertainty)
 
     def test_measured_edge_produces_uncertainty(self):
-        from ucon import units
         # joule → hartree uses Eh which has uncertainty
         result = units.joule(1).to(units.hartree, propagate_factor_uncertainty=True)
         self.assertIsNotNone(result.uncertainty)
         self.assertGreater(result.uncertainty, 0)
 
     def test_input_with_measurement_and_factor_uncertainty(self):
-        from ucon import units
-        from ucon.core import Number
         n = Number(quantity=1.0, unit=units.joule, uncertainty=1e-10)
         result = n.to(units.hartree, propagate_factor_uncertainty=True)
         self.assertIsNotNone(result.uncertainty)
@@ -224,7 +225,6 @@ class TestNumberToWithFactorUncertainty(unittest.TestCase):
         self.assertGreater(result.uncertainty, result_meas_only.uncertainty)
 
     def test_planck_units_have_uncertainty(self):
-        from ucon import units
         result = units.kilogram(1).to(units.planck_mass, propagate_factor_uncertainty=True)
         self.assertIsNotNone(result.uncertainty)
         self.assertGreater(result.uncertainty, 0)
@@ -245,7 +245,6 @@ class TestSerializationRoundTrip(unittest.TestCase):
         self.assertEqual(d["rel_uncertainty"], 1e-5)
 
     def test_roundtrip_via_build_map(self):
-        from ucon.packages import _build_map
         m = LinearMap(3.28, rel_uncertainty=1e-5)
         d = m.to_dict()
         reconstructed = _build_map(d)
@@ -276,7 +275,6 @@ class TestSerializationRoundTrip(unittest.TestCase):
         self.assertEqual(d["rel_uncertainty"], 3e-5)
 
     def test_affine_roundtrip_via_build_map(self):
-        from ucon.packages import _build_map
         m = AffineMap(1.8, 32.0, rel_uncertainty=2e-6)
         d = m.to_dict()
         reconstructed = _build_map(d)
@@ -295,9 +293,6 @@ class TestGeneralPathFactorUncertainty(unittest.TestCase):
 
     def _make_compound_graph(self, rel_unc=2e-5):
         """Build a custom graph with length and time units that carry uncertainty."""
-        from ucon.graph import ConversionGraph
-        from ucon.core import Unit
-        from ucon.dimension import Dimension
 
         graph = ConversionGraph()
         # Two length units and two time units
@@ -314,7 +309,6 @@ class TestGeneralPathFactorUncertainty(unittest.TestCase):
 
     def test_general_path_with_custom_graph(self):
         """Multi-factor UnitProduct propagates factor uncertainty via general path."""
-        from ucon.core import Number
 
         graph, L1, L2, T1, T2 = self._make_compound_graph(rel_unc=2e-5)
         # len_a / time_a → len_b / time_b (two-factor UnitProduct)
@@ -327,7 +321,6 @@ class TestGeneralPathFactorUncertainty(unittest.TestCase):
 
     def test_general_path_default_no_uncertainty(self):
         """Default (no flag) produces no uncertainty on general path."""
-        from ucon.core import Number
 
         graph, L1, L2, T1, T2 = self._make_compound_graph(rel_unc=2e-5)
         src_unit = L1 / T1
@@ -338,7 +331,6 @@ class TestGeneralPathFactorUncertainty(unittest.TestCase):
 
     def test_general_path_combined_measurement_and_factor(self):
         """General path combines measurement + factor uncertainty via quadrature."""
-        from ucon.core import Number
 
         graph, L1, L2, T1, T2 = self._make_compound_graph(rel_unc=2e-5)
         src_unit = L1 / T1
@@ -353,8 +345,6 @@ class TestGeneralPathFactorUncertainty(unittest.TestCase):
 
     def test_exact_composite_conversion_no_uncertainty(self):
         """Exact composite conversion produces no uncertainty even with flag."""
-        from ucon import units, Scale
-        from ucon.core import Number
 
         # km/h → m/s is exact (no measured constants)
         km = Scale.kilo * units.meter
@@ -365,7 +355,6 @@ class TestGeneralPathFactorUncertainty(unittest.TestCase):
 
     def test_general_path_exact_edge_no_uncertainty(self):
         """Exact multi-factor edge produces no uncertainty even with flag."""
-        from ucon.core import Number
 
         graph, L1, L2, T1, T2 = self._make_compound_graph(rel_unc=0.0)
         src_unit = L1 / T1
@@ -376,7 +365,6 @@ class TestGeneralPathFactorUncertainty(unittest.TestCase):
 
     def test_general_path_quadrature_accumulates(self):
         """Multi-factor general path accumulates uncertainty from each factor."""
-        from ucon.core import Number
 
         r = 3e-5
         graph, L1, L2, T1, T2 = self._make_compound_graph(rel_unc=r)
@@ -395,32 +383,24 @@ class TestEdgeUncertaintyInDefaultGraph(unittest.TestCase):
 
     def test_exact_edge_has_zero_rel_uncertainty(self):
         """meter → foot edge is exact (no measured constant)."""
-        from ucon import units
-        from ucon.graph import get_default_graph
         graph = get_default_graph()
         m = graph.convert(src=units.meter, dst=units.foot)
         self.assertEqual(m.rel_uncertainty, 0.0)
 
     def test_hartree_edge_has_nonzero_rel_uncertainty(self):
         """joule → hartree edge carries Eh uncertainty."""
-        from ucon import units
-        from ucon.graph import get_default_graph
         graph = get_default_graph()
         m = graph.convert(src=units.joule, dst=units.hartree)
         self.assertGreater(m.rel_uncertainty, 0)
 
     def test_planck_mass_edge_has_nonzero_rel_uncertainty(self):
         """kg → planck_mass edge carries mP uncertainty."""
-        from ucon import units
-        from ucon.graph import get_default_graph
         graph = get_default_graph()
         m = graph.convert(src=units.kilogram, dst=units.planck_mass)
         self.assertGreater(m.rel_uncertainty, 0)
 
     def test_planck_rel_uncertainty_order_of_magnitude(self):
         """Planck constant uncertainties are ~1e-5 (relative)."""
-        from ucon import units
-        from ucon.graph import get_default_graph
         graph = get_default_graph()
         m = graph.convert(src=units.kilogram, dst=units.planck_mass)
         self.assertGreater(m.rel_uncertainty, 1e-6)
@@ -428,8 +408,6 @@ class TestEdgeUncertaintyInDefaultGraph(unittest.TestCase):
 
     def test_atomic_rel_uncertainty_order_of_magnitude(self):
         """Atomic constant uncertainties are ~1e-10 (relative)."""
-        from ucon import units
-        from ucon.graph import get_default_graph
         graph = get_default_graph()
         m = graph.convert(src=units.joule, dst=units.hartree)
         self.assertGreater(m.rel_uncertainty, 1e-13)
@@ -437,8 +415,6 @@ class TestEdgeUncertaintyInDefaultGraph(unittest.TestCase):
 
     def test_multihop_accumulates_uncertainty(self):
         """Multi-hop path accumulates uncertainty via quadrature."""
-        from ucon import units
-        from ucon.graph import get_default_graph
         graph = get_default_graph()
         # Direct: joule → hartree
         direct = graph.convert(src=units.joule, dst=units.hartree)
@@ -457,13 +433,11 @@ class TestRelUncHelperEdgeCases(unittest.TestCase):
 
     def test_exact_constant_returns_zero(self):
         """Constants with uncertainty=None return rel_unc=0."""
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("c")
         self.assertIsNone(c.uncertainty)
 
     def test_measured_constant_returns_positive(self):
         """Constants with uncertainty return positive rel_unc."""
-        from ucon.constants import get_constant_by_symbol
         me = get_constant_by_symbol("mₑ")
         self.assertIsNotNone(me.uncertainty)
         rel = me.uncertainty / abs(me.value)
@@ -474,7 +448,6 @@ class TestTomlSerializationRelUncertainty(unittest.TestCase):
     """TOML serialization round-trip for rel_uncertainty."""
 
     def test_edge_dict_linear_with_uncertainty(self):
-        from ucon.serialization import _edge_dict
         m = LinearMap(2.5, rel_uncertainty=1e-5)
         d = _edge_dict("unit_a", "unit_b", m)
         self.assertEqual(d["src"], "unit_a")
@@ -483,13 +456,11 @@ class TestTomlSerializationRelUncertainty(unittest.TestCase):
         self.assertEqual(d["rel_uncertainty"], 1e-5)
 
     def test_edge_dict_linear_exact(self):
-        from ucon.serialization import _edge_dict
         m = LinearMap(2.5)
         d = _edge_dict("unit_a", "unit_b", m)
         self.assertNotIn("rel_uncertainty", d)
 
     def test_edge_dict_affine_with_uncertainty(self):
-        from ucon.serialization import _edge_dict
         m = AffineMap(1.8, 32.0, rel_uncertainty=2e-6)
         d = _edge_dict("unit_a", "unit_b", m)
         self.assertEqual(d["factor"], 1.8)
@@ -497,13 +468,11 @@ class TestTomlSerializationRelUncertainty(unittest.TestCase):
         self.assertEqual(d["rel_uncertainty"], 2e-6)
 
     def test_edge_dict_affine_exact(self):
-        from ucon.serialization import _edge_dict
         m = AffineMap(1.8, 32.0)
         d = _edge_dict("unit_a", "unit_b", m)
         self.assertNotIn("rel_uncertainty", d)
 
     def test_build_edge_map_with_uncertainty(self):
-        from ucon.serialization import _build_edge_map
         spec = {"factor": 3.28, "rel_uncertainty": 1e-5}
         m = _build_edge_map(spec, None)
         self.assertIsInstance(m, LinearMap)
@@ -511,14 +480,12 @@ class TestTomlSerializationRelUncertainty(unittest.TestCase):
         self.assertAlmostEqual(m.rel_uncertainty, 1e-5)
 
     def test_build_edge_map_without_uncertainty(self):
-        from ucon.serialization import _build_edge_map
         spec = {"factor": 3.28}
         m = _build_edge_map(spec, None)
         self.assertIsInstance(m, LinearMap)
         self.assertEqual(m.rel_uncertainty, 0.0)
 
     def test_build_edge_map_affine_with_uncertainty(self):
-        from ucon.serialization import _build_edge_map
         spec = {"factor": 1.8, "offset": 32.0, "rel_uncertainty": 2e-6}
         m = _build_edge_map(spec, None)
         self.assertIsInstance(m, AffineMap)
@@ -529,24 +496,20 @@ class TestPackagesEdgeDefRelUncertainty(unittest.TestCase):
     """EdgeDef rel_uncertainty in packages.py."""
 
     def test_edge_def_default_zero(self):
-        from ucon.packages import EdgeDef
         e = EdgeDef(src="meter", dst="foot", factor=3.28084)
         self.assertEqual(e.rel_uncertainty, 0.0)
 
     def test_edge_def_with_uncertainty(self):
-        from ucon.packages import EdgeDef
         e = EdgeDef(src="joule", dst="hartree", factor=2.29e17, rel_uncertainty=1.1e-12)
         self.assertEqual(e.rel_uncertainty, 1.1e-12)
 
     def test_edge_def_builds_linear_map_with_uncertainty(self):
-        from ucon.packages import EdgeDef
         e = EdgeDef(src="joule", dst="hartree", factor=2.29e17, rel_uncertainty=1.1e-12)
         m = e._build_edge_map()
         self.assertIsInstance(m, LinearMap)
         self.assertAlmostEqual(m.rel_uncertainty, 1.1e-12)
 
     def test_edge_def_builds_affine_map_with_uncertainty(self):
-        from ucon.packages import EdgeDef
         e = EdgeDef(src="celsius", dst="kelvin", factor=1.0, offset=273.15, rel_uncertainty=1e-8)
         m = e._build_edge_map()
         self.assertIsInstance(m, AffineMap)
@@ -557,43 +520,35 @@ class TestNewConstantsExist(unittest.TestCase):
     """Verify the 8 new measured constants are available."""
 
     def test_hartree_energy(self):
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("Eₕ")
         self.assertIsNotNone(c.uncertainty)
         self.assertEqual(c.category, "measured")
 
     def test_rydberg_energy(self):
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("Ry")
         self.assertIsNotNone(c.uncertainty)
 
     def test_bohr_radius(self):
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("a₀")
         self.assertIsNotNone(c.uncertainty)
 
     def test_planck_mass(self):
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("m_P")
         self.assertIsNotNone(c.uncertainty)
 
     def test_planck_length(self):
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("l_P")
         self.assertIsNotNone(c.uncertainty)
 
     def test_planck_time(self):
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("t_P")
         self.assertIsNotNone(c.uncertainty)
 
     def test_planck_temperature(self):
-        from ucon.constants import get_constant_by_symbol
         c = get_constant_by_symbol("T_P")
         self.assertIsNotNone(c.uncertainty)
 
     def test_ascii_aliases_resolve(self):
-        from ucon.constants import get_constant_by_symbol
         for sym in ["E_h", "a_0", "m_P", "l_P", "t_P", "T_P"]:
             c = get_constant_by_symbol(sym)
             self.assertIsNotNone(c, f"Failed to resolve {sym}")
@@ -604,9 +559,7 @@ class TestQuantitativeUncertaintyPropagation(unittest.TestCase):
 
     def test_factor_only_uncertainty_value(self):
         """Input with no measurement uncertainty → δy = |y| * rel_unc."""
-        from ucon import units
         result = units.joule(1).to(units.hartree, propagate_factor_uncertainty=True)
-        from ucon.graph import get_default_graph
         graph = get_default_graph()
         m = graph.convert(src=units.joule, dst=units.hartree)
         expected_unc = abs(result.quantity) * m.rel_uncertainty
@@ -614,9 +567,6 @@ class TestQuantitativeUncertaintyPropagation(unittest.TestCase):
 
     def test_combined_quadrature_value(self):
         """Input with measurement uncertainty → quadrature of both sources."""
-        from ucon import units
-        from ucon.core import Number
-        from ucon.graph import get_default_graph
 
         n = Number(quantity=1.0, unit=units.joule, uncertainty=1e-10)
         result = n.to(units.hartree, propagate_factor_uncertainty=True)
@@ -631,15 +581,12 @@ class TestQuantitativeUncertaintyPropagation(unittest.TestCase):
 
     def test_zero_quantity_no_factor_uncertainty(self):
         """Converting 0.0 with factor uncertainty → no uncertainty (|y|*r = 0)."""
-        from ucon import units
         result = units.joule(0).to(units.hartree, propagate_factor_uncertainty=True)
         # 0 * rel_unc = 0, so uncertainty should be None
         self.assertIsNone(result.uncertainty)
 
     def test_inverse_direction_uncertainty(self):
         """hartree → joule carries same rel_uncertainty as joule → hartree."""
-        from ucon import units
-        from ucon.graph import get_default_graph
         graph = get_default_graph()
         fwd = graph.convert(src=units.joule, dst=units.hartree)
         rev = graph.convert(src=units.hartree, dst=units.joule)

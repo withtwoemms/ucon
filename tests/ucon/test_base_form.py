@@ -26,6 +26,8 @@ import pytest
 from ucon import Scale, Number, Ratio
 from ucon import units
 from ucon.core import BaseForm, UnitProduct, UnitFactor
+from ucon import graph as graph_mod
+from ucon.core import Unit
 
 
 # -----------------------------------------------------------------------
@@ -41,19 +43,16 @@ class TestNoGraphInit:
     """
 
     def test_kilogram_base_form_no_graph(self, monkeypatch):
-        from ucon import graph as graph_mod
         monkeypatch.setattr(graph_mod, '_default_graph', None, raising=False)
         assert units.kilogram.base_form is not None
         assert units.kilogram.base_form.prefactor == 1.0
 
     def test_canonical_magnitude_no_graph(self, monkeypatch):
-        from ucon import graph as graph_mod
         monkeypatch.setattr(graph_mod, '_default_graph', None, raising=False)
         n = units.gram(1000)
         assert abs(n._canonical_magnitude - 1.0) < 1e-12
 
     def test_arithmetic_no_graph(self, monkeypatch):
-        from ucon import graph as graph_mod
         monkeypatch.setattr(graph_mod, '_default_graph', None, raising=False)
         n = units.newton(1)
         d = (Scale.kilo * units.gram * units.meter / units.second ** 2)(1)
@@ -155,7 +154,6 @@ class TestBaseFormField:
         assert abs(bf.prefactor - 1.0) < 1e-12
 
     def test_dimensionless_unit_has_no_base_form(self):
-        from ucon.core import Unit
         u = Unit()
         assert u.base_form is None
 

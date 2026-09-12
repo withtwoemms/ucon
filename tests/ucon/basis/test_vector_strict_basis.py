@@ -20,6 +20,7 @@ import pytest
 
 from ucon.basis import Basis, BasisComponent, BasisMismatch, Vector
 from ucon.basis.builtin import SI
+import ucon.basis.vector as vector_module
 
 
 def _vec(basis: Basis, **named: int) -> Vector:
@@ -85,7 +86,6 @@ class TestVectorImportSurface:
     """``vector.py`` must not reach the graph layer."""
 
     def test_vector_module_does_not_expose_basis_graph(self) -> None:
-        import ucon.basis.vector as vector_module
 
         attrs = dir(vector_module)
         assert "BasisGraph" not in attrs

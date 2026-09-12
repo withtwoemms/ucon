@@ -15,6 +15,8 @@ from ucon import units
 from ucon.core import DimensionNotCovered
 from ucon.system import BaseUnits
 from ucon import Dimension
+from ucon.units import imperial
+from ucon.units import si
 
 
 class TestBaseUnitsConstruction(unittest.TestCase):
@@ -159,14 +161,12 @@ class TestPredefinedSystems(unittest.TestCase):
     """Test predefined unit systems in ucon.units."""
 
     def test_si_system_exists(self):
-        from ucon.units import si
         self.assertEqual(si.name, "SI")
         self.assertTrue(si.covers(Dimension.length))
         self.assertTrue(si.covers(Dimension.mass))
         self.assertTrue(si.covers(Dimension.time))
 
     def test_imperial_system_exists(self):
-        from ucon.units import imperial
         self.assertEqual(imperial.name, "Imperial")
         self.assertTrue(imperial.covers(Dimension.length))
         self.assertTrue(imperial.covers(Dimension.mass))

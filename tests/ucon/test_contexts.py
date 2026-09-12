@@ -15,6 +15,11 @@ from ucon.contexts import (
 )
 from ucon.graph import get_default_graph
 from ucon.maps import LinearMap, ReciprocalMap
+from ucon import contexts
+from ucon.contexts import boltzmann
+from ucon.contexts import spectroscopy
+from ucon.contexts import spectroscopy, boltzmann
+from ucon.graph import DimensionMismatch
 
 
 class TestContextEdge(unittest.TestCase):
@@ -70,7 +75,6 @@ class TestUsingContext(unittest.TestCase):
 
     def test_spectroscopy_wavelength_to_frequency(self):
         """Wavelength -> frequency via c = lambda * f."""
-        from ucon.contexts import spectroscopy
         wavelength_m = 500e-9  # 500 nm
         expected_freq = 299792458.0 / wavelength_m
 
@@ -82,7 +86,6 @@ class TestUsingContext(unittest.TestCase):
 
     def test_spectroscopy_frequency_to_wavelength(self):
         """Frequency -> wavelength (inverse direction)."""
-        from ucon.contexts import spectroscopy
         freq = 5e14
         expected_wavelength = 299792458.0 / freq
 
@@ -93,7 +96,6 @@ class TestUsingContext(unittest.TestCase):
 
     def test_spectroscopy_frequency_to_energy(self):
         """Frequency -> energy via E = h * f."""
-        from ucon.contexts import spectroscopy
         freq = 5e14
         h = 6.62607015e-34
         expected_energy = h * freq
@@ -105,7 +107,6 @@ class TestUsingContext(unittest.TestCase):
 
     def test_boltzmann_temperature_to_energy(self):
         """Temperature -> energy via E = k_B * T."""
-        from ucon.contexts import boltzmann
         temp = 300.0
         k_B = 1.380649e-23
         expected_energy = k_B * temp
@@ -117,7 +118,6 @@ class TestUsingContext(unittest.TestCase):
 
     def test_boltzmann_energy_to_temperature(self):
         """Energy -> temperature (inverse)."""
-        from ucon.contexts import boltzmann
         k_B = 1.380649e-23
         energy = 4.14e-21  # ~300K
 
@@ -129,7 +129,6 @@ class TestUsingContext(unittest.TestCase):
 
     def test_multiple_contexts(self):
         """Multiple contexts compose in one using_context() call."""
-        from ucon.contexts import spectroscopy, boltzmann
 
         with using_context(spectroscopy, boltzmann):
             # Both spectroscopy and boltzmann edges should be available
@@ -141,8 +140,6 @@ class TestUsingContext(unittest.TestCase):
 
     def test_graph_restored_after_exit(self):
         """Original graph is unmodified after context exits."""
-        from ucon.contexts import spectroscopy
-        from ucon.graph import DimensionMismatch
 
         with using_context(spectroscopy):
             # Should work inside context
@@ -154,7 +151,6 @@ class TestUsingContext(unittest.TestCase):
 
     def test_yields_extended_graph(self):
         """using_context() yields the extended graph."""
-        from ucon.contexts import spectroscopy
 
         with using_context(spectroscopy) as graph:
             self.assertIsNotNone(graph)
@@ -168,7 +164,6 @@ class TestLazySingletons(unittest.TestCase):
 
     def test_spectroscopy_is_cached(self):
         """Subsequent accesses return the same object."""
-        from ucon import contexts
         s1 = contexts.spectroscopy
         s2 = contexts.spectroscopy
         self.assertIs(s1, s2)
@@ -176,7 +171,6 @@ class TestLazySingletons(unittest.TestCase):
 
     def test_boltzmann_is_cached(self):
         """Subsequent accesses return the same object."""
-        from ucon import contexts
         b1 = contexts.boltzmann
         b2 = contexts.boltzmann
         self.assertIs(b1, b2)
@@ -184,7 +178,6 @@ class TestLazySingletons(unittest.TestCase):
 
     def test_unknown_attr_raises(self):
         """Accessing unknown attribute raises AttributeError."""
-        from ucon import contexts
         with self.assertRaises(AttributeError):
             _ = contexts.nonexistent_context
 

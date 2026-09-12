@@ -3,6 +3,8 @@ import unittest
 
 from ucon import Dimension, units
 from ucon.core import Exponent, Scale, _ScaleDescriptor, UnitFactor, UnitProduct
+from ucon import Number
+from ucon import Number, units
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +57,6 @@ class TestScaleExtended(unittest.TestCase):
 class TestNumberExtended(unittest.TestCase):
 
     def test_number_equality_scaled_units(self):
-        from ucon import Number, units
 
         km = Scale.kilo * units.meter
         n1 = Number(unit=km, quantity=1)
@@ -64,12 +65,10 @@ class TestNumberExtended(unittest.TestCase):
         self.assertEqual(n1, n2)
 
     def test_number_equality_dimension_mismatch(self):
-        from ucon import Number, units
         n1 = Number(unit=units.meter, quantity=1)
         n2 = Number(unit=units.second, quantity=1)
         self.assertNotEqual(n1, n2)
 
     def test_number_eq_raises_for_bad_type(self):
-        from ucon import Number
         with self.assertRaises(TypeError):
             _ = Number(unit=UnitFactor("m", dimension=Dimension.length), quantity=1) == 10

@@ -18,6 +18,11 @@ from ucon.graph import ConversionGraph
 from ucon.maps import LinearMap
 from ucon import Dimension, units
 from ucon.basis.builtin import SI
+from ucon.basis import BasisGraph
+from ucon.basis import BasisGraph, BasisTransform
+from ucon.basis.builtin import SI, CGS
+from ucon.basis.transforms import SI_TO_CGS
+from ucon.graph import DimensionMismatch
 
 
 class TestGraphAddEdgeWithBasisTransform(unittest.TestCase):
@@ -165,15 +170,11 @@ class TestUnitIsCompatible(unittest.TestCase):
 
     def test_different_dimension_same_basis_incompatible_with_graph(self):
         # Even with BasisGraph, different dimensions in same basis are incompatible
-        from ucon.basis import BasisGraph
         bg = BasisGraph()
         self.assertFalse(units.meter.is_compatible(units.second, basis_graph=bg))
 
     def test_cross_basis_compatible_when_connected(self):
         # Create two connected bases
-        from ucon.basis import BasisGraph, BasisTransform
-        from ucon.basis.builtin import SI, CGS
-        from ucon.basis.transforms import SI_TO_CGS
 
         bg = BasisGraph()
         bg = bg.with_transform(SI_TO_CGS)
@@ -190,14 +191,11 @@ class TestConvertBasisGraphValidation(unittest.TestCase):
     """Test convert() dimensional validation via BasisGraph."""
 
     def test_dimension_mismatch_without_basis_graph(self):
-        from ucon.graph import DimensionMismatch
         graph = ConversionGraph()
         with self.assertRaises(DimensionMismatch):
             graph.convert(src=units.meter, dst=units.second)
 
     def test_dimension_mismatch_with_basis_graph_same_basis(self):
-        from ucon.graph import DimensionMismatch
-        from ucon.basis import BasisGraph
         bg = BasisGraph()
         graph = ConversionGraph()
         graph._basis_graph = bg
