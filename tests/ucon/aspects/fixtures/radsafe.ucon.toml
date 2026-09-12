@@ -1,0 +1,36 @@
+# The canonical aspect vocabulary from ADR 008: a restricted weighting
+# family, an LCA-degrading procedure family, and a wildcard coverage
+# family. Declaration order is deliberately child-before-parent in one
+# spot to pin order-independence.
+
+[[aspects]]
+name = "icrp103"
+parent = "weighting_standard"
+
+[[aspects]]
+name = "weighting_standard"
+applies_to = ["dose_equivalent"]
+
+[[aspects]]
+name = "icrp60"
+parent = "weighting_standard"
+
+[[aspects]]
+name = "procedure"
+join_policy = "lca"
+
+[[aspects]]
+name = "measured"
+parent = "procedure"
+
+[[aspects]]
+name = "simulated"
+parent = "procedure"
+
+[[aspects]]
+name = "coverage"
+applies_to = ["*"]
+
+[[aspects]]
+name = "k2"
+parent = "coverage"

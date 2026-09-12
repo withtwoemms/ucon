@@ -3,6 +3,8 @@
 
 """Tests for basis context scoping via the active UnitSystem."""
 
+import pytest
+
 from ucon import CGS, SI
 from ucon.dimension import Dimension
 from ucon.system import active_system, use
@@ -17,6 +19,7 @@ class TestDimensionContextIntegration:
             dim = Dimension.from_components(L=1, T=-1, name="velocity")
             assert dim.basis == CGS
 
+    @pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")
     def test_dimension_pseudo_uses_context_basis(self):
         """CGS-active UnitSystem creates CGS pseudo-dimension."""
         with use(active_system().with_basis(CGS)):
@@ -24,6 +27,7 @@ class TestDimensionContextIntegration:
             assert angle.basis == CGS
             assert angle.is_pseudo
 
+    @pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")
     def test_explicit_basis_overrides_context(self):
         """basis=SI wins over active system."""
         with use(active_system().with_basis(CGS)):
@@ -34,6 +38,7 @@ class TestDimensionContextIntegration:
             pseudo = Dimension.pseudo("test", basis=SI)
             assert pseudo.basis == SI
 
+    @pytest.mark.filterwarnings("ignore::PendingDeprecationWarning")
     def test_default_basis_used_without_context(self):
         """SI is used when no context is set."""
         dim = Dimension.from_components(L=1, name="length")

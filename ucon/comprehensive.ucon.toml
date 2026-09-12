@@ -5233,7 +5233,7 @@ dimension = "none"
 # ── Formulas ──────────────────────────────────────────────────────────
 #
 # Kind-aware arithmetic dispatch tables.  Each formula declares its
-# input kinds, output kind, and optional aspect rules.
+# input kinds and output kind.
 
 [[formulas]]
 name = "radiation_weighting"
@@ -5244,5 +5244,3 @@ notes = "H = D * w_R (ICRP 103). Radiation weighting converts absorbed dose (gra
   [formulas.inputs]
   D   = { kind = "absorbed_dose" }
   w_R = { kind = "radiation_weighting_factor" }
-  [formulas.aspect_rules]
-  w_R = "consume"

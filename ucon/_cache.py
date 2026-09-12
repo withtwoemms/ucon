@@ -346,7 +346,6 @@ def _to_primitives(graph: "Graph") -> dict:
 
     # --- Pass 5b: Formulas ---
     if hasattr(graph, '_formula_registry') and graph._formula_registry is not None:
-        from ucon.aspects.types import AspectRule
 
         for formula in graph._formula_registry:
             out[f"f:{formula.name}"] = {
@@ -355,7 +354,6 @@ def _to_primitives(graph: "Graph") -> dict:
                 "e": formula.expression,
                 "ik": {b: k.name for b, k in formula.input_kinds.items()},
                 "ok": formula.output_kind.name,
-                "ar": {b: r.value for b, r in formula.aspect_rules.items()},
                 "g": formula.generalizes,
                 "c": formula.commutative,
                 "no": formula.notes,
@@ -716,7 +714,6 @@ def _from_primitives(raw: dict) -> "Graph":
         formula_data.append(val)
 
     if formula_data and kind_obj_map:
-        from ucon.aspects.types import AspectRule
         from ucon.formulas import FormulaRegistry, KindFormula
 
         formulas = []
@@ -730,15 +727,11 @@ def _from_primitives(raw: dict) -> "Graph":
             else:
                 output_kind = kind_obj_map.get(fd["ok"])
                 if output_kind is not None:
-                    aspect_rules = {
-                        b: AspectRule(r) for b, r in fd.get("ar", {}).items()
-                    }
                     formulas.append(KindFormula(
                         name=fd["n"],
                         expression=fd["e"],
                         input_kinds=input_kinds,
                         output_kind=output_kind,
-                        aspect_rules=aspect_rules,
                         generalizes=fd.get("g", False),
                         commutative=fd.get("c", True),
                         notes=fd.get("no", ""),

@@ -22,10 +22,6 @@ Schema
       [formulas.inputs]
       D   = { kind = "absorbed_dose" }
       w_R = { kind = "radiation_weighting_factor" }
-      [formulas.aspect_rules]    # optional; keys are binding names from
-                                 # [formulas.inputs]. v1.9.1 honors these
-                                 # at apply-time via project_aspects.
-      w_R = "consume"
 """
 
 from __future__ import annotations
@@ -39,7 +35,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
-from ucon.formulas import AspectRule, FormulaRegistry, KindFormula
+from ucon.formulas import FormulaRegistry, KindFormula
 from ucon.kinds import KindLattice
 
 
@@ -71,8 +67,7 @@ def parse_formulas_payload(
     Raises
     ------
     ValueError
-        If a formula entry is missing required fields or has an
-        unrecognized ``aspect_rules`` value.
+        If a formula entry is missing required fields.
     """
     entries = payload.get("formulas", [])
     if not isinstance(entries, list):
@@ -107,21 +102,6 @@ def parse_formulas_payload(
 
         output_kind = lattice.get(output_kind_name)
 
-        aspect_block = raw.get("aspect_rules", {})
-        if not isinstance(aspect_block, dict):
-            raise ValueError(
-                f"Formula {name!r} 'aspect_rules' must be a table"
-            )
-        aspect_rules: dict[str, AspectRule] = {}
-        for binding, rule in aspect_block.items():
-            try:
-                aspect_rules[str(binding)] = AspectRule(str(rule))
-            except ValueError as exc:
-                raise ValueError(
-                    f"Formula {name!r} aspect_rules[{binding!r}] has "
-                    f"unrecognized value {rule!r}; expected one of "
-                    f"{[r.value for r in AspectRule]}"
-                ) from exc
 
         formulas.append(
             KindFormula(
@@ -129,7 +109,6 @@ def parse_formulas_payload(
                 expression=expression,
                 input_kinds=input_kinds,
                 output_kind=output_kind,
-                aspect_rules=aspect_rules,
                 generalizes=bool(raw.get("generalizes", False)),
                 commutative=bool(raw.get("commutative", True)),
                 notes=str(raw.get("notes", "")),

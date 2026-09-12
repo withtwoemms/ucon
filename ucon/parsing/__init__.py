@@ -52,6 +52,8 @@ _LAZY = {
     "load_kinds_file": ("ucon.parsing.kinds", "load_kinds_file"),
     "parse_formulas_payload": ("ucon.parsing.formulas", "parse_formulas_payload"),
     "load_formulas_file": ("ucon.parsing.formulas", "load_formulas_file"),
+    "parse_aspects_payload": ("ucon.parsing.aspects", "parse_aspects_payload"),
+    "load_aspects_file": ("ucon.parsing.aspects", "load_aspects_file"),
 }
 
 
@@ -62,9 +64,10 @@ def __getattr__(name):
     ``ucon.dimension`` to be evaluated whenever ``ucon.parsing`` is
     imported, including the early-bootstrap path
     ``ucon.units → ucon.resolver → ucon.parsing`` where the dimension
-    module has not yet finished registering its attributes. The kind
-    and formula parsers are deferred for the same reason: keeping
-    ``ucon.kinds`` and ``ucon.formulas`` out of the bootstrap path.
+    module has not yet finished registering its attributes. The kind,
+    formula, and aspect parsers are deferred for the same reason:
+    keeping ``ucon.kinds``, ``ucon.formulas``, and ``ucon.aspects``
+    out of the bootstrap path.
     """
     spec = _LAZY.get(name)
     if spec is None:
@@ -84,4 +87,6 @@ __all__ = [
     "load_kinds_file",
     "parse_formulas_payload",
     "load_formulas_file",
+    "parse_aspects_payload",
+    "load_aspects_file",
 ]

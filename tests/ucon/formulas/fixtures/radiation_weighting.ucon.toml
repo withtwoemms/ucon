@@ -1,5 +1,5 @@
 # Radiation weighting: equivalent dose H = D * w_R.
-# Exercises a multi-input formula with aspect_rules.
+# Exercises a multi-input formula.
 #
 # Kinds and formulas live in the same payload here so the fixture is
 # self-contained; the parser only consults its own section ([[kinds]]
@@ -28,5 +28,3 @@ notes = "w_R per ICRP 103; caller supplies the appropriate value."
   D   = { kind = "absorbed_dose" }
   w_R = { kind = "radiation_weighting_factor" }
 
-  [formulas.aspect_rules]
-  w_R = "consume"

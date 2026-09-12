@@ -104,6 +104,12 @@ from ucon.system import (
     use,
 )
 from ucon.formulas import FormulaRegistry
+from ucon.aspects import (
+    Aspect,
+    AspectError,
+    AspectNotApplicable,
+    AspectRefused,
+)
 from ucon.kinds import Kind, KindLattice
 from ucon.dimension import (
     Dimension,
@@ -185,6 +191,10 @@ __all__ = [
     'ExtendConflict',
     'FormulaRegistry',
     'InvalidRename',
+    'Aspect',
+    'AspectError',
+    'AspectNotApplicable',
+    'AspectRefused',
     'Kind',
     'KindLattice',
     'RegistryDiff',

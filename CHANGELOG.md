@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **The flat aspect model, outright.** `AspectSet`, `AspectJoinPolicy`,
+  `join_aspects`, `AspectRule`, and the formula aspect-projection
+  machinery (`KindFormula.aspect_rules`, `project_aspects`, the
+  aspect-carrying `FormulaRegistry.apply` signature) are deleted — no
+  deprecation shim. None of these names was ever exported through
+  `ucon/__init__.py`, and an unkeyed set cannot distinguish conflict
+  from absence (the defect the aspect stratum exists to fix).
+  `FormulaRegistry.apply` now takes kinds only and returns
+  `(formula, output_kind, match_kind)`: formulas do kind work; aspect
+  propagation belongs to the stratum's carry rule.
+
+### Added
+
+- **Family-wise aspect resolution in Number arithmetic.** Addition and
+  subtraction resolve per family: equal positions carry, differing
+  positions join at their LCA under the ancestor's policy (`refuse`
+  raises `AspectRefused`), and partial presence consults the ambient
+  strict bit — strict refuses, permissive inherits with a warning.
+  Multiplication and division follow the carry rule: a factor's
+  provenance rides the product even past kind degradation, and partial
+  presence carries per the family's `multiplication_policy`. No path
+  drops a position silently. Single-operand operations (`.to()`,
+  scalar `*`/`/`, `**`, `simplify()`, `to_base()`, `Ratio.evaluate()`,
+  `UnitSystem.adopt()`, `Bridge.apply()`) thread aspects unchanged.
+  `resolve_add_aspects` / `resolve_mul_aspects` ship via
+  `ucon.aspects`.
+- **`[[aspects]]` TOML and serialization round-trip.**
+  `parse_aspects_payload` / `load_aspects_file` (via `ucon.parsing`)
+  build an `AspectForest` from declarations — order-independent parent
+  resolution, typed errors (schema faults raise `ValueError`;
+  duplicates, orphan or cyclic parents, and root-only fields on child
+  entries raise `AspectError` — never a Kind-named exception).
+  `to_toml(..., aspects=...)` emits `[[aspects]]` sections
+  (defaults omitted, parents before children) with fallback to the
+  graph's loaded forest; `from_toml` restores it. No builtin aspects:
+  core ships mechanism, domains ship vocabulary.
+- **`Number.aspects`** — additive `frozenset[Aspect]` field, default
+  empty; `Number.kind` and every existing idiom untouched. `applies_to`
+  is enforced at construction (the one sanctioned kind-read in the
+  aspect layer): a restricted family refuses attachment to the wrong
+  kind — or to an unkinded Number — at the moment the claim is made;
+  wildcard (`"*"`) and unrestricted families attach kind-independently.
+  `repr` gains sorted `#aspect` tokens.
+- **`AspectForest`** — family-grouped aspect trees, each family running
+  on a private, mirrored kind-lattice engine (the engine untouched;
+  the vetted isomorphism preserved by construction). Root-as-⊤ turns
+  would-be disjoint-subtree crashes into typed `AspectRefused`
+  verdicts; the rewrap boundary guarantees no Kind-named exception
+  ever surfaces from an aspect declaration.
+- **The aspect data model.** `Aspect` — one node type, peer of `Kind`:
+  trees whose root *is* the family and its ⊤; `join_policy` defaults to
+  refuse; root-only `applies_to` and `multiplication_policy` (`carry`).
+  Exception surface mirroring the kind layer: `AspectError`,
+  `AspectRefused` (family conflict and partial-under-strict, one type,
+  warrant-shaped payload), `AspectNotApplicable`. First public aspect
+  exports: `Aspect`, `AspectError`, `AspectRefused`,
+  `AspectNotApplicable` via `ucon/__init__.py`. (#296, ADR 008 —
+  resolution, `Number.aspects`, and TOML arrive in the same release.)
+
+### Deprecated
+
+- **Pseudo-dimensions.** `Dimension.pseudo(...)` now emits
+  `PendingDeprecationWarning` citing the migration path (declare a
+  `Kind` over the dimensionless dimension — kinds carry the semantic
+  isolation pseudo-dimensions approximate) and the removal version
+  (3.0.0, together with the TOML `tag` schema). The builtin four
+  (`angle`, `solid_angle`, `ratio`, `count`) stay silent at import
+  and retire with the schema.
+
 ### Changed
 
 - **Test suite: function-local imports hoisted to module top.** ~1,250

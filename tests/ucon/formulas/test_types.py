@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from ucon.dimension import LENGTH, MASS, TIME
-from ucon.formulas import AspectRule, KindFormula
+from ucon.formulas import KindFormula
 from ucon.kinds import Kind
 
 
@@ -36,22 +36,10 @@ def test_kindformula_minimal_construction():
     assert f.expression == "D * w_R"
     assert f.input_kinds == {"D": D, "w_R": wR}
     assert f.output_kind == out
-    assert f.aspect_rules == {}
     assert f.generalizes is False
     assert f.commutative is True
     assert f.notes == ""
 
-
-def test_kindformula_with_aspect_rules():
-    D, wR, out = _radiation_inputs()
-    f = KindFormula(
-        name="radiation_weighting",
-        expression="D * w_R",
-        input_kinds={"D": D, "w_R": wR},
-        output_kind=out,
-        aspect_rules={"w_R": AspectRule.CONSUME},
-    )
-    assert f.aspect_rules == {"w_R": AspectRule.CONSUME}
 
 
 def test_kindformula_input_kind_tuple_preserves_insertion_order():
@@ -121,11 +109,6 @@ def test_kindformula_repr_renders_name():
         output_kind=out,
     )
     assert repr(f) == "KindFormula('radiation_weighting')"
-
-
-def test_aspect_rule_enum_string_values():
-    assert AspectRule("consume") is AspectRule.CONSUME
-    assert AspectRule("carry") is AspectRule.CARRY
 
 
 def test_kindformula_notes_field_is_freeform():

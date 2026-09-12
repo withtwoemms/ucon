@@ -38,10 +38,10 @@ from ucon.basis import (
     BasisTransform,
     Vector,
 )
+from ucon.aspects import Aspect, AspectForest, MultPolicy
 from ucon.basis.transforms import ConstantBoundBasisTransform, ConstantBinding
 from ucon.constants import Constant
 from ucon.contexts import ConversionContext, ContextEdge
-from ucon.aspects.types import AspectRule
 from ucon.core import BaseForm, RebasedUnit, Scale, Unit, UnitFactor, UnitProduct
 from ucon.dimension import Dimension, resolve
 from ucon.expressions import ExprResult, evaluate
@@ -49,6 +49,7 @@ from ucon.formulas import FormulaRegistry
 from ucon.graph import ConversionGraph, using_conversion_graph
 from ucon.kinds import JoinPolicy, Kind, KindLattice
 from ucon.kinds.exceptions import KindNotFound
+from ucon.parsing.aspects import parse_aspects_payload
 from ucon.parsing.formulas import parse_formulas_payload
 from ucon.parsing.kinds import parse_kinds_payload
 from ucon.maps import (
@@ -427,6 +428,55 @@ def _serialize_kind(kind: Kind) -> dict:
     return d
 
 
+def _serialize_aspect(aspect: Aspect) -> dict:
+    """Serialize an Aspect to a TOML dict.
+
+    Defaulted fields are omitted so the emitted entry round-trips to an
+    equal node: ``join_policy`` only when not ``refuse`` (the aspect
+    default — kinds default to ``lca``), root-only fields only when
+    set/non-default.
+    """
+    d: dict = {"name": aspect.name}
+    if aspect.parent is not None:
+        d["parent"] = aspect.parent.name
+    if aspect.join_policy != JoinPolicy.REFUSE:
+        d["join_policy"] = aspect.join_policy.value
+    if aspect.applies_to:
+        d["applies_to"] = sorted(aspect.applies_to)
+    if aspect.multiplication_policy != MultPolicy.CARRY:
+        d["multiplication_policy"] = aspect.multiplication_policy.value
+    return d
+
+
+def _collect_aspects(graph, explicit_aspects: 'AspectForest | None') -> list[dict]:
+    """Collect aspects for serialization.
+
+    Uses *explicit_aspects* if provided, then ``graph._aspect_forest``.
+    No active-context fallback: resolution is context-free (pure over
+    the operand aspect sets), so no ambient forest exists to consult.
+
+    Entries are emitted parents-before-children within each family
+    (families sorted by root name) — the parser is order-independent,
+    but the file should read top-down.
+    """
+    forest = explicit_aspects
+    if forest is None:
+        forest = getattr(graph, '_aspect_forest', None)
+    if forest is None or len(forest) == 0:
+        return []
+
+    def _depth(a: Aspect) -> int:
+        depth = 0
+        node = a
+        while node.parent is not None:
+            node = node.parent
+            depth += 1
+        return depth
+
+    ordered = sorted(forest, key=lambda a: (a.root.name, _depth(a), a.name))
+    return [_serialize_aspect(a) for a in ordered]
+
+
 def _dimension_to_expression(dim: Dimension) -> str:
     """Convert an unnamed Dimension to a parseable string expression."""
     if dim.name:
@@ -462,13 +512,6 @@ def _serialize_formula(formula) -> dict:
     for binding, kind in formula.input_kinds.items():
         inputs[binding] = {"kind": kind.name}
     d["inputs"] = inputs
-    # aspect_rules — only non-default (non-CARRY)
-    aspect_rules: dict = {}
-    for binding, rule in formula.aspect_rules.items():
-        if rule is not AspectRule.CARRY:
-            aspect_rules[binding] = rule.value
-    if aspect_rules:
-        d["aspect_rules"] = aspect_rules
     return d
 
 
@@ -527,6 +570,7 @@ def to_toml(
     *,
     kinds: 'KindLattice | None' = None,
     formulas: 'FormulaRegistry | None' = None,
+    aspects: 'AspectForest | None' = None,
 ) -> None:
     """Export a ConversionGraph to a TOML file.
 
@@ -544,6 +588,11 @@ def to_toml(
         Optional formula registry to serialize as ``[[formulas]]``
         sections. When ``None``, falls back to
         ``graph._formula_registry`` then ``active_formulas()``.
+    aspects : AspectForest or None
+        Optional aspect forest to serialize as ``[[aspects]]``
+        sections. When ``None``, falls back to
+        ``graph._aspect_forest`` (no active-context fallback:
+        aspect resolution is context-free).
     """
     try:
         import tomli_w
@@ -625,6 +674,11 @@ def to_toml(
     kinds_list = _collect_kinds(graph, kinds)
     if kinds_list:
         doc["kinds"] = kinds_list
+
+    # [[aspects]]
+    aspects_list = _collect_aspects(graph, aspects)
+    if aspects_list:
+        doc["aspects"] = aspects_list
 
     # [[formulas]]
     exported_kind_names = {k["name"] for k in kinds_list} if kinds_list else None
@@ -958,6 +1012,11 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     if "formulas" in doc and kind_lattice is not None:
         formula_registry = parse_formulas_payload(doc, lattice=kind_lattice)
         graph._formula_registry = formula_registry
+
+    # 6d. Parse aspects (independent of kinds: applies_to references
+    #     kinds by name and is checked at Number attachment, not load)
+    if "aspects" in doc:
+        graph._aspect_forest = parse_aspects_payload(doc)
 
     # 7. Materialize constants (before edges so expression factors can
     #    resolve constant symbols like "1 / Eh").
