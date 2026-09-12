@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`AspectForest`** — family-grouped aspect trees, each family running
+  on a private, mirrored kind-lattice engine (the engine untouched;
+  the vetted isomorphism preserved by construction). Root-as-⊤ turns
+  would-be disjoint-subtree crashes into typed `AspectRefused`
+  verdicts; the rewrap boundary guarantees no Kind-named exception
+  ever surfaces from an aspect declaration.
 - **The aspect data model.** `Aspect` — one node type, peer of `Kind`:
   trees whose root *is* the family and its ⊤; `join_policy` defaults to
   refuse; root-only `applies_to` and `multiplication_policy` (`carry`).

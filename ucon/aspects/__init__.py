@@ -19,10 +19,12 @@ from ucon.aspects.exceptions import (
     AspectNotApplicable,
     AspectRefused,
 )
+from ucon.aspects.forest import AspectForest
 from ucon.aspects.types import Aspect, MultPolicy
 
 __all__ = [
     "Aspect",
+    "AspectForest",
     "MultPolicy",
     "AspectError",
     "AspectRefused",
