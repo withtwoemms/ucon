@@ -130,6 +130,9 @@ class Graph:
     # Kind lattice loaded from TOML (for serialization round-trip)
     _kind_lattice: 'KindLattice | None' = field(default=None)
 
+    # Aspect forest loaded from TOML (for serialization round-trip)
+    _aspect_forest: 'AspectForest | None' = field(default=None)
+
     # Conversion path cache: (src_key, dst_key) -> Map
     # Cleared when edges are added
     _conversion_cache: dict[tuple, Map] = field(default_factory=dict)
@@ -589,6 +592,7 @@ class Graph:
         new._package_constants = self._package_constants  # tuple is immutable, share reference
         new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
         new._kind_lattice = self._kind_lattice.copy() if self._kind_lattice is not None else None
+        new._aspect_forest = self._aspect_forest  # immutable after construction, share reference
         new._formula_registry = self._formula_registry if hasattr(self, '_formula_registry') else None
         return new
 
@@ -1257,6 +1261,7 @@ class Graph:
         *,
         kinds: 'KindLattice | None' = None,
         formulas: 'FormulaRegistry | None' = None,
+        aspects: 'AspectForest | None' = None,
     ) -> None:
         """Export this graph to a TOML file.
 
@@ -1269,6 +1274,9 @@ class Graph:
         formulas : FormulaRegistry or None
             Optional formula registry to serialize as ``[[formulas]]``
             sections.
+        aspects : AspectForest or None
+            Optional aspect forest to serialize as ``[[aspects]]``
+            sections.
 
         Raises
         ------
@@ -1276,7 +1284,7 @@ class Graph:
             If ``tomli_w`` is not installed.
         """
         from ucon.serialization import to_toml
-        to_toml(self, path, kinds=kinds, formulas=formulas)
+        to_toml(self, path, kinds=kinds, formulas=formulas, aspects=aspects)
 
     @classmethod
     def from_toml(cls, path: Union[str, 'Path'], *, strict: bool = True) -> 'Graph':
@@ -1498,6 +1506,14 @@ class Graph:
             return False
         if self._kind_lattice is not None and other._kind_lattice is not None:
             if set(self._kind_lattice.names()) != set(other._kind_lattice.names()):
+                return False
+
+        # Compare aspect forest
+        if (self._aspect_forest is None) != (other._aspect_forest is None):
+            return False
+        if self._aspect_forest is not None and other._aspect_forest is not None:
+            if ({a.name for a in self._aspect_forest}
+                    != {a.name for a in other._aspect_forest}):
                 return False
 
         return True

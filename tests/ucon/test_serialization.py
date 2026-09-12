@@ -81,11 +81,14 @@ from ucon.packages import _build_map, PackageLoadError
 from ucon.packages import _find_map_class
 from ucon.packages import _resolve_value
 from ucon.packages import load_package
+from ucon.aspects import Aspect, AspectForest
 from ucon.resolver import parse_unit
+from ucon.serialization import _collect_aspects
 from ucon.serialization import _collect_kinds
 from ucon.serialization import _collect_transforms
 from ucon.serialization import _collect_units
 from ucon.serialization import _dimension_to_expression
+from ucon.serialization import _serialize_aspect
 from ucon.serialization import _serialize_formula
 from ucon.serialization import _serialize_kind
 from ucon.system import active_formulas
@@ -2864,6 +2867,83 @@ class TestKindsSerialization:
         with patch('ucon.serialization.active_kinds', side_effect=RuntimeError("no context")):
             result = _collect_kinds(None, None)
         assert result == []
+
+
+class TestAspectsSerialization:
+    """Tests for aspect TOML round-trip (A5 of the aspect stratum, #296)."""
+
+    @staticmethod
+    def _radsafe_forest() -> AspectForest:
+        family = Aspect("weighting_standard",
+                        applies_to=frozenset({"dose_equivalent"}))
+        icrp60 = Aspect("icrp60", parent=family)
+        icrp103 = Aspect("icrp103", parent=family)
+        procedure = Aspect("procedure", join_policy=JoinPolicy.LCA)
+        measured = Aspect("measured", parent=procedure)
+        return AspectForest([icrp60, icrp103, measured])
+
+    def test_serialize_aspect_defaults_omitted(self):
+        family = Aspect("weighting_standard",
+                        applies_to=frozenset({"dose_equivalent"}))
+        child = Aspect("icrp103", parent=family)
+        assert _serialize_aspect(family) == {
+            "name": "weighting_standard",
+            "applies_to": ["dose_equivalent"],
+        }
+        assert _serialize_aspect(child) == {
+            "name": "icrp103",
+            "parent": "weighting_standard",
+        }
+
+    def test_serialize_aspect_non_default_join_policy(self):
+        procedure = Aspect("procedure", join_policy=JoinPolicy.LCA)
+        assert _serialize_aspect(procedure) == {
+            "name": "procedure",
+            "join_policy": "lca",
+        }
+
+    def test_collect_aspects_orders_parents_first(self):
+        forest = self._radsafe_forest()
+        entries = _collect_aspects(None, forest)
+        names = [e["name"] for e in entries]
+        for entry in entries:
+            if "parent" in entry:
+                assert names.index(entry["parent"]) < names.index(entry["name"])
+
+    def test_collect_aspects_empty_without_forest(self):
+        assert _collect_aspects(None, None) == []
+
+    def test_aspects_roundtrip(self, tmp_path):
+        """Aspect forest survives to_toml → from_toml round-trip."""
+        forest = self._radsafe_forest()
+        graph = get_default_graph()
+        path = tmp_path / "aspects_rt.ucon.toml"
+        graph.to_toml(path, aspects=forest)
+
+        restored = from_toml(path)
+        rf = restored._aspect_forest
+        assert rf is not None
+        assert {a.name for a in rf} == {a.name for a in forest}
+        # structure and policies survive
+        assert rf.get("icrp103").parent is rf.get("weighting_standard")
+        assert rf.get("weighting_standard").applies_to == frozenset(
+            {"dose_equivalent"})
+        assert rf.get("procedure").join_policy is JoinPolicy.LCA
+        # and the restored forest behaves: refuse family still refuses
+        with pytest.raises(Exception) as exc_info:
+            rf.join(rf.get("icrp60"), rf.get("icrp103"))
+        assert type(exc_info.value).__name__ == "AspectRefused"
+
+    def test_second_roundtrip_is_stable(self, tmp_path):
+        """to_toml(from_toml(x)) emits the same [[aspects]] entries."""
+        forest = self._radsafe_forest()
+        graph = get_default_graph()
+        first = tmp_path / "first.ucon.toml"
+        graph.to_toml(first, aspects=forest)
+        restored = from_toml(first)
+        second = tmp_path / "second.ucon.toml"
+        restored.to_toml(second)   # forest comes from graph._aspect_forest
+        assert _collect_aspects(restored, None) == _collect_aspects(None, forest)
 
 
 class TestFormulasSerialization:

@@ -35,6 +35,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `UnitSystem.adopt()`, `Bridge.apply()`) thread aspects unchanged.
   `resolve_add_aspects` / `resolve_mul_aspects` ship via
   `ucon.aspects`.
+- **`[[aspects]]` TOML and serialization round-trip.**
+  `parse_aspects_payload` / `load_aspects_file` (via `ucon.parsing`)
+  build an `AspectForest` from declarations — order-independent parent
+  resolution, typed errors (schema faults raise `ValueError`;
+  duplicates, orphan or cyclic parents, and root-only fields on child
+  entries raise `AspectError` — never a Kind-named exception).
+  `to_toml(..., aspects=...)` emits `[[aspects]]` sections
+  (defaults omitted, parents before children) with fallback to the
+  graph's loaded forest; `from_toml` restores it. No builtin aspects:
+  core ships mechanism, domains ship vocabulary.
 - **`Number.aspects`** — additive `frozenset[Aspect]` field, default
   empty; `Number.kind` and every existing idiom untouched. `applies_to`
   is enforced at construction (the one sanctioned kind-read in the
