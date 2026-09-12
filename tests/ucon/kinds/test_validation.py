@@ -75,6 +75,41 @@ def test_distinct_same_name_objects_raise_name_collision():
     assert exc.value.name == "foo"
 
 
+def test_cross_fiber_collision_diagnoses_and_points_at_qualification():
+    """#285 — the decision of record: the flat name index stays in 2.x.
+
+    Same-named kinds in different fibers stay refused, because letting
+    them coexist under name-only ``Kind.__eq__`` would silently
+    conflate them in every lattice walk (``join`` short-circuits on
+    ``a == b``; ``lca``/``ancestors`` compare by name) — a wrong-answer
+    failure strictly worse than today's loud one. Re-keying the index
+    by ``(name, dimension)`` therefore requires extending ``Kind``
+    equality, a breaking change reserved for a major release. What 2.2.0
+    delivers instead: ``pkg:name`` qualification (which resolves the
+    load-bearing cross-package case) and this diagnostic, which names
+    both fibers and the fix."""
+    a = Kind("dose", dimension=ENERGY_DIM)
+    b = Kind("dose", dimension=POWER_DIM)
+    with pytest.raises(NameCollision) as exc:
+        KindLattice([a, b])
+    err = exc.value
+    assert err.name == "dose"
+    assert err.existing_dimension == ENERGY_DIM
+    assert err.new_dimension == POWER_DIM
+    assert "different fibers" in str(err)
+    assert "pkg:dose" in str(err)
+
+
+def test_same_fiber_collision_message_carries_no_fiber_hint():
+    """Same name, same dimension: a plain duplicate — qualification
+    advice would be misleading, so the message stays as it was."""
+    a = Kind("foo", dimension=ENERGY_DIM)
+    b = Kind("foo", dimension=ENERGY_DIM)
+    with pytest.raises(NameCollision) as exc:
+        KindLattice([a, b])
+    assert "different fibers" not in str(exc.value)
+
+
 # --------- alias collisions ---------
 
 def test_alias_collides_with_other_alias():

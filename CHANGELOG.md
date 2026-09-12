@@ -35,6 +35,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `UnitSystem.adopt()`, `Bridge.apply()`) thread aspects unchanged.
   `resolve_add_aspects` / `resolve_mul_aspects` ship via
   `ucon.aspects`.
+- **D3 namespacing: full qualification + the `namespace` rewriter.**
+  (#285) Package-declared kinds and aspects carry `pkg:name` — aliases
+  included, since an unqualified alias collides across packages exactly
+  the way a name does. The ergonomics are recovered by
+  `rewrite_namespace` (via `ucon.parsing`): `namespace = "pkg"` in
+  `[package]` qualifies every unprefixed declared name and
+  kind-reference (kinds, aspects, formula inputs/outputs, constant
+  kinds); `@name` escapes to root; `pkg:name` spellings pass through
+  as explicit cross-package references. The rewrite is a pure
+  dict→dict transformation that consults nothing loaded (it cannot
+  shadow) and consumes the `namespace` key (it is idempotent, and its
+  output equals the hand-qualified file). Applied automatically by
+  `load_package` and `from_toml`.
+- **Packages can declare aspects.** `[[aspects]]` sections in a
+  package TOML parse into `UnitPackage.aspects`;
+  `ConversionGraph.with_package` merges them into the graph's forest.
+  No silent override: a same-named distinct aspect raises
+  `AspectError` at composition — under qualification, collisions
+  indicate a missing namespace, not a tie to break.
+- **Cross-fiber `NameCollision` now diagnoses itself.** (#285) The
+  flat kind-name index stays in 2.x — coexistence of same-named kinds
+  in different fibers under name-only `Kind.__eq__` would silently
+  conflate them in lattice walks, and extending equality is a breaking
+  change reserved for a major. When a collision spans fibers, the
+  error now names both dimensions and points at `pkg:name`
+  qualification as the supported resolution.
 - **`[[aspects]]` TOML and serialization round-trip.**
   `parse_aspects_payload` / `load_aspects_file` (via `ucon.parsing`)
   build an `AspectForest` from declarations — order-independent parent

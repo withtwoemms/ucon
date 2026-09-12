@@ -84,11 +84,40 @@ class CrossDimensionParent(KindError):
 
 
 class NameCollision(KindError):
-    """Two kinds share the same primary name."""
+    """Two kinds share the same primary name.
 
-    def __init__(self, name: str) -> None:
+    When the colliding kinds live in different fibers (their dimensions
+    differ), the message says so and points at qualification: the flat
+    name index refuses cross-fiber same-names in 2.x because name-only
+    ``Kind.__eq__`` would make lattice walks silently conflate them if
+    they coexisted. Extending equality is a breaking change reserved
+    for a major release; ``pkg:name`` qualification is the supported
+    resolution today.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        existing_dimension: 'object | None' = None,
+        new_dimension: 'object | None' = None,
+    ) -> None:
         self.name = name
-        super().__init__(f"Duplicate kind name: {name!r}")
+        self.existing_dimension = existing_dimension
+        self.new_dimension = new_dimension
+        message = f"Duplicate kind name: {name!r}"
+        if (
+            existing_dimension is not None
+            and new_dimension is not None
+            and existing_dimension != new_dimension
+        ):
+            message += (
+                f" — the kinds occupy different fibers "
+                f"({existing_dimension} vs {new_dimension}); the flat "
+                f"name index cannot host both. Qualify the names "
+                f"(e.g. 'pkg:{name}') to disambiguate."
+            )
+        super().__init__(message)
 
 
 class AliasCollision(KindError):
