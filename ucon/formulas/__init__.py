@@ -10,12 +10,10 @@ versions) drives kind assignment for multiplication and named
 computation. Addition dispatch is governed by the kind lattice, not
 by formulas.
 
-This subpackage is not wired into :class:`~ucon.quantity.Number` in
-v1.9.x. ``aspect_rules`` gained operational semantics in v1.9.1 via
-:meth:`~ucon.formulas.types.KindFormula.project_aspects` and
-:meth:`~ucon.formulas.registry.FormulaRegistry.apply`.
-``generalizes`` and ``commutative`` (higher-arity) are inert until
-v1.9.2.
+Formulas do kind work only: aspect propagation is the aspect
+stratum's carry rule (``ucon.aspects``), not a formula concern —
+formulas do not produce aspects. ``generalizes`` and ``commutative``
+gained semantics in v1.9.2.
 """
 
 from ucon.formulas.exceptions import (
@@ -25,13 +23,12 @@ from ucon.formulas.exceptions import (
     FormulaNotFound,
 )
 from ucon.formulas.registry import FormulaRegistry
-from ucon.formulas.types import AspectRule, KindFormula, LookupResult, MatchKind
+from ucon.formulas.types import KindFormula, LookupResult, MatchKind
 
 
 __all__ = [
     # Types
     "KindFormula",
-    "AspectRule",
     "LookupResult",
     "MatchKind",
     # Registry

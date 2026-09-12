@@ -22,12 +22,11 @@ not change.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, FrozenSet, Iterable, Iterator, Mapping, Tuple
+from typing import TYPE_CHECKING, Iterable, Iterator, Mapping, Tuple
 
 if TYPE_CHECKING:
     from ucon.kinds import KindLattice
 
-from ucon.aspects.types import AspectSet
 from ucon.formulas.exceptions import AmbiguousFormula, DuplicateFormula, FormulaNotFound
 from ucon.formulas.types import KindFormula, LookupResult, MatchKind
 from ucon.kinds import Kind, KindNotFound
@@ -289,42 +288,30 @@ class FormulaRegistry:
 
     def apply(
         self,
-        inputs: Mapping[str, Tuple[Kind, FrozenSet[str]]],
+        inputs: Mapping[str, Kind],
         *,
         lattice: KindLattice | None = None,
         dimension_fallback: bool = False,
-    ) -> Tuple[KindFormula, Kind, FrozenSet[str], MatchKind]:
-        """Resolve a formula and project operand aspects in one step.
+    ) -> Tuple[KindFormula, Kind, MatchKind]:
+        """Resolve a formula for the supplied input kinds.
 
-        Combines :meth:`resolve` with
-        :meth:`~ucon.formulas.types.KindFormula.project_aspects`. The
-        caller supplies one ``(kind, aspect_set)`` pair per binding;
-        the registry resolves the formula by the kinds (in iteration
-        order of ``inputs``) and returns the formula together with the
-        output kind, the projected output aspect set, and the match
-        tier that resolved the query.
+        The caller supplies one kind per binding; resolution consults
+        the declared input kinds (in the order of ``inputs``) and
+        returns the formula, its output kind, and the match tier.
 
         Parameters
         ----------
         inputs
-            Mapping from binding name to a ``(kind, aspect_set)`` pair.
-            Iteration order determines the positional order passed to
-            :meth:`resolve`.
+            Mapping from binding name to the operand's kind.
         lattice
-            When provided, enables GENERALIZED matching via ancestor
-            walk.
+            Passed through to :meth:`resolve` for generalized matching.
         dimension_fallback
-            When True, enables DIMENSIONAL matching as a last resort.
+            Passed through to :meth:`resolve`.
 
         Returns
         -------
         tuple
-            ``(formula, output_kind, output_aspects, match_kind)``
-            where ``output_kind`` is :attr:`KindFormula.output_kind`,
-            ``output_aspects`` is the projection of the input aspect
-            sets through :attr:`KindFormula.aspect_rules`, and
-            ``match_kind`` is the :class:`MatchKind` tier that resolved
-            the formula.
+            ``(formula, output_kind, match_kind)``.
 
         Raises
         ------
@@ -332,26 +319,10 @@ class FormulaRegistry:
             Propagated from :meth:`resolve` when no formula matches the
             supplied input kinds at any enabled tier.
         AmbiguousFormula
-            Propagated from :meth:`resolve` when multiple formulas
-            match at the same GENERALIZED distance.
-
-        Notes
-        -----
-        ``apply`` is additive. :meth:`lookup` remains the lower-level
-        surface; callers that do not carry aspects continue to use it.
-
-        Binding names in ``inputs`` are not validated against the
-        resolved formula's :attr:`~KindFormula.input_kinds`. Mismatches
-        manifest in the projection step: rules keyed on the formula's
-        bindings consult ``inputs`` by the same names; aspects supplied
-        under unrelated names contribute nothing to the projection.
+            Propagated from :meth:`resolve`.
         """
-        kinds: Tuple[Kind, ...] = tuple(kind for kind, _ in inputs.values())
+        kinds = tuple(inputs.values())
         result = self.resolve(
-            *kinds, lattice=lattice, dimension_fallback=dimension_fallback,
+            *kinds, lattice=lattice, dimension_fallback=dimension_fallback
         )
-        aspects: dict[str, FrozenSet[str]] = {
-            name: aspect_set for name, (_, aspect_set) in inputs.items()
-        }
-        out_aspects = result.formula.project_aspects(aspects)
-        return result.formula, result.formula.output_kind, out_aspects, result.match_kind
+        return result.formula, result.formula.output_kind, result.match_kind

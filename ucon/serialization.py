@@ -41,7 +41,6 @@ from ucon.basis import (
 from ucon.basis.transforms import ConstantBoundBasisTransform, ConstantBinding
 from ucon.constants import Constant
 from ucon.contexts import ConversionContext, ContextEdge
-from ucon.aspects.types import AspectRule
 from ucon.core import BaseForm, RebasedUnit, Scale, Unit, UnitFactor, UnitProduct
 from ucon.dimension import Dimension, resolve
 from ucon.expressions import ExprResult, evaluate
@@ -462,13 +461,6 @@ def _serialize_formula(formula) -> dict:
     for binding, kind in formula.input_kinds.items():
         inputs[binding] = {"kind": kind.name}
     d["inputs"] = inputs
-    # aspect_rules — only non-default (non-CARRY)
-    aspect_rules: dict = {}
-    for binding, rule in formula.aspect_rules.items():
-        if rule is not AspectRule.CARRY:
-            aspect_rules[binding] = rule.value
-    if aspect_rules:
-        d["aspect_rules"] = aspect_rules
     return d
 
 

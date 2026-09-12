@@ -2,37 +2,29 @@
 # Licensed under the Apache License, Version 2.0
 
 """
-Aspects: provenance and processing tags carried alongside quantities.
+Aspects: the discriminator that gates combination below the kind layer.
 
-An *aspect* is a covariant tag that describes context about a
-quantity — that it was reduced from many samples, that it was
-calibrated against a reference, that it represents a signal summary,
-etc. Aspects are orthogonal to :class:`~ucon.kinds.Kind`: aspects
-travel with a quantity through multiplication (per the formula's
-:class:`AspectRule` declarations) and through addition (per the
-:class:`AspectJoinPolicy` chosen by the caller).
+An *aspect* qualifies a quantity on terms the kind cannot express: two
+dose equivalents — same dimension, same unit, same kind — may still be
+weighted per different standards, and their sum conforms to neither.
+Aspects are tree nodes grouped by family (the tree's root); resolution
+is family-wise, and the flat-set model this package shipped through
+v2.1.x (which could not distinguish *conflict* from *absence*) is gone.
 
-This subpackage provides the data types and the pure join operation.
-It does not own any storage on :class:`~ucon.quantity.Number`; aspects
-remain caller-side in v1.9.x. v2.0 binds aspects to ``Number``
-alongside kinds.
-
-``AspectRule`` shipped from :mod:`ucon.formulas` in v1.9.0; it lives
-here in v1.9.1. :mod:`ucon.formulas` continues to re-export the
-symbol so that v1.9.0 import paths keep working unchanged.
+Design record: ``docs/internal/decisions/008-aspect-stratum.md``.
 """
 
-from ucon.aspects.types import (
-    AspectJoinPolicy,
-    AspectRule,
-    AspectSet,
-    join_aspects,
+from ucon.aspects.exceptions import (
+    AspectError,
+    AspectNotApplicable,
+    AspectRefused,
 )
-
+from ucon.aspects.types import Aspect, MultPolicy
 
 __all__ = [
-    "AspectSet",
-    "AspectRule",
-    "AspectJoinPolicy",
-    "join_aspects",
+    "Aspect",
+    "MultPolicy",
+    "AspectError",
+    "AspectRefused",
+    "AspectNotApplicable",
 ]

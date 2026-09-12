@@ -42,7 +42,6 @@ from ucon.serialization import (
 )
 from ucon import Dimension
 from ucon import units
-from ucon.aspects.types import AspectRule
 from ucon.basis import Basis, BasisComponent
 from ucon.basis import Basis, BasisGraph, BasisTransform
 from ucon.basis import Basis, BasisTransform
@@ -2894,25 +2893,6 @@ class TestFormulasSerialization:
         # no aspect_rules
         assert "aspect_rules" not in d
 
-    def test_serialize_formula_with_aspect_rules(self):
-        """_serialize_formula emits aspect_rules for non-CARRY rules."""
-
-        absorbed = Kind("absorbed_dose", dimension=ENERGY)
-        weight_factor = Kind("weighting_factor", dimension=NONE)
-        equivalent = Kind("equivalent_dose", dimension=ENERGY)
-
-        formula = KindFormula(
-            name="weighting",
-            expression="D * w_R",
-            input_kinds={"D": absorbed, "w_R": weight_factor},
-            output_kind=equivalent,
-            aspect_rules={"w_R": AspectRule.CONSUME},
-            commutative=False,
-        )
-        d = _serialize_formula(formula)
-        assert d["commutative"] is False
-        assert d["aspect_rules"] == {"w_R": "consume"}
-
     def test_formulas_roundtrip(self, tmp_path):
         """Formulas survive to_toml → from_toml round-trip."""
 
@@ -2942,33 +2922,6 @@ class TestFormulasSerialization:
         assert rt.output_kind.name == "work"
         assert set(rt.input_kinds.keys()) == {"F", "d"}
         assert rt.notes == "W = F × d"
-
-    def test_formulas_with_aspect_rules_roundtrip(self, tmp_path):
-        """Aspect rules survive round-trip."""
-
-        absorbed = Kind("absorbed_dose", dimension=ENERGY)
-        wf = Kind("weight_factor", dimension=NONE)
-        equivalent = Kind("equivalent_dose", dimension=ENERGY)
-        lattice = KindLattice([absorbed, wf, equivalent])
-
-        formula = KindFormula(
-            name="dose_weighting",
-            expression="D * w",
-            input_kinds={"D": absorbed, "w": wf},
-            output_kind=equivalent,
-            aspect_rules={"w": AspectRule.CONSUME},
-            commutative=False,
-        )
-        registry = FormulaRegistry([formula])
-
-        graph = get_default_graph()
-        path = tmp_path / "aspect_rt.ucon.toml"
-        graph.to_toml(path, kinds=lattice, formulas=registry)
-
-        restored = from_toml(path)
-        rt = restored._formula_registry.get("dose_weighting")
-        assert rt.commutative is False
-        assert rt.aspect_rules["w"] == AspectRule.CONSUME
 
     def test_no_formulas_section_when_empty(self, tmp_path):
         """TOML without formulas omits the [[formulas]] section."""

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **The flat aspect model, outright.** `AspectSet`, `AspectJoinPolicy`,
+  `join_aspects`, `AspectRule`, and the formula aspect-projection
+  machinery (`KindFormula.aspect_rules`, `project_aspects`, the
+  aspect-carrying `FormulaRegistry.apply` signature) are deleted — no
+  deprecation shim. None of these names was ever exported through
+  `ucon/__init__.py`, and an unkeyed set cannot distinguish conflict
+  from absence (the defect the aspect stratum exists to fix).
+  `FormulaRegistry.apply` now takes kinds only and returns
+  `(formula, output_kind, match_kind)`: formulas do kind work; aspect
+  propagation belongs to the stratum's carry rule.
+
+### Added
+
+- **The aspect data model.** `Aspect` — one node type, peer of `Kind`:
+  trees whose root *is* the family and its ⊤; `join_policy` defaults to
+  refuse; root-only `applies_to` and `multiplication_policy` (`carry`).
+  Exception surface mirroring the kind layer: `AspectError`,
+  `AspectRefused` (family conflict and partial-under-strict, one type,
+  warrant-shaped payload), `AspectNotApplicable`. First public aspect
+  exports: `Aspect`, `AspectError`, `AspectRefused`,
+  `AspectNotApplicable` via `ucon/__init__.py`. (#296, ADR 008 —
+  resolution, `Number.aspects`, and TOML arrive in the same release.)
+
 ### Changed
 
 - **Test suite: function-local imports hoisted to module top.** ~1,250

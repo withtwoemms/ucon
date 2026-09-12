@@ -2129,9 +2129,8 @@ class Number:
         if ctx is None:
             return None
         try:
-            _, result_kind, _, _ = ctx.formulas.apply(
-                {"left": (self.kind, frozenset()),
-                 "right": (other.kind, frozenset())},
+            _, result_kind, _ = ctx.formulas.apply(
+                {"left": self.kind, "right": other.kind},
                 lattice=ctx.kinds,
             )
             return result_kind

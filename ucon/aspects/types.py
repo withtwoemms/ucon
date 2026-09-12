@@ -2,153 +2,102 @@
 # Licensed under the Apache License, Version 2.0
 
 """
-Aspect data types.
+The aspect data model: one node type, trees keyed by their roots.
 
-An *aspect* is a covariant tag carried alongside a quantity that
-describes its provenance, processing, or calibration state rather
-than its physical identity. Aspects are orthogonal to kinds: two
-quantities sharing a kind can differ in aspects, and two quantities
-with different kinds can share aspects.
+An :class:`Aspect` is the peer of :class:`~ucon.kinds.types.Kind` —
+same fields, same engine, same kind of tree. A quantity's aspects are
+adjectives: they say something further about it that matters for
+combination (which weighting standard, which sample basis, which
+coverage factor) without changing what the quantity *is*.
 
-This module defines the storage type (:data:`AspectSet`), the
-behaviour declarations attached to formulas (:class:`AspectRule`),
-the policy controlling how aspects combine under lattice join
-(:class:`AspectJoinPolicy`), and the pure join operation
-(:func:`join_aspects`).
+The **root of a tree is the family** and its ⊤: a `Number` carrying a
+root aspect is *some member of this family, unspecified*, distinct from
+carrying nothing. There is no synthetic top and no separate "facet"
+type — the root plays both parts by construction.
 
-Aspects gained operational semantics in v1.9.1. In v1.9.0
-``AspectRule`` shipped from :mod:`ucon.formulas` as an opaque
-declaration; it now lives here, with :mod:`ucon.formulas`
-re-exporting the symbol for backward compatibility.
+Roots carry the family's rules; declaring :attr:`Aspect.applies_to` or
+:attr:`Aspect.multiplication_policy` on a non-root is a load-time
+error (enforced where trees are assembled, not here — this module is a
+Layer-0-style leaf holding data types only).
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import FrozenSet, Iterable, Iterator
+from typing import FrozenSet, Optional
+
+from ucon.kinds.types import JoinPolicy
 
 
 __all__ = [
-    "AspectSet",
-    "AspectRule",
-    "AspectJoinPolicy",
-    "join_aspects",
+    "Aspect",
+    "MultPolicy",
 ]
 
 
-class AspectSet(frozenset):  # type: ignore[type-arg]
-    """An immutable, variadic-friendly set of aspect names.
+class MultPolicy(Enum):
+    """How a family's aspects behave under multiplicative operations.
 
-    Aspects are strings by convention; ucon does not validate them
-    against a registry. Callers and formulas agree on aspect names
-    out of band.
-
-    ``AspectSet`` is a ``frozenset[str]`` subclass and is fully
-    interchangeable with plain ``frozenset`` values at every internal
-    surface (``project_aspects``, ``join_aspects``, ``apply``). It
-    exists to give callers a more ergonomic construction site than the
-    bare ``frozenset({...})`` literal.
-
-    Construction
-    ------------
-    Variadic — the primary form::
-
-        AspectSet("calibrated", "ICRP103")
-
-    Single iterable — when the caller already has a collection::
-
-        AspectSet({"calibrated", "ICRP103"})
-        AspectSet(["calibrated", "ICRP103"])
-        AspectSet(existing_frozenset)
-
-    Empty::
-
-        AspectSet()
-
-    A single string argument is treated as one aspect (not iterated as
-    characters): ``AspectSet("calibrated") == frozenset({"calibrated"})``.
-
-    Compatibility
-    -------------
-    Because ``AspectSet`` is-a ``frozenset``, plain frozenset literals
-    continue to satisfy ``AspectSet``-typed parameters; equality and
-    hashing are inherited and remain value-based. Set algebra
-    (``&``, ``|``, ``-``, ``^``) returns plain ``frozenset`` instances
-    — wrap with ``AspectSet(...)`` if you need the class identity
-    preserved.
+    CARRY
+        Aspects propagate onto the product/quotient whenever either
+        operand carries them — provenance survives multiplication, so
+        refusals outlive kind degradation. The default, and the reason
+        the stratum is load-bearing.
     """
 
-    def __new__(cls, *aspects: str | Iterable[str]) -> AspectSet:
-        # Single non-string iterable: AspectSet(some_collection)
-        if len(aspects) == 1 and not isinstance(aspects[0], str):
-            return super().__new__(cls, aspects[0])
-        # Variadic primary: AspectSet("a", "b") or AspectSet() for empty
-        return super().__new__(cls, aspects)
-
-
-class AspectRule(Enum):
-    """How a formula treats an operand aspect facet under multiplication.
-
-    ``CONSUME`` drops the operand's aspects on the output (the formula
-    transcends the distinction). ``CARRY`` propagates the operand's
-    aspects to the output.
-
-    Declared per binding name in
-    :attr:`~ucon.formulas.types.KindFormula.aspect_rules`. Bindings not
-    mentioned default to ``CARRY``.
-    """
-
-    CONSUME = "consume"
     CARRY = "carry"
 
 
-class AspectJoinPolicy(Enum):
-    """How two aspect sets combine when their kinds join at the lattice.
+@dataclass(frozen=True)
+class Aspect:
+    """One node in an aspect tree.
 
-    ``INTERSECT`` keeps only aspects present on both sides — the
-    conservative choice, matching the spirit of LCA join (the result
-    is less specific than either operand, so unshared aspects cannot
-    be honestly attributed to it).
-
-    ``UNION`` keeps every aspect from either side — useful when
-    aspects model additive provenance (e.g. "either operand was
-    calibrated").
-    """
-
-    INTERSECT = "intersect"
-    UNION = "union"
-
-
-def join_aspects(
-    a: FrozenSet[str],
-    b: FrozenSet[str],
-    policy: AspectJoinPolicy = AspectJoinPolicy.INTERSECT,
-) -> FrozenSet[str]:
-    """Combine two aspect sets under the given policy.
-
-    Pure operation. Does not consult a kind lattice; callers compose
-    with :meth:`~ucon.kinds.lattice.KindLattice.join` explicitly.
-
-    Parameters
+    Attributes
     ----------
-    a, b
-        Aspect sets to combine.
-    policy
-        :class:`AspectJoinPolicy` controlling the combination.
-        Defaults to ``INTERSECT``.
-
-    Returns
-    -------
-    AspectSet
-        The combined aspect set.
-
-    Raises
-    ------
-    ValueError
-        If ``policy`` is not a recognised :class:`AspectJoinPolicy`.
+    name : str
+        Node name. Package-declared aspects are fully qualified
+        (``"radsafe:icrp103"``); root builtins are unprefixed.
+    parent : Aspect | None
+        Parent node; ``None`` marks a family root.
+    join_policy : JoinPolicy
+        Policy consulted when two positions in this family meet at this
+        node as their lowest common ancestor. Defaults to ``REFUSE`` —
+        strict matching is the zero-configuration behavior; LCA
+        degradation is opt-in per node.
+    applies_to : frozenset[str]
+        Root-only. Kind names this family may attach to, or ``{"*"}``
+        for kind-independent families (coverage factor, calibration
+        status). Checked at attachment, never during resolution.
+    multiplication_policy : MultPolicy
+        Root-only. Behavior under ``×``/``÷``; see :class:`MultPolicy`.
     """
-    if policy is AspectJoinPolicy.INTERSECT:
-        return a & b
-    if policy is AspectJoinPolicy.UNION:
-        return a | b
-    raise ValueError(f"unknown AspectJoinPolicy: {policy!r}")
+
+    name: str
+    parent: Optional["Aspect"] = None
+    join_policy: JoinPolicy = JoinPolicy.REFUSE
+    applies_to: FrozenSet[str] = field(default_factory=frozenset)
+    multiplication_policy: MultPolicy = MultPolicy.CARRY
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("Aspect name must be non-empty")
+        if not isinstance(self.applies_to, frozenset):
+            object.__setattr__(self, "applies_to", frozenset(self.applies_to))
+
+    @property
+    def is_root(self) -> bool:
+        """True when this node is a family root (and family ⊤)."""
+        return self.parent is None
+
+    @property
+    def root(self) -> "Aspect":
+        """The family root this node belongs to."""
+        node: Aspect = self
+        while node.parent is not None:
+            node = node.parent
+        return node
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        role = "root" if self.is_root else f"under {self.parent.name!r}"
+        return f"<Aspect {self.name!r} ({role})>"

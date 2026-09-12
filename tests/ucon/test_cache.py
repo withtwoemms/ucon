@@ -34,7 +34,6 @@ from ucon._cache import _map_to_prim, _prim_to_map
 from ucon._cache import _prim_to_fraction
 from ucon._cache import _prim_to_map
 from ucon._cache import _resolve_unit_ref, _unit_ref
-from ucon.aspects.types import AspectRule
 from ucon.contexts import ContextEdge, ConversionContext
 from ucon.core import NumberArray
 from ucon.core import NumberArray, Unit
@@ -687,7 +686,6 @@ class TestFormulaCodec(unittest.TestCase):
         self.assertEqual(set(rt.input_kinds.keys()), {"D", "w_R"})
         self.assertTrue(rt.commutative)
 
-        self.assertEqual(rt.aspect_rules["w_R"], AspectRule.CONSUME)
 
     def test_formula_missing_input_kind_skipped(self):
         """Formula with unknown input kind is silently dropped."""
