@@ -12,7 +12,7 @@
 **Status:** Draft for review
 **Date:** 2026-07-17
 **Target:** v2.3+ (lands after the v2.2.0 aspect work; see Amendment G5)
-**Provenance:** Base text is `DESIGN_decision-tables_v2.md` (external draft,
+**Provenance:** Base text is the decision-tables v2 draft (external working note,
 2026-07-17), incorporated verbatim in §V–Appendix C. New in this repo copy:
 the prior-art survey (§P), the amendments (§G) closing the seven gaps
 identified in review, and Appendix D (lessons from prototype v2).

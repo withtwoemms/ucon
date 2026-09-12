@@ -10,7 +10,7 @@
 
 **Status:** Draft for review
 **Date:** 2026-07-20
-**Companion:** `DESIGN_operator-flow-decision-tables.md` (the tables this
+**Companion:** `operator-flow-decision-tables.md` (the tables this
 compiles; esp. T3, T4, T8b, T9, T11 and the proposed value-independence
 invariant). Prototypes (dispatch v2, turnstile) are session artifacts,
 superseded by these documents.
