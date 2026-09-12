@@ -1,7 +1,7 @@
 # ADR — Aspect Stratum
 
 **Status:** Accepted — design closed 2026-09-09 (`QualifiedKind` bundle proposed and withdrawn the same day; see [§11](#11-withdrawn-during-design))
-**Target release:** 2.3.0 (minor, additive)
+**Target release:** 2.2.0 (minor; additive save the removal of the never-exported flat `AspectSet` model, sanctioned by the public-symbols-through-`ucon/__init__.py`-only convention)
 **Supersedes:** `AspectSet` flat model (2.1.1); `AspectPosition` and `AspectFacet` (v4/v6 architecture working notes, §5); v1 (2026-09-07) and v2 (2026-09-08) of this ADR
 **Evidence:** executed prototype fixtures and live-2.1.1 probes; results are summarized inline via the `[vetted]`/`[live]` markers (full records in internal working notes)
 
