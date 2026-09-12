@@ -21,7 +21,7 @@ For a curated overview with examples, see the [API Reference](../api.md).
 
 - **[ucon.kinds](kinds.md)** --- Kind, KindLattice, JoinPolicy
 - **[ucon.formulas](formulas.md)** --- KindFormula, FormulaRegistry, tiered lookup
-- **[ucon.aspects](aspects.md)** --- AspectSet, AspectRule, AspectJoinPolicy
+- **[ucon.aspects](aspects.md)** --- Aspect, AspectForest, family-wise resolution
 
 ## Integrations
 

@@ -52,6 +52,7 @@ File metadata.
 name = "my-graph"
 format_version = "1.3"
 loaded_packages = ["si", "cgs"]   # optional
+namespace = "my-graph"            # optional
 ```
 
 | Key | Type | Required | Description |
@@ -59,6 +60,7 @@ loaded_packages = ["si", "cgs"]   # optional
 | `name` | string | yes | Package name (defaults to filename stem on export) |
 | `format_version` | string | yes | Schema version; current is `"1.2"` |
 | `loaded_packages` | array of strings | no | Names of packages baked into this graph |
+| `namespace` | string | no | Qualifies every unprefixed kind and aspect name (and kind-reference) in the file as `namespace:name` at load (v2.2.0). `@name` escapes to root; explicit `pkg:name` spellings pass through. The key is consumed by the rewrite, so the transformation is idempotent |
 
 ---
 
@@ -412,6 +414,36 @@ aliases = ["KE"]
 
 Kinds are loaded into `graph._kind_lattice` on import. Constants can reference
 kinds by name via the `kind` key.
+
+---
+
+## `[[aspects]]`
+
+Aspect declarations for the graph's aspect forest (v2.2.0).
+
+```toml
+[[aspects]]
+name = "weighting_standard"
+applies_to = ["dose_equivalent"]   # root-only
+join_policy = "refuse"             # default for aspects
+
+[[aspects]]
+name = "icrp103"
+parent = "weighting_standard"
+```
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | string | yes | Canonical aspect name |
+| `parent` | string | no | Name of another entry (declaration order is free); absent marks a family root |
+| `join_policy` | string | no | `"refuse"` (default) or `"lca"` |
+| `applies_to` | array of strings | no | **Root-only.** Kind names the family attaches to; `["*"]` = wildcard |
+| `multiplication_policy` | string | no | **Root-only.** `"carry"` (default) |
+
+Aspects are loaded into `graph._aspect_forest` on import and re-emitted
+(defaults omitted, parents before children) on export. Root-only keys on
+a child entry are a load-time `AspectError`. The comprehensive catalog
+declares no aspects: core ships mechanism, domains ship vocabulary.
 
 ---
 

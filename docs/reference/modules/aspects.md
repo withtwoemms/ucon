@@ -1,11 +1,13 @@
 # ucon.aspects
 
-Aspect data types and the pure join operation. An *aspect* is a covariant
-tag carried alongside a quantity describing its provenance, processing, or
-calibration state — orthogonal to kinds and dimensions.
+Aspects: the discriminator that gates combination below the kind layer.
+An *aspect* qualifies a quantity on terms its kind cannot express — the
+weighting standard behind a dose equivalent, the dry/wet basis of a
+mass fraction. Aspects are tree nodes grouped by family (the tree's
+root); resolution is family-wise.
 
 See [API › Aspects](../api.md#aspects) for usage and the
-[Kind-of-Quantity Problem](../../architecture/kind-of-quantity.md#aspect-propagation)
+[Kind-of-Quantity Problem](../../architecture/kind-of-quantity.md#the-aspect-stratum)
 for the conceptual framing.
 
 ::: ucon.aspects

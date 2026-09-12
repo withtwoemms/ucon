@@ -138,6 +138,14 @@ flowchart LR
 
 ## Solution 1: Pseudo-Dimensions
 
+!!! warning "Deprecated"
+    Pseudo-dimensions are deprecated as of v2.2.0 and will be removed in
+    3.0.0. `Dimension.pseudo(...)` emits `PendingDeprecationWarning`.
+    Migrate to a `Kind` over the dimensionless dimension — kinds carry
+    the semantic isolation pseudo-dimensions approximate, and
+    participate in lattice joins and formula dispatch (Solution 3).
+
+
 For quantities that are mathematically dimensionless but physically distinct,
 ucon provides **pseudo-dimensions**:
 
@@ -404,120 +412,104 @@ result.match_kind  # MatchKind.GENERALIZED
 result.distance    # 1 (kinetic_energy → energy = 1 climb)
 ```
 
-### Aspect Propagation
+### The Aspect Stratum
 
-Kinds tell you *what* a quantity is; **aspects** tell you *something about*
-a quantity — that it was reduced from many measurements, that it was
-calibrated against a reference, that it represents a signal summary.
-Aspects are covariant tags (strings) carried alongside a quantity,
-orthogonal to kinds: two values with the same kind can differ in aspects,
-and two values with different kinds can share aspects.
+Kinds tell you *what* a quantity is; **aspects** qualify it on terms the
+kind cannot express — the weighting standard behind a dose equivalent,
+the dry/wet basis of a mass fraction, the coverage factor on an expanded
+uncertainty. Two values with the same dimension, unit, *and* kind may
+still refuse to combine.
 
-Aspects matter at two sites in the algebra:
+Aspects are tree nodes, peers of `Kind`. The root of a tree *is* the
+family; children are positions within it:
 
-1. **Multiplication (formula application)** — the formula's `aspect_rules`
-   controls which operand aspects propagate to the output.
-2. **Addition (lattice join)** — the `AspectJoinPolicy` chosen by the
-   caller controls how aspects from two operands combine.
+```python
+from ucon import Aspect, Number, units
 
-#### Formula Rules: CONSUME and CARRY
+family  = Aspect("weighting_standard",
+                 applies_to=frozenset({"dose_equivalent"}))
+icrp60  = Aspect("icrp60",  parent=family)
+icrp103 = Aspect("icrp103", parent=family)
 
-Each binding in a `KindFormula` can declare an `AspectRule`:
+a = Number(2.0, units.gray, kind=dose_eq, aspects=[icrp103])
+b = Number(3.0, units.gray, kind=dose_eq, aspects=[icrp60])
+a + b   # AspectRefused — the kind stratum cannot see this difference
+```
 
-| Rule | Behaviour |
-|------|-----------|
-| `CARRY` (default) | The operand's aspects are unioned into the output |
-| `CONSUME` | The operand's aspects are dropped |
+#### Family-Wise Resolution
 
-Bindings not mentioned in `aspect_rules` default to `CARRY` — the
-conservative choice is to preserve information; authors opt into dropping
-it.
+Both operands' aspects group by family root; each family resolves
+independently, and cross-family comparison never happens:
+
+- **Equal** positions carry through unchanged.
+- **Differing** positions join at their lowest common ancestor, honoring
+  the ancestor's `join_policy` — `refuse` (the aspect default) raises
+  `AspectRefused`; `lca` carries the ancestor.
+- **Partial** presence (one operand silent in a family) splits by
+  operation: addition consults the ambient strict bit (strict refuses —
+  silence is not agreement; permissive inherits with a warning), while
+  multiplication follows the family's `multiplication_policy`.
 
 ```mermaid
 flowchart LR
     subgraph inputs ["Inputs"]
-        D["D: absorbed_dose<br/><b>aspects:</b> signal_summary"]
-        wR["w_R: weighting_factor<br/><b>aspects:</b> calibrated"]
+        D["absorbed dose (Gy)<br/><b>aspects:</b> —"]
+        wR["w_R: weighting factor<br/><b>aspects:</b> #icrp103"]
     end
 
-    subgraph formula ["Formula: H = D * w_R"]
-        rule_D["D → CARRY"]
-        rule_wR["w_R → CONSUME"]
+    subgraph carry ["× : the carry rule"]
+        rule["weighting_standard → carry"]
     end
 
     subgraph output ["Output"]
-        H["H: equivalent_dose<br/><b>aspects:</b> signal_summary"]
+        H["dose equivalent (Sv)<br/><b>aspects:</b> #icrp103"]
     end
 
-    D --> rule_D --> H
-    wR --> rule_wR
+    D --> rule --> H
+    wR --> rule
 ```
 
-In code:
+#### The Carry Rule
+
+Under multiplication a factor's provenance rides the product — even when
+the product's *kind* degrades. This is what keeps refusals alive through
+round trips:
 
 ```python
-from ucon.aspects import AspectRule, AspectSet
-from ucon.formulas import KindFormula, FormulaRegistry
-
-f = KindFormula(
-    name="radiation_weighting",
-    expression="D * w_R",
-    input_kinds={"D": absorbed_dose, "w_R": weighting_factor},
-    output_kind=equivalent_dose,
-    aspect_rules={"w_R": AspectRule.CONSUME},  # D defaults to CARRY
-)
-reg = FormulaRegistry([f])
-
-formula, out_kind, out_aspects, match_kind = reg.apply({
-    "D":   (absorbed_dose,      AspectSet("signal_summary")),
-    "w_R": (weighting_factor,   AspectSet("calibrated")),
-})
-# out_kind    == equivalent_dose
-# out_aspects == frozenset({"signal_summary"})  — w_R's aspects consumed
-# match_kind  == MatchKind.EXACT
+p60  = a60 * t      # kind may degrade; #icrp60 carried
+p103 = a103 * t     # #icrp103 carried
+p60 + p103          # AspectRefused — the verdict never depended on kinds
 ```
 
-#### Lattice Join: AspectJoinPolicy
+There is no `drop`: no resolution path silently discards a position.
+Aspect resolution reads only the operand aspect sets and the strict
+bit — kind values never influence an aspect verdict (mock every kind to
+garbage and every verdict is unchanged; the test suite pins exactly
+this).
 
-When two quantities with different kinds are added, the kind lattice
-computes the LCA. A separate, pure operation combines the aspect sets:
+#### Attachment
 
-| Policy | Behaviour | Default |
-|--------|-----------|---------|
-| `INTERSECT` | Keep only aspects present on **both** sides | Yes |
-| `UNION` | Keep every aspect from **either** side | No |
-
-`INTERSECT` is the default because addition crosses kinds: the LCA result
-is less specific than either operand, so unshared aspects cannot be
-honestly attributed to the result.
-
-```python
-from ucon.aspects import join_aspects, AspectJoinPolicy
-
-out = join_aspects(
-    AspectSet("signal_summary", "calibrated"),
-    AspectSet("signal_summary"),
-)
-# out == frozenset({"signal_summary"})   (INTERSECT default)
-
-out = join_aspects(
-    AspectSet("signal_summary", "calibrated"),
-    AspectSet("signal_summary"),
-    policy=AspectJoinPolicy.UNION,
-)
-# out == frozenset({"signal_summary", "calibrated"})
-```
+`applies_to` on a family root restricts which kinds the family may
+attach to, checked once at `Number(...)` construction — the aspect
+layer's one sanctioned kind-read. A weighting standard claimed on an
+absorbed dose refuses at the moment the false claim is made
+(`AspectNotApplicable`). Empty `applies_to` means unrestricted; `{"*"}`
+attaches kind-independently (coverage factors on unkinded numbers).
 
 #### Status
 
-In v2.0, kinds and aspects are wired into `Number` arithmetic:
+As of v2.2.0 the aspect stratum is first-class:
 
-- `Kind` and `KindLattice` are re-exported from the top-level `ucon` package.
-- `Number` carries an optional `kind` field, validated at construction.
-- Multiplication and division consult the active `FormulaRegistry` for kind dispatch.
-- Addition and subtraction consult the active `KindLattice` for join semantics.
-- `FormulaRegistry.apply` is the single entry point that combines formula
-  lookup with aspect projection.
+- `Aspect`, `AspectError`, `AspectRefused`, and `AspectNotApplicable`
+  are exported from the top-level `ucon` package.
+- `Number` carries an additive `aspects` frozenset; family-wise
+  resolution is wired into `+ − × ÷`, and single-operand operations
+  thread aspects unchanged.
+- Formulas do kind work only: `FormulaRegistry.apply` takes kinds and
+  returns `(formula, output_kind, match_kind)`. The earlier flat
+  aspect-set model and formula projection machinery were removed.
+- `[[aspects]]` TOML declarations load via `load_aspects_file` and
+  round-trip through graph serialization.
 
 ### TOML Authoring
 
@@ -550,7 +542,7 @@ w_R = { kind = "radiation_weighting_factor" }
 
 ### Status
 
-Kinds, formulas, and aspects are first-class in v2.0:
+Kinds and formulas are first-class as of v2.0, aspects as of v2.2.0:
 
 - `Kind`, `KindLattice`, `FormulaRegistry`, and `ActiveContext` are
   re-exported from the top-level `ucon` package.

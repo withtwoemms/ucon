@@ -892,6 +892,31 @@ source = "ISA standard atmosphere"
 category = "exact"
 ```
 
+### Schema: `[[aspects]]`
+
+```toml
+[[aspects]]
+name = "weighting_standard"
+applies_to = ["dose_equivalent"]   # root-only
+join_policy = "refuse"             # default for aspects
+
+[[aspects]]
+name = "icrp103"
+parent = "weighting_standard"
+```
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | string | yes | Canonical aspect name |
+| `parent` | string | no | Name of another entry (declaration order is free); absent marks a family root |
+| `join_policy` | string | no | `"refuse"` (default) or `"lca"` |
+| `applies_to` | array of strings | no | **Root-only.** Kind names the family attaches to; `["*"]` = wildcard |
+| `multiplication_policy` | string | no | **Root-only.** `"carry"` (default) |
+
+Root-only keys on a child entry are a load-time `AspectError`. Schema
+faults (missing `name`, wrong types, unknown policies) raise
+`ValueError`.
+
 ### Loading
 
 ```python
@@ -1495,18 +1520,17 @@ from ucon.kinds import (
 
 ## Formulas
 
-Kind-formula dispatch for multiplication and division. Aspect rules control
-propagation (see [Aspects](#aspects) below).
+Kind-formula dispatch for multiplication and division. Formulas do kind
+work only; aspect propagation is handled by the aspect stratum's carry
+rule (see [Aspects](#aspects) below).
 
 A `FormulaRegistry` records named relationships between input kinds and an
-output kind. Given a sequence of `Kind` instances, the registry can resolve
-the formula that produces the corresponding output — and, as of v1.9.1,
-project aspect sets through the formula's rules in one step via `apply`.
+output kind. Given a sequence of `Kind` instances, the registry resolves
+the formula that produces the corresponding output.
 
 ```python
 from ucon.formulas import (
     KindFormula,
-    AspectRule,
     FormulaRegistry,
 )
 ```
@@ -1517,7 +1541,7 @@ Frozen dataclass describing a single relationship:
 
 ```python
 from ucon.kinds import Kind
-from ucon.formulas import AspectRule, KindFormula
+from ucon.formulas import KindFormula
 from ucon.dimension import LENGTH, MASS, TIME
 
 ABSORBED_DOSE_DIM = (LENGTH ** 2) / (TIME ** 2)
@@ -1533,7 +1557,6 @@ f = KindFormula(
     input_kinds={"D": D, "w_R": wR},
     output_kind=H,
     commutative=True,
-    aspect_rules={"w_R": AspectRule.CONSUME},
     notes="w_R per ICRP 103; caller selects.",
 )
 ```
@@ -1544,47 +1567,12 @@ f = KindFormula(
 | `expression` | str | required | Free-form expression string (e.g. `"D * w_R"`) |
 | `input_kinds` | dict[str, Kind] | required | Named inputs in declaration order |
 | `output_kind` | Kind | required | Kind of the resulting quantity |
-| `aspect_rules` | dict[str, AspectRule] | `{}` | Per-binding propagation rules (keys are binding names from `input_kinds`; see [Aspects](#aspects)) |
 | `generalizes` | bool | `False` | Reserved; effective in v1.9.2 |
 | `commutative` | bool | `True` | Two-input formulas are mirrored on registration |
 | `notes` | str | `""` | Free-form annotation |
 
 Equality and hash key off `name` only. `input_kind_tuple()` returns the
 kinds in insertion order.
-
-### AspectRule
-
-Enum classifying how a formula treats an operand's aspects. Declared per
-binding name in `KindFormula.aspect_rules`. Bindings not mentioned default
-to `CARRY`. The canonical import is `from ucon.aspects import AspectRule`;
-the v1.9.0 path `from ucon.formulas import AspectRule` continues to work.
-
-| Member | String value | Meaning |
-|--------|--------------|---------|
-| `AspectRule.CONSUME` | `"consume"` | The binding's aspects are dropped from the output |
-| `AspectRule.CARRY` | `"carry"` | The binding's aspects are unioned into the output |
-
-See [Aspects](#aspects) for the full propagation model.
-
-### `KindFormula.project_aspects(inputs)`
-
-Pure method that projects input aspect sets through this formula's
-`aspect_rules`, returning the output `AspectSet`. Called internally by
-`FormulaRegistry.apply`.
-
-```python
-aspects = f.project_aspects({
-    "D":   frozenset({"signal_summary"}),
-    "w_R": frozenset({"calibrated"}),
-})
-# aspects == frozenset({"signal_summary"})  — w_R consumed
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `inputs` | Mapping[str, AspectSet] | Map of binding names to aspect sets |
-
-Returns `AspectSet` (the union of all carried inputs' aspects).
 
 ### FormulaRegistry
 
@@ -1609,7 +1597,7 @@ reg.names()                           # ('radiation_weighting',)
 | `get(name)` | Return the named formula or raise `FormulaNotFound` |
 | `lookup(*kinds)` | Resolve a formula by exact input-kind tuple |
 | `resolve(*kinds)` | Tiered formula resolution returning `LookupResult` (v1.9.2) |
-| `apply(inputs)` | Resolve formula **and** project aspects in one step (v1.9.1, extended v1.9.2) |
+| `apply(inputs)` | Resolve a formula from named kind bindings in one step |
 | `names()` | Tuple of registered names |
 
 Commutative formulas are indexed under both the original key and a
@@ -1653,33 +1641,28 @@ at the same GENERALIZED distance.
 
 #### `apply(inputs, *, lattice=None, dimension_fallback=False)`
 
-New in v1.9.1, extended in v1.9.2. Single entry point that resolves the
-formula by input kinds and projects aspect sets through it:
+Single entry point that resolves a formula from named kind bindings.
+As of v2.2.0 formulas do kind work only — aspect propagation is the
+aspect stratum's carry rule (see [Aspects](#aspects)):
 
 ```python
-from ucon.aspects import AspectSet
 from ucon.formulas import MatchKind
 
-formula, out_kind, out_aspects, match_kind = reg.apply({
-    "D":   (D,  AspectSet("signal_summary")),
-    "w_R": (wR, AspectSet("calibrated")),
-})
-# formula     == <KindFormula "radiation_weighting">
-# out_kind    == H (equivalent_dose)
-# out_aspects == frozenset({"signal_summary"})
-# match_kind  == MatchKind.EXACT
+formula, out_kind, match_kind = reg.apply({"D": D, "w_R": wR})
+# formula    == <KindFormula "radiation_weighting">
+# out_kind   == H (equivalent_dose)
+# match_kind == MatchKind.EXACT
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `inputs` | Mapping[str, tuple[Kind, AspectSet]] | Map of binding names to (kind, aspects) pairs |
+| `inputs` | Mapping[str, Kind] | Map of binding names to kinds |
 | `lattice` | KindLattice \| None | Enables GENERALIZED matching via ancestor walk |
 | `dimension_fallback` | bool | Enables DIMENSIONAL matching as a last resort |
 
-Returns `tuple[KindFormula, Kind, AspectSet, MatchKind]`. Raises
-`FormulaNotFound` if no formula matches the input kinds, or
-`AmbiguousFormula` if multiple formulas match at the same GENERALIZED
-distance.
+Returns `tuple[KindFormula, Kind, MatchKind]`. Raises `FormulaNotFound`
+if no formula matches the input kinds, or `AmbiguousFormula` if multiple
+formulas match at the same GENERALIZED distance.
 
 ### Types
 
@@ -1715,95 +1698,148 @@ from ucon.formulas import (
 
 ## Aspects
 
-An *aspect* is a covariant tag (a string) carried alongside a quantity
-that describes its provenance, processing, or calibration state — not its
-physical identity. Aspects are orthogonal to kinds: two values with the
-same kind can differ in aspects, and vice versa.
+An *aspect* qualifies a quantity on terms its kind cannot express: two
+dose equivalents — same dimension, same unit, same kind — may still be
+weighted per different standards, and their sum conforms to neither.
+Aspects gate combination below the kind layer. (The flat string-set
+model that previously occupied this package was removed in v2.2.0; an
+unkeyed set cannot distinguish *conflict* from *absence*, which is the
+defect the aspect stratum exists to fix.)
 
 ```python
-from ucon.aspects import (
-    AspectSet,
-    AspectRule,
-    AspectJoinPolicy,
-    join_aspects,
+from ucon import (
+    Aspect,
+    AspectError,
+    AspectRefused,
+    AspectNotApplicable,
 )
+from ucon.aspects import AspectForest, MultPolicy
 ```
 
-### AspectSet
+### Aspect
 
-An immutable set of aspect names. `AspectSet` is a `frozenset` subclass
-with a variadic constructor for ergonomic construction:
+A frozen tree node, peer of `Kind`. The root of a tree *is* the family;
+subtrees group related positions (standards bodies, procedures) under
+it.
 
 ```python
-# Variadic (primary form)
-AspectSet("calibrated", "ICRP103")
+from ucon import Aspect
 
-# From an existing collection
-AspectSet({"calibrated", "ICRP103"})
-AspectSet(some_frozenset)
-
-# Empty
-AspectSet()
-
-# Single string is one aspect, not iterated as characters
-AspectSet("calibrated") == frozenset({"calibrated"})  # True
+family  = Aspect("weighting_standard",
+                 applies_to=frozenset({"dose_equivalent"}))
+icrp60  = Aspect("icrp60",  parent=family)
+icrp103 = Aspect("icrp103", parent=family)
 ```
 
-`AspectSet` is fully interchangeable with plain `frozenset[str]` at every
-internal surface. Set algebra (`&`, `|`, `-`, `^`) returns plain `frozenset`
-instances.
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | str | required | Unique aspect name |
+| `parent` | Aspect \| None | `None` | Tree edge; `None` marks a family root |
+| `join_policy` | JoinPolicy | `REFUSE` | Consulted when this node is the LCA of a join (kinds default to `LCA`; aspects default to `REFUSE`) |
+| `applies_to` | frozenset[str] | `frozenset()` | **Root-only.** Kind names the family may attach to; empty = unrestricted, `{"*"}` = wildcard |
+| `multiplication_policy` | MultPolicy | `CARRY` | **Root-only.** How partial presence resolves under `×`/`÷` |
 
-### AspectJoinPolicy
+### `Number.aspects`
 
-Enum controlling how aspect sets combine when kinds join at the lattice
-(addition path):
-
-| Member | String value | Behaviour |
-|--------|--------------|-----------|
-| `AspectJoinPolicy.INTERSECT` | `"intersect"` | Keep only aspects present on **both** sides (default) |
-| `AspectJoinPolicy.UNION` | `"union"` | Keep every aspect from **either** side |
-
-### `join_aspects(a, b, policy=INTERSECT)`
-
-Pure function combining two aspect sets under the given policy. Does not
-consult a kind lattice; callers compose with `KindLattice.join` explicitly.
+`Number` carries an additive `aspects: frozenset[Aspect]` (default
+empty). `applies_to` is enforced at construction — the aspect layer's
+one sanctioned kind-read — so a false claim refuses at the moment it is
+made:
 
 ```python
-from ucon.aspects import join_aspects, AspectJoinPolicy
+from ucon import Number, units
 
-# Default: INTERSECT
-join_aspects(
-    frozenset({"signal_summary", "calibrated"}),
-    frozenset({"signal_summary"}),
-)
-# frozenset({"signal_summary"})
+dose = Number(2.0, units.gray, kind=dose_eq, aspects=[icrp103])
+repr(dose)   # '<2.0 Gy [dose_equivalent] #icrp103>'
 
-# Explicit UNION
-join_aspects(
-    frozenset({"signal_summary", "calibrated"}),
-    frozenset({"signal_summary"}),
-    policy=AspectJoinPolicy.UNION,
-)
-# frozenset({"signal_summary", "calibrated"})
+Number(1.5, units.gray, kind=absorbed, aspects=[icrp103])
+# AspectNotApplicable — weighting standards do not apply to absorbed dose
 ```
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `a`, `b` | AspectSet | required | Aspect sets to combine |
-| `policy` | AspectJoinPolicy | `INTERSECT` | Combination policy |
+### Arithmetic Resolution
 
-Raises `ValueError` if `policy` is not a recognised `AspectJoinPolicy`.
+Resolution is **family-wise**: both operands' aspects group by family
+root, and each family resolves independently. Cross-family comparison
+never happens.
+
+| Configuration | `+` / `−` | `×` / `÷` |
+|---------------|-----------|-----------|
+| Equal positions | carry | carry |
+| Differing positions | join at LCA under the ancestor's `join_policy` (`refuse` raises `AspectRefused`) | same |
+| Partial (one side silent) | strict: `AspectRefused`; permissive: inherit + warning | per the family's `multiplication_policy` (`carry` threads the present positions onto the product) |
+
+There is no `drop`: no resolution path silently discards a position.
+The carry rule survives kind degradation — a weighting standard rides
+`dose × time` even when the product's kind degrades — which is what
+keeps refusals alive through round trips:
+
+```python
+a = Number(2.0, units.gray, kind=dose_eq, aspects=[icrp103])
+b = Number(3.0, units.gray, kind=dose_eq, aspects=[icrp60])
+
+a + b                       # AspectRefused — same kind, different standard
+(a * t) / t                 # <2.0 Gy #icrp103> — carried and restored
+```
+
+Single-operand operations (`.to()`, scalar `*`/`/`, `**`, `simplify()`,
+`to_base()`, `Ratio.evaluate()`, `UnitSystem.adopt()`, `Bridge.apply()`)
+thread aspects unchanged.
+
+The resolvers are importable as pure functions —
+`resolve_add_aspects(left, right, *, strict)` and
+`resolve_mul_aspects(left, right)` via `ucon.aspects` — reading nothing
+but their operands and the strict bit.
+
+### AspectForest
+
+Declaration-time container: validates a set of aspect trees (passing
+leaves is enough — construction closes over parents), groups them by
+family, and answers `lca`/`join` queries. Each family runs on a private,
+mirrored kind-lattice engine, so join semantics are the same vetted code
+kinds use.
+
+```python
+from ucon.aspects import AspectForest
+
+forest = AspectForest([icrp60, icrp103])
+forest.families()                  # (weighting_standard,)
+forest.join(icrp60, icrp103)       # AspectRefused
+```
+
+### Exceptions
+
+```python
+from ucon import AspectError, AspectRefused, AspectNotApplicable
+```
+
+| Exception | When raised |
+|-----------|-------------|
+| `AspectError` | Base class; structural failures (duplicate names, orphan parents, root-only violations) |
+| `AspectRefused` | Two positions cannot be reconciled — carries `family`, `left`, `right`, `policy`; a `None` side marks the partial case |
+| `AspectNotApplicable` | A restricted family attached to the wrong kind (or an unkinded Number) — carries `family`, `kind` |
+
+No Kind-named exception ever surfaces from an aspect operation: engine
+errors are rewrapped as `AspectError` with the original chained as
+`__cause__`.
+
+### TOML
+
+Aspects are authored in `[[aspects]]` sections and loaded with
+`parse_aspects_payload` / `load_aspects_file` (via `ucon.parsing`); see
+[TOML Loaders](#toml-loaders-for-kinds-formulas) below and the
+[Serialization Format](serialization-format.md) reference. There are no
+builtin aspects: core ships mechanism, domains ship vocabulary.
 
 ---
 
 ## TOML Loaders for Kinds & Formulas
 
-New in v1.9.0. Kinds and formulas can be authored in TOML and loaded into
-a `KindLattice` and `FormulaRegistry`. The loaders are **independent of**
-the `ConversionGraph` TOML schema documented in
-[Serialization Format](serialization-format.md) — they read the `[[kinds]]`
-and `[[formulas]]` sections from any TOML file, and the two sections can
-share a file.
+Kinds, formulas, and aspects can be authored in TOML and loaded into a
+`KindLattice`, `FormulaRegistry`, and `AspectForest`. The loaders are
+**independent of** the `ConversionGraph` TOML schema documented in
+[Serialization Format](serialization-format.md) — they read the
+`[[kinds]]`, `[[formulas]]`, and `[[aspects]]` sections from any TOML
+file, and the sections can share a file.
 
 ```python
 from ucon.parsing import (
@@ -1811,6 +1847,8 @@ from ucon.parsing import (
     load_kinds_file,
     parse_formulas_payload,
     load_formulas_file,
+    parse_aspects_payload,
+    load_aspects_file,
 )
 ```
 
@@ -1851,9 +1889,6 @@ notes = "w_R per ICRP 103."
 [formulas.inputs]
 D = { kind = "absorbed_dose" }
 w_R = { kind = "radiation_weighting_factor" }
-
-[formulas.aspect_rules]
-w_R = "consume"
 ```
 
 | Key | Type | Required | Description |
@@ -1864,17 +1899,17 @@ w_R = "consume"
 | `inputs` | table | yes | Map of input names to `{ kind = "..." }` |
 | `commutative` | bool | no | Defaults to `true` |
 | `generalizes` | bool | no | Defaults to `false` |
-| `aspect_rules` | table | no | Map of binding names to `"consume"` or `"carry"` (keys must match `inputs`) |
 | `notes` | string | no | Free-form notes |
 
 ### Loading
 
 ```python
 from pathlib import Path
-from ucon.parsing import load_kinds_file, load_formulas_file
+from ucon.parsing import load_aspects_file, load_formulas_file, load_kinds_file
 
 lat = load_kinds_file(Path("radiation.ucon.toml"))
 reg = load_formulas_file(Path("radiation.ucon.toml"), lattice=lat)
+forest = load_aspects_file(Path("radiation.ucon.toml"))
 
 reg.get("radiation_weighting").output_kind.name  # "equivalent_dose"
 ```
