@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **Internal design records landed in-repo.** ADRs 008 (aspect
+  stratum), 009 (Turnstile), 010 (chart nomenclature), and 011
+  (currency via kinds and rate contexts) join the
+  [`docs/internal/decisions/`](docs/internal/decisions/) series; the operator-flow decision-tables
+  design and the Turnstile implementation brief land under
+  [`docs/internal/proposals/`](docs/internal/proposals/) with supersession notes. The
+  how-ucon-achieves-type-safety explainer is rewritten against v2.1.x
+  reality: the kind lattice joins the enforcement-layer story,
+  fictional pre-v2 API is corrected to the conversion-graph surface,
+  and the not-yet-caught boundary (numeral-scheme safety, scheduled
+  per ADR 009) is stated honestly.
+
+## [2.1.7] - 2026-09-09
+
 ### Fixed
 
 - **Mechanical CGS units now carry exact SI-factored `base_form`s.**
@@ -2674,6 +2690,7 @@ Deprecated surfaces are scheduled for removal in v2.0.
 - Initial commit
 
 <!-- Links -->
+[2.1.7]: https://github.com/withtwoemms/ucon/compare/2.1.6...2.1.7
 [2.1.6]: https://github.com/withtwoemms/ucon/compare/2.1.5...2.1.6
 [2.1.5]: https://github.com/withtwoemms/ucon/compare/2.1.4...2.1.5
 [2.1.4]: https://github.com/withtwoemms/ucon/compare/2.1.3...2.1.4

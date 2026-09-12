@@ -133,3 +133,19 @@ dmypy.json
 
 # ucon graph cache (generated binary, not source)
 *.ucon.cache
+
+# Internal working notes: upper-cased prefixes are machine-local by convention
+# (enumerated because ignore matching is case-insensitive on this platform)
+docs/internal/ADR_*
+docs/internal/ARCHITECTURE_*
+docs/internal/CASE_STUDIES_*
+docs/internal/DESIGN_*
+docs/internal/FEEDBACK_*
+docs/internal/IMPLEMENTATION_PLAN_*
+docs/internal/ISSUE_REPORT_*
+docs/internal/PROPOSAL_*
+docs/internal/RELEASE_PLAN_*
+docs/internal/SUMMARY*
+docs/internal/VETTED_*
+docs/internal/tickets/
+docs/internal/evidence/
