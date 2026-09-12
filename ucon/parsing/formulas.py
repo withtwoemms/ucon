@@ -22,7 +22,6 @@ Schema
       [formulas.inputs]
       D   = { kind = "absorbed_dose" }
       w_R = { kind = "radiation_weighting_factor" }
-      w_R = "consume"
 """
 
 from __future__ import annotations
