@@ -77,11 +77,12 @@ morphisms** on a `ConversionGraph`: `LinearMap`, `AffineMap` (°C ↔ K),
 `LogMap` (dB, nepers), each with a validated inverse.
 
 ```python
-from ucon.graph import get_default_graph
+from ucon.conversion import ConversionGraph
+from ucon.maps import AffineMap
 
-graph = get_default_graph().copy()
-graph.add_edge(src=units.celsius, dst=units.kelvin,
-               map=AffineMap(a=1.0, b=273.15))
+g = ConversionGraph()
+g.add_edge(src=units.celsius, dst=units.kelvin,
+           map=AffineMap(a=1.0, b=273.15))
 ```
 
 The graph enforces its own invariants:
