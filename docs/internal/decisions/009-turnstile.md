@@ -57,8 +57,9 @@ aspect, and unit, and is ill-formed anyway.
 
 ### Regression finding
 
-**[v4 §8.4]** had a scale-type check as dispatch step 2. **[v6 §7.4]**
-deleted it, along with §7's Map-type→scale-type table and the v1.9.2
+The v4 architecture working note (§8.4) had a scale-type check as
+dispatch step 2; its v6 successor (§7.4) deleted it, along with v6 §7's
+Map-type→scale-type table and the v1.9.2
 "scale-type inference" deliverable. The v6 six-category taxonomy is internally
 consistent with v6's own dispatch; both omit the same thing. Restoring it
 yields categories 2–3 and the eight-category taxonomy below.
@@ -130,7 +131,7 @@ kinds, 9 fibers, depth 1, single-root); a global ⊤ spanning dimensions is
 **already rejected** by `CrossDimensionParent`.
 
 **Non-overridability is load-bearing.** A ⊤_d with `join_policy = lca`
-reproduces merge laundering exactly (§7). A settable policy is strictly worse
+reproduces merge laundering exactly ([§7](#7-merge-validation)). A settable policy is strictly worse
 than no ⊤_d — it converts crashes into silent admissions.
 
 **Multiplication degrades to ⊤_d, not `None`.** Under `None`, permissive mode
@@ -197,7 +198,7 @@ step necessarily hits it. Necessity: `R(lca) ▸ Q(refuse) ▸ {a, b}`, `c` unde
 - The order/policy split previously proposed is **removed** — it contributes
   nothing to the verdict.
 - The validator uses the exact rule (internal nodes only), safe because merge
-  revalidation is mandatory (§7).
+  revalidation is mandatory ([§7](#7-merge-validation)).
 - ⊤_d and upward-closure serve different criteria: totality and invariance
   respectively. Neither delivers the other.
 
@@ -267,7 +268,7 @@ Three of eight are reachable in 2.1.1.
 | C4 | soundness — ADMIT ⟹ executing the coercion is correct | differential vs exact rational arithmetic |
 | C5 | operation coverage | `+ − × ÷` specified; `**` and general `<` remain open |
 
-C1–C4 fail against 2.1.1 for the reasons in §2, §5, §6. C5 is partial: `**`
+C1–C4 fail against 2.1.1 for the reasons in [§2](#2-the-defect), [§5](#5-kind), [§6](#6-grouping-invariance--theorem). C5 is partial: `**`
 bypasses kind and aspect entirely and has no dispatch row; comparison is
 `TypeError` today and only the cyclic and ordinal edges are specified.
 

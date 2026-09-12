@@ -1,6 +1,6 @@
 > **SUPERSESSION NOTE (2026-09-10).** Partially superseded by
 > [`../decisions/009-turnstile.md`](../decisions/009-turnstile.md): the
-> role/menu machinery (T6–T9, §G1) is replaced by the four-stratum dispatch
+> role/menu machinery (T6–T9, [§G1](#g1-mixed-signature-menu-selection)) is replaced by the four-stratum dispatch
 > with derived point/displacement and the affine-algebra admissibility rule;
 > the mixed-signature governance question (G1) is thereby moot. The map
 > algebra, T1–T5, the T3 rewrite system, the closure theorem, and the
@@ -13,8 +13,8 @@
 **Date:** 2026-07-17
 **Target:** v2.3+ (lands after the v2.2.0 aspect work; see Amendment G5)
 **Provenance:** Base text is the decision-tables v2 draft (external working note,
-2026-07-17), incorporated verbatim in §V–Appendix C. New in this repo copy:
-the prior-art survey (§P), the amendments (§G) closing the seven gaps
+2026-07-17), incorporated verbatim in [§V](#v-vocabulary)–Appendix C. New in this repo copy:
+the prior-art survey ([§P](#p-prior-art--which-fragments-exist-elsewhere)), the amendments ([§G](#g-amendments--gaps-closed-in-review)) closing the seven gaps
 identified in review, and Appendix D (lessons from prototype v2).
 
 **Cross-reference key.** The base text carries labels from its v1 lineage that
@@ -383,7 +383,7 @@ the other's error types.
 
 ### G6. The `numeral` rename rides v3.0, not v2.2
 
-§V's naming observation (`Number.quantity` holds a numeral) is correct, but
+[§V](#v-vocabulary)'s naming observation (`Number.quantity` holds a numeral) is correct, but
 the repo's deprecation policy (CLAUDE.md) forbids breaking renames in minor
 releases: `PendingDeprecationWarning` → `DeprecationWarning` → removal at the
 next major. Schedule: introduce `Number.numeral` as an alias whenever

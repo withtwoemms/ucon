@@ -3,7 +3,7 @@
 > compile-once-per-signature framing (warrant cache, signature interning,
 > `graph_version`) was withdrawn on measurement — the cache key costs what
 > the four checks cost. Kept for the deviation analysis of shipped
-> arithmetic (§2) and the concept inventory, much of which survives in the
+> arithmetic ([§2](#2-deviation-from-current-state)) and the concept inventory, much of which survives in the
 > ADR's strata.
 
 # BRIEF: Turnstile — warrant-compiled Number operations

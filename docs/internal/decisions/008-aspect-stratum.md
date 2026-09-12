@@ -1,8 +1,8 @@
 # ADR — Aspect Stratum
 
-**Status:** Accepted — design closed 2026-09-09 (`QualifiedKind` bundle proposed and withdrawn the same day; see §11)
+**Status:** Accepted — design closed 2026-09-09 (`QualifiedKind` bundle proposed and withdrawn the same day; see [§11](#11-withdrawn-during-design))
 **Target release:** 2.3.0 (minor, additive)
-**Supersedes:** `AspectSet` flat model (2.1.1); `AspectPosition` and `AspectFacet` (v4/v6 §5); v1 (2026-09-07) and v2 (2026-09-08) of this ADR
+**Supersedes:** `AspectSet` flat model (2.1.1); `AspectPosition` and `AspectFacet` (v4/v6 architecture working notes, §5); v1 (2026-09-07) and v2 (2026-09-08) of this ADR
 **Evidence:** executed prototype fixtures and live-2.1.1 probes; results are summarized inline via the `[vetted]`/`[live]` markers (full records in internal working notes)
 
 ---
@@ -30,7 +30,7 @@ The constructor surface is `Number(q, unit, kind="...", aspects=[...])`. Every e
 
 There is one aspect type. **`Aspect` is the peer of `Kind`** — same fields, same engine, same kind of tree. A facet is the root of an aspect tree, exactly as `dose` is a kind and not a `KindFacet`.
 
-**The kind may be `None`.** Aspects whose root declares `applies_to = ["*"]` — coverage factor, calibration status — qualify a quantity regardless of its sort, and attach to an unkinded number. `None` means *unspecified* and is governed by the partial policy. It is **not** ⊤_d, which means *provably not any declared kind* and is governed by `refuse`. The two are distinct and must stay so (see Turnstile ADR §5).
+**The kind may be `None`.** Aspects whose root declares `applies_to = ["*"]` — coverage factor, calibration status — qualify a quantity regardless of its sort, and attach to an unkinded number. `None` means *unspecified* and is governed by the partial policy. It is **not** ⊤_d, which means *provably not any declared kind* and is governed by `refuse`. The two are distinct and must stay so (see [009 §5](009-turnstile.md#5-kind)).
 
 ## 2. Justification
 
@@ -64,11 +64,11 @@ class Aspect:
 
 Roots carry the family's rules; `applies_to` and `multiplication_policy` on a non-root is a load-time error. **One order+policy engine serves kinds and aspects**, instantiated per tree. `[vetted]` — aspect trees executed on real `KindLattice` objects with every behavior transferring.
 
-`join_policy` **defaults to `refuse`**, preserving v4 §5.4's strict matching as the zero-configuration behavior. LCA degradation is opt-in per node.
+`join_policy` **defaults to `refuse`**, preserving the v4 working note's (§5.4) strict matching as the zero-configuration behavior. LCA degradation is opt-in per node.
 
 **The root is ⊤ for its family.** Every family has exactly one top by construction — no synthetic node. A `Number` carrying a root aspect is *some member of this family, unspecified*, distinct from carrying nothing.
 
-The two fields are peers, not a coupling. Kind resolution walks the lattice without reading `aspects`; aspect resolution walks the trees without reading `kind` (Law 0, §7). Law 0 also settles the representation: the two discriminators never co-travel before `Number` construction — no resolver computes both, warrants record them per stratum, and the shared order+policy engine sees one tree at a time — so the only object that ever legitimately holds the pair is `Number` itself. `applies_to` is accordingly a construction invariant of `Number` (§5), the one site where kind and aspects meet.
+The two fields are peers, not a coupling. Kind resolution walks the lattice without reading `aspects`; aspect resolution walks the trees without reading `kind` (Law 0, [§7](#7-law-0--kind-orthogonality-enforced-invariant)). Law 0 also settles the representation: the two discriminators never co-travel before `Number` construction — no resolver computes both, warrants record them per stratum, and the shared order+policy engine sees one tree at a time — so the only object that ever legitimately holds the pair is `Number` itself. `applies_to` is accordingly a construction invariant of `Number` ([§5](#5-applies_to)), the one site where kind and aspects meet.
 
 ```toml
 [[aspects]]
@@ -128,7 +128,7 @@ Number(1.5, gray, kind="absorbed_dose", aspects=["icrp103"])
 # Refused: aspect family 'weighting_standard' does not apply to kind 'absorbed_dose'
 ```
 
-Absorbed dose is the *input* to weighting; a weighting standard on it asserts something false. This is the one place the aspect layer reads a kind — construction-time, not resolution-time — and Law 0 (§7) permits it.
+Absorbed dose is the *input* to weighting; a weighting standard on it asserts something false. This is the one place the aspect layer reads a kind — construction-time, not resolution-time — and Law 0 ([§7](#7-law-0--kind-orthogonality-enforced-invariant)) permits it.
 
 ## 6. Carry rule
 

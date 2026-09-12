@@ -4,7 +4,7 @@
 **Context:** The v2.2.0 release adds a declared classification field on
 `Unit` (`ratio` | `interval` | `logarithmic`) — inert until the v3.1.0
 arithmetic dispatch reads it as its second stratum (see
-[`009-turnstile.md`](009-turnstile.md) §4). The field, its TOML key, its
+[`009-turnstile.md` §4](009-turnstile.md#4-chart)). The field, its TOML key, its
 error messages, and the stratum itself need one name.
 
 ## Decision

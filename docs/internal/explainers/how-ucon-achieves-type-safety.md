@@ -120,8 +120,8 @@ The graph enforces its own invariants:
 ## Honesty: what is *not* yet caught
 
 Stating the boundary is part of the safety story
-(`../decisions/009-turnstile.md` §2 documents it as the motivating
-defect): today's arithmetic consults dimension and kind, **not the
+([009 §2](../decisions/009-turnstile.md#2-the-defect) documents it as
+the motivating defect): today's arithmetic consults dimension and kind, **not the
 numeral scheme**. `2 × Number(20, units.celsius)` returns 40 °C even
 though the result is chart-dependent; unkinded `1 Gy + 1 Sv` admits if
 kinds are not declared. Kind safety is opt-in by declaration; scheme
@@ -136,8 +136,8 @@ The layers above are the shipped half of a six-layer design:
 | dimension | shipped |
 | kind | shipped (v2.0+; typed disjoint refusals v2.1.5) |
 | conversion graph invariants | shipped |
-| **chart** (numeral-scheme admissibility: interval/log refusals) | declared field v2.2.0; enforced v3.1.0 (`../decisions/009-turnstile.md`, `../decisions/010-chart-nomenclature.md`) |
-| **aspect** (provenance/convention discrimination) | v2.3.0 (`../decisions/008-aspect-stratum.md`) |
+| **chart** (numeral-scheme admissibility: interval/log refusals) | declared field v2.2.0; enforced v3.1.0 ([009](../decisions/009-turnstile.md), [010](../decisions/010-chart-nomenclature.md)) |
+| **aspect** (provenance/convention discrimination) | v2.3.0 ([008](../decisions/008-aspect-stratum.md)) |
 | coercion / integration | shipped |
 
 ---

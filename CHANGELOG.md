@@ -12,9 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Internal design records landed in-repo.** ADRs 008 (aspect
   stratum), 009 (Turnstile), 010 (chart nomenclature), and 011
   (currency via kinds and rate contexts) join the
-  `docs/internal/decisions/` series; the operator-flow decision-tables
+  [`docs/internal/decisions/`](docs/internal/decisions/) series; the operator-flow decision-tables
   design and the Turnstile implementation brief land under
-  `docs/internal/proposals/` with supersession notes. The
+  [`docs/internal/proposals/`](docs/internal/proposals/) with supersession notes. The
   how-ucon-achieves-type-safety explainer is rewritten against v2.1.x
   reality: the kind lattice joins the enforcement-layer story,
   fictional pre-v2 API is corrected to the conversion-graph surface,
