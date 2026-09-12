@@ -84,7 +84,11 @@ class KindLattice:
             if existing is kind:
                 return
             if existing.name == kind.name:
-                raise NameCollision(kind.name)
+                raise NameCollision(
+                    kind.name,
+                    existing_dimension=existing.dimension,
+                    new_dimension=kind.dimension,
+                )
             raise AliasCollision(kind.name, existing.name)
         self._by_name[kind.name] = kind
         self._index[kind.name] = kind

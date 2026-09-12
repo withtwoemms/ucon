@@ -50,6 +50,7 @@ import ast
 import operator
 import unicodedata
 
+from ucon.aspects import AspectError, AspectForest
 from ucon.constants import Constant
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
@@ -57,7 +58,9 @@ from ucon.graph import using_conversion_graph
 from ucon.kinds import KindLattice
 from ucon.kinds.exceptions import KindNotFound
 from ucon.maps import AffineMap, LinearMap, Map
+from ucon.parsing.aspects import parse_aspects_payload
 from ucon.parsing.kinds import parse_kinds_payload
+from ucon.parsing.namespaces import rewrite_namespace
 from ucon.resolver import parse_unit
 from ucon.system import active_kinds
 
@@ -514,6 +517,9 @@ class UnitPackage:
     kinds : KindLattice | None
         Kind-of-quantity lattice parsed from ``[[kinds]]`` sections.
         ``None`` when the package does not define any kinds.
+    aspects : AspectForest | None
+        Aspect forest parsed from ``[[aspects]]`` sections. ``None``
+        when the package does not declare any aspects.
     requires : tuple[str, ...]
         Names of required packages (for future dependency resolution).
     """
@@ -524,6 +530,7 @@ class UnitPackage:
     edges: tuple[EdgeDef, ...] = ()
     constants: tuple[ConstantDef, ...] = ()
     kinds: KindLattice | None = None
+    aspects: AspectForest | None = None
     requires: tuple[str, ...] = ()
 
     def __post_init__(self):
@@ -571,6 +578,14 @@ def load_package(path: str | Path) -> UnitPackage:
         raise PackageLoadError(f"Package file not found: {path}")
     except tomllib.TOMLDecodeError as e:
         raise PackageLoadError(f"Invalid TOML in {path}: {e}")
+
+    # Apply the namespace rewriter before any section is parsed, so
+    # kinds, aspects, formulas, and constant kind-references all see
+    # the fully qualified names the hand-written equivalent would carry.
+    try:
+        data = rewrite_namespace(data)
+    except ValueError as e:
+        raise PackageLoadError(f"Invalid namespace in {path}: {e}")
 
     # Parse units
     units = tuple(
@@ -640,6 +655,14 @@ def load_package(path: str | Path) -> UnitPackage:
         except (ValueError, Exception) as e:
             raise PackageLoadError(f"Invalid [[kinds]] in {path}: {e}")
 
+    # Parse aspects
+    aspects: AspectForest | None = None
+    if "aspects" in data:
+        try:
+            aspects = parse_aspects_payload(data)
+        except (ValueError, AspectError) as e:
+            raise PackageLoadError(f"Invalid [[aspects]] in {path}: {e}")
+
     # Support both [package] table (preferred) and top-level keys (legacy)
     package = data.get("package", {})
 
@@ -651,6 +674,7 @@ def load_package(path: str | Path) -> UnitPackage:
         edges=edges,
         constants=constants,
         kinds=kinds,
+        aspects=aspects,
         requires=tuple(package.get("requires", data.get("requires", []))),
     )
 

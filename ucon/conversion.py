@@ -53,6 +53,7 @@ from ucon.core import (
     Scale,
     UnknownUnitError,
 )
+from ucon.aspects import AspectForest as _AspectForest
 from ucon.core._parsing_graph import _parsing_graph
 from ucon.kinds import KindLattice as _KindLattice
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
@@ -664,6 +665,19 @@ class Graph:
                 new._kind_lattice = merged
             else:
                 new._kind_lattice = package.kinds
+
+        # Merge aspect forest. No silent override: qualified names make
+        # cross-package overlap structurally unlikely, so a same-named
+        # distinct node is a declaration error and the forest's own
+        # duplicate-name validation raises AspectError loudly.
+        if package.aspects is not None and len(package.aspects) > 0:
+            existing_forest = self._aspect_forest
+            if existing_forest is not None and len(existing_forest) > 0:
+                new._aspect_forest = _AspectForest(
+                    list(existing_forest) + list(package.aspects)
+                )
+            else:
+                new._aspect_forest = package.aspects
 
         # Materialize constants (resolved within new graph context).
         # Pass the merged kind lattice so novel kinds defined by the
