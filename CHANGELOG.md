@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **ucon-tools docs submodule advanced to v0.9.0.** The
+  `docs/external/ucon-tools` pin had been frozen at 0.4.5rc1 while the
+  MCP-server guide and tool reference it serves into the docs site were
+  rewritten upstream; the published pages now describe the consolidated
+  discover/define/system tool surface.
+
 ## [2.2.0] - 2026-09-12
 
 ### Removed
