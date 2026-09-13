@@ -183,6 +183,12 @@ These are the fundamental SI base dimensions.
 
 These share a zero-vector but are semantically distinct.
 
+!!! warning "Deprecated"
+    Pseudo-dimensions are deprecated as of v2.2.0 and will be removed in
+    3.0.0 (`Dimension.pseudo(...)` emits `PendingDeprecationWarning`).
+    The units below remain available; the migration path for semantic
+    isolation is a `Kind` over the dimensionless dimension.
+
 ### Angle
 
 | Unit | Shorthand | Aliases | Scalable |
