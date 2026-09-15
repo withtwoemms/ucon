@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`default_kind` on `Unit` — the first unit→kind association.** (#305)
+  A unit may now declare the `Kind` it measures when nothing says
+  otherwise, via `Unit(default_kind="...")` or a `default_kind` key on a
+  `[[units]]` entry. A `Number` constructed with no explicit `kind=`
+  takes the declaration; an explicit `kind=` always wins. Names resolve
+  against a lattice at load time (local lattice before ambient, as
+  `Constant.kind` already does) and are qualified by the `namespace`
+  rewriter, so a package may declare both a kind and the units that name
+  it. Resolution at construction is best-effort: a name the active
+  lattice does not know leaves the Number unkinded rather than raising.
+  Like `scalable`, the field is metadata — excluded from `Unit`
+  equality and hashing. Purely additive: no unit in the built-in catalog
+  declares one, so nothing changes until a package opts in. The
+  *arrival* rule — what `.to()` should do when the target unit declares
+  a conflicting `default_kind` — remains open and is unchanged here.
+
 ### Documentation
 
 - **ucon-tools docs submodule advanced to v0.9.0.** The

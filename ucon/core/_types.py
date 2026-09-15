@@ -46,7 +46,7 @@ from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
 from ucon.core.exceptions import KindDimensionMismatch, KindMismatch, UnitDefinitionMismatch
 from ucon.formulas.exceptions import FormulaNotFound
-from ucon.kinds.exceptions import JoinRefused
+from ucon.kinds.exceptions import JoinRefused, KindNotFound
 from ucon.dimension import Dimension, NONE
 from ucon.kinds.types import Kind
 
@@ -441,12 +441,37 @@ class Unit:
         behavior, not an identity attribute — two Units that differ only in
         ``scalable`` compare equal and hash identically. This keeps the
         registry consistent if the flag is flipped on an existing unit.
+    default_kind : str | None
+        Name of the :class:`~ucon.kinds.Kind` this unit declares itself to
+        measure when nothing says otherwise (e.g. ``"usd"`` for ``USD``).
+        Defaults to ``None``, which is the state of every unit in the
+        built-in catalog: ucon asserts no unit→kind association unless a
+        package declares one.
+
+        When a :class:`Number` is constructed with no explicit ``kind`` and
+        its unit declares a ``default_kind``, the name is resolved against
+        the active :class:`~ucon.kinds.KindLattice` and attached. An
+        explicit ``kind=`` always wins. Resolution is best-effort: with no
+        active context, or with a lattice that does not know the name, the
+        Number stays unkinded rather than raising — a declared default is a
+        default, not a constraint.
+
+        A :class:`UnitProduct` standing for this one unit at exponent 1
+        carries the declaration too (see :attr:`UnitProduct.default_kind`),
+        so ``Number(5, unit)`` and ``unit(5)`` agree.
+
+        Stored as a *name* rather than a resolved ``Kind`` so that a Unit
+        remains independent of whichever lattice happens to be active.
+        Like :attr:`scalable`, it is metadata rather than an identity
+        attribute — two Units that differ only in ``default_kind`` compare
+        equal and hash identically.
     """
     name: str = ""
     dimension: Dimension = field(default=NONE)
     aliases: tuple[str, ...] = ()
     base_form: 'BaseForm | None' = field(default=None, repr=False, compare=False, hash=False)
     scalable: bool = field(default=True, compare=False, hash=False)
+    default_kind: 'str | None' = field(default=None, compare=False, hash=False)
 
     def __post_init__(self):
         object.__setattr__(
@@ -878,6 +903,19 @@ class UnitProduct:
 
     _SUPERSCRIPTS = str.maketrans("0123456789-.", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻·")
 
+    #: The declared default kind of a single-unit product, else ``None``.
+    #:
+    #: A product standing for exactly one unit at exponent 1 — what
+    #: ``meter(5)`` and every ``Number.to()`` result look like — measures
+    #: whatever that unit declares it measures, at any scale (``km`` is
+    #: still a length). Genuine compounds declare nothing: a kind for
+    #: ``m/s`` follows from a :class:`~ucon.formulas.KindFormula`, not
+    #: from either factor's declaration. The class-level ``None`` is the
+    #: answer for every such product; ``__init__`` shadows it with an
+    #: instance attribute only when a lone declaring factor survives
+    #: canonicalization. See :attr:`Unit.default_kind`.
+    default_kind: 'str | None' = None
+
     def __init__(self, factors: dict[Unit, float], canonical_scale: float = 1.0):
         """
         Build a canonical UnitProduct with UnitFactor keys, preserving
@@ -937,6 +975,8 @@ class UnitProduct:
                     # into surviving factors.
                     self.canonical_scale = canonical_scale
                     self.dimension = key.dimension ** exp
+                    if exp == 1 and key.unit.default_kind is not None:
+                        self.default_kind = key.unit.default_kind
                     return
 
         # --- Fast path: two factors, no nesting, no cancellation ---
@@ -1107,6 +1147,13 @@ class UnitProduct:
             self.factors.items(),
             NONE,
         )
+
+        # A lone surviving factor at exponent 1 carries its declaration
+        # through; anything else leaves the class-level ``None`` standing.
+        if len(final) == 1:
+            fu, exp = next(iter(final.items()))
+            if exp == 1 and fu.unit.default_kind is not None:
+                self.default_kind = fu.unit.default_kind
 
     # ------------- Rendering -------------------------------------------------
 
@@ -1511,6 +1558,39 @@ class KindConstraint:
         return hash(("KindConstraint", self.kind))
 
 
+def _resolve_default_kind(name: str) -> 'Kind | None':
+    """Resolve a unit's declared ``default_kind`` name to a :class:`Kind`.
+
+    Parameters
+    ----------
+    name : str
+        The kind name declared by :attr:`Unit.default_kind`.
+
+    Returns
+    -------
+    Kind or None
+        The kind registered under *name* in the active
+        :class:`~ucon.kinds.KindLattice`, or ``None`` when no context is
+        active or the lattice does not know the name.
+
+    Notes
+    -----
+    Resolution is best-effort by design. A ``default_kind`` is a default,
+    not a constraint: a Unit declared by one package may well be used in a
+    context whose lattice never heard of that kind, and refusing to
+    construct the Number there would be hostile. Declaration errors are
+    caught at package/graph load time instead, where the lattice that
+    ought to contain the name is known.
+    """
+    ctx = _sys_active_var.get()
+    if ctx is None:
+        return None
+    try:
+        return ctx.kinds.get(name)
+    except KindNotFound:
+        return None
+
+
 @dataclass
 class Number:
     """
@@ -1541,6 +1621,12 @@ class Number:
     def __post_init__(self):
         if self.unit is None:
             object.__setattr__(self, 'unit', UnitProduct({}))
+        if self.kind is None:
+            # A unit may declare the kind it measures by default; an
+            # explicit kind= (handled by the guard above) always wins.
+            _declared = getattr(self.unit, 'default_kind', None)
+            if _declared is not None:
+                object.__setattr__(self, 'kind', _resolve_default_kind(_declared))
         if self.kind is not None and self.kind.dimension != self.unit.dimension:
             raise KindDimensionMismatch(kind=self.kind, unit=self.unit)
         if not isinstance(self.aspects, frozenset):

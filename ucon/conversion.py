@@ -641,20 +641,9 @@ class Graph:
 
         new = self.copy()
 
-        # Materialize and register units first
-        for unit_def in package.units:
-            unit = unit_def.materialize()
-            new.register_unit(unit)
-
-        # Materialize and add edges (resolved within new graph context).
-        # Skip edges whose endpoints are already convertible in the graph
-        # (e.g., a package defines knot→m/s but the built-in graph already has it).
-        for edge_def in package.edges:
-            if self._package_edge_already_covered(edge_def, new):
-                continue
-            edge_def.materialize(new)
-
-        # Merge kind lattice (before constants so kind references resolve)
+        # Merge kind lattice first, so that both units declaring a
+        # ``default_kind`` and constants declaring a ``kind`` can resolve
+        # references to kinds the package itself introduces.
         if package.kinds is not None and len(package.kinds) > 0:
             existing = self._kind_lattice
             if existing is not None and len(existing) > 0:
@@ -665,6 +654,19 @@ class Graph:
                 new._kind_lattice = merged
             else:
                 new._kind_lattice = package.kinds
+
+        # Materialize and register units next
+        for unit_def in package.units:
+            unit = unit_def.materialize(kind_lattice=new._kind_lattice)
+            new.register_unit(unit)
+
+        # Materialize and add edges (resolved within new graph context).
+        # Skip edges whose endpoints are already convertible in the graph
+        # (e.g., a package defines knot→m/s but the built-in graph already has it).
+        for edge_def in package.edges:
+            if self._package_edge_already_covered(edge_def, new):
+                continue
+            edge_def.materialize(new)
 
         # Merge aspect forest. No silent override: qualified names make
         # cross-package overlap structurally unlikely, so a same-named
