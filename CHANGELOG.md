@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-09-18
+
 ### Changed
 
 - **The publish workflow refuses to release a tag whose changelog section
@@ -28,6 +30,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   No effect on the published package. The seven blank release bodies have
   been backfilled from the changelog.
+
+### Fixed
+
+- **`Number` addition and subtraction now convert operands stated in
+  different units.** Both operators guarded the dimension and then combined
+  raw magnitudes, so `parse("1 volt") - parse("1000 millivolt")` returned
+  `-999.0 V` while `==` reported the two equal. Any same-dimension pair with
+  a differing scale was affected — `1 meter - 100 centimeter`,
+  `1 hour - 30 minute`, `1 kilogram - 500 gram` — and the wrong value came
+  back silently, with no exception at any boundary.
+
+  `other` is now restated in the left operand's unit before the magnitudes
+  combine, using the same `_canonical_magnitude` normalization `__eq__`
+  already performed. That makes comparison and arithmetic agree: whenever
+  `a == b`, `(a - b).quantity` is zero. The rescaling is pure algebra over
+  `base_form` prefactors and consults no `ConversionGraph`, so additive
+  arithmetic still needs no active graph, and matched-unit operands take a
+  fast path that leaves their magnitudes bit-identical.
+
+  Uncertainty is rescaled by the same factor before quadrature. Previously
+  `1 V ± 0.03 V` combined with `100 mV ± 10 mV` propagated
+  `sqrt(0.03² + 10²)`, mixing volts with millivolts.
+
+  Units with no `base_form` — affine temperature scales, logarithmic units,
+  units defined only by a graph edge — normalize to themselves and so still
+  combine unscaled. That matches `__eq__`, which reports `1 K == 1 °C`, and
+  leaves the two consistent; correcting affine arithmetic is separate work.
+  `NumberArray` is unchanged: it refuses mismatched units uniformly across
+  comparison and arithmetic, which is internally coherent.
 
 ### Documentation
 
