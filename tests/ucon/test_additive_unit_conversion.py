@@ -20,6 +20,7 @@ import math
 import pytest
 
 from ucon import Number, Scale, units
+from ucon.core.exceptions import UnitsNotNormalizable
 from ucon.core import UnitFactor, UnitProduct
 
 
@@ -197,18 +198,93 @@ class TestDimensionGuardStillApplies:
 
 
 class TestUnitsWithoutBaseForm:
-    """Affine and graph-only units normalize to themselves.
+    """Units with no ``base_form`` refuse rather than combine unscaled.
 
-    Documents current behavior rather than endorsing it: ``_canonical_magnitude``
-    cannot express an offset, so affine scales combine unscaled. The point of
-    the assertion is that arithmetic and comparison still *agree* — they are
-    consistently wrong here rather than inconsistently.
+    Superseded the previous expectation, which documented affine operands
+    combining raw magnitudes. That behavior was consistent with ``__eq__``
+    but wrong in both: ``1 K == 1 °C`` reported ``True``. Refusing is the
+    honest answer, since the relationship exists only in the conversion
+    graph and these paths deliberately do not consult one.
     """
 
-    def test_affine_operands_agree_with_comparison(self) -> None:
-        kelvin_one = Number(1, units.kelvin)
-        celsius_one = Number(1, units.celsius)
+    @pytest.mark.parametrize(
+        "left, right",
+        [
+            pytest.param(
+                Number(1, units.kelvin), Number(1, units.celsius), id="affine"
+            ),
+            pytest.param(
+                Number(180, units.degree),
+                Number(math.pi, units.radian),
+                id="pseudo-dimensional",
+            ),
+            pytest.param(
+                Number(20, units.decibel),
+                Number(1, units.neper),
+                id="logarithmic",
+            ),
+        ],
+    )
+    def test_comparison_refuses(self, left, right) -> None:
+        with pytest.raises(UnitsNotNormalizable):
+            left == right
 
-        # Neither carries a base_form offset, so both normalize to 1.0.
-        assert (kelvin_one == celsius_one) is True
-        assert (kelvin_one - celsius_one).quantity == pytest.approx(0.0)
+    @pytest.mark.parametrize(
+        "left, right",
+        [
+            pytest.param(
+                Number(1, units.kelvin), Number(1, units.celsius), id="affine"
+            ),
+            pytest.param(
+                Number(180, units.degree),
+                Number(math.pi, units.radian),
+                id="pseudo-dimensional",
+            ),
+        ],
+    )
+    def test_arithmetic_refuses(self, left, right) -> None:
+        with pytest.raises(UnitsNotNormalizable):
+            left - right
+        with pytest.raises(UnitsNotNormalizable):
+            left + right
+
+    def test_same_unit_is_unaffected(self) -> None:
+        """No rescaling is needed, so nothing is refused."""
+        assert Number(0, units.celsius) == Number(0, units.celsius)
+        assert (Number(90, units.degree) - Number(90, units.degree)).quantity == 0
+
+    def test_converting_first_succeeds(self) -> None:
+        """The graph knows the relationship the arithmetic cannot derive."""
+        celsius_zero = Number(0, units.celsius)
+        assert celsius_zero.to(units.kelvin) == Number(273.15, units.kelvin)
+        assert (
+            Number(180, units.degree).to(units.radian).quantity
+            == pytest.approx(math.pi)
+        )
+
+    def test_refusal_names_both_units_and_the_operation(self) -> None:
+        with pytest.raises(UnitsNotNormalizable) as excinfo:
+            Number(1, units.kelvin) - Number(1, units.celsius)
+        error = excinfo.value
+        assert error.left == units.kelvin
+        assert error.right == units.celsius
+        assert error.operation == "subtract"
+        assert "celsius" in str(error)
+        assert ".to(" in str(error)
+
+    def test_cross_dimension_still_returns_false_rather_than_raising(self) -> None:
+        """The dimension guard runs first and is unchanged."""
+        assert (Number(1, units.volt) == Number(1, units.meter)) is False
+
+    def test_product_with_one_unnormalizable_factor_refuses(self) -> None:
+        """One tainted factor makes the whole product unnormalizable."""
+        per_second = UnitProduct({
+            UnitFactor(units.decibel, Scale.one): 1.0,
+            UnitFactor(units.second, Scale.one): -1.0,
+        })
+        other = UnitProduct({
+            UnitFactor(units.neper, Scale.one): 1.0,
+            UnitFactor(units.second, Scale.one): -1.0,
+        })
+        with pytest.raises(UnitsNotNormalizable):
+            Number(1, per_second) - Number(1, other)
