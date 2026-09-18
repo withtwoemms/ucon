@@ -148,3 +148,64 @@ class KindDimensionMismatch(Exception):
             f"but unit {unit_name!r} has dimension {unit.dimension!r}. "
             f"A Number's kind must refine the dimension of its unit."
         )
+
+
+class UnitsNotNormalizable(Exception):
+    """Two same-dimension units cannot be reconciled without a graph.
+
+    Raised by :meth:`ucon.Number.__eq__`, :meth:`ucon.Number.__add__`
+    and :meth:`ucon.Number.__sub__` when the operands carry different
+    units of the same dimension and at least one of them has no
+    ``base_form``, so no purely algebraic factor relates them.
+
+    Comparison and additive arithmetic are pure functions of
+    ``(quantity, unit)`` — they never consult a
+    :class:`~ucon.conversion.Graph` — which means they cannot express an
+    affine offset (celsius, fahrenheit), a logarithmic level (decibel,
+    neper, bel), or a pseudo-dimensional ratio whose canonical unit is
+    outside the SI basis (degree against radian). Before v2.2.2 these
+    combined unconverted, so ``Number(1, kelvin) == Number(1, celsius)``
+    reported ``True`` and ``Number(180, degree) - Number(pi, radian)``
+    returned ``176.86 deg``.
+
+    The conversion graph *does* know these relationships. Convert first
+    and the operation succeeds::
+
+        a - b.to(a.unit)
+        a == b.to(a.unit)
+
+    Attributes
+    ----------
+    left : Unit | UnitProduct
+        The left operand's unit.
+    right : Unit | UnitProduct
+        The right operand's unit.
+    operation : str
+        The operation that refused (``"compare"``, ``"add"`` or
+        ``"subtract"``).
+    """
+
+    def __init__(
+        self,
+        *,
+        left: 'Unit | UnitProduct',
+        right: 'Unit | UnitProduct',
+        operation: str,
+    ) -> None:
+        self.left = left
+        self.right = right
+        self.operation = operation
+        left_name = getattr(left, "name", None) or repr(left)
+        right_name = getattr(right, "name", None) or repr(right)
+        missing = [
+            getattr(u, "name", None) or repr(u)
+            for u in (left, right)
+            if getattr(u, "base_form", None) is None
+        ]
+        super().__init__(
+            f"Cannot {operation} {left_name!r} and {right_name!r} without "
+            f"converting first: {' and '.join(repr(m) for m in missing)} "
+            f"{'have' if len(missing) > 1 else 'has'} no base_form, so no "
+            f"algebraic factor relates the two units. Use "
+            f".to({left_name!r}) on the right operand first."
+        )

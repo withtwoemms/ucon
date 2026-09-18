@@ -44,7 +44,12 @@ from ucon.aspects.resolution import resolve_add_aspects, resolve_mul_aspects
 from ucon.aspects.types import Aspect
 from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
-from ucon.core.exceptions import KindDimensionMismatch, KindMismatch, UnitDefinitionMismatch
+from ucon.core.exceptions import (
+    KindDimensionMismatch,
+    KindMismatch,
+    UnitDefinitionMismatch,
+    UnitsNotNormalizable,
+)
 from ucon.formulas.exceptions import FormulaNotFound
 from ucon.kinds.exceptions import JoinRefused
 from ucon.dimension import Dimension, NONE
@@ -2279,6 +2284,45 @@ class Number:
             kind=self._resolve_mul_kind(other),
         )._carry(result_aspects)
 
+    @staticmethod
+    def _is_algebraically_normalizable(unit) -> bool:
+        """Whether ``unit``'s magnitude can be rescaled without a graph.
+
+        True when every unit involved carries a ``base_form``, which is
+        what :attr:`_canonical_magnitude` needs to produce a meaningful
+        factor. False for affine units (an offset no prefactor can
+        express), logarithmic units (levels, not scalings), and
+        pseudo-dimensional units whose canonical unit sits outside the
+        SI basis — angle, ratio, count, solid angle.
+
+        A :class:`UnitProduct` is normalizable only if every one of its
+        factors is; one unnormalizable factor taints the product.
+        """
+        if isinstance(unit, UnitProduct):
+            return all(
+                uf.unit.base_form is not None for uf in unit.factors
+            )
+        return unit.base_form is not None
+
+    def _require_normalizable(self, other: 'Number', operation: str) -> None:
+        """Refuse ``operation`` when no algebraic factor relates the units.
+
+        Same-unit operands are always fine — no rescaling is needed. For
+        differing units, both sides must be normalizable, otherwise
+        :attr:`_canonical_magnitude` would silently fall back to the raw
+        quantity and combine magnitudes that do not denote the same
+        thing.
+        """
+        if self.unit == other.unit:
+            return
+        if self._is_algebraically_normalizable(
+            self.unit
+        ) and self._is_algebraically_normalizable(other.unit):
+            return
+        raise UnitsNotNormalizable(
+            left=self.unit, right=other.unit, operation=operation
+        )
+
     def _additive_operand(self, other: 'Number') -> tuple:
         """``other``'s quantity and uncertainty expressed in ``self.unit``.
 
@@ -2320,8 +2364,10 @@ class Number:
         source = Number(1.0, other.unit)._canonical_magnitude
         if not target or not source:
             # A zero normalization factor means a malformed unit definition;
-            # fall back to unscaled magnitudes rather than dividing by zero.
-            return other.quantity, other.uncertainty
+            # refusing beats dividing by zero or combining unscaled.
+            raise UnitsNotNormalizable(
+                left=self.unit, right=other.unit, operation="combine"
+            )
 
         factor = source / target
         uncertainty = (
@@ -2352,6 +2398,10 @@ class Number:
                 f"Cannot add Numbers with different dimensions: "
                 f"{self.unit.dimension} vs {other.unit.dimension}"
             )
+
+        # Refuse before kind/aspect dispatch: those can warn or mutate
+        # ambient state, and a refused operation should do neither.
+        self._require_normalizable(other, "add")
 
         # Kind lattice dispatch, then family-wise aspect resolution
         result_kind = self._resolve_add_kind(other)
@@ -2396,6 +2446,9 @@ class Number:
                 f"Cannot subtract Numbers with different dimensions: "
                 f"{self.unit.dimension} vs {other.unit.dimension}"
             )
+
+        # Refuse before kind/aspect dispatch, as in __add__.
+        self._require_normalizable(other, "subtract")
 
         # Kind lattice dispatch — same rules as addition
         result_kind = self._resolve_add_kind(other)
@@ -2473,6 +2526,22 @@ class Number:
                       )._carry(result_aspects)
 
     def __eq__(self, other: _Quantifiable) -> bool:
+        """Compare two quantities, normalizing for scale.
+
+        Operands of differing dimension are unequal. Operands of the same
+        dimension are compared after both are normalized to base-unit
+        scale, so ``1 volt`` equals ``1000 millivolt``.
+
+        Raises
+        ------
+        TypeError
+            ``other`` is neither a ``Number`` nor a ``Ratio``.
+        UnitsNotNormalizable
+            The units differ and no algebraic factor relates them — an
+            affine, logarithmic, or pseudo-dimensional pair. Convert with
+            :meth:`to` first. Returning a bool here would mean asserting
+            equality or inequality that cannot be determined.
+        """
         if not isinstance(other, (Number, Ratio)):
             raise TypeError(
                 f"Cannot compare Number to non-Number/Ratio type: {type(other)}"
@@ -2485,6 +2554,10 @@ class Number:
         # Dimensions must match
         if self.unit.dimension != other.unit.dimension:
             return False
+
+        # Same dimension, differing units: refuse rather than compare
+        # magnitudes that do not denote the same thing.
+        self._require_normalizable(other, "compare")
 
         # Compare magnitudes, scale-adjusted
         if abs(self._canonical_magnitude - other._canonical_magnitude) >= 1e-12:

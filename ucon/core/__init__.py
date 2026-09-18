@@ -18,6 +18,7 @@ from ucon.core.exceptions import (
     KindMismatch,
     NonScalableError,
     UnitDefinitionMismatch,
+    UnitsNotNormalizable,
     UnknownUnitError,
 )
 from ucon.core._types import (
@@ -58,6 +59,7 @@ __all__ = [
     'Scale',
     'Unit',
     'UnitDefinitionMismatch',
+    'UnitsNotNormalizable',
     'UnitFactor',
     'UnitProduct',
     'UnknownUnitError',

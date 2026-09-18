@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-09-18
+
+### Fixed
+
+- **Comparison and additive arithmetic refuse units they cannot normalize
+  instead of ignoring them.** (#313) `_canonical_magnitude` falls back to
+  the raw quantity when a unit has no `base_form`, so `__eq__`, `__add__`
+  and `__sub__` treated `1` of such a unit as `1` of every other unit in
+  its dimension. Three families were affected, wrong in both directions:
+
+  | expression | before | now |
+  |---|---|---|
+  | `Number(1, kelvin) == Number(1, celsius)` | `True` | refuses |
+  | `Number(0, celsius) == Number(273.15, kelvin)` | `False` | refuses |
+  | `Number(180, degree) - Number(pi, radian)` | `176.86 deg` | refuses |
+  | `Number(20, decibel) == Number(1, neper)` | `False` | refuses |
+
+  A new `UnitsNotNormalizable` names both units, the operation, and the
+  conversion that resolves it. The relationships exist in the
+  `ConversionGraph` — `Number(0, celsius).to(kelvin)` has always returned
+  `273.15 K` — but these paths are pure functions of `(quantity, unit)`
+  and deliberately consult no graph, so the honest answer is a refusal
+  rather than a number. Converting first succeeds as before.
+
+  Same-unit operands are untouched: `0 °C == 0 °C` and
+  `90 deg - 90 deg` behave exactly as they did. Cross-dimension
+  comparison still returns `False` rather than raising. A `UnitProduct`
+  is refused when any single factor is unnormalizable.
+
+  This supersedes the behavior 2.2.1 documented, where affine operands
+  combined unscaled on the grounds that arithmetic then agreed with
+  `__eq__`. They did agree, and both were wrong.
+
+  Angle units are *not* given a `base_form` to fix their third of this:
+  `BaseForm.factors` is contracted to reference only canonical SI base
+  units, and angle is a pseudo-dimension with no SI base expansion, so a
+  radian-based factorization would violate the type's invariant. Making
+  angle, ratio, and count comparable on their own terms needs a separate
+  within-dimension canonical scale, which is design work rather than a
+  point release.
+
 ### Documentation
 
 - **Roadmap recast around the chart defects.** `ROADMAP.md` marked v2.2.0
