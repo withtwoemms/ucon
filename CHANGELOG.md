@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **Roadmap recast around the chart defects.** `ROADMAP.md` marked v2.2.0
+  planned after it had shipped, and had no home for the correctness work
+  that followed. It now records a **v2.2.x scale correctness train**
+  (symmetrical with v2.1.x), moves currency to its own v2.4.0 ahead of
+  array parity at v2.5.0, and adds a *Where the chart defects land*
+  section.
+
+  That section exists because #309 and #313 are not standalone bugs: ADR
+  009 predicted both, and the Turnstile evidence record (internal) documents
+  `1 rad + 180 deg → <181 rad>` as a shipped defect before it was
+  reported from outside. The v2.2.x refusals are a waypoint — 3.1.0's
+  chart stratum is meant to *compute* some of what 2.2.2 refuses — and
+  the table says which release does which so the interim is not mistaken
+  for the destination.
+
+  Also notes that #282 is the last open Turnstile prerequisite, putting
+  v2.3.0 on the critical path for v3.1.0, and that
+  the internal release-plan trajectory table is superseded from
+  2.2.0 onward.
+
 ## [2.2.1] - 2026-09-18
 
 ### Changed
