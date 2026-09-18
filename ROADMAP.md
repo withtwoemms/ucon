@@ -44,11 +44,42 @@ This roadmap tracks **major milestones** on the path to v2. For incremental upda
 | v1.12.0 | **Cycle-break completion — structural rather than runtime.** The `_active` ContextVar relocates to a true Layer-0 leaf (`ucon._active`) with zero intra-ucon imports; `AlgebraCache` moves to `ucon._algebra_cache`; the transitional `_resolve_unit_impl` dependency-injection scaffold and the `constants._constants_cache` cross-module attribute assignment both retire. A static AST audit (`test_no_cross_module_injection.py`) guards against future regressions. No public API change. | Complete |
 | **v2.0.0** | **`UnitSystem` algebra, global retirement, and `Number.kind` wiring.** Closes the value-type loop: pure-function operations `extend` / `restrict` / `merge` / `with_*`, first-class relations `subsystem_of` / `compatible_with` / `diff` / `shared_units` / `shared_dimensions`, explicit cross-system value movement (`system.adopt`, `Bridge(A, B)` with `rename` + `basis_transform`), and retirement of the module-global registries (`_REGISTRY`, `_DIMENSION_ATTRS`, default `ConversionGraph`) in favour of the default `UnitSystem` value. Promotes the v1.9.x KOQ surface to first-class: `Number` accepts `kind=`, arithmetic dispatches through the active `FormulaRegistry`, and the `ActiveContext` substrate (single ContextVar payload bundling `system + formulas + kinds + strict`, extended `use(...)` with field-wise inheritance) makes scope explicit. `strict=True` by default raises `UnitDefinitionMismatch` on identity-mismatched source units. Removes the deprecated `UnitSystem` alias for `BaseUnits` and the `_DIM_*_CACHE` shims. Marshal-based graph cache (~15-25x import speedup). | Complete |
 | v2.1.x | **Correctness train** — six per-issue patch releases (2.1.2–2.1.7) closing the 2026-09 audit: exact customary prefactors derived from statutory seeds, constant symbols in package edge factors, path resolution through composite edge endpoints, typed `DisjointKinds` refusals, idempotent kind re-add, exact SI `base_form`s for mechanical CGS units. Per-issue detail in [`CHANGELOG.md`](CHANGELOG.md). | Complete |
-| v2.2.0 | **Aspect stratum** — per [decisions/008](docs/internal/decisions/008-aspect-stratum.md): one `Aspect` type (peer of `Kind`), flat additive `Number.aspects`, family-wise resolution, carry rule, D3 namespacing; the never-exported flat `AspectSet` model is removed outright; pseudo-dimension deprecations begin (`PendingDeprecationWarning`). | Planned |
-| v2.3.0 | **Package infrastructure** — `[[contexts]]` in TOML, `PolynomialMap` with branch inverses, declared `Unit.chart` ([decisions/010](docs/internal/decisions/010-chart-nomenclature.md)), `default_kind`. | Planned |
-| v2.4.0 | **Array stratum parity** — `NumberArray` receives the kind and aspect strata (#297, #298): array-level `kind` and `aspects` fields mirroring the shared-`unit` design, scalar-resolver reuse (one resolution per array op), extraction stamping so `arr[i]` satisfies every `Number` invariant, integrations round-trip. | Planned |
+| **v2.2.0** | **Aspect stratum** — per [decisions/008](docs/internal/decisions/008-aspect-stratum.md): one `Aspect` type (peer of `Kind`), flat additive `Number.aspects`, family-wise resolution, carry rule, D3 namespacing; the never-exported flat `AspectSet` model is removed outright; pseudo-dimension deprecations begin (`PendingDeprecationWarning`). | Complete |
+| v2.2.x | **Scale correctness train** — a second per-issue patch train, unplanned but symmetrical with v2.1.x, closing the ψ (scale) defects [ADR 009](docs/internal/decisions/009-turnstile.md) predicted: additive operands converted before combining (2.2.1, #309), unnormalizable pairs refused rather than combined unscaled (2.2.2, #313), plus catalog papercuts (#307, #308). Interim by construction — see *Where the chart defects land*. | In progress |
+| v2.3.0 | **Package infrastructure** — `[[contexts]]` in TOML (#282), `PolynomialMap` with branch inverses, declared `Unit.chart` ([decisions/010](docs/internal/decisions/010-chart-nomenclature.md)), `default_kind` (#305). Carries the last open Turnstile prerequisite and unblocks currency. | Planned |
+| v2.4.0 | **Native currency** — currency as kinds plus rate contexts (#292), consuming 2.3.0's `[[contexts]]` and `default_kind`. The first real consumer of `default_kind`, which is why #306 lands with this rather than ahead of it. | Planned |
+| v2.5.0 | **Array stratum parity** — `NumberArray` receives the kind and aspect strata (#297, #298): array-level `kind` and `aspects` fields mirroring the shared-`unit` design, scalar-resolver reuse (one resolution per array op), extraction stamping so `arr[i]` satisfies every `Number` invariant, integrations round-trip. | Planned |
 | v3.0.0 | **Lean structural major** — pseudo-dimension retirement (TOML schema), `Number` frozen, `Unit`/`UnitProduct` identity unification, deprecation removals. The breaks, and only the breaks. | Planned |
 | v3.1.0 | **The Turnstile** — per [decisions/009](docs/internal/decisions/009-turnstile.md): four-stratum arithmetic dispatch (dimension, chart, kind, aspect), derived point/displacement, cyclic/ordinal kind flags, lazy warrants via `explain()`. New refusals on previously-wrong paths are fixes. | Planned |
+
+---
+
+## Where the chart defects land
+
+`Number.__add__` gates on dimension and never consults scale.
+[ADR 009](docs/internal/decisions/009-turnstile.md) §2 diagnosed this before it
+was reported from outside, recording the shipped behavior as
+`1 rad + 180 deg → <181 rad>` and `1 Gy + 1 Sv → <2 Gy>`.
+
+The Turnstile is the fix, and it rides after the 3.0.0 breaks. That is several
+releases out, so the v2.2.x train converts silence into either a correct answer
+or a loud refusal in the meantime. **The interim work is a waypoint, not the
+destination** — some of what 2.2.2 refuses, 3.1.0 is meant to compute:
+
+| Step | Release | What changes |
+|---|---|---|
+| Ratio-chart operands converted before combining | 2.2.1 | `1 V - 1000 mV` returns `0 V`, not `-999 V` (#309) |
+| Unnormalizable pairs refused, not combined unscaled | 2.2.2 | `1 K == 1 °C` raises instead of reporting `True` (#313) |
+| Refusal keys on a principled marker | 2.3.0 | the `base_form is None` proxy gives way to declared `Unit.chart`; `base_form` is a statement about SI factorization, not about chart class |
+| Angle becomes a real dimension | 3.0.0 | pseudo-dimension retirement; `degree` and `radian` gain a canonical scale they cannot have while angle is pseudo-dimensional |
+| Chart-crossing arithmetic returns a value | 3.1.0 | the chart stratum supplies factors and offsets, so `1 rad + 180 deg` converts rather than refusing |
+
+Two consequences worth stating plainly. `BaseForm.factors` is contracted to
+reference only canonical SI base units, so giving angle units a `base_form` to
+shortcut this would violate the type rather than fix it — the BFS oracle skips
+pseudo-dimensions for that reason. And #282 is the last open Turnstile
+prerequisite (#279 and #280 are closed), which puts v2.3.0 on the critical path
+for v3.1.0 despite reading as routine package work.
 
 ---
 
