@@ -2279,7 +2279,70 @@ class Number:
             kind=self._resolve_mul_kind(other),
         )._carry(result_aspects)
 
+    def _additive_operand(self, other: 'Number') -> tuple:
+        """``other``'s quantity and uncertainty expressed in ``self.unit``.
+
+        Additive operations combine magnitudes, so an operand stated in a
+        different unit of the same dimension has to be rescaled before the
+        two can be added — otherwise ``1 volt - 1000 millivolt`` returns
+        ``-999 V``.
+
+        The rescaling is pure algebra over :attr:`~Unit.base_form`
+        prefactors, routed through :attr:`_canonical_magnitude`; no
+        :class:`~ucon.graph.ConversionGraph` is consulted, so additive
+        arithmetic needs no active graph. It is the same normalization
+        :meth:`__eq__` performs, which is what makes ``a == b`` and
+        ``a - b == 0`` agree about the same pair.
+
+        Returns
+        -------
+        tuple
+            ``(quantity, uncertainty)`` in ``self.unit``. Uncertainty is
+            scaled by the same factor as the quantity, and stays ``None``
+            when ``other`` carries none.
+
+        Notes
+        -----
+        Operands already in ``self.unit`` are returned unchanged, so the
+        common same-unit case is bit-identical to plain magnitude
+        arithmetic.
+
+        Units with no ``base_form`` — affine temperature scales,
+        logarithmic units, units defined only by a graph edge — normalize
+        to themselves, so their magnitudes still combine unscaled. That
+        matches :meth:`__eq__`, which reports ``1 K == 1 °C``; the two
+        remain consistent, and neither is yet correct for affine scales.
+        """
+        if self.unit == other.unit:
+            return other.quantity, other.uncertainty
+
+        target = Number(1.0, self.unit)._canonical_magnitude
+        source = Number(1.0, other.unit)._canonical_magnitude
+        if not target or not source:
+            # A zero normalization factor means a malformed unit definition;
+            # fall back to unscaled magnitudes rather than dividing by zero.
+            return other.quantity, other.uncertainty
+
+        factor = source / target
+        uncertainty = (
+            other.uncertainty * abs(factor)
+            if other.uncertainty is not None
+            else None
+        )
+        return other.quantity * factor, uncertainty
+
     def __add__(self, other: 'Number') -> 'Number':
+        """Sum two ``Number``s, rescaling ``other`` into ``self.unit`` first.
+
+        Operands must share a dimension; they need not share a unit. The
+        result is stated in ``self.unit``. See :meth:`_additive_operand`
+        for the normalization and its limits.
+
+        Raises
+        ------
+        TypeError
+            The operands' dimensions differ.
+        """
         if not isinstance(other, Number):
             return NotImplemented
 
@@ -2294,21 +2357,36 @@ class Number:
         result_kind = self._resolve_add_kind(other)
         result_aspects = self._resolve_add_aspects(other)
 
+        # Same dimension, possibly different unit: combine magnitudes only
+        # after restating `other` in this Number's unit.
+        other_quantity, other_uncertainty = self._additive_operand(other)
+
         # Uncertainty propagation for addition: δc = sqrt(δa² + δb²)
         new_uncertainty = None
-        if self.uncertainty is not None or other.uncertainty is not None:
+        if self.uncertainty is not None or other_uncertainty is not None:
             ua = self.uncertainty if self.uncertainty is not None else 0
-            ub = other.uncertainty if other.uncertainty is not None else 0
+            ub = other_uncertainty if other_uncertainty is not None else 0
             new_uncertainty = math.sqrt(ua**2 + ub**2)
 
         return Number(
-            quantity=self.quantity + other.quantity,
+            quantity=self.quantity + other_quantity,
             unit=self.unit,
             uncertainty=new_uncertainty,
             kind=result_kind,
         )._carry(result_aspects)
 
     def __sub__(self, other: 'Number') -> 'Number':
+        """Subtract ``other``, rescaling it into ``self.unit`` first.
+
+        Operands must share a dimension; they need not share a unit. The
+        result is stated in ``self.unit``. See :meth:`_additive_operand`
+        for the normalization and its limits.
+
+        Raises
+        ------
+        TypeError
+            The operands' dimensions differ.
+        """
         if not isinstance(other, Number):
             return NotImplemented
 
@@ -2323,15 +2401,19 @@ class Number:
         result_kind = self._resolve_add_kind(other)
         result_aspects = self._resolve_add_aspects(other, op="Subtracting")
 
+        # Same dimension, possibly different unit: combine magnitudes only
+        # after restating `other` in this Number's unit.
+        other_quantity, other_uncertainty = self._additive_operand(other)
+
         # Uncertainty propagation for subtraction: δc = sqrt(δa² + δb²)
         new_uncertainty = None
-        if self.uncertainty is not None or other.uncertainty is not None:
+        if self.uncertainty is not None or other_uncertainty is not None:
             ua = self.uncertainty if self.uncertainty is not None else 0
-            ub = other.uncertainty if other.uncertainty is not None else 0
+            ub = other_uncertainty if other_uncertainty is not None else 0
             new_uncertainty = math.sqrt(ua**2 + ub**2)
 
         return Number(
-            quantity=self.quantity - other.quantity,
+            quantity=self.quantity - other_quantity,
             unit=self.unit,
             uncertainty=new_uncertainty,
             kind=result_kind,
