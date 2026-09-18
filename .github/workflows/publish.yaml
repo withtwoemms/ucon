@@ -16,6 +16,27 @@ jobs:
           fetch-depth: 0  # needed for ancestry check
           ref: ${{ github.ref_name }}
 
+      - name: Verify CHANGELOG has a section for this tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          # Alpha and beta tags may come from feature branches and are not
+          # expected to carry a released section — same exemption the
+          # mainline ancestry check below applies.
+          if echo "$TAG" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+(a|b)[0-9]+$'; then
+            echo "Pre-release tag $TAG — skipping CHANGELOG section check."
+            exit 0
+          fi
+          # Dots are escaped so the pattern cannot match a near-miss header.
+          PATTERN="^## \[$(printf '%s' "$TAG" | sed 's/[.]/\\./g')\]"
+          if ! grep -q "$PATTERN" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$TAG]' section."
+            echo "Promote the [Unreleased] section to [$TAG] before tagging,"
+            echo "otherwise the release is published with empty notes."
+            exit 1
+          fi
+          echo "Found '## [$TAG]' in CHANGELOG.md."
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
@@ -84,6 +105,12 @@ jobs:
             }
             found { print }
           ' CHANGELOG.md > release_notes.md
+          # Backstop: the preflight proved the header exists, so an empty
+          # extraction here means the section itself has no body.
+          if [ ! -s release_notes.md ]; then
+            echo "::error::Extracted release notes for $TAG are empty."
+            exit 1
+          fi
 
       - name: 📋 Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
