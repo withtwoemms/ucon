@@ -182,15 +182,30 @@ class UnitDef:
         Explicit display symbol (e.g., "nmi"). When provided, this is
         prepended to aliases so it becomes ``Unit.shorthand``. When
         ``None``, the first alias (or name) is used as before.
+    default_kind : str | None
+        Optional canonical kind name this unit measures by default.
+        Resolved via the active ``KindLattice`` during materialization and
+        carried onto :attr:`Unit.default_kind`.
     """
     name: str
     dimension: str
     aliases: tuple[str, ...] = ()
     shorthand: str | None = None
     scalable: bool = True
+    default_kind: str | None = None
 
-    def materialize(self) -> Unit:
+    def materialize(self, *, kind_lattice: KindLattice | None = None) -> Unit:
         """Convert to a Unit object.
+
+        Parameters
+        ----------
+        kind_lattice : KindLattice | None, optional
+            Local kind lattice to check before falling back to the ambient
+            ``active_kinds()``.  When loading a package that defines both
+            novel kinds and units declaring a ``default_kind`` among them,
+            pass the merged lattice so that resolution succeeds without
+            requiring the kinds to be registered in the ambient context
+            first.
 
         Returns
         -------
@@ -200,7 +215,7 @@ class UnitDef:
         Raises
         ------
         PackageLoadError
-            If the dimension name is invalid.
+            If the dimension name or the ``default_kind`` name is invalid.
         """
         dim_map = _get_dimension_map()
         dim = dim_map.get(self.dimension)
@@ -213,11 +228,29 @@ class UnitDef:
         if self.shorthand is not None and self.shorthand not in aliases:
             aliases = (self.shorthand,) + aliases
 
+        # Resolve the declared kind name if provided (prefer local lattice
+        # over ambient). The Unit stores the canonical name, not the Kind:
+        # resolution here is a load-time validation that the declaration
+        # names something real.
+        default_kind = None
+        if self.default_kind is not None:
+            if kind_lattice is not None and self.default_kind in kind_lattice:
+                default_kind = kind_lattice.get(self.default_kind).name
+            else:
+                try:
+                    default_kind = active_kinds().get(self.default_kind).name
+                except KindNotFound:
+                    raise PackageLoadError(
+                        f"Cannot resolve default_kind '{self.default_kind}' "
+                        f"for unit '{self.name}'"
+                    )
+
         return Unit(
             name=self.name,
             dimension=dim,
             aliases=aliases,
             scalable=self.scalable,
+            default_kind=default_kind,
         )
 
 
@@ -595,6 +628,7 @@ def load_package(path: str | Path) -> UnitPackage:
             aliases=tuple(u.get("aliases", ())),
             shorthand=u.get("shorthand"),
             scalable=bool(u.get("scalable", True)),
+            default_kind=u.get("default_kind"),
         )
         for u in data.get("units", [])
     )
