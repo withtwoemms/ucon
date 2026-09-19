@@ -52,6 +52,7 @@ import unicodedata
 
 from ucon.aspects import AspectError, AspectForest
 from ucon.constants import Constant
+from ucon.contexts import ContextEdge, ConversionContext
 from ucon.core import Unit, UnknownUnitError
 from ucon.dimension import Dimension, all_dimensions
 from ucon.graph import using_conversion_graph
@@ -439,6 +440,80 @@ class EdgeDef:
 
 
 @dataclass(frozen=True)
+class ContextDef:
+    """Serializable :class:`~ucon.contexts.ConversionContext` definition.
+
+    A context is a named bundle of *cross-dimensional* edges that apply only
+    while explicitly activated — "λ ↔ ν given c", "ppm ↔ mg/L given density".
+    Ordinary ``[[edges]]`` are unconditional and same-dimension; these are
+    conditional and deliberately scoped, which is why they are registered
+    rather than inserted.
+
+    Edges reuse :class:`EdgeDef`, so a context edge supports everything an
+    ordinary one does — the ``factor``/``offset`` shorthand, explicit
+    ``map`` specs, and constant-licensed factor expressions. That last one
+    matters most here: a context edge is almost always licensed by a
+    constant the package also declares.
+
+    Attributes
+    ----------
+    name : str
+        Context name, used as the registration key.
+    edges : tuple[EdgeDef, ...]
+        The cross-dimensional edge definitions.
+    description : str
+        Optional description of the physical basis.
+    """
+
+    name: str
+    edges: tuple['EdgeDef', ...] = ()
+    description: str = ""
+
+    def materialize(self, graph: 'ConversionGraph') -> 'ConversionContext':
+        """Resolve endpoints against ``graph`` and build the context.
+
+        Unlike :meth:`EdgeDef.materialize`, nothing is added to the graph —
+        the returned context is registered, and its edges only enter a graph
+        when :func:`~ucon.contexts.using_context` activates it.
+
+        Raises
+        ------
+        PackageLoadError
+            If an endpoint cannot be resolved.
+        """
+        context_edges = []
+        with using_conversion_graph(graph):
+            for edge in self.edges:
+                try:
+                    src_unit = parse_unit(edge.src)
+                except UnknownUnitError:
+                    raise PackageLoadError(
+                        f"Cannot resolve source unit '{edge.src}' in "
+                        f"context '{self.name}'"
+                    )
+                try:
+                    dst_unit = parse_unit(edge.dst)
+                except UnknownUnitError:
+                    raise PackageLoadError(
+                        f"Cannot resolve destination unit '{edge.dst}' in "
+                        f"context '{self.name}'"
+                    )
+                context_edges.append(
+                    ContextEdge(
+                        src=src_unit,
+                        dst=dst_unit,
+                        map=edge._build_edge_map(),
+                    )
+                )
+
+        return ConversionContext(
+            name=self.name,
+            edges=tuple(context_edges),
+            description=self.description,
+        )
+
+
+@dataclass(frozen=True)
 class ConstantDef:
     """Serializable constant definition.
 
@@ -553,6 +628,11 @@ class UnitPackage:
     aspects : AspectForest | None
         Aspect forest parsed from ``[[aspects]]`` sections. ``None``
         when the package does not declare any aspects.
+    contexts : tuple[ContextDef, ...]
+        Conversion contexts parsed from ``[[contexts]]`` sections. Empty
+        when the package declares none. Registered on the graph rather
+        than inserted into it — a context's edges apply only while
+        ``using_context`` has it active.
     requires : tuple[str, ...]
         Names of required packages (for future dependency resolution).
     """
@@ -564,6 +644,7 @@ class UnitPackage:
     constants: tuple[ConstantDef, ...] = ()
     kinds: KindLattice | None = None
     aspects: AspectForest | None = None
+    contexts: tuple[ContextDef, ...] = ()
     requires: tuple[str, ...] = ()
 
     def __post_init__(self):
@@ -666,6 +747,31 @@ def load_package(path: str | Path) -> UnitPackage:
 
     edges = tuple(_parse_edge(e) for e in data.get("edges", []))
 
+    # Parse contexts. Array-of-tables with a `name`, matching every other
+    # package section ([[units]], [[kinds]], [[aspects]]) rather than the
+    # keyed-table form graph-level TOML uses for [contexts.<name>].
+    def _parse_context(c: dict) -> ContextDef:
+        try:
+            ctx_name = c["name"]
+        except KeyError:
+            raise PackageLoadError(
+                f"[[contexts]] entry without a 'name' in {path}"
+            )
+        try:
+            ctx_edges = tuple(_parse_edge(e) for e in c.get("edges", []))
+        except KeyError as e:
+            raise PackageLoadError(
+                f"Invalid edge in context '{ctx_name}' in {path}: "
+                f"missing {e}"
+            )
+        return ContextDef(
+            name=ctx_name,
+            edges=ctx_edges,
+            description=c.get("description", ""),
+        )
+
+    contexts = tuple(_parse_context(c) for c in data.get("contexts", []))
+
     # Parse constants
     constants = tuple(
         ConstantDef(
@@ -709,12 +815,14 @@ def load_package(path: str | Path) -> UnitPackage:
         constants=constants,
         kinds=kinds,
         aspects=aspects,
+        contexts=contexts,
         requires=tuple(package.get("requires", data.get("requires", []))),
     )
 
 
 __all__ = [
     'ConstantDef',
+    'ContextDef',
     'EdgeDef',
     'PackageLoadError',
     'UnitDef',
