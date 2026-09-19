@@ -325,6 +325,10 @@ def _to_primitives(graph: "Graph") -> dict:
             "a": unit.aliases,
             "sc": unit.scalable,
         }
+        # Emitted only when declared, so a catalog in which no unit opts
+        # into a default kind marshals byte-identically to before.
+        if unit.default_kind is not None:
+            ud["dk"] = unit.default_kind
         if unit.base_form is not None:
             ud["bf"] = {
                 "pf": unit.base_form.prefactor,
@@ -665,6 +669,7 @@ def _from_primitives(raw: dict) -> "Graph":
             dimension=dim,
             aliases=tuple(val["a"]) if val["a"] else (),
             scalable=val["sc"],
+            default_kind=val.get("dk"),
         )
         unit_map[val["n"]] = unit
         graph.register_unit(unit)

@@ -141,4 +141,8 @@ def rewrite_namespace(payload: dict[str, Any]) -> dict[str, Any]:
         if "kind" in entry:
             entry["kind"] = _qualify(entry["kind"], prefix)
 
+    for entry in out.get("units", []):
+        if "default_kind" in entry:
+            entry["default_kind"] = _qualify(entry["default_kind"], prefix)
+
     return out

@@ -375,15 +375,17 @@ def _serialize_unit(unit: Unit) -> dict:
     """Serialize a Unit to TOML dict.
 
     The ``scalable`` flag is only emitted when it diverges from the
-    default (``True``). This keeps catalog TOML compact and preserves
-    backward compatibility with packages produced before the field
-    existed.
+    default (``True``), and ``default_kind`` only when the unit declares
+    one. This keeps catalog TOML compact and preserves backward
+    compatibility with packages produced before the fields existed.
     """
     d: dict = {"name": unit.name, "dimension": unit.dimension.name}
     if unit.aliases:
         d["aliases"] = list(unit.aliases)
     if unit.scalable is False:
         d["scalable"] = False
+    if unit.default_kind is not None:
+        d["default_kind"] = unit.default_kind
     if unit.base_form is not None:
         d["base_form"] = {
             "prefactor": float(unit.base_form.prefactor),
@@ -952,6 +954,13 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
     graph = ConversionGraph()
     graph._basis_graph = basis_graph if transform_map else None
 
+    # 5b. Parse kinds (before units so unit ``default_kind`` references
+    #     resolve, and before constants so their ``kind`` references do).
+    kind_lattice = None
+    if "kinds" in doc:
+        kind_lattice = parse_kinds_payload(doc)
+        graph._kind_lattice = kind_lattice
+
     # 6. Register units (two-pass: units first, then base_forms which
     #    reference other units by name).
     unit_map: dict[str, Unit] = {}
@@ -969,11 +978,30 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
 
         aliases = tuple(unit_spec.get("aliases", []))
         scalable = bool(unit_spec.get("scalable", True))
+
+        # Resolve the optional declared kind (prefer the locally-parsed
+        # lattice over the ambient one, as constants do below). The Unit
+        # stores the canonical name; resolution here is the load-time
+        # check that the declaration names something real.
+        default_kind = unit_spec.get("default_kind")
+        if default_kind is not None:
+            if kind_lattice is not None and default_kind in kind_lattice:
+                default_kind = kind_lattice.get(default_kind).name
+            else:
+                try:
+                    default_kind = active_kinds().get(default_kind).name
+                except (KindNotFound, RuntimeError):
+                    raise GraphLoadError(
+                        f"[{section}]: unknown default_kind "
+                        f"'{default_kind}' for unit '{uname}'"
+                    )
+
         unit = Unit(
             name=uname,
             dimension=dim,
             aliases=aliases,
             scalable=scalable,
+            default_kind=default_kind,
         )
         unit_map[unit.name] = unit
         graph.register_unit(unit)
@@ -1007,12 +1035,6 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
         unit._set_base_form(
             BaseForm(factors=tuple(resolved), prefactor=prefactor),
         )
-
-    # 6b. Parse kinds (before constants so constant kind references resolve)
-    kind_lattice = None
-    if "kinds" in doc:
-        kind_lattice = parse_kinds_payload(doc)
-        graph._kind_lattice = kind_lattice
 
     # 6c. Parse formulas (requires kind_lattice to resolve kind references)
     if "formulas" in doc and kind_lattice is not None:
