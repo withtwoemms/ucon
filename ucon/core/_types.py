@@ -44,7 +44,12 @@ from ucon.aspects.resolution import resolve_add_aspects, resolve_mul_aspects
 from ucon.aspects.types import Aspect
 from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
-from ucon.core.exceptions import KindDimensionMismatch, KindMismatch, UnitDefinitionMismatch
+from ucon.core.exceptions import (
+    KindDimensionMismatch,
+    KindMismatch,
+    UnitDefinitionMismatch,
+    UnitsNotNormalizable,
+)
 from ucon.formulas.exceptions import FormulaNotFound
 from ucon.kinds.exceptions import JoinRefused, KindNotFound
 from ucon.dimension import Dimension, NONE
@@ -2365,7 +2370,111 @@ class Number:
             kind=self._resolve_mul_kind(other),
         )._carry(result_aspects)
 
+    @staticmethod
+    def _is_algebraically_normalizable(unit) -> bool:
+        """Whether ``unit``'s magnitude can be rescaled without a graph.
+
+        True when every unit involved carries a ``base_form``, which is
+        what :attr:`_canonical_magnitude` needs to produce a meaningful
+        factor. False for affine units (an offset no prefactor can
+        express), logarithmic units (levels, not scalings), and
+        pseudo-dimensional units whose canonical unit sits outside the
+        SI basis — angle, ratio, count, solid angle.
+
+        A :class:`UnitProduct` is normalizable only if every one of its
+        factors is; one unnormalizable factor taints the product.
+        """
+        if isinstance(unit, UnitProduct):
+            return all(
+                uf.unit.base_form is not None for uf in unit.factors
+            )
+        return unit.base_form is not None
+
+    def _require_normalizable(self, other: 'Number', operation: str) -> None:
+        """Refuse ``operation`` when no algebraic factor relates the units.
+
+        Same-unit operands are always fine — no rescaling is needed. For
+        differing units, both sides must be normalizable, otherwise
+        :attr:`_canonical_magnitude` would silently fall back to the raw
+        quantity and combine magnitudes that do not denote the same
+        thing.
+        """
+        if self.unit == other.unit:
+            return
+        if self._is_algebraically_normalizable(
+            self.unit
+        ) and self._is_algebraically_normalizable(other.unit):
+            return
+        raise UnitsNotNormalizable(
+            left=self.unit, right=other.unit, operation=operation
+        )
+
+    def _additive_operand(self, other: 'Number') -> tuple:
+        """``other``'s quantity and uncertainty expressed in ``self.unit``.
+
+        Additive operations combine magnitudes, so an operand stated in a
+        different unit of the same dimension has to be rescaled before the
+        two can be added — otherwise ``1 volt - 1000 millivolt`` returns
+        ``-999 V``.
+
+        The rescaling is pure algebra over :attr:`~Unit.base_form`
+        prefactors, routed through :attr:`_canonical_magnitude`; no
+        :class:`~ucon.graph.ConversionGraph` is consulted, so additive
+        arithmetic needs no active graph. It is the same normalization
+        :meth:`__eq__` performs, which is what makes ``a == b`` and
+        ``a - b == 0`` agree about the same pair.
+
+        Returns
+        -------
+        tuple
+            ``(quantity, uncertainty)`` in ``self.unit``. Uncertainty is
+            scaled by the same factor as the quantity, and stays ``None``
+            when ``other`` carries none.
+
+        Notes
+        -----
+        Operands already in ``self.unit`` are returned unchanged, so the
+        common same-unit case is bit-identical to plain magnitude
+        arithmetic.
+
+        Units with no ``base_form`` — affine temperature scales,
+        logarithmic units, units defined only by a graph edge — normalize
+        to themselves, so their magnitudes still combine unscaled. That
+        matches :meth:`__eq__`, which reports ``1 K == 1 °C``; the two
+        remain consistent, and neither is yet correct for affine scales.
+        """
+        if self.unit == other.unit:
+            return other.quantity, other.uncertainty
+
+        target = Number(1.0, self.unit)._canonical_magnitude
+        source = Number(1.0, other.unit)._canonical_magnitude
+        if not target or not source:
+            # A zero normalization factor means a malformed unit definition;
+            # refusing beats dividing by zero or combining unscaled.
+            raise UnitsNotNormalizable(
+                left=self.unit, right=other.unit, operation="combine"
+            )
+
+        factor = source / target
+        uncertainty = (
+            other.uncertainty * abs(factor)
+            if other.uncertainty is not None
+            else None
+        )
+        return other.quantity * factor, uncertainty
+
     def __add__(self, other: 'Number') -> 'Number':
+        """Sum two ``Number``s, rescaling ``other`` into ``self.unit`` first.
+
+        Operands must share a dimension; they need not share a unit. The
+        result is stated in ``self.unit``. See :meth:`_additive_operand`
+        for the normalization and its limits.
+
+        Raises
+        ------
+        TypeError
+            The operands' dimensions differ.
+        """
         if not isinstance(other, Number):
             return NotImplemented
 
@@ -2376,25 +2485,44 @@ class Number:
                 f"{self.unit.dimension} vs {other.unit.dimension}"
             )
 
+        # Refuse before kind/aspect dispatch: those can warn or mutate
+        # ambient state, and a refused operation should do neither.
+        self._require_normalizable(other, "add")
+
         # Kind lattice dispatch, then family-wise aspect resolution
         result_kind = self._resolve_add_kind(other)
         result_aspects = self._resolve_add_aspects(other)
 
+        # Same dimension, possibly different unit: combine magnitudes only
+        # after restating `other` in this Number's unit.
+        other_quantity, other_uncertainty = self._additive_operand(other)
+
         # Uncertainty propagation for addition: δc = sqrt(δa² + δb²)
         new_uncertainty = None
-        if self.uncertainty is not None or other.uncertainty is not None:
+        if self.uncertainty is not None or other_uncertainty is not None:
             ua = self.uncertainty if self.uncertainty is not None else 0
-            ub = other.uncertainty if other.uncertainty is not None else 0
+            ub = other_uncertainty if other_uncertainty is not None else 0
             new_uncertainty = math.sqrt(ua**2 + ub**2)
 
         return Number(
-            quantity=self.quantity + other.quantity,
+            quantity=self.quantity + other_quantity,
             unit=self.unit,
             uncertainty=new_uncertainty,
             kind=result_kind,
         )._carry(result_aspects)
 
     def __sub__(self, other: 'Number') -> 'Number':
+        """Subtract ``other``, rescaling it into ``self.unit`` first.
+
+        Operands must share a dimension; they need not share a unit. The
+        result is stated in ``self.unit``. See :meth:`_additive_operand`
+        for the normalization and its limits.
+
+        Raises
+        ------
+        TypeError
+            The operands' dimensions differ.
+        """
         if not isinstance(other, Number):
             return NotImplemented
 
@@ -2405,19 +2533,26 @@ class Number:
                 f"{self.unit.dimension} vs {other.unit.dimension}"
             )
 
+        # Refuse before kind/aspect dispatch, as in __add__.
+        self._require_normalizable(other, "subtract")
+
         # Kind lattice dispatch — same rules as addition
         result_kind = self._resolve_add_kind(other)
         result_aspects = self._resolve_add_aspects(other, op="Subtracting")
 
+        # Same dimension, possibly different unit: combine magnitudes only
+        # after restating `other` in this Number's unit.
+        other_quantity, other_uncertainty = self._additive_operand(other)
+
         # Uncertainty propagation for subtraction: δc = sqrt(δa² + δb²)
         new_uncertainty = None
-        if self.uncertainty is not None or other.uncertainty is not None:
+        if self.uncertainty is not None or other_uncertainty is not None:
             ua = self.uncertainty if self.uncertainty is not None else 0
-            ub = other.uncertainty if other.uncertainty is not None else 0
+            ub = other_uncertainty if other_uncertainty is not None else 0
             new_uncertainty = math.sqrt(ua**2 + ub**2)
 
         return Number(
-            quantity=self.quantity - other.quantity,
+            quantity=self.quantity - other_quantity,
             unit=self.unit,
             uncertainty=new_uncertainty,
             kind=result_kind,
@@ -2477,6 +2612,22 @@ class Number:
                       )._carry(result_aspects)
 
     def __eq__(self, other: _Quantifiable) -> bool:
+        """Compare two quantities, normalizing for scale.
+
+        Operands of differing dimension are unequal. Operands of the same
+        dimension are compared after both are normalized to base-unit
+        scale, so ``1 volt`` equals ``1000 millivolt``.
+
+        Raises
+        ------
+        TypeError
+            ``other`` is neither a ``Number`` nor a ``Ratio``.
+        UnitsNotNormalizable
+            The units differ and no algebraic factor relates them — an
+            affine, logarithmic, or pseudo-dimensional pair. Convert with
+            :meth:`to` first. Returning a bool here would mean asserting
+            equality or inequality that cannot be determined.
+        """
         if not isinstance(other, (Number, Ratio)):
             raise TypeError(
                 f"Cannot compare Number to non-Number/Ratio type: {type(other)}"
@@ -2489,6 +2640,10 @@ class Number:
         # Dimensions must match
         if self.unit.dimension != other.unit.dimension:
             return False
+
+        # Same dimension, differing units: refuse rather than compare
+        # magnitudes that do not denote the same thing.
+        self._require_normalizable(other, "compare")
 
         # Compare magnitudes, scale-adjusted
         if abs(self._canonical_magnitude - other._canonical_magnitude) >= 1e-12:
