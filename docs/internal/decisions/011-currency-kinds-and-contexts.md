@@ -22,6 +22,14 @@ fluctuate."
   (`"fx:usd"`, …) so `Number(100, USD)` reads naturally and auto-attaches
   its kind. **No graph edges between currency units** — they are not
   timelessly interconvertible, and the absence is load-bearing.
+  *What "dimensionless" means algebraically is specified by*
+  [`012-dimensionless-semantics.md`](012-dimensionless-semantics.md)
+  *— this ADR predates the finding that `Dimension(none)` factors are
+  dropped from products, which decides whether a money rate is a unit or a
+  kind. Currency ships on `Dimension(count)` in the interim, expressly
+  without a compatibility claim across v3.0.0: the retirement decides
+  `count` on its own merits and currency is rebuilt* ab initio *if that
+  requires it.*
 - **FX rates are `ConversionContext`s** — dated, named, session-scoped.
   `.to(EUR)` works inside `using_context(fx_2026_09_10)` and raises
   `ConversionNotFound` outside any: correct epistemics, since only a dated
