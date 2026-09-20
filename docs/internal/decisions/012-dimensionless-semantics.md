@@ -260,11 +260,51 @@ kind-stratum verdict. The exact-factor faculty would give `each` a canonical
 scale and **remove** this refusal, at which point only a populated kind
 lattice keeps the operation refused.
 
-`Dimension(count)` currently holds exactly one shipped unit (`each`), and no
-count kinds ship. So implementing the faculty before populating the count kind
-lattice converts a refusal into a **silent admission** — `ea/s + Hz` would
-start returning a number. The faculty and the kinds have to land together, and
-that ordering is a consequence of this ADR rather than of either work item.
+`Dimension(count)` ships **seven** units — `each`, `flop`, `op`,
+`instruction`, `cycle`, `request`, `event` — and **no** count kinds. So the
+exposure is not one obscure unit but the whole throughput family: `flop/s`,
+`request/s`, `event/s`, `instruction/s`, `cycle/s`.
+
+Implementing the faculty before populating the count kind lattice converts a
+refusal into a **silent admission**: `flop/s + Hz` would start returning a
+number. The faculty and the kinds have to land together, and that ordering is
+a consequence of this ADR rather than of either work item.
+
+`cycle/s` is the instructive member. It arguably *is* hertz, so a reader may
+well want that one to succeed while `flop/s + Hz` refuses — which is a kind
+question, not a unit one, and cannot be answered by a canonical scale at all.
+
+### What shipping money-as-count would do to the retirement
+
+Delivering currency on `Dimension(count)` before v3.0.0 is viable and has a
+real benefit — a consumer informs a design, which is the argument for not
+landing infrastructure ahead of its use. But it is worth separating that
+benefit from its cost, because they attach to different acts.
+
+**The cost is constraint, not migration.** Today `count` carries seven
+internal units and no kinds, so the retirement may treat it on the merits.
+After currency ships it carries every currency unit, a currency kind lattice,
+and — via [#282](https://github.com/withtwoemms/ucon/issues/282)'s
+`[[contexts]]` packages — third-party FX rate tables with
+`dimension = "count"` written into their TOML. At that point the retirement's
+treatment of `count` is decided under currency-compatibility pressure rather
+than on what "dimensionless" ought to mean. A general decision distorted by
+one application is the failure mode this ADR exists to prevent.
+
+**And no branch is kind to it.** Per the table above, `count` staying
+dimensionless collapses currency into `Dimension(none)` and un-expresses
+`USD/kWh`; `count` being promoted makes currency a basis dimension, which
+011 rejected on its merits. Currency would ship in v2.4.0 and migrate in
+v3.0.0 — one minor apart.
+
+**The benefit comes from building, not releasing.** A currency prototype on
+`count` supplies exactly the evidence this ADR lacks: whether rate units are
+legible, whether the kind lattice carries cross-currency refusal cleanly,
+whether FX contexts compose as expected. None of that requires a tag. An
+in-flight consumer informs the decision; a released one constrains it.
+
+So the recommendation is narrow: **prototype currency against `count`, use it
+as evidence here, and do not release it until this ADR is resolved.**
 
 ## Consequences for #292
 
