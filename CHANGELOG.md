@@ -34,11 +34,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   money rate is a unit or a kind — which is the first thing #292 must settle.
 
   Also records a third option — resolve per family, since `radian²` has a
-  correct target (steradian) while `count²` has none — an assessment of money
-  as `Dimension(count)`, and a sequencing hazard: `Dimension(count)` ships one
-  unit and no kinds, so giving `each` a canonical scale before populating the
-  count kind lattice would turn today's refusal of `ea/s + Hz` into a silent
-  admission.
+  correct target (steradian) while `count²` has none — and an assessment of
+  money as `Dimension(count)`, which currency will ship on **without a
+  compatibility claim across v3.0.0**: the retirement decides `count` on its
+  own merits, and currency is rebuilt if that requires it. Saying so is what
+  keeps "currency depends on it" from becoming an argument at decision time.
+
+  And a sequencing hazard. `Dimension(count)` ships seven units — `each`,
+  `flop`, `op`, `instruction`, `cycle`, `request`, `event` — and no count
+  kinds, so the exposure is the whole throughput family. Giving them a
+  canonical scale before populating that lattice would turn today's refusal
+  of `flop/s + Hz` into a silent admission.
 
 ### Added
 

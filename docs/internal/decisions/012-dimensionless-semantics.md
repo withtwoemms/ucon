@@ -14,7 +14,13 @@ chose "dimensionless" for currency before those consequences were known.
 algebra, or is it unity?**
 
 Everything below follows from that one answer. This ADR states the evidence
-and costs both readings; it does not yet pick one.
+and costs the readings; it does not yet pick one.
+
+**The decision is to be made on the merits.** Currency ships on
+`Dimension(count)` before this resolves (see *Resolved: ship it, and
+disclaim the compatibility*), and that shipment carries **no** compatibility
+claim across v3.0.0. What a branch would cost currency is explicitly not an
+input here.
 
 ## Why the question is open
 
@@ -303,8 +309,40 @@ legible, whether the kind lattice carries cross-currency refusal cleanly,
 whether FX contexts compose as expected. None of that requires a tag. An
 in-flight consumer informs the decision; a released one constrains it.
 
-So the recommendation is narrow: **prototype currency against `count`, use it
-as evidence here, and do not release it until this ADR is resolved.**
+### Resolved: ship it, and disclaim the compatibility
+
+The constraint above binds only if compatibility across v3.0.0 is intended.
+**It is not.**
+
+Currency ships on `Dimension(count)` because it is the best available shape
+now — rate units are expressible, the kind lattice carries cross-currency
+refusal, and FX contexts compose. When retirement lands, `count` is decided
+**on the merits of what "dimensionless" should mean**, and currency is
+migrated or rebuilt *ab initio* as that decision requires. No branch of this
+ADR is to be weighed by what it costs currency.
+
+Stating this is the point. An undeclared dependency becomes an argument at
+decision time — *"we can't do that, currency depends on it"* — and the
+declaration is what stops that argument from being available.
+
+**What makes the disclaimer hold rather than merely stated:**
+
+1. **It is a user-facing claim, not an internal one.** The v2.4.0 release
+   notes say currency's dimensional choice is provisional and will change,
+   so nobody depends on it uninformed.
+2. **The rate-package format is where a constituency would form.** Currency
+   *code* is ours to rewrite; `dimension = "count"` written into third-party
+   `[[contexts]]` TOML is not. If rate packages are published as a stable
+   format before this ADR resolves, the disclaimer is dead on arrival
+   regardless of what the release notes say. Either hold the format as
+   provisional or ship rate tables as examples until `count` is settled.
+3. **The migration is expected work, not a regression.** v3.0.0 is already
+   the breaking release; currency's rebuild rides it rather than justifying
+   an exception to it.
+
+The benefit the previous section attributed to prototyping is retained in
+full — currency still supplies this ADR its missing evidence — with the
+constraint removed by declaration rather than by delay.
 
 ## Consequences for #292
 
