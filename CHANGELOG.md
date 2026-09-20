@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   factor-dropping behaviour was known, and that behaviour decides whether a
   money rate is a unit or a kind — which is the first thing #292 must settle.
 
+  Also records a third option — resolve per family, since `radian²` has a
+  correct target (steradian) while `count²` has none — an assessment of money
+  as `Dimension(count)`, and a sequencing hazard: `Dimension(count)` ships one
+  unit and no kinds, so giving `each` a canonical scale before populating the
+  count kind lattice would turn today's refusal of `ea/s + Hz` into a silent
+  admission.
+
 ### Added
 
 - **`[[contexts]]` in package TOML — conversion contexts ship as data.**

@@ -130,6 +130,142 @@ canonical base units. This is the more literal reading of "first-class".
 - Reopens ADR 005's original problem for whichever members stay
   dimensionless.
 
+## Option C — resolve per family
+
+The families do not agree on what promotion would even mean, which suggests
+the retirement may not have one global answer.
+
+**Pseudo-dimension tags do not compose today.** Both are idempotent, because
+the zero vector times any exponent is still the zero vector and the tag is
+carried through unchanged:
+
+```python
+>>> UnitProduct({UnitFactor(radian, Scale.one): 2.0}).dimension
+Dimension(angle)                  # mathematically this is solid_angle
+>>> UnitProduct({UnitFactor(each, Scale.one): 2.0}).dimension
+Dimension(count)                  # nothing this could be
+```
+
+Under Option B those two need different answers. `radian²` **is** steradian,
+so promoting angle requires making exponentiation compose across the
+angle/solid_angle pair — real work, but with a correct target. `each²` has no
+target at all, and `count²` fails the same algebraic-stability criterion that
+retired INFORMATION as a basis dimension and that [011](011-currency-kinds-and-contexts.md)
+used to reject currency-as-a-dimension.
+
+So Option B may be right for `angle` and `solid_angle` and wrong for `count`
+and `ratio` — promotion for the families whose exponents mean something,
+Option A for the families whose exponents do not.
+
+**Consequences**
+
+- Neither #318 nor #313 gets a single answer; each resolves per family.
+- The exact-factor faculty is still needed, but only for the families that
+  stay dimensionless.
+- Costs a uniform mental model, which is the main argument against.
+
+## Money as `Dimension(count)`
+
+Raised as a candidate for currency, and it is the strongest of the
+pseudo-dimension options.
+
+**It works today.** `count` survives product construction, so the unit that
+Option A cannot express is expressible:
+
+```python
+>>> usd = Unit(name="USD", dimension=COUNT)
+>>> UnitProduct({UnitFactor(usd, Scale.one): 1.0,
+...              UnitFactor(watt, Scale.kilo): -1.0,
+...              UnitFactor(hour, Scale.one): -1.0})
+<UnitProduct USD/(kW·h)>
+>>> Number(0.005, usd)
+<0.005 USD>                       # no integrality constraint, so divisibility is fine
+```
+
+**It matches what 011 already says.** 011 states that *"currency-plus-tally
+refuses as disjoint roots (`DisjointKinds`)"* — a **kind**-stratum refusal,
+which presupposes that currency and tally are dimension-compatible. Putting
+money in `count` makes that explicit rather than changing it. The
+apples-to-oranges structure carries over exactly: counting dollars against
+counting euros is the same shape as counting apples against oranges — one
+dimension, disjoint kind roots, no conversion without a license.
+
+**And the algebra agrees.** `currency²` and `count²` are meaningless by the
+same criterion, so 011's rejection of currency-as-a-basis-dimension applies
+verbatim to `count`. That is an argument for grouping them, and — under
+Option C — an argument that neither should be promoted.
+
+**What it does not do is escape this ADR.** `count` is a pseudo-dimension, so
+choosing it binds currency's fate to whatever happens to `count`:
+
+| retirement outcome for `count` | consequence for money-as-count |
+|---|---|
+| Option A (dimensionless with kinds) | currency collapses to `Dimension(none)` and rates become inexpressible again — the migration this choice was meant to avoid |
+| Option B (promoted) | currency becomes a basis dimension by the back door, which 011 rejects on its merits |
+| Option C (per family: `count` stays dimensionless) | same as Option A for currency |
+
+So money-as-count is viable *now* and unstable *later* under every branch
+except one that has not been proposed: `count` promoted while currency is
+excluded from it, which would require currency to have its own dimension
+after all.
+
+The useful conclusion is narrower than a decision: money-as-count is the
+right answer **if** currency ships before the retirement, and it makes the
+retirement's treatment of `count` a currency-facing decision rather than an
+internal one.
+
+## Count rates, and a sequencing hazard
+
+A countable divided by another unit should read as a rate. It does — at the
+unit level — because a pseudo-dimension survives product construction:
+
+```python
+>>> each / second      -> <UnitProduct ea/s>        dim = Dimension(frequency)
+>>> USD / hour         -> <UnitProduct USD/h>       dim = Dimension(frequency)
+>>> USD / kWh          -> <UnitProduct USD/(kW·h)>  dim = Dimension(derived(time^2/length^2*mass))
+```
+
+**But the dimension collapses.** `ea/s` and `USD/h` both report
+`Dimension(frequency)` — the same dimension as `hertz` and as `1/s`. The
+countable-ness lives in the unit symbol; the dimension forgets it. So
+dimensionally a throughput *is* a frequency and a burn rate *is* a frequency.
+
+That is defensible, and the type safety belongs one stratum up:
+
+```python
+>>> Number(5, 1/s, kind=throughput) + Number(3, Hz, kind=cycle_rate)
+DisjointKinds
+```
+
+Same dimension, disjoint kind roots, refused at stratum 3 — the same shape as
+`absorbed_dose` against `dose_equivalent`. Wanting count-rates to refuse
+*dimensionally* would require promoting `count`, which the INFORMATION
+precedent forbids on the same grounds (`bit/second` is meaningful, `bit²` is
+not, and it was retired anyway).
+
+So: count-rates read cleanly, are dimensionally honest, and are discriminated
+by kinds. No promotion required.
+
+### The hazard
+
+Today `ea/s + Hz` refuses — but for the **wrong reason**:
+
+```python
+>>> Number(5, each/second, kind=throughput) + Number(3, Hz, kind=cycle_rate)
+UnitsNotNormalizable
+```
+
+That is the 2.2.2 scale check firing because `each` has no `base_form`, not a
+kind-stratum verdict. The exact-factor faculty would give `each` a canonical
+scale and **remove** this refusal, at which point only a populated kind
+lattice keeps the operation refused.
+
+`Dimension(count)` currently holds exactly one shipped unit (`each`), and no
+count kinds ship. So implementing the faculty before populating the count kind
+lattice converts a refusal into a **silent admission** — `ea/s + Hz` would
+start returning a number. The faculty and the kinds have to land together, and
+that ordering is a consequence of this ADR rather than of either work item.
+
 ## Consequences for #292
 
 Currency's dimension is the first thing [#292](https://github.com/withtwoemms/ucon/issues/292)
@@ -153,10 +289,14 @@ removal in the same major that would define its replacement.
 
 ## Open
 
-- Which option.
+- Which option, and whether it resolves globally or per family.
 - If A: where the canonical scale is declared (unit field, family table, or
   TOML section), and whether `⊤_d` interacts with it.
 - Whether `Dimension(count)` members are first-row, second-row, or both
   (`dozen → each` is a factor; `apples → oranges` is not).
+- Whether currency ships as `Dimension(count)` before the retirement,
+  accepting the migration that every branch except one implies.
+- Sequencing: the exact-factor faculty must not land before the count kind
+  lattice, or `ea/s + Hz` silently admits.
 - Whether ADR 005 is superseded or merely narrowed — the tuple encoding may
   still be needed for whichever members remain dimensionless under B.
