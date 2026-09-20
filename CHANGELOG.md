@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **ADR 012 — what "dimensionless" means.** The v3.0.0 pseudo-dimension
+  retirement is named in the roadmap as "degree et al. become first-class",
+  and that phrase admits two readings with opposite consequences. ADR 012
+  records the decision required — *does a named dimensionless unit remain a
+  distinguishable symbol in the unit algebra, or is it unity?* — with both
+  options costed. Proposed, not accepted: it states the evidence and defers
+  the choice.
+
+  Three open issues are symptoms of the same gap: `Dimension(none)` factors
+  are dropped from `UnitProduct` at construction while pseudo-dimensions
+  survive (#318), `parse_unit("1")` yields `ratio` where a formula wants
+  `none` (#307), and pseudo-dimensional units cannot normalize so comparison
+  refuses across them (#313).
+
+  The ADR also separates three families that "dimensionless" currently
+  bundles — exact-factor (`percent`, `degree`, `steradian`), no-relation
+  (distinct things tallied, owned by `⊤_d` at the kind stratum), and
+  non-multiplicative (`decibel`, owned by the chart stratum). Today's
+  `Dimension(ratio)` holds the first and third at once.
+
+  ADR 011 gains a pointer: it chose "dimensionless" for currency before the
+  factor-dropping behaviour was known, and that behaviour decides whether a
+  money rate is a unit or a kind — which is the first thing #292 must settle.
+
 ### Added
 
 - **`default_kind` on `Unit` — the first unit→kind association.** (#305)
