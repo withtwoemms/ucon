@@ -209,3 +209,45 @@ class UnitsNotNormalizable(Exception):
             f"algebraic factor relates the two units. Use "
             f".to({left_name!r}) on the right operand first."
         )
+
+
+class ContingentCompositionRefused(Exception):
+    """A conversion path would chain two different contingent contexts.
+
+    Raised when pathfinding can reach the target only by composing edges
+    from more than one dated table — an exchange rate with a tariff, two
+    rate tables from different days.
+
+    The refusal is not about reachability. A path exists; it is declined,
+    because the figure it would produce was published by neither table:
+    it cannot be cited, it will not match a directly quoted rate (the gap
+    has a name — arbitrage), and it carries no well-defined date. Only a
+    dated table has a truth value, so a value derived across two of them
+    has none.
+
+    Composition *within* one contingent context is permitted — that is
+    what lets a rate package quote every currency against one base and
+    have cross-rates derived. Definitional contexts (``spectroscopy``,
+    ``boltzmann``) chain without limit, since c, h, and k_B are exact.
+
+    Attributes
+    ----------
+    src, dst : Unit | UnitProduct
+        The endpoints of the requested conversion.
+    contexts : tuple[str, ...]
+        Names of the contingent contexts the path would have had to mix.
+    """
+
+    def __init__(self, *, src, dst, contexts: tuple) -> None:
+        self.src = src
+        self.dst = dst
+        self.contexts = contexts
+        src_name = getattr(src, "name", None) or repr(src)
+        dst_name = getattr(dst, "name", None) or repr(dst)
+        named = " and ".join(repr(c) for c in contexts)
+        super().__init__(
+            f"Cannot convert {src_name!r} to {dst_name!r}: the only path "
+            f"chains {named}, which are separate dated tables. The result "
+            f"would be a figure neither table published, with no date of "
+            f"its own. Convert through one table at a time."
+        )

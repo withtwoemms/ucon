@@ -55,6 +55,7 @@ from ucon.core import (
 )
 from ucon.aspects import AspectForest as _AspectForest
 from ucon.core._parsing_graph import _parsing_graph
+from ucon.core.exceptions import ContingentCompositionRefused
 from ucon.kinds import KindLattice as _KindLattice
 from ucon.maps import Map, LinearMap, AffineMap, LogMap
 from ucon.resolver import parse_unit as _parse_unit
@@ -127,6 +128,9 @@ class Graph:
 
     # Named ConversionContext definitions (for serialization round-trip)
     _contexts: dict[str, 'ConversionContext'] = field(default_factory=dict)
+    # (src, dst) -> name of the contingent context that licensed this edge.
+    # Populated only for contingent contexts; a path may draw on at most one.
+    _contingent_edges: dict = field(default_factory=dict)
 
     # Kind lattice loaded from TOML (for serialization round-trip)
     _kind_lattice: 'KindLattice | None' = field(default=None)
@@ -592,6 +596,7 @@ class Graph:
         new._loaded_packages = self._loaded_packages  # frozenset is immutable, share reference
         new._package_constants = self._package_constants  # tuple is immutable, share reference
         new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
+        new._contingent_edges = dict(self._contingent_edges)
         new._kind_lattice = self._kind_lattice.copy() if self._kind_lattice is not None else None
         new._aspect_forest = self._aspect_forest  # immutable after construction, share reference
         new._formula_registry = self._formula_registry if hasattr(self, '_formula_registry') else None
@@ -860,32 +865,61 @@ class Graph:
         # BFS in same dimension
         return self._bfs_convert(start=src, target=dst, dim=src.dimension)
 
+    def _contingent_license(self, src, dst) -> str | None:
+        """The contingent context licensing ``src -> dst``, if any.
+
+        ``None`` for ordinary edges and for edges from definitional
+        contexts — both are unrestricted in pathfinding.
+        """
+        if not self._contingent_edges:
+            return None
+        return self._contingent_edges.get((src, dst))
+
+    @staticmethod
+    def _admits(carried: str | None, license_: str | None) -> bool:
+        """Whether a path already carrying ``carried`` may take this edge.
+
+        A path may draw on at most one contingent context. Definitional
+        edges (``license_ is None``) are always admitted; a contingent edge
+        is admitted only if the path carries no other dated table.
+        """
+        return license_ is None or carried is None or carried == license_
+
     def _bfs_convert(self, *, start, target, dim: Dimension) -> Map:
-        """BFS to find conversion path within a dimension."""
+        """BFS to find conversion path within a dimension.
+
+        Visited state is keyed by ``(node, carried_license)`` so a node
+        reachable both definitionally and through a dated table is explored
+        under each, rather than the first arrival foreclosing the other.
+        """
         if dim not in self._unit_edges:
             raise ConversionNotFound(f"No edges for dimension {dim}")
 
-        visited: dict = {start: LinearMap.identity()}
-        queue = deque([start])
+        visited: dict = {(start, None): LinearMap.identity()}
+        queue = deque([(start, None)])
 
         while queue:
-            current = queue.popleft()
-            current_map = visited[current]
+            current, carried = queue.popleft()
+            current_map = visited[(current, carried)]
 
             if current not in self._unit_edges[dim]:
                 continue
 
             for neighbor, edge_map in self._unit_edges[dim][current].items():
-                if neighbor in visited:
+                license_ = self._contingent_license(current, neighbor)
+                if not self._admits(carried, license_):
+                    continue
+                next_carried = carried or license_
+                if (neighbor, next_carried) in visited:
                     continue
 
                 composed = edge_map @ current_map
-                visited[neighbor] = composed
+                visited[(neighbor, next_carried)] = composed
 
                 if neighbor == target:
                     return composed
 
-                queue.append(neighbor)
+                queue.append((neighbor, next_carried))
 
         raise ConversionNotFound(f"No path from {start} to {target}")
 
@@ -896,27 +930,44 @@ class Graph:
         in a spectroscopy context). Searches every dimension partition
         for edges from the current node.
         """
-        visited: dict = {start: LinearMap.identity()}
-        queue = deque([start])
+        visited: dict = {(start, None): LinearMap.identity()}
+        queue = deque([(start, None)])
+        blocked: set = set()
 
         while queue:
-            current = queue.popleft()
-            current_map = visited[current]
+            current, carried = queue.popleft()
+            current_map = visited[(current, carried)]
 
             for dim, dim_edges in self._unit_edges.items():
                 if current not in dim_edges:
                     continue
                 for neighbor, edge_map in dim_edges[current].items():
-                    if neighbor in visited:
+                    license_ = self._contingent_license(current, neighbor)
+                    if not self._admits(carried, license_):
+                        # Two dated tables in one path would invent a rate
+                        # neither published, with no well-defined date.
+                        blocked.update((carried, license_))
+                        continue
+                    next_carried = carried or license_
+                    if (neighbor, next_carried) in visited:
                         continue
 
                     composed = edge_map @ current_map
-                    visited[neighbor] = composed
+                    visited[(neighbor, next_carried)] = composed
 
                     if neighbor == target:
                         return composed
 
-                    queue.append(neighbor)
+                    queue.append((neighbor, next_carried))
+
+        if blocked:
+            # A path existed and was declined, which is a different fact
+            # from no path existing.
+            raise ContingentCompositionRefused(
+                src=start,
+                dst=target,
+                contexts=tuple(sorted(c for c in blocked if c)),
+            )
 
         raise ConversionNotFound(
             f"No cross-dimensional path from {start} to {target}"

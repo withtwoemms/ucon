@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ConversionContext.contingent` — dated tables no longer chain.** (#317)
+  A context edge encodes either a *definitional* relation, licensed by an
+  exact constant, or a *contingent* one — a dated table that could have been
+  otherwise. Composing definitional edges derives a fact; composing edges
+  from two different contingent contexts invents a figure neither table
+  published.
+
+  That was reachable. With a tariff (`joule → USD`) and a rate table
+  (`USD → EUR`) both active, `Number(1, joule).to(EUR)` returned a euro
+  energy price nobody quoted — uncitable, guaranteed to disagree with a
+  directly quoted figure, and carrying no date of its own.
+
+  The rule: **a path may draw on at most one contingent context.** New
+  `ContingentCompositionRefused` names both tables when it declines, and is
+  distinct from `ConversionNotFound` because a declined path and an absent
+  one are different facts.
+
+  `contingent` defaults to `False`, so nothing shipped changes: `spectroscopy`
+  and `boltzmann` are exact by SI and keep chaining — `meter → reciprocal_meter`
+  still derives through `joule` without being declared, and
+  `meter → kelvin` still composes across both.
+
+  Composition *within* one contingent context is deliberately permitted,
+  which is what ADR 011's star-topology convention relies on: a rate package
+  quotes every currency against one base and the cross-rates derive from it.
+  `EUR → GBP` resolves through USD from a single table, at a single date.
+
 ### Documentation
 
 - **ADR 012 — what "dimensionless" means.** The v3.0.0 pseudo-dimension
