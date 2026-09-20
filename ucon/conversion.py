@@ -690,6 +690,14 @@ class Graph:
         )
         new._package_constants = getattr(self, '_package_constants', ()) + materialized_constants
 
+        # Register contexts last: their endpoints may name units and their
+        # factors may name constants the package itself introduced, so both
+        # have to exist first. Registration only makes the context
+        # available — its edges enter a graph when `using_context` activates
+        # it, which is the whole point of a context being conditional.
+        for context_def in package.contexts:
+            new.register_context(context_def.materialize(new))
+
         # Track loaded package name
         new._loaded_packages = self._loaded_packages | {package.name}
 
