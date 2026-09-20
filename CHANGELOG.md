@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`[[contexts]]` in package TOML — conversion contexts ship as data.**
+  (#282) `ConversionContext` is the one mechanism for conditional, scoped,
+  constant-licensed conversion *between* dimensions — "λ ↔ ν given c",
+  "dose units ↔ mass given a formulation constant" — and it was the one
+  thing a domain package could not distribute. Graph-level TOML already
+  round-tripped contexts; `UnitPackage` had no `contexts` field, so the
+  package path could not.
+
+  A package now declares `[[contexts]]` with nested `[[contexts.edges]]`,
+  parsed into the new `ContextDef` and exposed as `UnitPackage.contexts`.
+  Array-of-tables with a `name`, matching every other package section
+  rather than the keyed-table form graph TOML uses for `[contexts.<name>]`.
+
+  Context edges reuse `EdgeDef`, so they support everything an ordinary
+  edge does — the `factor`/`offset` shorthand, explicit `map` specs, and
+  constant-licensed factor expressions. That last one carries the weight
+  here: a cross-dimensional edge is almost always licensed by a constant
+  the package also declares, and `factor = "k_d"` now resolves against it.
+
+  `Graph.with_package` **registers** each context rather than inserting its
+  edges, which is the distinction that makes a context a context: loading
+  the package makes the conversion *available*, and it only applies while
+  `using_context` has it active. Registration runs after units and
+  constants, since an endpoint or factor may name something the package
+  itself introduced.
+
+  Note a pre-existing limit this does not change: context edges resolve
+  between plain units, not through scaled or composite endpoints —
+  `_convert_products` compares dimensions before consulting
+  cross-dimensional edges, so `meter → hertz` resolves under a context
+  while `nm → THz` does not. Unrelated to packaging; it applies equally to
+  the built-in `spectroscopy` and `boltzmann` contexts.
+
 - **`default_kind` on `Unit` — the first unit→kind association.** (#305)
   A unit may now declare the `Kind` it measures when nothing says
   otherwise, via `Unit(default_kind="...")` or a `default_kind` key on a
