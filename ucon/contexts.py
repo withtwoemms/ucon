@@ -71,10 +71,31 @@ class ConversionContext:
         The cross-dimensional edge specifications.
     description : str
         Optional description of the physical basis.
+    contingent : bool
+        Whether this context's edges encode a *contingent* relation — one
+        that could have been otherwise, and that carries a date.
+
+        ``False`` (the default) marks a **definitional** context:
+        ``spectroscopy`` and ``boltzmann`` are licensed by c, h, and k_B,
+        which are exact by SI definition. Composing definitional edges
+        derives a fact, so they chain freely — ``meter -> reciprocal_meter``
+        resolves through ``joule`` without either hop being declared.
+
+        ``True`` marks a dated table — an exchange rate, a tariff. Composing
+        edges from **two different** contingent contexts invents a claim
+        neither table published: the result cannot be cited, will not match
+        a directly quoted figure, and has no well-defined date. Such a path
+        is refused.
+
+        Edges *within* one contingent context still compose, which is what
+        ADR 011's star-topology convention relies on — a rate package quotes
+        every currency against one base and BFS derives the cross-rates. One
+        table, one date, one license.
     """
     name: str
     edges: tuple[ContextEdge, ...]
     description: str = ""
+    contingent: bool = False
 
 
 @contextmanager
@@ -105,16 +126,20 @@ def using_context(*contexts: ConversionContext):
     extended = get_default_graph().copy()
     for ctx in contexts:
         for edge in ctx.edges:
-            _add_context_edge(extended, edge)
+            _add_context_edge(extended, edge, context=ctx)
     with using_conversion_graph(extended) as g:
         yield g
 
 
-def _add_context_edge(graph, edge: ContextEdge) -> None:
+def _add_context_edge(graph, edge: ContextEdge, *, context=None) -> None:
     """Insert a context edge into both dimension partitions.
 
     Cross-dimensional edges need to be visible from BFS starting
     in either the source or destination dimension partition.
+
+    When ``context`` is contingent, both directions are attributed to it in
+    ``graph._contingent_edges`` so pathfinding can refuse to mix two dated
+    tables. Definitional contexts record nothing — they are unrestricted.
     """
     src = edge.src
     dst = edge.dst
@@ -130,6 +155,10 @@ def _add_context_edge(graph, edge: ContextEdge) -> None:
     # Store in destination's dimension partition (inverse)
     graph._ensure_dimension(dst_dim)
     graph._unit_edges[dst_dim].setdefault(dst, {})[src] = edge.map.inverse()
+
+    if context is not None and getattr(context, "contingent", False):
+        graph._contingent_edges[(src, dst)] = context.name
+        graph._contingent_edges[(dst, src)] = context.name
 
 
 # ---------------------------------------------------------------------------
