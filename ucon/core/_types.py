@@ -2104,7 +2104,7 @@ class Number:
                 if new_unc == 0.0:
                     new_unc = None
             return Number(quantity=converted, unit=target, uncertainty=new_unc,
-                          kind=self.kind)._carry(self.aspects)
+                          kind=self._arrival_kind(target))._carry(self.aspects)
 
         # --- General path: wrap into UnitProducts ---
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
@@ -2117,7 +2117,8 @@ class Number:
             if self.uncertainty is not None:
                 new_uncertainty = self.uncertainty * abs(factor)
             return Number(quantity=self.quantity * factor, unit=target,
-                          uncertainty=new_uncertainty, kind=self.kind)._carry(self.aspects)
+                          uncertainty=new_uncertainty,
+                          kind=self._arrival_kind(target))._carry(self.aspects)
 
         # Pass raw Units to graph.convert() when possible, so the graph
         # can use _convert_units() which handles cross-basis via rebased units.
@@ -2170,7 +2171,62 @@ class Number:
                 new_uncertainty = None
 
         return Number(quantity=converted_quantity, unit=target,
-                      uncertainty=new_uncertainty, kind=self.kind)._carry(self.aspects)
+                      uncertainty=new_uncertainty,
+                      kind=self._arrival_kind(target))._carry(self.aspects)
+
+    def _arrival_kind(self, target_unit) -> "Kind | None":
+        """The kind a conversion onto ``target_unit`` should produce.
+
+        ADR 011's rule: arrival at a unit declaring a ``default_kind``
+        re-kinds the result. A rate edge genuinely transforms the stuff, so
+        euros converted from dollars must not stay kinded ``usd`` — the
+        defect the rule exists to close.
+
+        Refined so one rule serves both declarers the ADR names. ``bit`` and
+        ``byte`` both declare ``information``, and converting between them is
+        a change of *scale*, not of *stuff*: a Number carrying something more
+        specific — ``payload_size`` under ``information`` — must not be
+        demoted to the ancestor on arrival.
+
+        So the declared kind wins **unless it is already an ancestor of the
+        current one**, in which case the finer kind survives:
+
+        =================  ===================  =================
+        current kind       target default_kind  result
+        =================  ===================  =================
+        ``usd``            ``eur``              ``eur``
+        ``payload_size``   ``information``      ``payload_size``
+        ``information``    ``information``      ``information``
+        *(none)*           ``eur``              ``eur``
+        anything           *(none declared)*    unchanged
+        =================  ===================  =================
+
+        Resolution is best-effort, matching attachment at construction: a
+        declared name the active lattice does not know leaves the kind
+        untouched rather than raising. With no active lattice the ancestry
+        test cannot run and the declaration wins — which is the currency
+        case, the one the rule was written for.
+        """
+        declared = getattr(target_unit, "default_kind", None)
+        if declared is None:
+            return self.kind
+
+        arrival = _resolve_default_kind(declared)
+        if arrival is None or arrival == self.kind:
+            return self.kind
+        if self.kind is None:
+            return arrival
+
+        ctx = _sys_active_var.get()
+        lattice = getattr(ctx, "kinds", None) if ctx is not None else None
+        if lattice is not None and hasattr(lattice, "is_descendant"):
+            try:
+                if lattice.is_descendant(self.kind, arrival):
+                    # The declaration is an ancestor; keep the finer kind.
+                    return self.kind
+            except Exception:
+                pass
+        return arrival
 
     def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
         """Check if conversion is just a scale change (same base units)."""
