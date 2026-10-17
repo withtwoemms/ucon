@@ -45,12 +45,15 @@ This roadmap tracks **major milestones** on the path to v2. For incremental upda
 | **v2.0.0** | **`UnitSystem` algebra, global retirement, and `Number.kind` wiring.** Closes the value-type loop: pure-function operations `extend` / `restrict` / `merge` / `with_*`, first-class relations `subsystem_of` / `compatible_with` / `diff` / `shared_units` / `shared_dimensions`, explicit cross-system value movement (`system.adopt`, `Bridge(A, B)` with `rename` + `basis_transform`), and retirement of the module-global registries (`_REGISTRY`, `_DIMENSION_ATTRS`, default `ConversionGraph`) in favour of the default `UnitSystem` value. Promotes the v1.9.x KOQ surface to first-class: `Number` accepts `kind=`, arithmetic dispatches through the active `FormulaRegistry`, and the `ActiveContext` substrate (single ContextVar payload bundling `system + formulas + kinds + strict`, extended `use(...)` with field-wise inheritance) makes scope explicit. `strict=True` by default raises `UnitDefinitionMismatch` on identity-mismatched source units. Removes the deprecated `UnitSystem` alias for `BaseUnits` and the `_DIM_*_CACHE` shims. Marshal-based graph cache (~15-25x import speedup). | Complete |
 | v2.1.x | **Correctness train** — six per-issue patch releases (2.1.2–2.1.7) closing the 2026-09 audit: exact customary prefactors derived from statutory seeds, constant symbols in package edge factors, path resolution through composite edge endpoints, typed `DisjointKinds` refusals, idempotent kind re-add, exact SI `base_form`s for mechanical CGS units. Per-issue detail in [`CHANGELOG.md`](CHANGELOG.md). | Complete |
 | **v2.2.0** | **Aspect stratum** — per [decisions/008](docs/internal/decisions/008-aspect-stratum.md): one `Aspect` type (peer of `Kind`), flat additive `Number.aspects`, family-wise resolution, carry rule, D3 namespacing; the never-exported flat `AspectSet` model is removed outright; pseudo-dimension deprecations begin (`PendingDeprecationWarning`). | Complete |
-| v2.2.x | **Scale correctness train** — a second per-issue patch train, unplanned but symmetrical with v2.1.x, closing the ψ (scale) defects [ADR 009](docs/internal/decisions/009-turnstile.md) predicted: additive operands converted before combining (2.2.1, #309), unnormalizable pairs refused rather than combined unscaled (2.2.2, #313), plus catalog papercuts (#307, #308). Interim by construction — see *Where the chart defects land*. | In progress |
-| v2.3.0 | **Package infrastructure** — `[[contexts]]` in TOML (#282), `PolynomialMap` with branch inverses, declared `Unit.chart` ([decisions/010](docs/internal/decisions/010-chart-nomenclature.md)), `default_kind` (#305). Carries the last open Turnstile prerequisite and unblocks currency. | Planned |
-| v2.4.0 | **Native currency** — currency as kinds plus rate contexts (#292), consuming 2.3.0's `[[contexts]]` and `default_kind`. The first real consumer of `default_kind`, which is why #306 lands with this rather than ahead of it. Ships on `Dimension(count)` **without a compatibility claim across v3.0.0**: the pseudo-dimension retirement decides `count` on its own merits per [decisions/012](docs/internal/decisions/012-dimensionless-semantics.md), and currency is rebuilt if that requires it. | Planned |
-| v2.5.0 | **Array stratum parity** — `NumberArray` receives the kind and aspect strata (#297, #298): array-level `kind` and `aspects` fields mirroring the shared-`unit` design, scalar-resolver reuse (one resolution per array op), extraction stamping so `arr[i]` satisfies every `Number` invariant, integrations round-trip. | Planned |
-| v3.0.0 | **Lean structural major** — pseudo-dimension retirement (TOML schema), `Number` frozen, `Unit`/`UnitProduct` identity unification, deprecation removals. The breaks, and only the breaks. | Planned |
-| v3.1.0 | **The Turnstile** — per [decisions/009](docs/internal/decisions/009-turnstile.md): four-stratum arithmetic dispatch (dimension, chart, kind, aspect), derived point/displacement, cyclic/ordinal kind flags, lazy warrants via `explain()`. New refusals on previously-wrong paths are fixes. | Planned |
+| v2.2.x | **Scale correctness train** — a second per-issue patch train, symmetrical with v2.1.x, closing the ψ (scale) defects [ADR 009](docs/internal/decisions/009-turnstile.md) predicted: additive operands converted before combining (2.2.1, #309), unnormalizable pairs refused rather than combined unscaled (2.2.2, #313). Interim by construction — see *Where the chart defects land*. | Complete |
+| v2.3.0 | **Package infrastructure and the KOQ floor** — `[[contexts]]` (#316 ✓), `default_kind` (#306 ✓), `contingent` (#320 ✓, **TOML key still owed**), the arrival rule **with its refusing clause** (#322: both kinds set, neither an ancestor, no contingent license → refuse; without it `1 Gy → Sv` relabels to `dose_equivalent`), declared `Unit.chart` ([decisions/010](docs/internal/decisions/010-chart-nomenclature.md); ratio / interval / logarithmic with reference and field-or-power / transformed), `PolynomialMap` with branch inverses, `[[kinds]]` and `default_kind` for every KOQ degeneracy cluster in the catalog (dose, torque/energy, W/VA/var, pressure/stress/energy density, activity/frequency/angular velocity, luminous/radiant flux, plane/solid angle — **and the dimensionless cluster**: `efficiency`, `relative_humidity`, `mass_fraction`, `volume_fraction`, `amount_fraction`, `bioavailability`, `strain`, `reynolds`, `mach`, `froude`, on which six of UnitSafe's KOQ must-fails depend), unit-declared kinds join `None` permissively, `lumen.base_form = cd·sr`, formula-collision refusal. *UnitSafe: high — 27 of 62 KOQ must-fails convert freely today.* Per [decisions/013](docs/internal/decisions/013-the-vector-is-the-only-carrier.md). | In progress |
+| v2.3.1 | **Unity and the dimensionless fold** — canonical `one` resolving from `"1"` (#307); `UnitProduct` keeps named dimension-one factors and folds only an anonymous scaled unity into the magnitude at the `Number` boundary (#318: today `10 kg × 50 (centi·1)` answers 5 kg, 500 kg, or 500 000 g depending on the accessor); `canonical_scale` enters `UnitProduct` identity; exact `Exponent` arithmetic in `Scale` (`centi × centi` is 10⁻⁴, not `milli`); `Fraction` exponents; division dispatches kinds through its own table, not multiplication's (`Gy / w_R` is not a dose equivalent); `**` never yields an unkinded result. **Not** the `%`/`ppm` parser flip — that rides v3.0.0 with the unit retirement; the intended `%` API is specified by example in [proposals/percent-on-unity](docs/internal/proposals/percent-on-unity.md). Ships with ucon-tools switching its `compute` placeholder from `ea` to `one`. *UnitSafe: high — the `ea` residue sits on every multiply step.* | Planned |
+| v2.4.0 | **Array stratum parity and quantity ergonomics** — `NumberArray` receives the kind and aspect strata (#297, #298) and routes `sum`/`mean`/`std` through them (barycenter mean on interval charts; `sum` of points refuses); `kelvin` declared as `celsius`'s displacement unit so `20 °C + 5 K → 25 °C`; `Number.__neg__`, `__abs__`, ordering, `__round__`/`quantize`, `Decimal` operands; opt-in `as_of` provenance aspect stamped by contingent contexts. First rung of the v3 deprecation ladder (`PendingDeprecationWarning`). *UnitSafe: low.* | Planned |
+| v2.5.0 | **Deprecation rung two and `Scale` members** — `DeprecationWarning` on the linear-ratio units (→ `Scale` on unity), the logarithmic ratio units (→ the logarithmic chart), `fraction`, and the pseudo-dimension tags; mechanism is `Number.__post_init__` plus module `__getattr__` (precedent: `constants.py`). `Scale` gains 10⁻⁴ (`‱`) and `atto`; rendering table for scales on unity. *UnitSafe: low — two problems answer `%`/`ppm`.* | Planned |
+| v2.6.0 | **Native currency as a basis component** (#292) — `[bases.SI-currency]` with both embedding transforms, `resolve()` returning canonical `NONE` for any zero vector, #323 (a loaded package's basis graph reaches dimension arithmetic; `extend` included; append-only embeddings registered ambiently), self-referential `base_form` on currency units and the denomination signature check at the chart stratum (so cents work *and* `USD/MWh + EUR/MWh` still refuses), `ContingentCollision`, star-topology validation, a loadable `fx` package, acceptance re-measured with the lattice active. Supersedes the kinds-plus-contexts route; this **is** the v3 design, only the encoding folds at v3.0.0. *UnitSafe: none — zero currency problems; may slip without touching the gate.* | Planned |
+| v2.7.0 | **Last 2.x minor** — `DeprecationWarning` for anything that entered the ladder at v2.5.0; nothing new. | Planned |
+| v3.0.0 | **Lean structural major** — the pseudo-dimension retirement per [decisions/013](docs/internal/decisions/013-the-vector-is-the-only-carrier.md): tags absorbed or dissolved, never deleted to `none`; `currency` folds into slot 9 of the renamed system basis (it has not been SI since `information`) and the shim transform retires; `ratio` empties into `Scale`; `count` is a kind on unity; `angle`/`solid_angle` are kinds on unity. The `%`/`ppm`/`bp` parser flip lands here with the unit retirement ([proposals/percent-on-unity](docs/internal/proposals/percent-on-unity.md)). `from_toml` upgrades 8-component packages in place; migration script; `FORMAT_VERSION` 2.0. The 2.2.2 normalizability check is **kept** until v3.1.0. **Gated on v2.3.0's refusing clause and angle/frequency `default_kind`s** — without them `xdom-020` and the `angle/solid_angle` must-fail, which refuse today only by the tag, regress. Plus `Number` frozen, `Unit`/`UnitProduct` identity unification, deprecation removals. | Planned |
+| v3.1.0 | **The Turnstile and the kind algebra** — per [decisions/009](docs/internal/decisions/009-turnstile.md): four-stratum arithmetic dispatch, derived point/displacement, cyclic/ordinal kind flags, lazy warrants via `explain()`. Plus [decisions/013](docs/internal/decisions/013-the-vector-is-the-only-carrier.md) §4: kinds compose — a normal-form `DerivedKind` (formula outputs expanded to their inputs; equality of normal forms; shortest registered name for display), anonymous factors for unkinded operands, cancellation to registered kinds, a `**` dispatch row, ⊤_d as the anonymous kind of its fiber; load-time confluence validation. Logarithmic-chart dispatch (`dBm + dB` admits, `dBm + dBm` refuses). Retires the normalizability check. *UnitSafe: none as harnessed — `compute` does not run ucon arithmetic.* | Planned |
 
 ---
 
@@ -62,27 +65,63 @@ was reported from outside, recording the shipped behavior as
 `1 rad + 180 deg → <181 rad>` and `1 Gy + 1 Sv → <2 Gy>`.
 
 The Turnstile is the fix, and it rides after the 3.0.0 breaks. That is several
-releases out, so the v2.2.x train converts silence into either a correct answer
+releases out, so the v2.2.x train converted silence into either a correct answer
 or a loud refusal in the meantime. **The interim work is a waypoint, not the
-destination** — some of what 2.2.2 refuses, 3.1.0 is meant to compute:
+destination** — some of what 2.2.2 refuses, 3.1.0 is meant to compute, and
+some of what it refuses by accident must be refused on purpose first:
 
 | Step | Release | What changes |
 |---|---|---|
 | Ratio-chart operands converted before combining | 2.2.1 | `1 V - 1000 mV` returns `0 V`, not `-999 V` (#309) |
 | Unnormalizable pairs refused, not combined unscaled | 2.2.2 | `1 K == 1 °C` raises instead of reporting `True` (#313) |
+| Same-dimension KOQ pairs refuse in `.to()` | 2.3.0 | `1 Gy[absorbed_dose] → Sv` **refuses** instead of relabeling to `dose_equivalent`; likewise `N·m → J`, `W → VA`, `Bq → Hz`, `Pa → J/m³`, `rad → sr`. The arrival rule gains its refusing clause and every degeneracy cluster ships `default_kind`. 27 of UnitSafe's 62 KOQ must-fails convert freely today. |
 | Refusal keys on a principled marker | 2.3.0 | the `base_form is None` proxy gives way to declared `Unit.chart`; `base_form` is a statement about SI factorization, not about chart class |
-| Angle becomes a real dimension | 3.0.0 | pseudo-dimension retirement; `degree` and `radian` gain a canonical scale they cannot have while angle is pseudo-dimensional |
-| Chart-crossing arithmetic returns a value | 3.1.0 | the chart stratum supplies factors and offsets, so `1 rad + 180 deg` converts rather than refusing |
+| Unity folds; named dimensionless units persist | 2.3.1 | `10 kg × 50 % → 5 kg` (today `<500 g·%>`, unconvertible); `rad/s` and `request/s` keep their symbols; the `ea` residue on every multiply step disappears once the placeholder is `one` (#307, #318; [proposals/percent-on-unity](docs/internal/proposals/percent-on-unity.md)) |
+| Angle stays a quantity of dimension one | 3.0.0 | SI Brochure §2.3.4 is right: `m·rad = m`, `rad/s` is T⁻¹. `plane_angle` and `solid_angle` are **kinds** on unity; `degree → radian` is an ordinary edge. The earlier plan to promote angle is withdrawn — it fails the independence test and would have made arc length a cross-dimension error. |
+| Accidental refusals re-owned, then the accident removed | 2.3.0 → 3.1.0 | five refusals come today only from the 2.2.2 check firing on a missing `base_form`. Three are re-owned deliberately — `flop/s + Hz` (kinds, 2.3.0), `100 USD + 50 EUR` and `USD/MWh + EUR/MWh` (chart signature check, 2.6.0), `USD·kW + W` (dimension, 2.6.0) — and two are corrected to admits: `kg·% + kg → 6 kg` and `m·rad + m → 4 m` (2.3.1). Only then does 3.1.0 retire the check. |
+| Chart-crossing arithmetic returns a value | 3.1.0 | the chart stratum supplies factors and offsets, so `1 rad + 180 deg` converts rather than refusing; `20 °C + 5 °C` refuses as `point + point`; `20 °C + 5 K` admits |
 
 Two consequences worth stating plainly. `BaseForm.factors` is contracted to
-reference only canonical SI base units, so giving angle units a `base_form` to
-shortcut this would violate the type rather than fix it — the BFS oracle skips
-pseudo-dimensions for that reason. And #282 is the last open Turnstile
-prerequisite (#279 and #280 are closed), which puts v2.3.0 on the critical path
-for v3.1.0 despite reading as routine package work.
+reference only canonical base units of its basis, so giving angle units a
+`base_form` to shortcut this would violate the type rather than fix it — the
+BFS oracle skips dimensionless units for that reason; the angle family's exact
+factors live on graph edges and its identity on kinds. And the open Turnstile
+prerequisites are now #322's refusing clause, declared `Unit.chart`, and the
+retirement itself (#282 closed as #316) — which puts v2.3.0 on the critical
+path for both v3.1.0 and the UnitSafe gate.
 
----
+## The UnitSafe gate
 
+ucon's downstream goal is the [UnitSafe](https://github.com/withtwoemms/ucon-tools/tree/main/benchmarks/unitsafe)
+benchmark: 500 problems scored on numerical, unit-string, and kind-of-quantity
+accuracy, with 124 must-fail items — 62 dimension mismatches and 62 pairs that
+**share a dimension and differ in kind**. The treatment is a language model
+driving [ucon-tools](https://github.com/withtwoemms/ucon-tools); its `compute`
+tool multiplies floats and tracks kinds as metadata, so the benchmark exercises
+ucon's catalog, `.to()`, and unit rendering — not its arithmetic dispatch.
+
+What that makes gate-critical in this repository, in order:
+
+1. **The KOQ floor** (v2.3.0) — the arrival rule's refusing clause and
+   `default_kind` on every degeneracy cluster. Measured end to end through
+   ucon-tools against the shipped catalog: the legitimate weighted
+   conversion `0.5 Gy × 20 Sv/Gy` is **refused** when its factor is kinded
+   (the lattice join is consulted, the `radiation_weighting` formula is not)
+   and **mislabeled** `10 Sv [absorbed_dose]` when it is not; the must-fail
+   direct `2 Gy → Sv` returns the same label. The tool cannot tell them
+   apart. The fix is split across both repositories and ships together.
+2. **Unity** (v2.3.1) — `one` as a real, parseable identity, and named
+   dimension-one units that survive products. The `ea` placeholder leaking
+   into every multiply-by-scalar result is the single largest unit-string
+   failure class.
+3. **Catalog correctness** — `lumen.base_form` (today `1 lm → 1 cd`
+   converts), `Np ↔ dB` (off by 2 against SI Brochure Table 8).
+
+What is **not** on the gate: currency (zero problems), the logarithmic chart
+(zero), count placement (no count-vs-count items), and the kind algebra of
+3.1.0 (unexercised by a float-path `compute`). Those remain library
+correctness work and are sequenced accordingly. The larger lever for the score
+is on the ucon-tools side — see its roadmap's v0.14.0 and v0.15.0.
 ## v1.9.x — Kind-of-Quantity Preview Line
 
 **Theme:** Land the kind subsystem as a complete, standalone data model before binding it to arithmetic.

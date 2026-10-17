@@ -1,6 +1,7 @@
 # 011 — Currency via kinds and rate contexts
 
 **Status:** Accepted (2026-09-10) — implementation tracked in #292
+**Superseded by:** [013](013-the-vector-is-the-only-carrier.md) — currency becomes a basis component; the context and arrival machinery is re-adopted in 013 §5.
 **Context:** Currency support has been wanted since the sovereign-potential
 demo used `mass` as a stand-in for currency — "working but semantically
 dishonest," per the extend-basis design note (internal). Currency is the
