@@ -1,6 +1,7 @@
 # ADR-005: Tuple Values for Pseudo-Dimensions
 
 **Status:** Accepted
+**Superseded by:** [013](013-the-vector-is-the-only-carrier.md) — the tag mechanism is retired; see 013 §3.
 **Date:** 2026-02-01
 **Context:** v0.5.0 Dimensionless Units
 

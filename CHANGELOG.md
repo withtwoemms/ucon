@@ -125,6 +125,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declares one, so nothing changes until a package opts in. The
   *arrival* rule — what `.to()` should do when the target unit declares
   a conflicting `default_kind` — remains open and is unchanged here.
+### Changed
+
+- **Roadmap recast around the UnitSafe gate; ADR 013 proposed.** `ROADMAP.md`
+  ordered the planned releases by principle; it now orders them by what the
+  UnitSafe benchmark exercises. v2.3.0 becomes *Package infrastructure and the
+  KOQ floor* — the arrival rule's refusing clause and `default_kind` on every
+  degeneracy cluster, since 27 of the benchmark's 62 kind-of-quantity must-fail
+  pairs (`Gy → Sv`, `N·m → J`, `W → VA`, `Bq → Hz`, `Pa → J/m³`) convert
+  freely today and the shipped rule relabels rather than refuses. v2.3.1
+  becomes *Unity and the dimensionless fold* (#307, #318). Array parity and
+  quantity ergonomics move up to v2.4.0; currency moves to v2.6.0 with zero
+  benchmark exposure. Two deprecation rungs (v2.5.0, v2.7.0) precede v3.0.0,
+  which is gated on v2.3.0 by name. A *The UnitSafe gate* section records what
+  the benchmark does and does not exercise in this library.
+
+  The *Where the chart defects land* table replaces "angle becomes a real
+  dimension" — angle stays a quantity of dimension one, with `plane_angle` and
+  `solid_angle` as kinds — and splits the five refusals owed today to the 2.2.2
+  normalizability check into three to re-own and two to correct to admits.
+
+  [ADR 013](docs/internal/decisions/013-the-vector-is-the-only-carrier.md)
+  (*The vector is the only carrier*, Proposed) specifies the pseudo-dimension
+  retirement v3.0.0 has named without content: dimensional identity lives in
+  the basis vector; tags are absorbed or dissolved, never deleted to `none`;
+  currency is a basis component; `count` and the angle family are kinds on
+  unity; linear ratios are `Scale`; kinds compose through a normal form. It
+  supersedes ADRs 005, 011, and 012 and supplies the prerequisite ADR 009 names;
+  each carries a cross-reference. The intended `%` API is specified by example
+  in [proposals/percent-on-unity](docs/internal/proposals/percent-on-unity.md).
+
 ## [2.2.2] - 2026-09-18
 
 ### Fixed

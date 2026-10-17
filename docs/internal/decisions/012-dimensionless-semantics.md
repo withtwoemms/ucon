@@ -1,6 +1,7 @@
 # 012 — What "dimensionless" means
 
 **Status:** Proposed (2026-09-20)
+**Superseded by:** [013](013-the-vector-is-the-only-carrier.md) — resolved; the question posed here is answered there.
 **Supersedes:** [`005-pseudo-dimension-tuple-values.md`](005-pseudo-dimension-tuple-values.md) on retirement
 **Context:** v3.0.0 retires pseudo-dimensions. The roadmap says only that
 "degree et al. become first-class", and that phrase admits two readings with
