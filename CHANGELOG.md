@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The KOQ floor: degeneracy-cluster units declare their kind.** (#327)
+  Where the SI gives two units the same dimension precisely to mark a kind
+  distinction, those units now carry a `default_kind`: `gray → absorbed_dose`
+  and `sievert → dose_equivalent`; `hertz → periodic_frequency` and
+  `becquerel → radioactive_activity`; `watt → real_power` and
+  `volt_ampere → apparent_power`. With #322's refusing clause this makes
+  `1 Gy → Sv`, `1 Bq → Hz`, `1 W → VA` refuse across a static edge (siblings
+  under a `refuse` root) while a dated/contingent table still licenses a
+  re-kind. One kind is added, `periodic_frequency`, as hertz's sibling of
+  `radioactive_activity`.
+
+  `joule` and `pascal` are left generic: no sibling SI unit distinguishes
+  work from heat, or pressure from stress, so a Number is free to carry
+  `kinetic_energy`, `mechanical_stress`, etc. without a unit default
+  overwriting it. The torque/energy and pressure/stress must-fails are the
+  model's declared-kind responsibility (ucon-tools#62), not a unit default.
+
+- **The arrival rule's license now covers narrowing, and only within a
+  fiber.** (#327, refining #322) A re-kind needs a contingent license when
+  the declaration does not *widen* the current kind — siblings **and**
+  generic-to-specific narrowing both relabel onto a claim the value does not
+  imply, so both refuse across a static edge. Across *different* dimensions
+  the conversion itself transformed the stuff (`E = h·f`: frequency →
+  energy), so the arrival kind is adopted with no license, and a conversion
+  to a unit that declares no kind drops a current kind that no longer fits
+  the result's dimension rather than carrying it onto the wrong fiber.
+
+
 - **The arrival rule — `.to()` re-kinds at a `default_kind` unit.** (#305)
   The second half of `Unit.default_kind`. #306 shipped the declaration and
   its attachment at construction and left this open; ADR 011 states both

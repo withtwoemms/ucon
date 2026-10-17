@@ -2775,7 +2775,7 @@ class TestKindsSerialization:
         """All 25 built-in kinds survive to_toml → from_toml round-trip."""
 
         original = active_kinds()
-        assert len(original) == 26, "Expected 26 built-in kinds"
+        assert len(original) == 27, "Expected 27 built-in kinds"
 
         graph = get_default_graph()
         path = tmp_path / "builtin_kinds_rt.ucon.toml"

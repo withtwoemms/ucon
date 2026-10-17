@@ -184,7 +184,10 @@ STATIC = ConversionContext(
 DATED = ConversionContext(
     name="arrival-dated",
     contingent=True,
-    edges=(ContextEdge(src=GY, dst=SV, map=LinearMap(1.0)),),
+    edges=(
+        ContextEdge(src=GY, dst=SV, map=LinearMap(1.0)),
+        ContextEdge(src=ANY_DOSE, dst=SV, map=LinearMap(1.0)),
+    ),
 )
 
 
@@ -220,10 +223,17 @@ class TestStaticEdgesBetweenSiblingsRefuse(unittest.TestCase):
         with use(active_system(), kinds=DOSE_LATTICE), using_context(STATIC):
             self.assertEqual(plain.to(SV).kind, EQUIVALENT)
 
-    def test_a_narrowing_declaration_is_admitted(self):
-        """Ancestor to descendant is not a sibling re-kind; the caller asked
-        for the finer unit."""
+    def test_a_narrowing_declaration_refuses_over_a_static_edge(self):
+        """Generic -> specific relabels onto a claim the value does not
+        imply; a static edge performed no specialization, so it refuses —
+        the same ground as the sibling case. Only *widening* (a finer
+        current kind arriving at a coarser declaration) is unconditional."""
         with use(active_system(), kinds=DOSE_LATTICE), using_context(STATIC):
+            with self.assertRaises(KindArrivalRefused):
+                Number(1.0, ANY_DOSE, kind=DOSE).to(SV)
+
+    def test_a_narrowing_declaration_is_licensed_by_a_contingent_context(self):
+        with use(active_system(), kinds=DOSE_LATTICE), using_context(DATED):
             result = Number(1.0, ANY_DOSE, kind=DOSE).to(SV)
         self.assertEqual(result.kind, EQUIVALENT)
 

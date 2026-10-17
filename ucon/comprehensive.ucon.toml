@@ -866,6 +866,7 @@ aliases = [
 [[units]]
 name = "becquerel"
 dimension = "frequency"
+default_kind = "radioactive_activity"
 aliases = [
     "Bq",
 ]
@@ -1045,6 +1046,7 @@ aliases = [
 [[units]]
 name = "gray"
 dimension = "specific_energy"
+default_kind = "absorbed_dose"
 aliases = [
     "Gy",
     "Gy(RBE)",
@@ -1076,6 +1078,7 @@ factors = [
 [[units]]
 name = "hertz"
 dimension = "frequency"
+default_kind = "periodic_frequency"
 aliases = [
     "Hz",
 ]
@@ -1410,6 +1413,7 @@ factors = [
 [[units]]
 name = "sievert"
 dimension = "specific_energy"
+default_kind = "dose_equivalent"
 aliases = [
     "Sv",
     "Sv(RBE)",
@@ -1509,6 +1513,7 @@ factors = [
 [[units]]
 name = "volt_ampere"
 dimension = "power"
+default_kind = "apparent_power"
 aliases = [
     "VA",
 ]
@@ -1540,6 +1545,7 @@ factors = [
 [[units]]
 name = "watt"
 dimension = "power"
+default_kind = "real_power"
 aliases = [
     "W",
     "watts",
@@ -5107,6 +5113,11 @@ join_policy = "refuse"
 
 [[kinds]]
 name = "radioactive_activity"
+dimension = "frequency"
+parent = "frequency"
+
+[[kinds]]
+name = "periodic_frequency"
 dimension = "frequency"
 parent = "frequency"
 
