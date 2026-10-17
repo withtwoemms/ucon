@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **Implementation proposal for declaring `Unit.chart`.**
+  [`proposals/declared-unit-chart`](docs/internal/proposals/declared-unit-chart.md)
+  scopes the last owed v2.3.0 item.
+  [ADR 010](docs/internal/decisions/010-chart-nomenclature.md) already settled
+  the name, the three classes, and that chart is read from the declared field
+  only — never inferred — so the proposal addresses the four questions it and
+  [ADR 009](docs/internal/decisions/009-turnstile.md) §4 left open: whether the
+  deliberately-open taxonomy gains a fourth `transformed` class (`nines` is
+  logarithmic in the *complement*, and `PolynomialMap` is now in the tree);
+  what parameters `logarithmic` carries; what the load-time validator checks;
+  and whether the 2.2.2 refusal re-keys in the same release.
+
+  Two findings came out of verifying it. `1 Np → 4.343 dB` and `1 B → 2.303 Np`
+  are both off by **exactly the field/power factor of 2** against SI Brochure
+  Table 8 (8.686 dB and 1.1513 Np) — because nothing declares whether a log
+  edge carries a field or a power ratio, which is why the proposal makes that a
+  declared parameter rather than a convention. And the logarithmic verdicts are
+  currently inverted: `0 dBm + 3 dB` (a level plus a gain, the one legitimate
+  operation) refuses, while `0 dBm + 0 dBm` (point plus point, ill-formed)
+  admits — refused at stratum 1, since `dBm` is `Dimension(power)` and `dB` is
+  `Dimension(ratio)`, before any chart logic could run.
+
+  Migration is **12 units, not 235**: `ratio` is the correct default for 223 of
+  them. No code change; the proposal is the acceptance list for the
+  implementation.
+
 ### Fixed
 
 - **`contingent` now has a TOML key, so a packaged dated table arrives
