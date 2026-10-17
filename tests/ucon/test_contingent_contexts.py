@@ -21,6 +21,7 @@ Composition *within* one contingent context is deliberately allowed — it is
 what ADR 011's star-topology convention relies on, where a rate package
 quotes every currency against one base and the cross-rates are derived.
 """
+import tempfile
 import unittest
 
 from ucon import (
@@ -36,9 +37,11 @@ from ucon.contexts import (
     spectroscopy,
     using_context,
 )
-from ucon.conversion import using_conversion_graph
+from ucon._cache import _from_primitives, _to_primitives
+from ucon.conversion import ConversionNotFound, using_conversion_graph
 from ucon.dimension import all_dimensions
 from ucon.maps import LinearMap
+from ucon.serialization import from_toml, to_toml
 from ucon.system import active_system
 
 COUNT = next(d for d in all_dimensions() if str(d) == "Dimension(count)")
@@ -171,7 +174,6 @@ class TestTwoContingentContextsRefuse(unittest.TestCase):
     def test_refusal_is_distinct_from_no_path(self):
         """A declined path and an absent one are different facts, so they
         are different exceptions."""
-        from ucon.conversion import ConversionNotFound
 
         graph, usd, eur, gbp = _money_graph()
         # No context at all: genuinely unreachable.
@@ -216,8 +218,6 @@ class TestContingentSurvivesSerialization(unittest.TestCase):
         return graph
 
     def test_to_toml_emits_the_key(self):
-        import tempfile
-        from ucon.serialization import to_toml
         handle = tempfile.NamedTemporaryFile(
             mode="w", suffix=".ucon.toml", delete=False)
         handle.close()
@@ -226,8 +226,6 @@ class TestContingentSurvivesSerialization(unittest.TestCase):
         self.assertIn("contingent = true", text)
 
     def test_from_toml_round_trips_the_flag(self):
-        import tempfile
-        from ucon.serialization import from_toml, to_toml
         handle = tempfile.NamedTemporaryFile(
             mode="w", suffix=".ucon.toml", delete=False)
         handle.close()
@@ -240,8 +238,6 @@ class TestContingentSurvivesSerialization(unittest.TestCase):
         self.assertTrue(any(c.contingent for c in restored._contexts.values()))
 
     def test_a_definitional_context_omits_the_key(self):
-        import tempfile
-        from ucon.serialization import to_toml
         graph, usd, eur, gbp = _money_graph()
         graph.register_context(ConversionContext(
             name="definitional", edges=_fx(usd, eur, gbp).edges))
@@ -252,7 +248,6 @@ class TestContingentSurvivesSerialization(unittest.TestCase):
         self.assertNotIn("contingent", open(handle.name).read())
 
     def test_the_cache_round_trips_the_flag(self):
-        from ucon._cache import _from_primitives, _to_primitives
         original = self._graph_with_one_dated_table()
         restored = _from_primitives(_to_primitives(original))
         for name, ctx in original._contexts.items():
