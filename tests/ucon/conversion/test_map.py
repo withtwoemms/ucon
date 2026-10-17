@@ -2,9 +2,34 @@
 # Licensed under the Apache License, Version 2.0
 # See the LICENSE file for details.
 
+import marshal
+import math
+import sys
 import unittest
 
-from ucon.maps import AffineMap, ComposedMap, LinearMap, Map
+import pytest
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
+from ucon import units
+from ucon._cache import _CACHE_SCHEMA, _map_to_prim, _prim_to_map
+from ucon.contexts import ContextEdge, ConversionContext, using_context
+from ucon.core import Number
+from ucon.maps import (
+    AffineMap,
+    ComposedMap,
+    LinearMap,
+    LogMap,
+    Map,
+    NonMonotoneOnDomain,
+    PolynomialInverseMap,
+    PolynomialMap,
+)
+from ucon.packages import PackageLoadError, _build_map, _find_map_class
+from ucon.serialization import _edge_dict
 
 
 class TestLinearMap(unittest.TestCase):
@@ -453,3 +478,513 @@ class TestRelUncertaintyComposition(unittest.TestCase):
         self.assertEqual(LinearMap(2.0).rel_uncertainty, 0.0)
         self.assertEqual(AffineMap(1.8, 32.0).rel_uncertainty, 0.0)
         self.assertEqual(ComposedMap(LinearMap(2.0), LinearMap(3.0)).rel_uncertainty, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# PolynomialMap
+# ---------------------------------------------------------------------------
+
+# IEC 60751 Callendar-Van Dusen coefficients for a PT100 platinum RTD:
+#   R(T) = R0 * (1 + A*T + B*T**2),  valid 0..850 degC
+PT100_R0 = 100.0
+PT100_A = 3.9083e-3
+PT100_B = -5.775e-7
+
+
+def pt100() -> PolynomialMap:
+    """The PT100 resistance curve, ascending coefficients, over 0..850 degC."""
+    return PolynomialMap(
+        (PT100_R0, PT100_R0 * PT100_A, PT100_R0 * PT100_B),
+        domain=(0.0, 850.0),
+    )
+
+
+class TestPolynomialMapForward(unittest.TestCase):
+
+    def test_coefficients_are_ascending(self):
+        m = PolynomialMap((1.0, 2.0, 3.0), domain=(0.0, 1.0))
+        # 1 + 2x + 3x^2 at x=2 is 1 + 4 + 12 = 17 (not 4 + 4 + 3)
+        self.assertAlmostEqual(m(2.0), 17.0)
+
+    def test_pt100_table_values(self):
+        m = pt100()
+        self.assertAlmostEqual(m(0.0), 100.0, places=10)
+        self.assertAlmostEqual(m(100.0), 138.5055, places=10)
+        self.assertAlmostEqual(m(850.0), 390.481125, places=9)
+
+    def test_degree_strips_leading_zeros(self):
+        self.assertEqual(PolynomialMap((1.0, 2.0, 0.0, 0.0), domain=(0.0, 1.0)).degree, 1)
+        self.assertEqual(PolynomialMap((0.0, 0.0, 0.0), domain=(0.0, 1.0)).degree, 0)
+        self.assertEqual(pt100().degree, 2)
+
+    def test_lists_normalize_to_tuples_and_hash(self):
+        m = PolynomialMap([1.0, 2.0], domain=[0.0, 5.0])
+        self.assertEqual(m.coefficients, (1.0, 2.0))
+        self.assertEqual(m.domain, (0.0, 5.0))
+        self.assertEqual(hash(m), hash(PolynomialMap((1.0, 2.0), domain=(0.0, 5.0))))
+
+    def test_call_does_not_enforce_domain(self):
+        """Extrapolation is permitted; the domain selects the inverse branch."""
+        m = pt100()
+        self.assertAlmostEqual(m(-50.0), 100.0 * (1 + PT100_A * -50 + PT100_B * 2500))
+
+    def test_requires_a_coefficient(self):
+        with self.assertRaises(ValueError):
+            PolynomialMap((), domain=(0.0, 1.0))
+
+    def test_domain_must_be_an_ordered_pair(self):
+        with self.assertRaises(ValueError):
+            PolynomialMap((1.0, 1.0), domain=(1.0,))
+        with self.assertRaises(ValueError):
+            PolynomialMap((1.0, 1.0), domain=(5.0, 5.0))
+        with self.assertRaises(ValueError):
+            PolynomialMap((1.0, 1.0), domain=(5.0, 1.0))
+
+    def test_is_identity(self):
+        self.assertTrue(PolynomialMap((0.0, 1.0), domain=(0.0, 1.0)).is_identity())
+        self.assertFalse(PolynomialMap((3.0, 1.0), domain=(0.0, 1.0)).is_identity())
+        self.assertFalse(pt100().is_identity())
+
+
+class TestPolynomialMapDerivative(unittest.TestCase):
+
+    def test_analytic_derivative_coefficients(self):
+        m = PolynomialMap((5.0, 3.0, 7.0, 2.0), domain=(0.0, 1.0))
+        self.assertEqual(m.derivative_coefficients, (3.0, 14.0, 6.0))
+
+    def test_pt100_derivative_is_exact(self):
+        m = pt100()
+        # dR/dT = R0*A + 2*R0*B*T
+        for T in (0.0, 1.0, 100.0, 850.0):
+            self.assertAlmostEqual(
+                m.derivative(T),
+                PT100_R0 * PT100_A + 2 * PT100_R0 * PT100_B * T,
+                places=12,
+            )
+
+    def test_derivative_beats_a_finite_difference(self):
+        """Analytic, not numerical: it is exact where differencing is not."""
+        m = pt100()
+        h = 1e-6
+        numeric = (m(100.0 + h) - m(100.0 - h)) / (2 * h)
+        exact = PT100_R0 * PT100_A + 2 * PT100_R0 * PT100_B * 100.0
+        self.assertEqual(m.derivative(100.0), exact)
+        self.assertNotEqual(numeric, exact)
+
+    def test_constant_has_zero_derivative(self):
+        self.assertEqual(PolynomialMap((4.0,), domain=(0.0, 1.0)).derivative(9.0), 0.0)
+
+
+class TestPolynomialMapInverse(unittest.TestCase):
+
+    def test_inverse_is_a_single_map(self):
+        inv = pt100().inverse()
+        self.assertIsInstance(inv, Map)
+        self.assertIsInstance(inv, PolynomialInverseMap)
+
+    def test_round_trip_to_tolerance(self):
+        """Forward-then-back is accurate to 1e-12 relative across the span."""
+        m = pt100()
+        inv = m.inverse()
+        for T in (0.0, 0.5, 1.0, 25.0, 100.0, 420.37, 700.0, 850.0):
+            back = inv(m(T))
+            self.assertAlmostEqual(back, T, delta=1e-12 * max(1.0, abs(T)))
+
+    def test_round_trip_from_the_resistance_side(self):
+        m = pt100()
+        inv = m.inverse()
+        for R in (100.0, 110.0, 138.5055, 250.0, 390.481125):
+            self.assertAlmostEqual(m(inv(R)), R, delta=1e-12 * R)
+
+    def test_inverse_recovers_the_iec_table_point(self):
+        self.assertAlmostEqual(pt100().inverse()(138.5055), 100.0, places=9)
+
+    def test_inverse_image_is_the_domain(self):
+        inv = pt100().inverse()
+        self.assertEqual(inv.domain, (100.0, 390.481125))
+
+    def test_inverse_refuses_outside_the_image(self):
+        inv = pt100().inverse()
+        with self.assertRaises(ValueError):
+            inv(50.0)       # below R(0)
+        with self.assertRaises(ValueError):
+            inv(1000.0)     # above R(850)
+
+    def test_inverse_derivative_is_the_reciprocal(self):
+        m = pt100()
+        inv = m.inverse()
+        for T in (0.0, 100.0, 500.0):
+            self.assertAlmostEqual(
+                inv.derivative(m(T)), 1.0 / m.derivative(T), places=12
+            )
+
+    def test_inverse_of_inverse_is_the_polynomial(self):
+        m = pt100()
+        self.assertEqual(m.inverse().inverse(), m)
+        self.assertEqual(m.inverse().inverse().inverse(), m.inverse())
+
+    def test_inverse_preserves_rel_uncertainty(self):
+        m = PolynomialMap(
+            (PT100_R0, PT100_R0 * PT100_A, PT100_R0 * PT100_B),
+            domain=(0.0, 850.0),
+            rel_uncertainty=1.5e-3,
+        )
+        self.assertEqual(m.inverse().rel_uncertainty, 1.5e-3)
+
+    def test_boundary_critical_point_still_monotone(self):
+        """x**2 on [0, 1] turns at the boundary, not inside it."""
+        m = PolynomialMap((0.0, 0.0, 1.0), domain=(0.0, 1.0))
+        self.assertTrue(m.invertible)
+        self.assertEqual(m.turning_points, ())
+        self.assertAlmostEqual(m.inverse()(0.25), 0.5, places=12)
+        self.assertAlmostEqual(m.inverse()(2.0 / 3.0), math.sqrt(2.0 / 3.0), places=12)
+
+    def test_higher_degree_round_trip(self):
+        """A monotone cubic inverts as well as the quadratic does."""
+        m = PolynomialMap((1.0, 2.0, 0.0, 0.5), domain=(-1.0, 3.0))
+        self.assertTrue(m.invertible)
+        inv = m.inverse()
+        for x in (-1.0, -0.25, 0.0, 1.1, 2.3, 3.0):
+            self.assertAlmostEqual(inv(m(x)), x, delta=1e-11 * max(1.0, abs(x)))
+
+    def test_decreasing_polynomial_inverts(self):
+        m = PolynomialMap((0.0, -3.0, -1.0), domain=(0.0, 10.0))
+        self.assertTrue(m.invertible)
+        inv = m.inverse()
+        self.assertEqual(inv.domain, (m(10.0), m(0.0)))
+        for x in (0.0, 2.5, 10.0):
+            self.assertAlmostEqual(inv(m(x)), x, delta=1e-11 * max(1.0, abs(x)))
+
+
+class TestPolynomialMapNonMonotone(unittest.TestCase):
+
+    def test_turning_inside_the_domain_refuses(self):
+        m = PolynomialMap((0.0, 0.0, 1.0), domain=(-1.0, 1.0))
+        self.assertFalse(m.invertible)
+        self.assertEqual(m.turning_points, (0.0,))
+        with self.assertRaises(NonMonotoneOnDomain) as ctx:
+            m.inverse()
+        self.assertIn("not monotone", str(ctx.exception))
+        self.assertIn("(-1.0, 1.0)", str(ctx.exception))
+
+    def test_refusal_is_a_value_error(self):
+        """Callers already handling ComposedMap non-invertibility need no change."""
+        m = PolynomialMap((0.0, 0.0, 1.0), domain=(-1.0, 1.0))
+        with self.assertRaises(ValueError):
+            m.inverse()
+
+    def test_two_turning_points_are_both_reported(self):
+        # x**3 - 3x turns at -1 and +1
+        m = PolynomialMap((0.0, -3.0, 0.0, 1.0), domain=(-2.0, 2.0))
+        self.assertEqual(len(m.turning_points), 2)
+        self.assertAlmostEqual(m.turning_points[0], -1.0, places=9)
+        self.assertAlmostEqual(m.turning_points[1], 1.0, places=9)
+        self.assertFalse(m.invertible)
+
+    def test_narrowing_the_domain_restores_a_branch(self):
+        full = PolynomialMap((0.0, -3.0, 0.0, 1.0), domain=(-2.0, 2.0))
+        self.assertFalse(full.invertible)
+        branch = PolynomialMap((0.0, -3.0, 0.0, 1.0), domain=(1.0, 2.0))
+        self.assertTrue(branch.invertible)
+        self.assertAlmostEqual(branch.inverse()(branch(1.7)), 1.7, places=10)
+
+    def test_wrapping_a_non_monotone_polynomial_refuses(self):
+        """A deserialized PolynomialInverseMap cannot hold an invalid branch."""
+        m = PolynomialMap((0.0, 0.0, 1.0), domain=(-1.0, 1.0))
+        with self.assertRaises(NonMonotoneOnDomain):
+            PolynomialInverseMap(m)
+
+    def test_inverse_map_rejects_a_non_polynomial(self):
+        with self.assertRaises(TypeError):
+            PolynomialInverseMap(LinearMap(2.0))
+
+
+class TestPolynomialMapDegeneracies(unittest.TestCase):
+
+    def test_degree_zero_is_not_invertible(self):
+        m = PolynomialMap((7.0,), domain=(0.0, 1.0))
+        self.assertEqual(m.degree, 0)
+        self.assertFalse(m.invertible)
+        with self.assertRaises(NonMonotoneOnDomain) as ctx:
+            m.inverse()
+        self.assertIn("constant", str(ctx.exception))
+
+    def test_degree_zero_still_evaluates(self):
+        m = PolynomialMap((7.0,), domain=(0.0, 1.0))
+        self.assertEqual(m(0.0), 7.0)
+        self.assertEqual(m(1e6), 7.0)
+
+    def test_degree_one_delegates_to_affine(self):
+        """C -> F as a degree-1 polynomial inverts to the AffineMap inverse."""
+        m = PolynomialMap((32.0, 1.8), domain=(-273.15, 1000.0))
+        inv = m.inverse()
+        self.assertIsInstance(inv, AffineMap)
+        self.assertAlmostEqual(inv.a, 1.0 / 1.8)
+        self.assertAlmostEqual(inv.b, -32.0 / 1.8)
+        self.assertAlmostEqual(inv(212.0), 100.0, places=10)
+
+    def test_degree_one_matches_affine_everywhere(self):
+        poly = PolynomialMap((32.0, 1.8), domain=(-100.0, 100.0))
+        aff = AffineMap(1.8, 32.0)
+        for x in (-40.0, 0.0, 37.0, 100.0):
+            self.assertAlmostEqual(poly(x), aff(x), places=10)
+            self.assertAlmostEqual(poly.derivative(x), aff.derivative(x), places=10)
+
+    def test_degree_one_inverse_carries_uncertainty(self):
+        m = PolynomialMap((32.0, 1.8), domain=(-100.0, 100.0), rel_uncertainty=2e-8)
+        self.assertEqual(m.inverse().rel_uncertainty, 2e-8)
+
+    def test_trailing_zero_collapses_to_degree_one(self):
+        m = PolynomialMap((32.0, 1.8, 0.0), domain=(-100.0, 100.0))
+        self.assertIsInstance(m.inverse(), AffineMap)
+
+
+class TestPolynomialMapComposition(unittest.TestCase):
+
+    def test_polynomial_at_polynomial_is_exact(self):
+        outer = PolynomialMap((1.0, 1.0, 1.0), domain=(0.0, 5.0))   # 1 + x + x^2
+        inner = PolynomialMap((0.0, 2.0), domain=(0.0, 2.5))        # 2x
+        composed = outer @ inner
+        self.assertIsInstance(composed, PolynomialMap)
+        self.assertEqual(composed.coefficients, (1.0, 2.0, 4.0))
+        self.assertEqual(composed.domain, inner.domain)
+        for x in (0.0, 0.5, 1.0, 2.5):
+            self.assertAlmostEqual(composed(x), outer(inner(x)), places=10)
+
+    def test_polynomial_at_linear_folds(self):
+        m = pt100()
+        composed = m @ LinearMap(2.0)
+        self.assertIsInstance(composed, PolynomialMap)
+        self.assertEqual(composed.domain, (0.0, 425.0))
+        for x in (0.0, 50.0, 425.0):
+            self.assertAlmostEqual(composed(x), m(2.0 * x), places=9)
+
+    def test_polynomial_at_affine_takes_the_preimage_domain(self):
+        m = pt100()
+        composed = m @ AffineMap(2.0, 10.0)
+        self.assertIsInstance(composed, PolynomialMap)
+        self.assertEqual(composed.domain, (-5.0, 420.0))
+        for x in (-5.0, 0.0, 100.0, 420.0):
+            self.assertAlmostEqual(composed(x), m(2.0 * x + 10.0), places=9)
+
+    def test_polynomial_at_negative_slope_affine_orders_the_domain(self):
+        m = pt100()
+        composed = m @ AffineMap(-1.0, 0.0)
+        self.assertEqual(composed.domain, (-850.0, 0.0))
+
+    def test_polynomial_at_degenerate_linear_falls_back(self):
+        composed = pt100() @ LinearMap(0.0)
+        self.assertIsInstance(composed, ComposedMap)
+
+    def test_composition_propagates_rel_uncertainty(self):
+        a = PolynomialMap((0.0, 1.0, 1.0), domain=(0.0, 1.0), rel_uncertainty=3e-5)
+        b = PolynomialMap((0.0, 1.0, 1.0), domain=(0.0, 1.0), rel_uncertainty=4e-5)
+        self.assertAlmostEqual((a @ b).rel_uncertainty, 5e-5, places=15)
+
+    def test_heterogeneous_composition_falls_back(self):
+        composed = pt100() @ LogMap()
+        self.assertIsInstance(composed, ComposedMap)
+        self.assertAlmostEqual(composed(100.0), pt100()(LogMap()(100.0)), places=10)
+
+    def test_inverse_map_composition_falls_back(self):
+        composed = pt100().inverse() @ LinearMap(1.0)
+        self.assertIsInstance(composed, ComposedMap)
+        self.assertAlmostEqual(composed(138.5055), 100.0, places=9)
+
+    def test_non_map_operand(self):
+        self.assertEqual(pt100().__matmul__(3.0), NotImplemented)
+        self.assertEqual(pt100().inverse().__matmul__(3.0), NotImplemented)
+
+    def test_composed_round_trip_through_the_graph_identity_check(self):
+        """ComposedMap(inverse, forward) is recognized as the identity."""
+        m = pt100()
+        self.assertTrue(ComposedMap(m.inverse(), m).is_identity())
+
+
+class TestPolynomialMapPow(unittest.TestCase):
+
+    def test_pow_one_is_self(self):
+        m = pt100()
+        self.assertIs(m ** 1, m)
+        inv = m.inverse()
+        self.assertIs(inv ** 1, inv)
+
+    def test_pow_minus_one_is_inverse(self):
+        m = pt100()
+        self.assertEqual(m ** -1, m.inverse())
+        self.assertEqual(m.inverse() ** -1, m)
+
+    def test_other_exponents_refuse(self):
+        with self.assertRaises(ValueError):
+            pt100() ** 2
+        with self.assertRaises(ValueError):
+            pt100().inverse() ** 2
+
+
+class TestPolynomialMapArrays(unittest.TestCase):
+
+    def test_forward_on_an_array(self):
+        np = pytest.importorskip("numpy")
+        m = pt100()
+        xs = np.array([0.0, 100.0, 850.0])
+        np.testing.assert_allclose(m(xs), [100.0, 138.5055, 390.481125])
+
+    def test_inverse_on_an_array(self):
+        np = pytest.importorskip("numpy")
+        m = pt100()
+        xs = np.array([0.0, 25.0, 100.0, 850.0])
+        np.testing.assert_allclose(m.inverse()(m(xs)), xs, rtol=0, atol=1e-10)
+
+    def test_inverse_derivative_on_an_array(self):
+        np = pytest.importorskip("numpy")
+        m = pt100()
+        xs = np.array([0.0, 100.0, 500.0])
+        np.testing.assert_allclose(
+            m.inverse().derivative(m(xs)), 1.0 / m.derivative(xs), rtol=1e-10
+        )
+
+    def test_inverse_preserves_array_shape(self):
+        np = pytest.importorskip("numpy")
+        m = pt100()
+        xs = np.array([[0.0, 100.0], [400.0, 850.0]])
+        out = m.inverse()(m(xs))
+        self.assertEqual(out.shape, (2, 2))
+        np.testing.assert_allclose(out, xs, rtol=0, atol=1e-10)
+
+
+class TestPolynomialMapTomlRoundTrip(unittest.TestCase):
+
+    def test_to_dict_shape(self):
+        d = pt100().to_dict()
+        self.assertEqual(d["type"], "polynomial")
+        self.assertEqual(d["coefficients"], list(pt100().coefficients))
+        self.assertEqual(d["domain"], [0.0, 850.0])
+        self.assertNotIn("rel_uncertainty", d)
+
+    def test_to_dict_emits_rel_uncertainty_when_nonzero(self):
+        m = PolynomialMap((1.0, 2.0), domain=(0.0, 1.0), rel_uncertainty=1e-4)
+        self.assertEqual(m.to_dict()["rel_uncertainty"], 1e-4)
+
+    def test_edge_dict_uses_the_explicit_map_form(self):
+        d = _edge_dict("celsius", "ohm", pt100())
+        self.assertEqual(d["map"]["type"], "polynomial")
+        self.assertNotIn("factor", d)
+
+    def test_round_trip_through_real_toml_text(self):
+        tomli_w = pytest.importorskip("tomli_w")
+        m = PolynomialMap(
+            (PT100_R0, PT100_R0 * PT100_A, PT100_R0 * PT100_B),
+            domain=(0.0, 850.0),
+            rel_uncertainty=1.5e-3,
+        )
+        text = tomli_w.dumps({"edges": [_edge_dict("celsius", "ohm", m)]})
+        self.assertIn('type = "polynomial"', text)
+        reloaded = _build_map(tomllib.loads(text)["edges"][0]["map"])
+        self.assertEqual(reloaded, m)
+        self.assertAlmostEqual(reloaded(100.0), 138.5055, places=10)
+
+    def test_inverse_round_trips_through_toml(self):
+        tomli_w = pytest.importorskip("tomli_w")
+        inv = pt100().inverse()
+        text = tomli_w.dumps({"edges": [_edge_dict("ohm", "celsius", inv)]})
+        reloaded = _build_map(tomllib.loads(text)["edges"][0]["map"])
+        self.assertEqual(reloaded, inv)
+        self.assertAlmostEqual(reloaded(138.5055), 100.0, places=9)
+
+    def test_type_is_discoverable(self):
+        self.assertIs(_find_map_class("polynomial"), PolynomialMap)
+        self.assertIs(_find_map_class("polynomial_inverse"), PolynomialInverseMap)
+
+    def test_invalid_toml_spec_reports_a_load_error(self):
+        with self.assertRaises(PackageLoadError):
+            _build_map({"type": "polynomial", "coefficients": [1.0, 2.0]})
+
+
+class TestPolynomialMapCacheRoundTrip(unittest.TestCase):
+
+    def test_schema_is_bumped_for_the_new_shape(self):
+        self.assertGreaterEqual(_CACHE_SCHEMA, 4)
+
+    def test_prim_round_trip(self):
+        m = pt100()
+        self.assertEqual(_prim_to_map(_map_to_prim(m)), m)
+
+    def test_prim_round_trip_with_uncertainty(self):
+        m = PolynomialMap((1.0, 2.0, -0.01), domain=(0.0, 10.0), rel_uncertainty=4e-4)
+        restored = _prim_to_map(_map_to_prim(m))
+        self.assertEqual(restored, m)
+        self.assertEqual(restored.rel_uncertainty, 4e-4)
+
+    def test_prim_omits_exact_uncertainty(self):
+        self.assertNotIn("u", _map_to_prim(pt100()))
+
+    def test_inverse_prim_round_trip(self):
+        inv = pt100().inverse()
+        restored = _prim_to_map(_map_to_prim(inv))
+        self.assertEqual(restored, inv)
+        self.assertAlmostEqual(restored(138.5055), 100.0, places=9)
+
+    def test_prim_survives_marshal(self):
+        """The cache is marshal-based, so the primitives must be marshalable."""
+        prim = _map_to_prim(pt100().inverse())
+        self.assertEqual(marshal.loads(marshal.dumps(prim)), prim)
+
+    def test_nested_in_a_composed_map(self):
+        composed = ComposedMap(LinearMap(2.0), pt100())
+        restored = _prim_to_map(_map_to_prim(composed))
+        self.assertEqual(restored, composed)
+
+
+class TestPolynomialMapEndToEnd(unittest.TestCase):
+    """A PT100 as a real conversion edge: celsius <-> ohm through the graph."""
+
+    def setUp(self):
+        self.rtd = ConversionContext(
+            name="pt100",
+            edges=(
+                ContextEdge(src=units.celsius, dst=units.ohm, map=pt100()),
+            ),
+            description="IEC 60751 Callendar-Van Dusen curve for a PT100 RTD",
+        )
+
+    def test_forward_conversion(self):
+        with using_context(self.rtd):
+            r = Number(quantity=100.0, unit=units.celsius).to(units.ohm)
+        self.assertAlmostEqual(r.quantity, 138.5055, places=9)
+        self.assertEqual(r.unit, units.ohm)
+
+    def test_reverse_conversion_uses_the_inverse_branch(self):
+        with using_context(self.rtd):
+            t = Number(quantity=138.5055, unit=units.ohm).to(units.celsius)
+        self.assertAlmostEqual(t.quantity, 100.0, places=8)
+        self.assertEqual(t.unit, units.celsius)
+
+    def test_graph_stores_a_single_reverse_map(self):
+        with using_context(self.rtd) as graph:
+            reverse = graph._unit_edges[units.ohm.dimension][units.ohm][units.celsius]
+        self.assertIsInstance(reverse, PolynomialInverseMap)
+
+    def test_round_trip_through_the_graph(self):
+        with using_context(self.rtd):
+            for T in (0.0, 25.0, 100.0, 600.0, 850.0):
+                there = Number(quantity=T, unit=units.celsius).to(units.ohm)
+                back = there.to(units.celsius)
+                self.assertAlmostEqual(back.quantity, T, delta=1e-9 * max(1.0, T))
+
+    def test_uncertainty_transports_through_the_derivative(self):
+        """dR = |dR/dT| * dT, with the analytic derivative."""
+        with using_context(self.rtd):
+            r = Number(quantity=100.0, unit=units.celsius, uncertainty=0.5).to(units.ohm)
+        expected = abs(pt100().derivative(100.0)) * 0.5
+        self.assertAlmostEqual(r.uncertainty, expected, places=10)
+
+    def test_uncertainty_transports_on_the_reverse_edge(self):
+        with using_context(self.rtd):
+            t = Number(quantity=138.5055, unit=units.ohm, uncertainty=0.1).to(units.celsius)
+        expected = 0.1 / abs(pt100().derivative(100.0))
+        self.assertAlmostEqual(t.uncertainty, expected, places=8)
+
+    def test_out_of_range_resistance_refuses(self):
+        with using_context(self.rtd):
+            with self.assertRaises(ValueError):
+                Number(quantity=10.0, unit=units.ohm).to(units.celsius)
