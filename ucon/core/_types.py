@@ -2252,17 +2252,20 @@ class Number:
         # does not imply, and need a license — a static edge performed no
         # specialization (generic power is not real power until something
         # measured which).
+        # ``arrival`` is non-None, so the active lattice resolved its name
+        # (``_resolve_default_kind`` reads only the active lattice); the
+        # lattice is therefore present to classify the re-label.
         ctx = _sys_active_var.get()
         lattice = getattr(ctx, "kinds", None) if ctx is not None else None
         needs_license = True
-        if lattice is not None and hasattr(lattice, "is_descendant"):
-            try:
-                if lattice.is_descendant(self.kind, arrival):
-                    return self.kind  # widening; the finer kind survives
-            except Exception:
-                needs_license = False  # lattice could not decide; stay best-effort
-        else:
-            needs_license = False  # no lattice to classify the re-label
+        try:
+            if lattice.is_descendant(self.kind, arrival):
+                return self.kind  # widening; the finer kind survives
+        except Exception:
+            # The current kind is not in the lattice (an explicit kind the
+            # active lattice does not know), so ancestry cannot be decided.
+            # Stay best-effort, matching attachment: adopt rather than raise.
+            needs_license = False
         if needs_license and license is None:
             raise KindArrivalRefused(current=self.kind, arrival=arrival, unit=target_unit)
         return arrival

@@ -247,6 +247,55 @@ class TestStaticEdgesBetweenSiblingsRefuse(unittest.TestCase):
         self.assertIsNone(license_)
 
 
+# ── cross-fiber: the conversion itself transforms the stuff ─────────────
+FREQ_D = U.hertz.dimension
+FREQ_X = Kind("freq_x", dimension=FREQ_D)
+FU = Unit(name="arrFreqX", dimension=FREQ_D, default_kind="freq_x")
+XFIBER_LATTICE = KindLattice([DOSE, ABSORBED, EQUIVALENT, FREQ_X])
+
+# A (physically nonsensical) cross-dimensional table: the arrival rule is
+# indifferent to physicality, and a factor-1 edge across fibers is the
+# cleanest way to exercise the cross-dimension branches.
+CROSS = ConversionContext(
+    name="arrival-cross",
+    edges=(
+        ContextEdge(src=GY, dst=U.meter, map=LinearMap(1.0)),
+        ContextEdge(src=GY, dst=FU, map=LinearMap(1.0)),
+    ),
+)
+
+
+class TestArrivalAcrossFibers(unittest.TestCase):
+    """Cross-dimensional conversions transform the quantity across fibers,
+    so the within-fiber re-label license does not apply."""
+
+    def test_conversion_to_an_unkinded_unit_in_another_fiber_drops_the_kind(self):
+        """`absorbed_dose` cannot ride onto a length; the stale kind is left
+        behind rather than carried onto the wrong fiber."""
+        with use(active_system(), kinds=XFIBER_LATTICE), using_context(CROSS):
+            result = Number(1.0, GY, kind=ABSORBED).to(U.meter)
+        self.assertIsNone(result.kind)
+
+    def test_arrival_at_a_kinded_unit_in_another_fiber_adopts_without_license(self):
+        """The conversion is the transformation (cf. E = h·f); the target's
+        declared kind is adopted even though CROSS is not contingent."""
+        with use(active_system(), kinds=XFIBER_LATTICE), using_context(CROSS):
+            result = Number(1.0, GY, kind=ABSORBED).to(FU)
+        self.assertEqual(result.kind, FREQ_X)
+
+
+class TestArrivalBestEffortWithinFiber(unittest.TestCase):
+    def test_an_unregistered_current_kind_adopts_rather_than_refusing(self):
+        """Matching attachment: if the active lattice does not know the
+        current kind, ancestry cannot be decided, so arrival adopts the
+        declaration rather than raising — a sibling re-label the lattice
+        cannot classify is not turned into a spurious refusal."""
+        rogue = Kind("rogue_dose", dimension=DOSE_D)  # deliberately not in the lattice
+        with use(active_system(), kinds=DOSE_LATTICE), using_context(STATIC):
+            n = Number(1.0, GY, kind=rogue)
+            self.assertEqual(n._arrival_kind(SV), EQUIVALENT)
+
+
 class TestBestEffortResolution(unittest.TestCase):
     """Matching attachment at construction: an unknown name does not raise."""
 
