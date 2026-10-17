@@ -203,5 +203,61 @@ class TestProvenanceBookkeeping(unittest.TestCase):
         self.assertEqual(duplicate._contingent_edges, scoped._contingent_edges)
 
 
+
+class TestContingentSurvivesSerialization(unittest.TestCase):
+    """The flag must survive every path a context takes: graph TOML in both
+    directions, and the binary cache. A stale cache missing the key would
+    restore `False` and reintroduce the defect, so `_CACHE_SCHEMA` is bumped
+    alongside (#329)."""
+
+    def _graph_with_one_dated_table(self):
+        graph, usd, eur, _gbp = _money_graph()
+        graph.register_context(_fx(usd, eur, _gbp))
+        return graph
+
+    def test_to_toml_emits_the_key(self):
+        import tempfile
+        from ucon.serialization import to_toml
+        handle = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".ucon.toml", delete=False)
+        handle.close()
+        to_toml(self._graph_with_one_dated_table(), handle.name)
+        text = open(handle.name).read()
+        self.assertIn("contingent = true", text)
+
+    def test_from_toml_round_trips_the_flag(self):
+        import tempfile
+        from ucon.serialization import from_toml, to_toml
+        handle = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".ucon.toml", delete=False)
+        handle.close()
+        original = self._graph_with_one_dated_table()
+        to_toml(original, handle.name)
+        restored = from_toml(handle.name, strict=False)
+        for name, ctx in restored._contexts.items():
+            self.assertEqual(ctx.contingent, original._contexts[name].contingent,
+                             name)
+        self.assertTrue(any(c.contingent for c in restored._contexts.values()))
+
+    def test_a_definitional_context_omits_the_key(self):
+        import tempfile
+        from ucon.serialization import to_toml
+        graph, usd, eur, gbp = _money_graph()
+        graph.register_context(ConversionContext(
+            name="definitional", edges=_fx(usd, eur, gbp).edges))
+        handle = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".ucon.toml", delete=False)
+        handle.close()
+        to_toml(graph, handle.name)
+        self.assertNotIn("contingent", open(handle.name).read())
+
+    def test_the_cache_round_trips_the_flag(self):
+        from ucon._cache import _from_primitives, _to_primitives
+        original = self._graph_with_one_dated_table()
+        restored = _from_primitives(_to_primitives(original))
+        for name, ctx in original._contexts.items():
+            self.assertEqual(restored._contexts[name].contingent, ctx.contingent,
+                             name)
+
 if __name__ == "__main__":
     unittest.main()

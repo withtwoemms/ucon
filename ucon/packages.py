@@ -463,11 +463,19 @@ class ContextDef:
         The cross-dimensional edge definitions.
     description : str
         Optional description of the physical basis.
+    contingent : bool
+        Whether the edges encode a *contingent* relation — a dated, revisable
+        table (an FX rate, a hub settlement price) rather than a relation
+        licensed by an exact constant. A conversion path may cross at most one
+        contingent context; composing two invents a figure neither published
+        (:class:`~ucon.core.exceptions.ContingentCompositionRefused`). Defaults
+        to ``False``: a context is definitional unless it says otherwise.
     """
 
     name: str
     edges: tuple['EdgeDef', ...] = ()
     description: str = ""
+    contingent: bool = False
 
     def materialize(self, graph: 'ConversionGraph') -> 'ConversionContext':
         """Resolve endpoints against ``graph`` and build the context.
@@ -510,6 +518,7 @@ class ContextDef:
             name=self.name,
             edges=tuple(context_edges),
             description=self.description,
+            contingent=self.contingent,
         )
 
 
@@ -768,6 +777,7 @@ def load_package(path: str | Path) -> UnitPackage:
             name=ctx_name,
             edges=ctx_edges,
             description=c.get("description", ""),
+            contingent=bool(c.get("contingent", False)),
         )
 
     contexts = tuple(_parse_context(c) for c in data.get("contexts", []))
