@@ -20,7 +20,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The rule is stated so one form serves both declarers ADR 011 names:
 
   > the target's declared kind wins, **unless it is already an ancestor of
-  > the current kind**, in which case the finer kind survives.
+  > the current kind**, in which case the finer kind survives — and when
+  > the two kinds are **siblings**, only an edge licensed by a contingent
+  > context may re-kind; a static edge **refuses**.
+
+  Without the second clause the rule relabels. `Number(1, gray,
+  kind=absorbed_dose).to(sievert)` over a factor-1 edge would return
+  `<1 Sv [dose_equivalent]>` — a label nothing earned, since nothing
+  performed the weighting that makes it true, and precisely the
+  kind-of-quantity failure the UnitSafe benchmark exists to catch. A dated
+  FX table is the licensed case (`usd → eur` still re-kinds); `Gy → Sv`
+  across a static edge raises `KindArrivalRefused` (exported from `ucon`).
+  The license is surfaced by the new `Graph.convert_with_license`, which
+  returns the contingent context's name alongside the map; `convert` is
+  unchanged.
 
   Currency converts between *siblings* — `usd` and `eur` under a `currency`
   root — so arrival re-kinds. Information converts *within* a kind, since

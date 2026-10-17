@@ -14,7 +14,9 @@ exchange, where converted euros must not stay kinded ``usd``.
 The rule as implemented serves both declarers ADR 011 names:
 
     the target's declared kind wins, unless it is already an ancestor
-    of the current kind, in which case the finer kind survives.
+    of the current kind, in which case the finer kind survives — and when
+    the kinds are siblings, only an edge licensed by a contingent context
+    may re-kind; a static edge refuses.
 
 **Currency** converts between *siblings* — ``usd`` and ``eur`` under a
 ``currency`` root — so arrival genuinely re-kinds. A rate edge transformed
@@ -30,7 +32,7 @@ here is constructed locally and the rule is a no-op on existing behavior.
 """
 import unittest
 
-from ucon import Number, Unit
+from ucon import KindArrivalRefused, Number, Unit, units as U
 from ucon.contexts import ContextEdge, ConversionContext, using_context
 from ucon.dimension import all_dimensions
 from ucon.kinds import JoinPolicy, Kind, KindLattice
@@ -59,6 +61,9 @@ LATTICE = KindLattice([CURRENCY, USD_KIND, EUR_KIND, INFORMATION, PAYLOAD])
 
 EDGES = ConversionContext(
     name="arrival-fixture",
+    # A rate table is contingent (ADR 011, #320). That license is what lets
+    # ``usd -> eur`` re-kind; see TestStaticEdgesBetweenSiblingsRefuse.
+    contingent=True,
     edges=(
         ContextEdge(src=USD, dst=EUR, map=LinearMap(0.9214)),
         ContextEdge(src=BIT, dst=BYTE, map=LinearMap(0.125)),
@@ -157,6 +162,79 @@ class TestAspectsAreOrthogonal(ArrivalRuleTestCase):
         result = source.to(EUR)
         self.assertEqual(result.kind, EUR_KIND)
         self.assertIn(nominal, result.aspects)
+
+
+# ── dose: siblings under a refuse root, reached by a STATIC edge ────────
+DOSE_D = U.gray.dimension
+DOSE = Kind("dose", dimension=DOSE_D, join_policy=JoinPolicy.REFUSE)
+ABSORBED = Kind("absorbed_dose", dimension=DOSE_D, parent=DOSE)
+EQUIVALENT = Kind("dose_equivalent", dimension=DOSE_D, parent=DOSE)
+DOSE_LATTICE = KindLattice([DOSE, ABSORBED, EQUIVALENT])
+GY = Unit(name="arrGy", dimension=DOSE_D, default_kind="absorbed_dose")
+SV = Unit(name="arrSv", dimension=DOSE_D, default_kind="dose_equivalent")
+ANY_DOSE = Unit(name="arrDose", dimension=DOSE_D, default_kind="dose")
+
+STATIC = ConversionContext(
+    name="arrival-static",
+    edges=(
+        ContextEdge(src=GY, dst=SV, map=LinearMap(1.0)),
+        ContextEdge(src=ANY_DOSE, dst=SV, map=LinearMap(1.0)),
+    ),
+)
+DATED = ConversionContext(
+    name="arrival-dated",
+    contingent=True,
+    edges=(ContextEdge(src=GY, dst=SV, map=LinearMap(1.0)),),
+)
+
+
+class TestStaticEdgesBetweenSiblingsRefuse(unittest.TestCase):
+    """The refusing clause. Gy and Sv share a dimension; nothing on a
+    factor-1 edge performed the weighting that makes `dose_equivalent`
+    true, so arriving there must not relabel."""
+
+    def test_a_static_edge_between_sibling_kinds_refuses(self):
+        with use(active_system(), kinds=DOSE_LATTICE), using_context(STATIC):
+            with self.assertRaises(KindArrivalRefused):
+                Number(1.0, GY, kind=ABSORBED).to(SV)
+
+    def test_the_refusal_names_both_kinds_and_the_unit(self):
+        with use(active_system(), kinds=DOSE_LATTICE), using_context(STATIC):
+            with self.assertRaises(KindArrivalRefused) as cm:
+                Number(1.0, GY).to(SV)  # default_kind attaches absorbed_dose
+        self.assertEqual(cm.exception.current, ABSORBED)
+        self.assertEqual(cm.exception.arrival, EQUIVALENT)
+        self.assertIs(cm.exception.unit, SV)
+
+    def test_a_contingent_context_licenses_the_re_kind(self):
+        """The currency case, in dose clothing: a dated table transformed
+        the stuff, so the declaration wins."""
+        with use(active_system(), kinds=DOSE_LATTICE), using_context(DATED):
+            result = Number(1.0, GY, kind=ABSORBED).to(SV)
+        self.assertEqual(result.kind, EQUIVALENT)
+
+    def test_an_unkinded_source_still_adopts_the_declaration(self):
+        """Nothing to refuse against: no kind arrived, so the unit's wins."""
+        plain = Number(1.0, GY)
+        object.__setattr__(plain, "kind", None)
+        with use(active_system(), kinds=DOSE_LATTICE), using_context(STATIC):
+            self.assertEqual(plain.to(SV).kind, EQUIVALENT)
+
+    def test_a_narrowing_declaration_is_admitted(self):
+        """Ancestor to descendant is not a sibling re-kind; the caller asked
+        for the finer unit."""
+        with use(active_system(), kinds=DOSE_LATTICE), using_context(STATIC):
+            result = Number(1.0, ANY_DOSE, kind=DOSE).to(SV)
+        self.assertEqual(result.kind, EQUIVALENT)
+
+    def test_the_license_is_surfaced_by_the_graph(self):
+        from ucon.conversion import get_default_graph
+        with use(active_system(), kinds=DOSE_LATTICE), using_context(DATED):
+            _, license_ = get_default_graph().convert_with_license(src=GY, dst=SV)
+        self.assertEqual(license_, "arrival-dated")
+        with use(active_system(), kinds=DOSE_LATTICE), using_context(STATIC):
+            _, license_ = get_default_graph().convert_with_license(src=GY, dst=SV)
+        self.assertIsNone(license_)
 
 
 class TestBestEffortResolution(unittest.TestCase):
