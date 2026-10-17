@@ -30,6 +30,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`PolynomialMap`: calibration curves become expressible, with a
+  single-valued inverse.** (#331) Every morphism `ucon` could express was
+  closed-form invertible in one line — scaling, offset, logarithm, reciprocal,
+  and the `ComposedMap` fallback. Real instrumentation is not: a platinum RTD
+  follows the Callendar–Van Dusen equation `R(T) = R0·(1 + A·T + B·T²)`, the
+  NIST ITS-90 thermocouple reference functions are degree 8–13 polynomials, and
+  a load cell or a standard curve is a fitted quadratic. None of them is a
+  composition of the five existing maps, so the only ways to carry one were a
+  `ComposedMap` chain that cannot represent `x²` or an opaque callable that does
+  not serialize.
+
+  `PolynomialMap(coefficients, domain, rel_uncertainty=0.0)` takes coefficients
+  in **ascending** order — `coefficients[i]` multiplies `x**i`, constant term
+  first, matching how the equations are published (`R0·(1 + A·T + B·T²)` reads
+  off as `[R0, R0·A, R0·B]`) and the TOML `coefficients` key. Evaluation is
+  Horner, the derivative is the analytic derivative polynomial, and composition
+  is exact: polynomial ∘ polynomial, and polynomial ∘ linear/affine, fold into
+  one `PolynomialMap` carrying the inner map's input domain.
+
+  **The domain is what makes the inverse a function.** A polynomial of degree
+  ≥ 2 is not injective, so its inverse has up to `n` real branches, while
+  `Map.inverse()` is declared `-> Map` and every caller consumes it as one:
+  `ConversionGraph._add_unit_edge`, `_add_product_edge`, `add_rebased_edge`,
+  `_add_context_edge`, and the binary cache all store `map.inverse()` *as* the
+  reverse adjacency entry, and a graph edge cannot be "one of three maps".
+  Rather than widen the ABC and push the ambiguity into every one of those
+  sites, `PolynomialMap` carries the validity range the calibration was
+  published with — IEC 60751 gives Callendar–Van Dusen over 0…850 °C; NIST
+  gives each thermocouple polynomial a sub-range — and `inverse()` returns the
+  single branch monotone on it, as a `PolynomialInverseMap` (safeguarded
+  Newton/bisection over the declared bracket, derivative by the implicit
+  function theorem, so uncertainty transports through a reverse calibration
+  edge like any other). Round-trips are accurate to ~1e-14 relative.
+
+  A polynomial that *turns* inside its declared domain raises the new
+  `NonMonotoneOnDomain` naming the turning points, rather than silently
+  choosing a root — `PolynomialMap((0, 0, 1), domain=(-1, 1))` has two equally
+  valid preimages for every positive input, and returning either one is a
+  fabricated answer. Narrowing the domain to one side restores the branch. A
+  critical point *on* a boundary does not break monotonicity, so `x²` over
+  `[0, 1]` inverts to the square root. Degeneracies delegate rather than carry
+  machinery they do not need: degree 1 inverts to an `AffineMap`, and degree 0
+  (constant) is not invertible.
+
+  Both types round-trip through package TOML (`type = "polynomial"`,
+  `type = "polynomial_inverse"`) and through the binary graph cache.
+  `_CACHE_SCHEMA` is bumped to 4: a cache written before this change has no
+  tag for either type, and rehydrating a polynomial edge from it would fail
+  rather than silently degrade. `Unit.chart` is untouched — whether a
+  polynomial chart is a fourth chart class under
+  [decisions/010](docs/internal/decisions/010-chart-nomenclature.md) is a
+  separate question from the map primitive, and this change settles only the
+  primitive.
+
 - **The KOQ floor: degeneracy-cluster units declare their kind.** (#327)
   Where the SI gives two units the same dimension precisely to mark a kind
   distinction, those units now carry a `default_kind`: `gray → absorbed_dose`

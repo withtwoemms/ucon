@@ -643,7 +643,10 @@ with using_context(my_context):
 Composable conversion morphisms used as edges in the ConversionGraph.
 
 ```python
-from ucon.maps import Map, LinearMap, AffineMap, LogMap, ExpMap, ReciprocalMap, ComposedMap
+from ucon.maps import (
+    Map, LinearMap, AffineMap, LogMap, ExpMap, ReciprocalMap,
+    PolynomialMap, PolynomialInverseMap, ComposedMap,
+)
 ```
 
 ### Class Hierarchy
@@ -655,6 +658,8 @@ from ucon.maps import Map, LinearMap, AffineMap, LogMap, ExpMap, ReciprocalMap, 
 | `ReciprocalMap(a, rel_uncertainty=0.0)` | y = a / x | Inversely proportional (wavelength -> frequency) |
 | `LogMap(scale, base, reference)` | y = scale * log(x/ref) + offset | Decibels, pH |
 | `ExpMap(scale, base, reference)` | y = ref * base^(scale*x + offset) | Inverse of LogMap |
+| `PolynomialMap(coefficients, domain, rel_uncertainty=0.0)` | y = a0 + a1*x + ... + an*x^n | Calibration curves (RTDs, thermocouples, fitted sensor response) |
+| `PolynomialInverseMap(polynomial)` | the branch of p inverse that is single-valued on p's domain | Reverse lookup on a calibration curve |
 | `ComposedMap(outer, inner)` | y = outer(inner(x)) | Heterogeneous composition fallback |
 
 All maps are `@dataclass(frozen=True)` --- immutable and hashable.
@@ -801,6 +806,60 @@ These maps are what the built-in `spectroscopy` context uses internally.
 For end-user conversions, prefer `using_context(spectroscopy)` over
 constructing maps directly — see the
 [Conversion Contexts](../guides/conversion-contexts.md) guide.
+
+---
+
+### Worked Example: PolynomialMap and the Callendar–Van Dusen curve
+
+`PolynomialMap` carries calibration curves — the published, nonlinear
+response of a real instrument. A platinum RTD follows the Callendar–Van
+Dusen equation `R(T) = R0·(1 + A·T + B·T²)`; IEC 60751 gives a PT100
+`R0 = 100 Ω`, `A = 3.9083e-3`, `B = -5.775e-7`, valid for `0…850 °C`.
+
+Coefficients are **ascending** — `coefficients[i]` multiplies `x**i`, so
+the constant term comes first.
+
+```python
+from ucon.maps import PolynomialMap
+
+R0, A, B = 100.0, 3.9083e-3, -5.775e-7
+pt100 = PolynomialMap((R0, R0 * A, R0 * B), domain=(0.0, 850.0))
+
+pt100(0.0)      # 100.0 Ω at the ice point
+pt100(100.0)    # 138.5055 Ω — the IEC 60751 table value
+pt100.derivative(0.0)   # 0.39083 Ω/°C, analytic
+```
+
+The `domain` is required, and it is not a convenience: a polynomial of
+degree ≥ 2 is not injective, so its inverse is only a function once the
+input is restricted to an interval where the polynomial is monotone.
+Every published calibration comes with such a span, and `inverse()`
+returns the single branch over it.
+
+```python
+to_temperature = pt100.inverse()    # PolynomialInverseMap
+to_temperature(138.5055)            # 100.0 °C, round-trips to ~1e-14
+to_temperature.domain               # (100.0, 390.481125) — the image
+```
+
+A polynomial that *turns* inside its declared domain has no single branch,
+and says so rather than picking a root:
+
+```python
+from ucon.maps import NonMonotoneOnDomain
+
+parabola = PolynomialMap((0.0, 0.0, 1.0), domain=(-1.0, 1.0))
+parabola.invertible          # False — it turns at 0
+parabola.inverse()           # raises NonMonotoneOnDomain
+
+PolynomialMap((0.0, 0.0, 1.0), domain=(0.0, 1.0)).inverse()(0.25)   # 0.5
+```
+
+Degenerate degrees delegate: degree 1 inverts to an `AffineMap`, and a
+degree-0 (constant) polynomial is not invertible. Polynomial composition is
+exact — polynomial ∘ polynomial, and polynomial ∘ linear/affine, fold into a
+single `PolynomialMap` with the inner map's input domain; anything else
+falls back to `ComposedMap`.
 
 ---
 
