@@ -766,6 +766,8 @@ def _collect_contexts(graph) -> dict[str, dict]:
         ctx_dict: dict = {}
         if ctx.description:
             ctx_dict["description"] = ctx.description
+        if ctx.contingent:
+            ctx_dict["contingent"] = True
         edges = []
         for ce in ctx.edges:
             # Determine src/dst name
@@ -1220,6 +1222,7 @@ def from_toml(path: Union[str, Path], *, strict: bool = True):
                 name=ctx_name,
                 edges=tuple(ctx_edges),
                 description=description,
+                contingent=bool(ctx_spec.get("contingent", False)),
             )
             graph.register_context(ctx)
 

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`contingent` now has a TOML key, so a packaged dated table arrives
+  dated.** (#329) `ConversionContext.contingent` (#320) refuses to compose a
+  path across two *different* contingent contexts — two dated tables inventing
+  a figure neither published. The flag had no serialized representation, so a
+  context shipped in a package always loaded as **definitional** and the guard
+  never fired on it. A package declaring a September hub tariff
+  (`joule → USD`) and the ECB's euro reference rates (`USD → EUR`), both
+  `contingent = true`, resolved euros per joule silently:
+  `1 GJ → EUR` gave `<12.285333333333334>` — uncitable, guaranteed to
+  disagree with any directly quoted EUR/J rate, and carrying no date of its
+  own. The identical tables built in-process already refused, so only the
+  serializer was at fault.
+
+  The flag now survives `ContextDef` and `[[contexts]]` parsing,
+  `ContextDef.materialize`, `from_toml`, `to_toml`, and the binary cache.
+  `_CACHE_SCHEMA` is bumped to 3: a stale cache missing the key would restore
+  `False` and reintroduce exactly this defect. The default is unchanged — a
+  context is definitional unless it says otherwise.
+
 ### Added
 
 - **The KOQ floor: degeneracy-cluster units declare their kind.** (#327)

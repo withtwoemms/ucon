@@ -21,6 +21,8 @@ import unittest
 from pathlib import Path
 
 from ucon import (
+    ContingentCompositionRefused,
+    Number,
     PackageLoadError,
     load_package,
     parse_unit,
@@ -61,6 +63,47 @@ description = "Dose units carry a mass only given a formulation constant"
   src = "dose_unit"
   dst = "gram"
   factor = "k_d"
+"""
+
+
+# Two dated settlement tables, both declaring `contingent` (#329). Before the
+# TOML key existed these loaded as definitional, so #320's guard never fired
+# on a packaged table and a euro energy price neither published composed
+# silently.
+SETTLEMENT_TOML = """
+[package]
+name = "energy-settlement"
+version = "1.0.0"
+
+[[units]]
+name = "us_dollar"
+dimension = "none"
+aliases = ["USD"]
+
+[[units]]
+name = "euro"
+dimension = "none"
+aliases = ["EUR"]
+
+[[contexts]]
+name = "ISO-NE-2026-09"
+description = "Hub settlement price, September 2026"
+contingent = true
+
+  [[contexts.edges]]
+  src = "joule"
+  dst = "us_dollar"
+  factor = 1.3333333333333334e-8
+
+[[contexts]]
+name = "ECB-2026-09-30"
+description = "Euro reference rates"
+contingent = true
+
+  [[contexts.edges]]
+  src = "us_dollar"
+  dst = "euro"
+  factor = 0.9214
 """
 
 
@@ -250,6 +293,53 @@ class TestContextDefDirectly(unittest.TestCase):
         graph = active_system().conversion_graph.with_package(pkg)
         self.assertIn("p", graph._contexts)
 
+
+
+class TestContingentSurvivesPackaging(unittest.TestCase):
+    """A dated table must arrive dated. `contingent` had no TOML key, so a
+    packaged rate table loaded as definitional (#329)."""
+
+    def test_the_key_parses_onto_the_contextdef(self):
+        pkg = load_package(_write(SETTLEMENT_TOML))
+        self.assertTrue(all(c.contingent for c in pkg.contexts))
+
+    def test_the_default_is_definitional(self):
+        """DOSING_TOML declares no `contingent`; a context is definitional
+        unless it says otherwise."""
+        ctx = load_package(_write(DOSING_TOML)).contexts[0]
+        self.assertFalse(ctx.contingent)
+
+    def test_materialize_carries_the_flag(self):
+        pkg = load_package(_write(SETTLEMENT_TOML))
+        graph = active_system().conversion_graph.with_package(pkg)
+        for name in ("ISO-NE-2026-09", "ECB-2026-09-30"):
+            self.assertTrue(graph._contexts[name].contingent, name)
+
+    def test_each_packaged_table_alone_still_resolves(self):
+        pkg = load_package(_write(SETTLEMENT_TOML))
+        graph = active_system().conversion_graph.with_package(pkg)
+        with using_conversion_graph(graph):
+            joule, usd, eur = (parse_unit("joule"), parse_unit("us_dollar"),
+                               parse_unit("euro"))
+            with using_context(graph._contexts["ISO-NE-2026-09"]):
+                self.assertAlmostEqual(
+                    Number(1e9, joule).to(usd).quantity, 13.333333333, places=6)
+            with using_context(graph._contexts["ECB-2026-09-30"]):
+                self.assertAlmostEqual(
+                    Number(100.0, usd).to(eur).quantity, 92.14, places=6)
+
+    def test_two_packaged_dated_tables_refuse_to_chain(self):
+        """The acceptance case: euros per joule is a figure neither table
+        published — uncitable, guaranteed to disagree with a directly quoted
+        rate, and carrying no date of its own."""
+        pkg = load_package(_write(SETTLEMENT_TOML))
+        graph = active_system().conversion_graph.with_package(pkg)
+        with using_conversion_graph(graph):
+            joule, eur = parse_unit("joule"), parse_unit("euro")
+            with using_context(graph._contexts["ISO-NE-2026-09"],
+                               graph._contexts["ECB-2026-09-30"]):
+                with self.assertRaises(ContingentCompositionRefused):
+                    Number(1e9, joule).to(eur)
 
 if __name__ == "__main__":
     unittest.main()

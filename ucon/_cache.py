@@ -40,7 +40,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 _MAGIC = b"UCM\x01"
-_CACHE_SCHEMA = 2  # Bump when _to_primitives/_from_primitives change shape
+_CACHE_SCHEMA = 3  # Bump when _to_primitives/_from_primitives change shape
 
 # Header layout: magic(4) + format_ver(2) + py_major(1) + py_minor(1) + cache_ver(1) + reserved(3) = 12
 _HEADER_FMT = "!4sHBBB3s"
@@ -453,6 +453,7 @@ def _to_primitives(graph: "Graph") -> dict:
             "_t": "CX",
             "n": ctx.name,
             "desc": ctx.description,
+            "cg": ctx.contingent,
             "edges": edges,
         }
 
@@ -848,6 +849,7 @@ def _from_primitives(raw: dict) -> "Graph":
             name=val["n"],
             edges=tuple(edges),
             description=val["desc"],
+            contingent=bool(val.get("cg", False)),
         )
         graph._contexts[val["n"]] = ctx
 
