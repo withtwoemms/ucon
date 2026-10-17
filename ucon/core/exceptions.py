@@ -124,6 +124,43 @@ class KindMismatch(Exception):
         )
 
 
+class KindArrivalRefused(Exception):
+    """A conversion would re-kind a Number across sibling kinds with no license.
+
+    Raised by :meth:`ucon.Number.to` when the target unit declares a
+    ``default_kind`` that is neither an ancestor nor a descendant of the
+    Number's current kind, and the conversion path used no edge licensed
+    by a contingent context. A dated rate table may re-kind — ``usd`` to
+    ``eur`` under an FX table is the case the arrival rule exists for. A
+    static factor between sibling kinds may not: ``1 Gy`` kinded
+    ``absorbed_dose`` converted to sieverts would arrive labelled
+    ``dose_equivalent`` with nothing having performed the weighting that
+    makes the label true. The refusal is the kind stratum declining to
+    manufacture provenance.
+
+    Attributes
+    ----------
+    current : Kind
+        The Number's kind before conversion.
+    arrival : Kind
+        The kind the target unit declares.
+    unit : Unit | UnitProduct
+        The target unit.
+    """
+
+    def __init__(self, *, current: 'Kind', arrival: 'Kind', unit: 'Unit | UnitProduct') -> None:
+        self.current = current
+        self.arrival = arrival
+        self.unit = unit
+        unit_name = getattr(unit, "name", None) or repr(unit)
+        super().__init__(
+            f"Cannot re-kind {current.name!r} as {arrival.name!r} on arrival at "
+            f"{unit_name!r}: the kinds are siblings and no contingent context "
+            f"licensed the edge. Declare the conversion in a contingent "
+            f"ConversionContext, or convert to a unit of the same kind."
+        )
+
+
 class KindDimensionMismatch(Exception):
     """Kind's dimension does not match the Number's unit dimension.
 

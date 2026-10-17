@@ -45,6 +45,7 @@ from ucon.aspects.types import Aspect
 from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
 from ucon.core.exceptions import (
+    KindArrivalRefused,
     KindDimensionMismatch,
     KindMismatch,
     UnitDefinitionMismatch,
@@ -2090,7 +2091,7 @@ class Number:
             _ctx = _sys_active_var.get()
             if _ctx is not None and _ctx.strict and not graph.contains_unit_by_identity(src_unit):
                 raise UnitDefinitionMismatch(src_unit, graph=graph)
-            conversion_map = graph.convert(src=src_unit, dst=dst_unit)
+            conversion_map, _license = graph.convert_with_license(src=src_unit, dst=dst_unit)
             converted = conversion_map(self.quantity)
             new_unc = None
             if self.uncertainty is not None or (
@@ -2104,7 +2105,7 @@ class Number:
                 if new_unc == 0.0:
                     new_unc = None
             return Number(quantity=converted, unit=target, uncertainty=new_unc,
-                          kind=self.kind)._carry(self.aspects)
+                          kind=self._arrival_kind(target, license=_license))._carry(self.aspects)
 
         # --- General path: wrap into UnitProducts ---
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
@@ -2113,11 +2114,13 @@ class Number:
         # Scale-only conversion (same base unit, different scale)
         if self._is_scale_only_conversion(src, dst):
             factor = src.fold_scale() / dst.fold_scale()
+            _license = None  # a scale change is never a re-kind
             new_uncertainty = None
             if self.uncertainty is not None:
                 new_uncertainty = self.uncertainty * abs(factor)
             return Number(quantity=self.quantity * factor, unit=target,
-                          uncertainty=new_uncertainty, kind=self.kind)._carry(self.aspects)
+                          uncertainty=new_uncertainty,
+                          kind=self._arrival_kind(target, license=_license))._carry(self.aspects)
 
         # Pass raw Units to graph.convert() when possible, so the graph
         # can use _convert_units() which handles cross-basis via rebased units.
@@ -2140,7 +2143,7 @@ class Number:
         if _ctx is not None and _ctx.strict and not graph.contains_unit_by_identity(graph_src):
             raise UnitDefinitionMismatch(graph_src, graph=graph)
 
-        conversion_map = graph.convert(src=graph_src, dst=graph_dst)
+        conversion_map, _license = graph.convert_with_license(src=graph_src, dst=graph_dst)
         # Use raw quantity - the conversion map handles scale via factorwise decomposition
         converted_quantity = conversion_map(self.quantity)
 
@@ -2170,7 +2173,78 @@ class Number:
                 new_uncertainty = None
 
         return Number(quantity=converted_quantity, unit=target,
-                      uncertainty=new_uncertainty, kind=self.kind)._carry(self.aspects)
+                      uncertainty=new_uncertainty,
+                      kind=self._arrival_kind(target, license=_license))._carry(self.aspects)
+
+    def _arrival_kind(self, target_unit, *, license: "str | None" = None) -> "Kind | None":
+        """The kind a conversion onto ``target_unit`` should produce.
+
+        ADR 011's rule: arrival at a unit declaring a ``default_kind``
+        re-kinds the result. A rate edge genuinely transforms the stuff, so
+        euros converted from dollars must not stay kinded ``usd`` — the
+        defect the rule exists to close.
+
+        Refined so one rule serves both declarers the ADR names. ``bit`` and
+        ``byte`` both declare ``information``, and converting between them is
+        a change of *scale*, not of *stuff*: a Number carrying something more
+        specific — ``payload_size`` under ``information`` — must not be
+        demoted to the ancestor on arrival.
+
+        So the declared kind wins **unless it is already an ancestor of the
+        current one**, in which case the finer kind survives:
+
+        =================  ===================  =================
+        current kind       target default_kind  result
+        =================  ===================  =================
+        ``usd``            ``eur``              ``eur``  (licensed)
+        ``absorbed_dose``  ``dose_equivalent``  **refuses**
+        ``payload_size``   ``information``      ``payload_size``
+        ``information``    ``information``      ``information``
+        *(none)*           ``eur``              ``eur``
+        anything           *(none declared)*    unchanged
+        =================  ===================  =================
+
+        And when the two kinds are **siblings** — neither an ancestor of the
+        other — the declaration may win only if the conversion path used an
+        edge licensed by a contingent context (``license``, the context's
+        name, surfaced by :meth:`Graph.convert_with_license`). A dated rate
+        table transformed the stuff; a static factor did not, and relabelling
+        across it would manufacture provenance. That case raises
+        :class:`~ucon.core.exceptions.KindArrivalRefused`.
+
+        Resolution is best-effort, matching attachment at construction: a
+        declared name the active lattice does not know leaves the kind
+        untouched rather than raising. With no active lattice the ancestry
+        test cannot run and the declaration wins — which is the currency
+        case, the one the rule was written for.
+        """
+        declared = getattr(target_unit, "default_kind", None)
+        if declared is None:
+            return self.kind
+
+        arrival = _resolve_default_kind(declared)
+        if arrival is None or arrival == self.kind:
+            return self.kind
+        if self.kind is None:
+            return arrival
+
+        ctx = _sys_active_var.get()
+        lattice = getattr(ctx, "kinds", None) if ctx is not None else None
+        siblings = False
+        if lattice is not None and hasattr(lattice, "is_descendant"):
+            try:
+                if lattice.is_descendant(self.kind, arrival):
+                    # The declaration is an ancestor; keep the finer kind.
+                    return self.kind
+                if lattice.is_descendant(arrival, self.kind):
+                    # The declaration narrows, and the caller asked for it.
+                    return arrival
+                siblings = True
+            except Exception:
+                pass  # the lattice could not decide; stay best-effort
+        if siblings and license is None:
+            raise KindArrivalRefused(current=self.kind, arrival=arrival, unit=target_unit)
+        return arrival
 
     def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
         """Check if conversion is just a scale change (same base units)."""

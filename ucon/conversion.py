@@ -141,6 +141,11 @@ class Graph:
     # Conversion path cache: (src_key, dst_key) -> Map
     # Cleared when edges are added
     _conversion_cache: dict[tuple, Map] = field(default_factory=dict)
+    # Which contingent context, if any, licensed the cached path. Populated
+    # alongside ``_conversion_cache`` for unit-level paths; read by
+    # :meth:`convert_with_license` so ``Number.to`` can tell a dated-table
+    # re-kind from an unlicensed one.
+    _conversion_license_cache: dict[tuple, 'str | None'] = field(default_factory=dict)
 
     # ------------- Edge Management -------------------------------------------
 
@@ -260,6 +265,7 @@ class Graph:
         """
         # Clear conversion cache (new edge may create shorter paths)
         self._conversion_cache.clear()
+        self._conversion_license_cache.clear()
 
         # If basis_graph is set, validate cross-basis compatibility
         if self._basis_graph is not None and basis_transform is None:
@@ -597,6 +603,7 @@ class Graph:
         new._package_constants = self._package_constants  # tuple is immutable, share reference
         new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
         new._contingent_edges = dict(self._contingent_edges)
+        new._conversion_license_cache = dict(self._conversion_license_cache)
         new._kind_lattice = self._kind_lattice.copy() if self._kind_lattice is not None else None
         new._aspect_forest = self._aspect_forest  # immutable after construction, share reference
         new._formula_registry = self._formula_registry if hasattr(self, '_formula_registry') else None
@@ -791,7 +798,7 @@ class Graph:
         if isinstance(src, Unit) and not isinstance(src, UnitProduct):
             if isinstance(dst, Unit) and not isinstance(dst, UnitProduct):
                 try:
-                    result = self._convert_units(src=src, dst=dst)
+                    result, license_ = self._convert_units_with_license(src=src, dst=dst)
                 except ConversionNotFound as unit_miss:
                     # A package may bind a unit to a composite expression
                     # (edge dst = "meter^3"); such product edges are
@@ -803,9 +810,11 @@ class Graph:
                             src=UnitProduct.from_unit(src),
                             dst=UnitProduct.from_unit(dst),
                         )
+                        license_ = None
                     except ConversionNotFound:
                         raise unit_miss
                 self._conversion_cache[cache_key] = result
+                self._conversion_license_cache[cache_key] = license_
                 return result
 
         # At least one is a UnitProduct
@@ -813,15 +822,34 @@ class Graph:
         dst_prod = dst if isinstance(dst, UnitProduct) else UnitProduct.from_unit(dst)
         result = self._convert_products(src=src_prod, dst=dst_prod)
         self._conversion_cache[cache_key] = result
+        self._conversion_license_cache[cache_key] = None
         return result
 
+    def convert_with_license(self, *, src, dst) -> 'tuple[Map, str | None]':
+        """Like :meth:`convert`, also naming the contingent context the path took.
+
+        The second element is the ``name`` of the contingent
+        :class:`~ucon.contexts.ConversionContext` whose edge the chosen path
+        used, or ``None`` when every edge on it was definitional. Only
+        unit-level paths carry a license; product paths report ``None``.
+        ``Number.to`` uses it to decide whether arrival at a unit declaring a
+        sibling kind is a licensed re-kind (a dated rate table) or a label
+        nothing earned.
+        """
+        conversion_map = self.convert(src=src, dst=dst)
+        return conversion_map, self._conversion_license_cache.get((src, dst))
+
     def _convert_units(self, *, src: Unit, dst: Unit) -> Map:
-        """Convert between plain Units via BFS.
+        """Convert between plain Units via BFS; see :meth:`_convert_units_with_license`."""
+        return self._convert_units_with_license(src=src, dst=dst)[0]
+
+    def _convert_units_with_license(self, *, src: Unit, dst: Unit) -> 'tuple[Map, str | None]':
+        """Convert between plain Units via BFS, naming the contingent license taken.
 
         Handles cross-basis conversions via rebased units.
         """
         if src == dst:
-            return LinearMap.identity()
+            return LinearMap.identity(), None
 
         # Check if src has a rebased version that can reach dst
         if src in self._rebased:
@@ -860,7 +888,7 @@ class Graph:
 
         # Direct edge?
         if self._has_direct_unit_edge(src=src, dst=dst):
-            return self._get_direct_unit_edge(src=src, dst=dst)
+            return self._get_direct_unit_edge(src=src, dst=dst), self._contingent_license(src, dst)
 
         # BFS in same dimension
         return self._bfs_convert(start=src, target=dst, dim=src.dimension)
@@ -885,7 +913,7 @@ class Graph:
         """
         return license_ is None or carried is None or carried == license_
 
-    def _bfs_convert(self, *, start, target, dim: Dimension) -> Map:
+    def _bfs_convert(self, *, start, target, dim: Dimension) -> 'tuple[Map, str | None]':
         """BFS to find conversion path within a dimension.
 
         Visited state is keyed by ``(node, carried_license)`` so a node
@@ -917,13 +945,13 @@ class Graph:
                 visited[(neighbor, next_carried)] = composed
 
                 if neighbor == target:
-                    return composed
+                    return composed, next_carried
 
                 queue.append((neighbor, next_carried))
 
         raise ConversionNotFound(f"No path from {start} to {target}")
 
-    def _bfs_convert_cross_dimensional(self, *, start, target) -> Map:
+    def _bfs_convert_cross_dimensional(self, *, start, target) -> 'tuple[Map, str | None]':
         """BFS across ALL dimension partitions.
 
         Used for context edges that span dimensions (e.g., meter -> hertz
@@ -956,7 +984,7 @@ class Graph:
                     visited[(neighbor, next_carried)] = composed
 
                     if neighbor == target:
-                        return composed
+                        return composed, next_carried
 
                     queue.append((neighbor, next_carried))
 

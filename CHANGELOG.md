@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The arrival rule — `.to()` re-kinds at a `default_kind` unit.** (#305)
+  The second half of `Unit.default_kind`. #306 shipped the declaration and
+  its attachment at construction and left this open; ADR 011 states both
+  the rule and the defect motivating it. `.to()` preserved the source kind
+  unconditionally, so `convert(100, USD → EUR, kind="usd")` returned 92.14
+  euros *still kinded `usd`* — a rate edge genuinely transformed the stuff,
+  and the label did not follow.
+
+  The rule is stated so one form serves both declarers ADR 011 names:
+
+  > the target's declared kind wins, **unless it is already an ancestor of
+  > the current kind**, in which case the finer kind survives — and when
+  > the two kinds are **siblings**, only an edge licensed by a contingent
+  > context may re-kind; a static edge **refuses**.
+
+  Without the second clause the rule relabels. `Number(1, gray,
+  kind=absorbed_dose).to(sievert)` over a factor-1 edge would return
+  `<1 Sv [dose_equivalent]>` — a label nothing earned, since nothing
+  performed the weighting that makes it true, and precisely the
+  kind-of-quantity failure the UnitSafe benchmark exists to catch. A dated
+  FX table is the licensed case (`usd → eur` still re-kinds); `Gy → Sv`
+  across a static edge raises `KindArrivalRefused` (exported from `ucon`).
+  The license is surfaced by the new `Graph.convert_with_license`, which
+  returns the contingent context's name alongside the map; `convert` is
+  unchanged.
+
+  Currency converts between *siblings* — `usd` and `eur` under a `currency`
+  root — so arrival re-kinds. Information converts *within* a kind, since
+  `bit` and `byte` both declare `information`, so a Number carrying
+  `payload_size` is not demoted to its ancestor: 8 bits of payload are 1
+  byte of payload. An unconditional "target wins" would have served the
+  first and broken the second.
+
+  Resolution stays best-effort, matching attachment: a declared name the
+  active lattice does not know leaves the kind untouched rather than
+  raising. Aspects are unaffected — the rule governs the kind stratum only.
+
+  **No shipped unit declares a `default_kind`**, so this changes nothing in
+  the built-in catalog. `NumberArray` has no kind stratum at all (#297), so
+  array parity follows that work rather than this one.
+
+### Added
+
 - **`ConversionContext.contingent` — dated tables no longer chain.** (#317)
   A context edge encodes either a *definitional* relation, licensed by an
   exact constant, or a *contingent* one — a dated table that could have been
