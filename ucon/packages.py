@@ -359,7 +359,7 @@ class EdgeDef:
 
     **Explicit map**: uses ``map_spec`` dict with a ``type`` key and
     constructor parameters. Supported types: ``linear``, ``affine``,
-    ``log``, ``reciprocal``.
+    ``log``, ``reciprocal``, ``polynomial``.
 
     When ``map_spec`` is provided, it takes precedence over
     ``factor``/``offset``.
@@ -382,7 +382,9 @@ class EdgeDef:
     map_spec : dict | None
         Explicit map specification. When provided, must contain a
         ``type`` key (``"linear"``, ``"affine"``, ``"log"``,
-        ``"reciprocal"``). Remaining keys are constructor arguments.
+        ``"reciprocal"``, ``"polynomial"``). Remaining keys are constructor
+        arguments. A ``polynomial`` map takes ``coefficients`` (ascending,
+        constant term first) and a ``domain`` pair.
     """
     src: str
     dst: str

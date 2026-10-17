@@ -40,7 +40,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 _MAGIC = b"UCM\x01"
-_CACHE_SCHEMA = 3  # Bump when _to_primitives/_from_primitives change shape
+_CACHE_SCHEMA = 4  # Bump when _to_primitives/_from_primitives change shape
 
 # Header layout: magic(4) + format_ver(2) + py_major(1) + py_minor(1) + cache_ver(1) + reserved(3) = 12
 _HEADER_FMT = "!4sHBBB3s"
@@ -168,6 +168,8 @@ def _map_to_prim(m: "Map") -> dict:
         ExpMap,
         LinearMap,
         LogMap,
+        PolynomialInverseMap,
+        PolynomialMap,
         ReciprocalMap,
     )
 
@@ -202,6 +204,13 @@ def _map_to_prim(m: "Map") -> dict:
         if m.rel_uncertainty != 0.0:
             d["u"] = m.rel_uncertainty
         return d
+    if isinstance(m, PolynomialMap):
+        d = {"_t": "P", "cs": list(m.coefficients), "dom": list(m.domain)}
+        if m.rel_uncertainty != 0.0:
+            d["u"] = m.rel_uncertainty
+        return d
+    if isinstance(m, PolynomialInverseMap):
+        return {"_t": "PI", "p": _map_to_prim(m.polynomial)}
     if isinstance(m, ComposedMap):
         return {
             "_t": "CM",
@@ -502,6 +511,8 @@ def _prim_to_map(d: dict) -> "Map":
         ExpMap,
         LinearMap,
         LogMap,
+        PolynomialInverseMap,
+        PolynomialMap,
         ReciprocalMap,
     )
 
@@ -520,6 +531,14 @@ def _prim_to_map(d: dict) -> "Map":
         )
     if t == "R":
         return ReciprocalMap(a=d["a"], rel_uncertainty=d.get("u", 0.0))
+    if t == "P":
+        return PolynomialMap(
+            coefficients=tuple(d["cs"]),
+            domain=tuple(d["dom"]),
+            rel_uncertainty=d.get("u", 0.0),
+        )
+    if t == "PI":
+        return PolynomialInverseMap(polynomial=_prim_to_map(d["p"]))
     if t == "CM":
         return ComposedMap(
             outer=_prim_to_map(d["outer"]),

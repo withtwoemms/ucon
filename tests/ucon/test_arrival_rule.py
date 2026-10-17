@@ -33,7 +33,9 @@ here is constructed locally and the rule is a no-op on existing behavior.
 import unittest
 
 from ucon import KindArrivalRefused, Number, Unit, units as U
+from ucon.aspects import Aspect
 from ucon.contexts import ContextEdge, ConversionContext, using_context
+from ucon.conversion import get_default_graph
 from ucon.dimension import all_dimensions
 from ucon.kinds import JoinPolicy, Kind, KindLattice
 from ucon.maps import LinearMap
@@ -152,8 +154,6 @@ class TestUndeclaredTargetsAreUntouched(ArrivalRuleTestCase):
 class TestAspectsAreOrthogonal(ArrivalRuleTestCase):
     def test_aspects_ride_through_a_re_kinding(self):
         """The arrival rule governs the kind stratum only."""
-        from ucon.aspects import Aspect
-
         basis = Aspect(name="arr_basis", join_policy=JoinPolicy.REFUSE)
         nominal = Aspect(name="arr_nominal", parent=basis,
                          join_policy=JoinPolicy.REFUSE)
@@ -238,7 +238,6 @@ class TestStaticEdgesBetweenSiblingsRefuse(unittest.TestCase):
         self.assertEqual(result.kind, EQUIVALENT)
 
     def test_the_license_is_surfaced_by_the_graph(self):
-        from ucon.conversion import get_default_graph
         with use(active_system(), kinds=DOSE_LATTICE), using_context(DATED):
             _, license_ = get_default_graph().convert_with_license(src=GY, dst=SV)
         self.assertEqual(license_, "arrival-dated")
