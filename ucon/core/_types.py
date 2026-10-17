@@ -2340,6 +2340,13 @@ class Number:
             return None
         # Mixed: one kinded, one unkinded
         if self.kind is None or other.kind is None:
+            kinded = self if self.kind is not None else other
+            if kinded._kind_is_unit_default():
+                # A unit default meeting an unkinded operand under `×`: the
+                # product is a compound, and compounds declare nothing
+                # (ADR 013 §4). Drop the default silently. The anonymous
+                # factor rule (013 §4.5) supersedes this later.
+                return None
             ctx = _sys_active_var.get()
             if ctx is not None and ctx.strict:
                 present = self.kind if self.kind is not None else other.kind
@@ -2370,6 +2377,20 @@ class Number:
                 raise
             return None
 
+    def _kind_is_unit_default(self) -> bool:
+        """Whether this Number's kind is the one its unit declares by default.
+
+        A kind attached by ``Unit.default_kind`` is a *default*, not an
+        assertion; a kind the caller attached explicitly is an assertion.
+        Provenance is derived, not stored: the kind is a default iff it
+        equals what the unit's declaration resolves to. A caller who passes
+        the unit's own default has asserted nothing beyond it.
+        """
+        if self.kind is None:
+            return False
+        declared = getattr(self.unit, 'default_kind', None)
+        return declared is not None and _resolve_default_kind(declared) == self.kind
+
     def _resolve_add_kind(self, other: 'Number') -> 'Kind | None':
         """Resolve the result kind for addition or subtraction.
 
@@ -2390,6 +2411,12 @@ class Number:
                 f"without an active context"
             )
         if self.kind is not None or other.kind is not None:
+            kinded = self if self.kind is not None else other
+            if kinded._kind_is_unit_default():
+                # A unit default meeting an unkinded operand: the same
+                # quantity written two ways (`1 Hz + 1 (1/s)`). Inherit
+                # the default silently; there is no assertion to defend.
+                return kinded.kind
             ctx = _sys_active_var.get()
             if ctx is not None and ctx.strict:
                 present = self.kind if self.kind is not None else other.kind

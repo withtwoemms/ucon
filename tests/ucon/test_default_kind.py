@@ -30,6 +30,7 @@ declares a conflicting ``default_kind`` — is an open design question
 
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 
 from ucon import (
@@ -40,9 +41,10 @@ from ucon import (
     load_package,
     units,
 )
+from ucon import KindMismatch
 from ucon._cache import _from_primitives, _to_primitives
-from ucon.core import Unit, UnitProduct
-from ucon.dimension import LENGTH, NONE
+from ucon.core import Scale, Unit, UnitFactor, UnitProduct
+from ucon.dimension import FREQUENCY, LENGTH, NONE
 from ucon.graph import ConversionGraph
 from ucon.kinds import Kind, KindLattice
 from ucon.packages import UnitDef
@@ -430,6 +432,71 @@ class TestCacheRoundTrip(unittest.TestCase):
             if key.startswith("u:") and "dk" in val
         ]
         self.assertEqual(declared, [])
+
+
+# ── #325: a unit default is a default, not an assertion ──────────────────
+FREQ = Kind("frequency", dimension=FREQUENCY)
+ROTATIONAL = Kind("rotational_frequency", dimension=FREQUENCY)
+FREQ_LATTICE = KindLattice([FREQ, ROTATIONAL])
+hz2 = Unit(name="hz2", dimension=FREQUENCY, default_kind="frequency")
+hz2._set_base_form(units.hertz.base_form)  # normalizable against 1/s, so `+` reaches kind dispatch
+inv_s = UnitProduct({UnitFactor(units.second, Scale.one): -1.0})
+
+
+class TestUnitDefaultJoinsPermissively(unittest.TestCase):
+    """A kind attached by ``default_kind`` is a default; one the caller
+    attached is an assertion. Only assertions are defended under strict.
+    Without this, ``default_kind = "frequency"`` on hertz would make
+    ``1 Hz + 1 (1/s)`` raise for everyone."""
+
+    def test_provenance_is_derived_from_the_unit(self):
+        with use(active_system(), kinds=FREQ_LATTICE):
+            self.assertTrue(Number(1, hz2)._kind_is_unit_default())
+            self.assertTrue(Number(1, hz2, kind=FREQ)._kind_is_unit_default())
+            self.assertFalse(Number(1, hz2, kind=ROTATIONAL)._kind_is_unit_default())
+            self.assertFalse(Number(1, units.hertz)._kind_is_unit_default())
+
+    def test_default_plus_unkinded_inherits_silently_under_strict(self):
+        with use(active_system(), kinds=FREQ_LATTICE, strict=True):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                total = Number(1, hz2) + Number(1, inv_s)
+        self.assertIs(total.kind, FREQ)
+        self.assertAlmostEqual(total.quantity, 2.0)
+
+    def test_order_does_not_matter(self):
+        with use(active_system(), kinds=FREQ_LATTICE, strict=True):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                total = Number(1, inv_s) + Number(1, hz2)
+        self.assertIs(total.kind, FREQ)
+
+    def test_asserting_the_units_own_default_is_still_a_default(self):
+        with use(active_system(), kinds=FREQ_LATTICE, strict=True):
+            total = Number(1, hz2, kind=FREQ) + Number(1, inv_s)
+        self.assertIs(total.kind, FREQ)
+
+    def test_an_explicit_other_kind_stays_strict(self):
+        with use(active_system(), kinds=FREQ_LATTICE, strict=True):
+            with self.assertRaises(KindMismatch):
+                Number(1, hz2, kind=ROTATIONAL) + Number(1, inv_s)
+
+    def test_default_times_unkinded_drops_the_default_silently(self):
+        """The product is a compound, and compounds declare nothing."""
+        with use(active_system(), kinds=FREQ_LATTICE, strict=True):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                product = Number(1, hz2) * Number(3, units.second)
+        self.assertIsNone(product.kind)
+
+    def test_explicit_kind_times_unkinded_stays_strict(self):
+        with use(active_system(), kinds=FREQ_LATTICE, strict=True):
+            with self.assertRaises(KindMismatch):
+                Number(1, hz2, kind=ROTATIONAL) * Number(3, units.second)
+
+    def test_kinded_with_kinded_is_unchanged(self):
+        with use(active_system(), kinds=FREQ_LATTICE, strict=True):
+            self.assertIs((Number(1, hz2) + Number(2, hz2)).kind, FREQ)
 
 
 if __name__ == "__main__":

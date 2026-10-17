@@ -316,7 +316,11 @@ return the registered name if there is one, else `derived(…)`. The kind stratu
    dimension `d`: `kinded × unkinded(d) → derived(k · anon(d))`. Treating it as the identity is
    well-typed only when `d` is `none` — `height × 2 s` with result kind `height` fails the attachment
    check, since the kind's dimension no longer matches the unit's. `anon(none)` *is* the identity, so
-   `h × 50 %` and `h × 2` keep `height`. `+` keeps strict `KindMismatch`.
+   `h × 50 %` and `h × 2` keep `height`. `+` keeps strict `KindMismatch` for
+   kinds the caller asserted; a kind attached by the unit's `default_kind` is
+   a *default* and joins `None` by inheriting it (and is dropped under `×`)
+   with no warning (#325) — else `default_kind` on `hertz` would refuse
+   `1 Hz + 1 (1/s)`.
 
 **Relation to ADR 009's ⊤_d.** 009 rules: *"`×` with no formula → ⊤_d of the product dimension,
 refuse, non-overridable."* Its motivating case is laundering — `dose_rate × time`, unkinded,

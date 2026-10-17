@@ -170,6 +170,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a conflicting `default_kind` — remains open and is unchanged here.
 ### Changed
 
+- **Unit-declared kinds join unkinded operands permissively; explicit kinds
+  stay strict.** (#325) A kind attached by `Unit.default_kind` is a default,
+  not an assertion. Under strict mode a default-kinded operand meeting an
+  unkinded one now inherits the default under `+`/`−` and drops it under
+  `×`/`÷`, silently — `1 Hz + 1 (1/s)` is the same quantity written two
+  ways, and `1 Hz × 3 s` is a compound that declares nothing. A kind the
+  caller attached explicitly still raises `KindMismatch` as before.
+  Provenance is derived, not stored: a kind is a default iff it equals what
+  the unit's own declaration resolves to.
+
+  This is the prerequisite for `default_kind` on the degeneracy-cluster
+  units (the 2.3.0 KOQ floor): without it, the moment `hertz` declared
+  `frequency`, every mixed expression it appears in would have regressed.
+  No shipped unit declares a `default_kind` yet, so nothing changes today.
+
 - **Roadmap recast around the UnitSafe gate; ADR 013 proposed.** `ROADMAP.md`
   ordered the planned releases by principle; it now orders them by what the
   UnitSafe benchmark exercises. v2.3.0 becomes *Package infrastructure and the
