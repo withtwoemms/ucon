@@ -2197,15 +2197,17 @@ class Number:
         current kind       target default_kind  result
         =================  ===================  =================
         ``usd``            ``eur``              ``eur``  (licensed)
-        ``absorbed_dose``  ``dose_equivalent``  **refuses**
+        ``absorbed_dose``  ``dose_equivalent``  **refuses** (siblings)
+        ``dose``           ``dose_equivalent``  **refuses** (narrowing)
         ``payload_size``   ``information``      ``payload_size``
         ``information``    ``information``      ``information``
         *(none)*           ``eur``              ``eur``
         anything           *(none declared)*    unchanged
         =================  ===================  =================
 
-        And when the two kinds are **siblings** — neither an ancestor of the
-        other — the declaration may win only if the conversion path used an
+        And when the declaration does not **widen** the current kind — the
+        two are siblings, or the declaration *narrows* the current kind — it
+        may win only if the conversion path used an
         edge licensed by a contingent context (``license``, the context's
         name, surfaced by :meth:`Graph.convert_with_license`). A dated rate
         table transformed the stuff; a static factor did not, and relabelling
@@ -2219,7 +2221,16 @@ class Number:
         case, the one the rule was written for.
         """
         declared = getattr(target_unit, "default_kind", None)
+        target_dim = getattr(target_unit, "dimension", None)
+
         if declared is None:
+            # The target declares no kind. Keep the current kind only if it
+            # still fits the result's dimension: a cross-dimensional
+            # conversion (E = h·f) leaves the old fiber's kind behind rather
+            # than carrying `periodic_frequency` onto a joule.
+            if (self.kind is not None and target_dim is not None
+                    and self.kind.dimension != target_dim):
+                return None
             return self.kind
 
         arrival = _resolve_default_kind(declared)
@@ -2228,21 +2239,34 @@ class Number:
         if self.kind is None:
             return arrival
 
+        # Both kinds are set and differ. If they live in different fibers,
+        # the conversion itself transformed the stuff across dimensions
+        # (frequency → energy); adopt the arrival kind, no license needed —
+        # nothing is being relabelled *within* a fiber.
+        if self.kind.dimension != arrival.dimension:
+            return arrival
+
+        # Same fiber: a re-label within one dimension. The declaration may
+        # win only by *widening* (an ancestor the finer current kind already
+        # implies); siblings and narrowing relabel onto a claim the value
+        # does not imply, and need a license — a static edge performed no
+        # specialization (generic power is not real power until something
+        # measured which).
+        # ``arrival`` is non-None, so the active lattice resolved its name
+        # (``_resolve_default_kind`` reads only the active lattice); the
+        # lattice is therefore present to classify the re-label.
         ctx = _sys_active_var.get()
         lattice = getattr(ctx, "kinds", None) if ctx is not None else None
-        siblings = False
-        if lattice is not None and hasattr(lattice, "is_descendant"):
-            try:
-                if lattice.is_descendant(self.kind, arrival):
-                    # The declaration is an ancestor; keep the finer kind.
-                    return self.kind
-                if lattice.is_descendant(arrival, self.kind):
-                    # The declaration narrows, and the caller asked for it.
-                    return arrival
-                siblings = True
-            except Exception:
-                pass  # the lattice could not decide; stay best-effort
-        if siblings and license is None:
+        needs_license = True
+        try:
+            if lattice.is_descendant(self.kind, arrival):
+                return self.kind  # widening; the finer kind survives
+        except Exception:
+            # The current kind is not in the lattice (an explicit kind the
+            # active lattice does not know), so ancestry cannot be decided.
+            # Stay best-effort, matching attachment: adopt rather than raise.
+            needs_license = False
+        if needs_license and license is None:
             raise KindArrivalRefused(current=self.kind, arrival=arrival, unit=target_unit)
         return arrival
 

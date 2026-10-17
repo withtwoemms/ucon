@@ -85,8 +85,9 @@ def test_restricted_family_on_wrong_kind_refuses():
 
 def test_restricted_family_on_unkinded_refuses():
     _, icrp103 = _weighting_family()
+    # meter is genuinely unkinded; gray now declares absorbed_dose (#327).
     with pytest.raises(AspectNotApplicable) as exc_info:
-        Number(1.5, units.gray, aspects=[icrp103])
+        Number(1.5, units.meter, aspects=[icrp103])
     assert exc_info.value.kind is None
     assert "<unkinded>" in str(exc_info.value)
 

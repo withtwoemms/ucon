@@ -116,11 +116,21 @@ class TestDefaultKindField(unittest.TestCase):
     def test_explicit_value_is_stored(self):
         self.assertEqual(usd_unit.default_kind, "usd")
 
-    def test_builtin_units_declare_no_default_kind(self):
-        # The catalog is untouched: default_kind is opt-in, per package.
+    def test_koq_cluster_units_declare_their_kind(self):
+        # The 2.3.0 KOQ floor (#327): degeneracy-cluster units declare a
+        # specific kind; everything else stays opt-in.
         self.assertIsNone(units.meter.default_kind)
-        self.assertIsNone(units.gray.default_kind)
-        self.assertIsNone(units.sievert.default_kind)
+        self.assertEqual(units.gray.default_kind, "absorbed_dose")
+        self.assertEqual(units.sievert.default_kind, "dose_equivalent")
+        self.assertEqual(units.hertz.default_kind, "periodic_frequency")
+        self.assertEqual(units.becquerel.default_kind, "radioactive_activity")
+        self.assertEqual(units.watt.default_kind, "real_power")
+        self.assertEqual(units.volt_ampere.default_kind, "apparent_power")
+        # joule and pascal stay generic: no sibling SI unit marks a kind
+        # distinction within energy or pressure, so a Number is free to
+        # carry kinetic_energy, stress, etc. without being overwritten.
+        self.assertIsNone(units.joule.default_kind)
+        self.assertIsNone(units.pascal.default_kind)
 
     def test_default_kind_excluded_from_identity(self):
         # Like ``scalable``, ``default_kind`` is metadata rather than an
@@ -423,15 +433,22 @@ class TestCacheRoundTrip(unittest.TestCase):
         self.assertIsNotNone(recovered)
         self.assertIsNone(recovered[0].default_kind)
 
-    def test_builtin_catalog_marshals_without_the_key(self):
-        # No catalog unit declares one, so the cache payload is
-        # byte-identical to what it was before the field existed.
+    def test_cluster_units_marshal_and_round_trip_their_default_kind(self):
+        # The KOQ-floor units (#327) carry a default_kind; the cache
+        # must preserve it. Units outside the clusters still omit the key.
         prims = _to_primitives(get_default_graph())
-        declared = [
-            key for key, val in prims.items()
+        declared = {
+            val.get("n"): val["dk"]
+            for key, val in prims.items()
             if key.startswith("u:") and "dk" in val
-        ]
-        self.assertEqual(declared, [])
+        }
+        self.assertEqual(declared.get("gray"), "absorbed_dose")
+        self.assertEqual(declared.get("hertz"), "periodic_frequency")
+        self.assertEqual(declared.get("watt"), "real_power")
+        self.assertNotIn("meter", declared)
+        restored = _from_primitives(prims)
+        self.assertEqual(
+            restored.resolve_unit("gray")[0].default_kind, "absorbed_dose")
 
 
 # ── #325: a unit default is a default, not an assertion ──────────────────
