@@ -288,3 +288,42 @@ class TestArithmeticRegressions:
         mu = units.pascal_second(0.001)
         Re = (rho * v * L) / mu
         assert abs(Re.quantity - 100000.0) < 1e-6
+
+
+class TestRankineBaseForm:
+    """``rankine`` is a pure scaling of kelvin, so it carries a base_form (#339).
+
+    It had been named in ``generate_base_forms._NULL_BASE_FORM_NAMES`` beside
+    the three conventional-zero scales, which asserted its base_form stay
+    ``None``. Rankine is the absolute Fahrenheit-degree scale: ``0 °R = 0 K``,
+    factor 5/9. Only the degree *size* is Fahrenheit's.
+    """
+
+    def test_rankine_has_a_base_form(self):
+        bf = units.rankine.base_form
+        assert bf is not None
+        assert bf.factors == ((units.kelvin, 1.0),)
+        assert abs(bf.prefactor - 5.0 / 9.0) < 1e-15
+
+    def test_conventional_zero_scales_still_have_none(self):
+        # celsius/fahrenheit/reaumur are affine to kelvin; no prefactor can
+        # express an offset, so their base_form must stay None.
+        assert units.celsius.base_form is None
+        assert units.fahrenheit.base_form is None
+        assert units.reaumur.base_form is None
+
+    def test_rankine_shares_kelvins_zero(self):
+        assert abs(units.rankine(0).to(units.kelvin).quantity) < 1e-15
+
+    def test_canonical_magnitude_is_in_kelvin(self):
+        # Before #339 this silently returned the raw quantity (20), because
+        # _canonical_magnitude falls back to it when base_form is None.
+        assert abs(units.rankine(20).canonical_magnitude - 100.0 / 9.0) < 1e-12
+
+    def test_to_base_converts_rather_than_no_ops(self):
+        assert abs(units.rankine(20).to_base().quantity - 100.0 / 9.0) < 1e-12
+
+    def test_addition_with_kelvin_is_admitted(self):
+        # The missing base_form made this raise UnitsNotNormalizable.
+        result = units.rankine(20) + units.kelvin(5)
+        assert abs(result.to(units.kelvin).quantity - (100.0 / 9.0 + 5.0)) < 1e-12

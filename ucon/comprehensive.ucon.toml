@@ -1358,6 +1358,12 @@ aliases = [
     "R",
 ]
 
+[units.base_form]
+prefactor = 0.5555555555555556
+factors = [
+    ["kelvin", 1.0],
+]
+
 [[units]]
 name = "roentgen"
 dimension = "exposure"
