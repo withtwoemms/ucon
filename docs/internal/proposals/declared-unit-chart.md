@@ -1,21 +1,30 @@
-# PROPOSAL: Declaring `Unit.chart`
+# PROPOSAL: Declaring `Unit.chart` — withdrawn in favour of deriving it
 
-**Status:** Proposed — implementation plan, not a decision record
-**Date:** 2026-10-17; revised 2026-10-18 after working the open questions
+**Status:** Withdrawn as an implementation plan; retained as the record of why, and of the three bugs it exposed
+**Date:** 2026-10-17; revised 2026-10-18 (twice) after working the open questions one at a time
 **Implements:** [`../decisions/010-chart-nomenclature.md`](../decisions/010-chart-nomenclature.md) (Accepted) and [`../decisions/009-turnstile.md`](../decisions/009-turnstile.md) §4
-**Lands:** 2.3.0 (the field, its parameters, the validator, the catalog declarations). The chart *dispatch* is 3.1.0.
-**Disposition on landing:** this document is the acceptance list; each block in §5 becomes a test. Superseded afterwards by the CHANGELOG entry.
+**Lands:** nothing, as scoped — see §6. The field, the TOML key, the cache bump and the validator are all withdrawn; what replaces them is #339, #340 and #341. The chart *dispatch* remains 3.1.0.
+**Disposition:** this document is now a record of why the chart stratum does not need a declared field, plus the three bugs working it exposed. ADR 010 carries the resulting [Amendment](../decisions/010-chart-nomenclature.md#amendment-2026-10-18) and ADR 009 §4 is re-pointed; those are authoritative, this is the reasoning behind them.
 
-All evidence below verified against `main` at `0e1d22e`.
+All evidence below verified against `main` at `dcf7f8d`, re-run after each revision.
 
-**Revision note.** Three of the four questions below are now answered by *deletion*: the
-fourth chart class is declined, and `logarithmic` needs no parameters. Both
-recommendations in the first draft were wrong, and §2 and §3 record why —
-the reasoning is the useful part.
+**Revision note.** Every recommendation this document has made on questions 1–3
+has been wrong at least once, and §§2–4 record why — the reasoning is the useful
+part, and the retractions are kept rather than erased so the same ground is not
+re-walked. Questions 1 and 2 are answered by *deletion*: no fourth chart class
+(§2), no `logarithmic` parameters (§3). Question 3 is answered by deletion too,
+one level up: **the catalog already declares the chart class**, distributed
+across its edge-key vocabulary, and the full 222 / 3 / 9 classification derives
+from 207 declared edge rows plus one physical fact (§4.1). So there is no field
+to declare and no validator to write. Question 4 reverses: re-keying the 2.2.2
+refusal would introduce silent magnitude corruption, because `base_form` is
+load-bearing for the arithmetic and not merely for the meaningfulness check
+(§5). Three bugs came out of the work — #339, #340, #341 — and the ADR 010
+question it raised is settled in §6, by amendment to 010 and 009.
 
 ---
 
-## 1. What ADR 010 already decided — do not reopen
+## 1. What ADR 010 already decided
 
 010 is **Accepted**. It settles, and this proposal takes as given:
 
@@ -26,7 +35,13 @@ the reasoning is the useful part.
 - cyclic and ordinal structure live on `Kind` (`modulus`, `ordinal`), not here;
 - the taxonomy is **deliberately open**: "a declared field admits a fourth class without migration."
 
-So the open work is four questions 009 and 010 left unanswered, not the naming or the inference ban.
+So the open work was taken to be the four questions 009 and 010 left unanswered,
+not the naming or the inference ban.
+
+**One of those givens does not survive.** Working question 3 showed the catalog
+already declares the chart class in its edge-key vocabulary (§4.1), which makes
+the inference ban the live question rather than a settled premise — see §6's
+"On ADR 010". Everything else in this list stands.
 
 ## 2. Question 1 — a fourth class? **Declined.**
 
@@ -63,12 +78,27 @@ Also declined, and recorded so they are not re-proposed:
 | `derived` | collides with *derived quantity* / *derived dimension* (ISO 80000) |
 
 `PolynomialMap` (#332) is **not** an inhabitant either, contrary to the first
-draft: a chart class is a unit's relation to its *own* fiber's canonical ratio
-unit, and the PT100 polynomial relates `celsius` (temperature) to `ohm`
-(resistance) — a cross-dimensional conversion edge, not a numeral scheme.
+draft: a chart class is a property of a unit's own numeral scheme within its
+fiber, and the PT100 polynomial relates `celsius` (temperature) to `ohm`
+(resistance) — a cross-dimensional conversion edge, not a numeral scheme. (The
+first draft said "relation to its own fiber's canonical ratio unit"; §4.2 shows
+most fibers have no such unit, so the phrasing is corrected here even though the
+conclusion is unaffected.)
 
 The taxonomy stays at three. ADR 010 guarantees a fourth can be added later
 without migration, so nothing is foreclosed.
+
+**Reframed by #341.** The conclusion survives but the reasoning above is
+incomplete. `nines` does not relate affinely to `bel`/`decibel`/`neper` —
+`nines → decibel` is `10·log₁₀(1 − 10⁻ⁿ)`, which is not affine — so it is *not*
+interchangeable with the other levels, and §4.3 records how that falsified the
+validator this document proposed. The cause is not a missing chart class: it is
+that `nines`' edge is the catalog's only `composed` edge, whose inner
+`affine(a=-1, b=1)` is `x ↦ 1 − x`, a change of **quantity** (availability to
+unavailability) hidden inside a map whose job is a change of **scale**. The
+addition law derived above is still correct; the defect is that the charted
+quantity and the edge's endpoint disagree. Fix the edge and `nines` rejoins the
+family — which is why a fourth class is still the wrong answer.
 
 ## 3. Question 2 — what parameters does `logarithmic` carry? **None.**
 
@@ -119,7 +149,9 @@ convention decision, not a chart-schema gap, and it interacts with #307 and ADR
 ### What the four logarithmic combinations must do
 
 The first draft discussed only addition. The acceptance criteria for the class
-are all four, and today three of the five cases are wrong:
+are all of them, and today four of the five are wrong — including one the
+earlier revisions omitted entirely, scalar multiplication, which is the case
+that silently succeeds:
 
 | operands | required | today |
 |---|---|---|
@@ -127,9 +159,13 @@ are all four, and today three of the five cases are wrong:
 | level ± gain | level | `TypeError` — the legitimate case, refused |
 | gain ± gain | gain | correct |
 | level + level | refuse | `<50.0 dBm>` — admitted |
+| **scalar × level** | **refuse** | `Number(10, dBW) * 2` → `<20 dBW>` = 100 W, i.e. 10×, not 2× — admitted (#340) |
 
-All the level cases fail for one reason: `dBm` is `Dimension(power)` and `dB` is
-`Dimension(ratio)`, so `__add__` gates on dimension at **stratum 1** before any
+The scalar case is the exception to what follows: it fails at no stratum at all,
+because `__mul__` by a scalar consults neither `base_form` nor any chart notion
+(#340). The remaining level cases fail for one reason: `dBm` is
+`Dimension(power)` and `dB` is `Dimension(ratio)`, so `__add__` gates on
+dimension at **stratum 1** before any
 chart logic could run. A correct log chart needs stratum 1 to admit *point +
 declared-displacement-unit across dimensions* — which is 3.1.0 dispatch, not
 this release. Noted so the limit is explicit rather than implied.
@@ -142,33 +178,232 @@ collapse into addition, since a gain may legitimately be negative — though
 
 ## 4. Question 3 — what does the validator check, and when?
 
-010: the Map-form derivation survives as a load/`extend`/merge-time validator. Specify it as:
+**Answered by deletion. There is nothing to declare, so there is nothing to validate.**
 
-> Derive the expected class from the edge to the fiber's canonical ratio unit — Linear → `ratio`, Affine → `interval`, Log (including a `ComposedMap` whose outer map is a log, as `nines` is) → `logarithmic` — and compare against the declaration. Mismatch refuses at load.
+The first draft specified the validator as "derive the expected class from the edge
+to the fiber's canonical ratio unit." The second revision replaced that with two
+sweeps and claimed both verified. **Both were wrong**, and the second was wrong in
+the worse way — it reported the residue of a silent filter as evidence. What
+replaces them is not a third validator but the observation that the catalog
+already declares everything the field was meant to carry.
 
-Two `[live]` misclassifications 009 §4 names become its fixtures, and both are cases **inference alone gets wrong** — which is precisely why the declared field is the authority:
+### 4.1 The classification is derivable from what the TOML already says
 
-- **`dyne`** has no direct edge to read, and its `base_form is None` for basis-scoping reasons rather than chart structure (#283). Inference would refuse `2 × 20 dyn` the way it refuses `2 × 20 °C`.
-- **`decibel`**'s direct edge is a `LinearMap` to `bel` — a within-chart automorphism. Edge-reading misreads log units as ratio.
+Across all **207** declared edges the catalog uses exactly three vocabularies:
 
+| edge shape | n | means |
+|---|---|---|
+| bare `factor` | 196 | pure scaling |
+| `factor` + `offset` | 2 | conventional zero (both `celsius`-sourced) |
+| `map` (log / exp / composed) | 9 | the numerals are a logarithm |
+
+That vocabulary *is* the chart declaration. Two computations over it recover the
+classification:
+
+- **coordinate** — a unit's numerals are a logarithm iff it is the **source of an
+  `exp` edge** or the **target of a `log` edge**. Yields 9 units. (Direction
+  matters: `decibel → fraction` is `exp`, `fraction → neper` is `log`; both
+  conventions appear, and both name the log-side unit.)
+- **origin** — components under pure-scaling edges only. `Dimension(temperature)`
+  splits into `{kelvin, rankine}`, `{celsius, reaumur}`, `{fahrenheit}`.
+
+Add **one** exogenous fact — thermodynamic temperature has an absolute zero,
+realised by `kelvin` — and the whole catalog falls out:
+
+```
+interval      ['celsius', 'fahrenheit', 'reaumur']
+logarithmic   ['bel','decibel','decibel_milliwatt','decibel_spl','decibel_volt',
+               'decibel_watt','neper','nines','pH']
+ratio         222 units (everything else)
+
+inputs: 207 declared edge rows (key names only) + 1 physical fact
+```
+
+234 of 234, zero disagreements, no ADR and no census consulted. It also gets
+`rankine` right, where the hand-written allowlist got it wrong (#339).
+
+### 4.2 Why the draft's derivation could not work
+
+The taxonomy has **two levels**, and a single three-valued enum straddles them:
+
+| level | what varies | decidable from conversion maps? |
+|---|---|---|
+| **coordinate** φ | identity / `log` / … | **yes** — a coordinate change is non-affine |
+| **origin** within a coordinate | ℝ₊ (`ratio`) vs Aff(1) (`interval`) | **no** — ℝ₊ is the stabilizer of 0 *inside* Aff(1) |
+
+`ratio` and `interval` are **subgroup** labels; `logarithmic` is a **coordinate**
+label. They are not the same kind of thing, which is why one check could never
+cover both.
+
+Level 2's undecidability is not an argument, it is a fact of the catalog.
+`reaumur ↔ celsius` is strictly linear with **both** `interval` (they share the
+freezing zero); `kelvin ↔ rankine` is strictly linear with **both** `ratio`. Same
+observation, different classes. Equivalently: rotate the root through the
+temperature fiber and the derived answers flip — only `kelvin` and `rankine` as
+root reproduce the census, i.e. exactly the two units already known to have a true
+zero. Any rule of this shape **assumes** what it claims to derive, and should be
+called an anchored consistency check, never a derivation.
+
+That is why §4.1 needs the physical fact: one bit per fiber, supplied by
+metrology. Transition maps on a fiber form a groupoid with a gauge freedom in the
+choice of origin; "has a true zero" is extra structure not recoverable from them.
+
+### 4.3 The retracted sweeps, recorded so they are not re-proposed
+
+**"Check B": a same-fiber conversion is non-affine iff exactly one endpoint is
+`logarithmic`. FALSE.**
+
+```
+nines -> decibel at n = 1, 2, 3:  [-0.457574906, -0.043648054, -0.004345118]
+best affine fit: max relative residual 5.6e+07
+```
+
+Both endpoints are `logarithmic`. The cause is #341: `nines`' edge is the
+catalog's only `composed` edge and its inner `affine(a=-1, b=1)` is `x ↦ 1 − x`,
+a change of quantity rather than of scale.
+
+**How the claim passed, which matters more than the claim.** The sweep reported
+"946 pairs, 0 violations." The catalog has **971** unordered same-fiber pairs,
+**21** unreachable, **950** convertible. The evaluation sat inside a bare
+`except Exception: continue`, and four convertible pairs raise
+`ValueError: Logarithm argument must be positive` at the probe points used —
+`bel→nines`, `decibel→nines`, `neper→nines`, `fraction→nines`. 950 − 4 = 946. The
+reported evidence was the input minus exactly the counterexamples. Two further
+defects compound it: the verdict **moves with the probe** (at x∈(0,1) the
+ratio↔log pair `fraction↔nines`, which the check must flag, is correctly
+non-affine; at x∈(1,5) it silently errors), and affinity is a second-difference
+test, so residuals must be taken **relative** and over **widely separated**
+probes — an absolute tolerance near `dB_SPL → ksi`'s `10⁻¹³` outputs reports
+curvature as flat, which produced two phantom findings on the first pass.
+
+Also retracted: the claim that six log↔log pairs carry a `Log ∘ Exp` that cancels
+to an affine net. Three do (`dBm ↔ dBW`, `bel ↔ neper`, `decibel ↔ neper`); the
+three involving `nines` do not.
+
+**"Check A" as a derivation.** See §4.2. Retained only as an anchored consistency
+check, which is what §4.1's origin computation is.
+
+**`dyne` as a fixture.** Dropped. Its `base_form` is populated
+(`prefactor=1e-05`, `m·kg·s⁻²`) and `dyne → newton` is a `LinearMap`, so both the
+proxy and any composed-path reading classify it `ratio`, correctly. ADR 009 §4
+states "`dyne` has no direct edge to read, and its `base_form is None` for
+basis-scoping reasons." The first half is true — `dyne` has no `_unit_edges`
+entry at all; the `LinearMap` is a cross-basis composition. The second half is a
+flat factual error, and it is the founding example of this stratum. The operation
+ADR 009 names is `2 × 20 dyn`, which does not refuse today either (#340).
 ## 5. Question 4 — does the 2.2.2 refusal re-key in this release?
 
-The roadmap row says the `base_form is None` proxy gives way to declared `Unit.chart`. That is the behaviour-visible half: it changes **which pairs refuse**.
+**No. Re-keying it as the roadmap describes would introduce silent magnitude
+corruption.**
 
-**Proposal: two commits, not one.** Land the field, parameters, validator, and catalog declarations first; re-key `_is_algebraically_normalizable` second, with the five accidental refusals enumerated in its message. A bisect can then separate "chart declared" from "refusal re-keyed" — they fail differently and a reviewer should be able to tell which.
+The roadmap row says the `base_form is None` proxy gives way to declared
+`Unit.chart`, changing which pairs refuse. The 62 same-fiber pairs it would
+unblock are **not** accidental refusals. `_canonical_magnitude` is documented
+"a pure function of (quantity, unit); does **not** consult any graph" and falls
+back to `return self.quantity` when `base_form` is `None`:
 
+```
+50 %       base_form=None   canonical_magnitude=50
+1 fraction base_form=None   canonical_magnitude=1
+naive sum  = 51 %           truth: 1 fraction = 100 %, so 150 %      -> 100x wrong
+20 °R + 5 K: naive 25.0     truth: 20 °R = 11.111 K, so 16.111 K
+```
+
+So the refusals are **correct**, with a misleading message. `base_form is None`
+is load-bearing for the *arithmetic*, not only for the meaningfulness check.
+The two predicates are independent and both are needed:
+
+- **chart** — is the operation meaningful?
+- **`base_form`** — is it computable without the graph?
+
+ADR 010 is right that `base_form` conflates unrelated `None` causes. The
+inference "therefore replace it with chart" does not follow. The 62 pairs are
+unblocked by *giving those units base_forms* — #283 for the 27 non-SI-basis,
+ADR 013's retirement for the 21 pseudo-dimensional, #339 for `rankine` — or by
+routing the arithmetic through the conversion graph. Not by relaxing the gate.
+
+Two corrections to the second revision's own numbers while here. The 62 pairs
+span **34** units, not 50; the 50 is the count of over-refusing *units*, 16 of
+which appear in no counted pair. And the composition is 61 pairs with both
+endpoints `None` plus one with exactly one (`kelvin`/`rankine`), not 62 + 0.
+
+The four causes of `base_form is None` are real and the counts hold — but they
+are the generator's skip predicates (`scripts/generate_base_forms.py:188-200`
+plus `_NULL_BASE_FORM_NAMES:131`), not anything derived from `base_for`
+coverage, which was the second revision's broken classifier:
+
+| cause | n | resolved by |
+|---|---|---|
+| non-SI-basis (`dim.vector.basis != SI`) | 27 | #283 |
+| pseudo-dimensional (`dim.is_pseudo`) | 21 | ADR 013's retirement, 3.0.0 |
+| genuine chart structure | 12 | derivable today, §4.1 |
+| dimensionless (`not dim.base_expansion()`) | 1 | the unnamed unity unit |
+| allowlisted in error | 1 | #339 |
 ## 6. Migration
 
-Census of the shipped catalog (235 units):
+**None required.** §4.1 derives the classification from the shipped catalog, so
+there is no TOML key to add, no `to_toml` emission, no `_CACHE_SCHEMA` bump, no
+frozen-dataclass field, and no 12 declarations to hand-write.
+
+Census, derived (**234** units — counted from `comprehensive.ucon.toml`; the
+"235" of earlier drafts is an *attribute* count in `ucon.units`, where 235 module
+attributes resolve to 234 distinct `Unit.name`s, one being an alias binding):
 
 | class | n | units |
 |---|---|---|
-| `ratio` (default) | 223 | everything else |
-| `interval` | 4 | `celsius`, `fahrenheit`, `rankine`, `reaumur` |
-| `logarithmic` | 8 | `bel`, `decibel`, `decibel_milliwatt`, `decibel_spl`, `decibel_volt`, `decibel_watt`, `neper`, `nines` |
+| `ratio` | 222 | everything else, `rankine` included |
+| `interval` | 3 | `celsius`, `fahrenheit`, `reaumur` |
+| `logarithmic` | 9 | `bel`, `decibel`, `decibel_milliwatt`, `decibel_spl`, `decibel_volt`, `decibel_watt`, `neper`, `nines`, `pH` |
 
-So the work is enumerating **12 units**, not 235: `ratio` is the correct default for 95% of the catalog, and with the fourth class declined there are only three values to choose from. Also required — the TOML key, `to_toml` emission, the binary cache (another `_CACHE_SCHEMA` bump), and `Unit`'s frozen-dataclass field alongside `default_kind`.
+What *should* land instead, each independently shippable and none of it a new
+field:
 
+1. **#339** — `rankine`'s `base_form`. The generator's BFS oracle already
+   computes the right value; only the allowlist suppresses it.
+2. **#340** — gate scalar `*` / `/` on level-vs-gain (read from the Map's
+   `reference`), validate `BaseForm` to its own documented invariants, and guard
+   `_set_base_form`. That last one makes the 2.2.2 proxy sound **by
+   construction** instead of by coincidence, and subsumes what
+   `_NULL_BASE_FORM_NAMES` is doing by hand.
+3. **#341** — the two log edges that target a quantity other than the one
+   charted. `nines` is what falsified the proposed validator; `pH` is a level on
+   a dimensional fiber.
+4. **#283** and ADR 013's pseudo-dimension retirement — which is what actually
+   unblocks the 62 pairs, correctly (§5).
+
+A declared `Unit.chart` field earns its keep only for `extend`-time units that
+arrive with no edges, where derivation has nothing to read. That is not a 2.3.0
+concern, and it is a smaller question than the field as scoped here.
+
+### On ADR 010
+
+ADR 010 is Accepted and says chart is read "from the declared field only — never
+inferred from `base_form` … and never from an edge to a sibling unit (log units
+relate *linearly* to their siblings)." Both bans are well-founded: `base_form`
+conflates four causes (§5) and sibling-edge reading does misclassify `decibel`
+against `bel`.
+
+§4.1 is neither procedure. It reads the **declared edge vocabulary** — the key
+names the catalog author wrote — and treats `factor` / `factor`+`offset` / `map`
+as the declaration they already are. It is closer to ADR 010's spirit than a new
+field would be: the author still declares, in the place where the author already
+declares.
+
+It is nonetheless a departure from ADR 010's letter, and a proposal has no
+standing to make it.
+
+**Settled 2026-10-18.** ADR 010 carries an
+[Amendment](../decisions/010-chart-nomenclature.md#amendment-2026-10-18) and ADR
+009 §4 is re-pointed, both in place per the house convention (009's own Status
+line already records three prior in-place amendments). The naming Decision is
+untouched; what changed is one Consequences bullet that contradicted ADR 010's
+own rationale — "Why chart" already states that *"a `Map`'s algebraic form
+(Linear / Affine / Log) **is** the chart classification"*, which the bullet then
+forbade using. Both original bans stand: not from `base_form`, not from an
+arbitrary sibling edge. The two `[live]` cases 009 §4 cited as forcing a
+declared field are withdrawn there, since both fail on re-test (`dyne`'s
+`base_form` is populated; `decibel` is read correctly once edge direction is
+read).
 ## 7. Not here
 
 - **Chart dispatch** — point/displacement algebra, `20 °C + 5 K`, `2 × 20 °C` refusing, the affine mean, `dBm + dB` admitting across dimensions. All 3.1.0 (ADR 009 §4, §12).
@@ -177,8 +412,23 @@ So the work is enumerating **12 units**, not 235: `ratio` is the correct default
 
 ## 8. Open
 
-- What `fraction` denotes — a power ratio or a field ratio. Filed as its own
-  issue; the answer should be the one #307 and ADR 013 carry forward.
-- Whether `nines` wants its negative scale declared anywhere beyond its Map.
-- `Number.__neg__`, absent today, which displacement arithmetic will want
-  (flagged with `__abs__`, ordering and `__round__` in the 2.4.0 ergonomics row).
+**Nothing in this document.** The ADR 010 question is settled in §6; the three
+bugs are #339, #340 and #341. What remains are questions this document never
+owned:
+
+- What `fraction` denotes — a power ratio or a field ratio (#336). The answer
+  should be the one #307 and ADR 013 carry forward.
+- Whether a fiber gets a distinguished unit beyond the 7 SI base dimensions
+  (`base_for` resolves for 7 of 72). §4.2 shows the origin bit is undecidable
+  without one, so every fiber that acquires a non-ratio unit needs one declared
+  fact. Today only `Dimension(temperature)` has such units and it is anchored,
+  so the gap is harmless **by accident of the catalog, not by construction**.
+  Same question #307 and #336 hold open for the dimensionless fiber.
+- `Number.__neg__`, absent today, which displacement arithmetic will want — and
+  `__rmul__`, also absent, so `2 * Number(...)` raises `TypeError` for *every*
+  unit in the catalog. Both belong with `__abs__`, ordering and `__round__` in
+  the 2.4.0 ergonomics row.
+
+Closed since the last revision: whether `nines` wants its negative scale
+declared beyond its Map — superseded by #341, which shows the problem is the
+edge's inner map, not the scale.
