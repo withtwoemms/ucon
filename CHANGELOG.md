@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- **`Unit.chart` proposal revised: three of its four questions answered by
+  deletion.** (#336 filed alongside) Working the open questions showed both of
+  the original recommendations were wrong. The proposed fourth chart class is
+  **declined**: `−log₁₀(1−x) + −log₁₀(1−y) = −log₁₀[(1−x)(1−y)]`, so addition on
+  the `nines` chart has exactly one meaning — multiply the referenced quantity,
+  which is the parallel-redundancy law and precisely what a logarithmic chart
+  does. The "ambiguity" that motivated the class was a confusion between a rival
+  reading of `+` and a different function of the same inputs; the decibel makes
+  the same distinction without anyone calling it ambiguous. `nines` is
+  `logarithmic`. `PolynomialMap` is not an inhabitant either — the PT100 curve
+  relates temperature to resistance, a cross-dimensional edge, not a numeral
+  scheme.
+
+  And `logarithmic` needs **no parameters**. `reference` is already a field on
+  `LogMap`/`ExpMap` and already populated (`decibel_milliwatt → watt` carries
+  `reference=0.001`), which also makes point-vs-displacement derivable. The
+  field-vs-power distinction is already in `scale`, by the log power rule:
+  `P/P₀ = (F/F₀)²` and `ln(aᵇ) = b·ln(a)` make the exponent and the scale
+  interchangeable, and the catalog gets it right — `dBW`/`dBm` at `scale=0.1`
+  read +10 dB per decade, `dBV`/`dB SPL` at `scale=0.05` read +20 dB. So the
+  declared field is authority for the class and the Map carries the parameters,
+  exactly as ADR 010 said.
+
+  The revision also specifies all four logarithmic add/subtract combinations
+  rather than addition alone: `level − level` is the only producer of a gain
+  (the signal-to-noise idiom), and it cannot be rewritten as
+  `level + (−level)` because negating a point is meaningless.
+
 - **Implementation proposal for declaring `Unit.chart`.**
   [`proposals/declared-unit-chart`](docs/internal/proposals/declared-unit-chart.md)
   scopes the last owed v2.3.0 item.
