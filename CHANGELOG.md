@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- **`ROADMAP.md` resequenced, and v2.3.0 re-scoped.** Working the chart stratum
+  and the KOQ floor surfaced thirteen issues (#339–#348, #352–#354) that reduce
+  to four root causes, the largest being one thing: the pseudo-dimension tags.
+  Eight open issues are its consequences (#307, #318, #321, #336, #341, #344,
+  #346, #348), and #342/#343 depend on #344, so ADR 013's retirement unblocks
+  ten. It had been scheduled at v3.0.0 behind array parity (v2.4.0) and native
+  currency (v2.6.0), **neither of which is a prerequisite for it**.
+
+  So: the deprecation ladder — 3.0.0's only true prerequisite — moves forward to
+  v2.4.0/v2.5.0; array parity and currency are left **unsequenced** rather than
+  renumbered, since where they land is a product-priority call and not a
+  dependency one; the KOQ *catalog* floor moves from v2.3.0 to a new v3.1.0 so it
+  is done once on the merged fiber instead of twice; and the Turnstile moves to
+  v3.2.0.
+
+  v2.3.0 is re-scoped from "package infrastructure and the KOQ floor" to
+  **"stratum wiring and invariant enforcement"** — closing the three routes by
+  which the kind stratum can be bypassed (#340 scalar `*`/`/`, #352 `==`, #353
+  the comparison protocol) and enforcing the invariants that were allowlists
+  (#340's `BaseForm` validation and `_set_base_form` guard, #347's formula
+  collisions). Everything in it is independent of the dimensionless fiber, so it
+  is deliverable now; `rankine` (#339) and `var` (#345) have already landed
+  against it.
+
 - **`Unit.chart` withdrawn: the catalog already declares the chart class.**
   (#336, #339, #340, #341 filed alongside) Working the four open questions one at
   a time retired every recommendation the proposal originally made, and then the
