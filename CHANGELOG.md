@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-- **`Unit.chart` proposal revised: three of its four questions answered by
-  deletion.** (#336 filed alongside) Working the open questions showed both of
-  the original recommendations were wrong. The proposed fourth chart class is
-  **declined**: `−log₁₀(1−x) + −log₁₀(1−y) = −log₁₀[(1−x)(1−y)]`, so addition on
+- **`Unit.chart` proposal revised: two of its four questions answered by
+  deletion, one by replacement.** (#336 filed alongside) Working the open
+  questions showed every one of the original recommendations was wrong. The
+  proposed fourth chart class is **declined**: `−log₁₀(1−x) + −log₁₀(1−y) = −log₁₀[(1−x)(1−y)]`, so addition on
   the `nines` chart has exactly one meaning — multiply the referenced quantity,
   which is the parallel-redundancy law and precisely what a logarithmic chart
   does. The "ambiguity" that motivated the class was a confusion between a rival
@@ -36,6 +36,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than addition alone: `level − level` is the only producer of a gain
   (the signal-to-noise idiom), and it cannot be rewritten as
   `level + (−level)` because negating a point is meaningless.
+
+  The **load-time validator is replaced**, not deleted. Its proposed derivation
+  — read the expected class off "the edge to the fiber's canonical ratio unit" —
+  is not well-defined: `base_units.base_for` resolves for 7 of 72 fibers, so no
+  anchor exists for any of the nine logarithmic units; conversion nonlinearity
+  is symmetric, so the unanchored derivation yields 31 false refusals on a
+  234-unit catalog (`kelvin` derives `interval`; `watt`, `pascal`, `percent`
+  derive `logarithmic`); and "the edge" is neither singular (`celsius` has
+  three, spanning two map types) nor sufficient (`reaumur`'s only direct edge is
+  linear, to `celsius`). Two checks take its place — an anchored one separating
+  `interval` from `ratio` where a base unit exists, and an anchor-free
+  biconditional for `logarithmic`: a same-fiber conversion is non-affine iff
+  exactly one endpoint is logarithmic. Swept over 946 pairs the pair of checks
+  found **two wrong catalog declarations**: `rankine` is `ratio`, not `interval`
+  (`0 °R = 0 K`; its map to kelvin is `LinearMap(5/9)`), and `pH` is
+  `logarithmic` and was missing entirely (`molar → pH` is
+  `LogMap(scale=−1, base=10, reference=1)`). Census corrected to 222 / 3 / 9
+  over 234 units.
 
 - **Implementation proposal for declaring `Unit.chart`.**
   [`proposals/declared-unit-chart`](docs/internal/proposals/declared-unit-chart.md)

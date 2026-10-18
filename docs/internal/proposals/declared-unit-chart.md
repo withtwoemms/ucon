@@ -1,17 +1,21 @@
 # PROPOSAL: Declaring `Unit.chart`
 
 **Status:** Proposed — implementation plan, not a decision record
-**Date:** 2026-10-17; revised 2026-10-18 after working the open questions
+**Date:** 2026-10-17; revised 2026-10-18 after working the open questions one at a time
 **Implements:** [`../decisions/010-chart-nomenclature.md`](../decisions/010-chart-nomenclature.md) (Accepted) and [`../decisions/009-turnstile.md`](../decisions/009-turnstile.md) §4
 **Lands:** 2.3.0 (the field, its parameters, the validator, the catalog declarations). The chart *dispatch* is 3.1.0.
-**Disposition on landing:** this document is the acceptance list; each block in §5 becomes a test. Superseded afterwards by the CHANGELOG entry.
+**Disposition on landing:** this document is the acceptance list; §4's two sweeps become tests and §6's census becomes the catalog declaration they check. Superseded afterwards by the CHANGELOG entry.
 
-All evidence below verified against `main` at `0e1d22e`.
+All evidence below verified against `main` at `dcf7f8d`.
 
-**Revision note.** Three of the four questions below are now answered by *deletion*: the
-fourth chart class is declined, and `logarithmic` needs no parameters. Both
-recommendations in the first draft were wrong, and §2 and §3 record why —
-the reasoning is the useful part.
+**Revision note.** Every first-draft recommendation on questions 1–3 was wrong,
+and §§2–4 record why — the reasoning is the useful part. Two of the three are
+answered by *deletion*: the fourth chart class is declined (§2) and
+`logarithmic` needs no parameters (§3). The third is answered by *replacement*:
+the proposed edge-reading validator is not well-defined, and two checks on
+different mechanisms take its place (§4). Working it also found two wrong
+catalog declarations — `rankine` and `pH` — which is the validator paying for
+itself before it exists.
 
 ---
 
@@ -142,15 +146,101 @@ collapse into addition, since a gain may legitimately be negative — though
 
 ## 4. Question 3 — what does the validator check, and when?
 
-010: the Map-form derivation survives as a load/`extend`/merge-time validator. Specify it as:
+010: the Map-form derivation survives as a load/`extend`/merge-time validator.
+The first draft specified it as "derive the expected class from the edge to the
+fiber's canonical ratio unit." **That derivation is not well-defined**, for
+three independent reasons, each verified against the shipped graph.
 
-> Derive the expected class from the edge to the fiber's canonical ratio unit — Linear → `ratio`, Affine → `interval`, Log (including a `ComposedMap` whose outer map is a log, as `nines` is) → `logarithmic` — and compare against the declaration. Mismatch refuses at load.
+**(a) The anchor does not exist for the fibers that need it.**
+`active_system().base_units.base_for(dim)` resolves for **7 of 72** fibers — the
+SI base dimensions. Every other fiber raises `DimensionNotCovered`, including
+every fiber a logarithmic unit lives on:
 
-Two `[live]` misclassifications 009 §4 names become its fixtures, and both are cases **inference alone gets wrong** — which is precisely why the declared field is the authority:
+```
+celsius  rankine  reaumur   Dimension(temperature)   base_for -> <Unit K>
+bel  decibel  neper  nines  Dimension(ratio)         DimensionNotCovered
+decibel_milliwatt/_watt     Dimension(power)         DimensionNotCovered
+decibel_spl                 Dimension(pressure)      DimensionNotCovered
+decibel_volt                Dimension(voltage)       DimensionNotCovered
+pH                          Dimension(concentration) DimensionNotCovered
+```
 
-- **`dyne`** has no direct edge to read, and its `base_form is None` for basis-scoping reasons rather than chart structure (#283). Inference would refuse `2 × 20 dyn` the way it refuses `2 × 20 °C`.
-- **`decibel`**'s direct edge is a `LinearMap` to `bel` — a within-chart automorphism. Edge-reading misreads log units as ratio.
+So "the fiber's canonical ratio unit" names something the code cannot look up
+for 9 of the 12 units the validator exists to check. Supplying one is the
+question #307 and #336 are already holding open.
 
+**(b) Conversion nonlinearity is symmetric, so no per-unit class is derivable
+without an anchor.** `kelvin ↔ celsius` is affine read from either end. Running
+the unanchored derivation — classify a unit by the worst nonlinearity on any
+path within its own fiber — produces **31 false refusals** on a 234-unit
+catalog: `kelvin` derives `interval`, and every ratio unit sharing a fiber with
+a log unit (`watt`, `pascal`, `volt`, `percent`, `fraction`, `torr`,
+`horsepower`, …) derives `logarithmic`. The chart class is a property of a
+unit's relation to a *distinguished* unit; the graph is unrooted.
+
+**(c) "The edge" is neither singular nor sufficient, and the map named is the
+wrong one.** `celsius` has three direct edges spanning two map types (`Affine`
+to `kelvin` and `fahrenheit`, `Linear` to `reaumur`). `reaumur`'s *only* direct
+edge is `LinearMap → celsius`, which derives `ratio`; the right answer needs the
+composed path to `kelvin`, which is `AffineMap`. And in the unit→canonical
+direction every log unit's composed map is an **`ExpMap`**, not the `LogMap` the
+draft keyed on — `decibel → fraction` is `Exp`, `fraction → decibel` is `Log`.
+A validator reading `LogMap` in the direction it implies classifies all nine as
+nothing.
+
+Both fixtures the draft named also fail as fixtures. `dyne → newton` composes to
+a `LinearMap`, so a composed-path derivation gets `ratio` right — `dyne`'s
+problem is `base_form is None`, which is the 2.2.2 proxy, a different mechanism
+(§5). And `decibel` misreads as `ratio` only if you anchor it on `bel`; anchored
+on `fraction` its map is `ExpMap`. Neither is a counterexample to edge-reading
+as such.
+
+### What the validator can check
+
+Two checks, different mechanisms, neither subsuming the other.
+
+**Check A — anchored; separates `interval` from `ratio`.** Where
+`base_for(dim)` resolves, derive from the composed map to that base unit:
+offset-bearing `Affine` ⇒ `interval`, pure scaling ⇒ `ratio`. This covers the
+only fiber interval units inhabit. Swept over the catalog it reports **exactly
+one disagreement**, and it is a real catalog error, not a false positive — see
+`rankine` below.
+
+**Check B — anchor-free; separates `logarithmic` from the rest.** For any two
+units `u, v` in one fiber, the conversion `u → v` is non-affine **iff** exactly
+one of them is declared `logarithmic`. No distinguished unit is required
+because the biconditional is symmetric — which is what makes it survive the
+rootless fibers (a). Swept over all **946** same-fiber convertible pairs it
+reports **one violation**, again a real catalog error (`pH` below).
+
+Check B must test the **net function numerically**, not the `Map` tree. Six
+log↔log pairs (`decibel_milliwatt ↔ decibel_watt`, `bel ↔ neper`,
+`bel ↔ nines`, `decibel ↔ neper`, `decibel ↔ nines`, `neper ↔ nines`) route
+through the fiber's ratio unit and carry a syntactic `Log ∘ Exp` that cancels to
+an affine net: `30 dBm − 30 = 0 dBW` is affine however the path spells it.
+Reading the tree flags all six. Affinity is a second-difference test; residuals
+must be taken **relative**, since `dB_SPL → ksi` lands near `10⁻¹³` and an
+absolute tolerance swallows the curvature.
+
+Check B cannot separate `ratio` from `interval` (both relate affinely to
+themselves and to each other), and Check A cannot run where there is no root.
+Together they cover all 12 declarations; apart, neither does.
+
+### Two catalog corrections the derivation earns
+
+- **`rankine` is `ratio`, not `interval`.** `0 °R = 0 K` — verified, the
+  composed map to kelvin is `LinearMap(a=5/9)` and `f(0) = 0`. Rankine is the
+  absolute Fahrenheit-degree scale; it shares kelvin's true zero, and only its
+  *degree size* is Fahrenheit's. The draft's census grouped it by degree size
+  with the three scales that have conventional zeros.
+- **`pH` is `logarithmic`, and was missing.** `molar → pH` is
+  `LogMap(scale=−1, base=10, reference=1.0)`; `7 pH → 1e-07 mol/L`. It is the
+  single violation Check B reports, which is the check working.
+
+Against the corrected census both checks report **0 disagreements and 0
+violations across 946 pairs**. That is the acceptance criterion for this
+release: the two sweeps become tests, and the census below becomes the catalog
+declaration they check.
 ## 5. Question 4 — does the 2.2.2 refusal re-key in this release?
 
 The roadmap row says the `base_form is None` proxy gives way to declared `Unit.chart`. That is the behaviour-visible half: it changes **which pairs refuse**.
@@ -159,15 +249,21 @@ The roadmap row says the `base_form is None` proxy gives way to declared `Unit.c
 
 ## 6. Migration
 
-Census of the shipped catalog (235 units):
+Census of the shipped catalog — **234 units**, counted from
+`comprehensive.ucon.toml`, not the 235 the draft asserted:
 
 | class | n | units |
 |---|---|---|
-| `ratio` (default) | 223 | everything else |
-| `interval` | 4 | `celsius`, `fahrenheit`, `rankine`, `reaumur` |
-| `logarithmic` | 8 | `bel`, `decibel`, `decibel_milliwatt`, `decibel_spl`, `decibel_volt`, `decibel_watt`, `neper`, `nines` |
+| `ratio` (default) | 222 | everything else, `rankine` included |
+| `interval` | 3 | `celsius`, `fahrenheit`, `reaumur` |
+| `logarithmic` | 9 | `bel`, `decibel`, `decibel_milliwatt`, `decibel_spl`, `decibel_volt`, `decibel_watt`, `neper`, `nines`, `pH` |
 
-So the work is enumerating **12 units**, not 235: `ratio` is the correct default for 95% of the catalog, and with the fourth class declined there are only three values to choose from. Also required — the TOML key, `to_toml` emission, the binary cache (another `_CACHE_SCHEMA` bump), and `Unit`'s frozen-dataclass field alongside `default_kind`.
+Still **12 units** to declare, by coincidence — `rankine` left and `pH`
+arrived (§4). `ratio` remains the correct default for 95% of the catalog, and
+with the fourth class declined there are three values to choose from. Also
+required — the TOML key, `to_toml` emission, the binary cache (another
+`_CACHE_SCHEMA` bump), and `Unit`'s frozen-dataclass field alongside
+`default_kind`.
 
 ## 7. Not here
 
@@ -177,8 +273,14 @@ So the work is enumerating **12 units**, not 235: `ratio` is the correct default
 
 ## 8. Open
 
-- What `fraction` denotes — a power ratio or a field ratio. Filed as its own
-  issue; the answer should be the one #307 and ADR 013 carry forward.
+- What `fraction` denotes — a power ratio or a field ratio. Filed as #336; the
+  answer should be the one #307 and ADR 013 carry forward.
+- **Whether a fiber gets a canonical unit beyond the 7 SI base dimensions.**
+  §4(a): `base_for` resolves for 7 of 72 fibers, which is why the validator
+  needs Check B at all. If derived fibers ever acquire a distinguished unit,
+  Check A generalizes and Check B becomes redundant. Not required for 2.3.0,
+  and it is the same question #307 and #336 hold open for the dimensionless
+  fiber.
 - Whether `nines` wants its negative scale declared anywhere beyond its Map.
 - `Number.__neg__`, absent today, which displacement arithmetic will want
   (flagged with `__abs__`, ordering and `__round__` in the 2.4.0 ergonomics row).
