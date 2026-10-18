@@ -62,8 +62,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   there is no TOML key, no `to_toml` emission, no `_CACHE_SCHEMA` bump, no
   dataclass field and no 12 hand-written declarations; a declared field would be
   a second copy of derivable information. Census: **222 / 3 / 9** over 234 units
-  (the "235" was an attribute count — one alias binding). Whether deriving it is
-  compatible with ADR 010's "never inferred" is the one open decision.
+  (the "235" was an attribute count — one alias binding).
+
+  **ADR 010 and ADR 009 §4 amended in place** to match, per the house convention
+  (009's Status line already records three prior in-place amendments). ADR 010's
+  naming Decision is untouched; what changed is one Consequences bullet that
+  contradicted the ADR's own rationale — "Why chart" already states that *"a
+  `Map`'s algebraic form (Linear / Affine / Log) **is** the chart
+  classification"*, which the bullet then forbade using. Both original bans
+  stand: never from `base_form`, never from an arbitrary sibling edge. ADR 009
+  §4's two `[live]` cases cited as forcing a declared field are withdrawn, since
+  both fail on re-test — and ADR 010's Context, which claimed v2.2.0 "adds a
+  declared classification field on `Unit`", is marked counterfactual: no such
+  field shipped then or since. A declared field has no residual job even at
+  `extend` time, because `interval` and `logarithmic` are *relational* classes —
+  an offset from what, a logarithm of what — so a unit with no edge is
+  necessarily `ratio`; 009 §4 already conceded this, and the catalog agrees (16
+  edgeless units, none non-ratio; all 12 non-ratio units carry an edge).
 
   **The 2.2.2 re-key reverses.** The 62 same-fiber pairs it would unblock are
   *correct* refusals with a misleading message, not accidental ones.

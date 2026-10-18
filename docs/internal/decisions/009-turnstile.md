@@ -1,6 +1,6 @@
 # ADR — The Turnstile
 
-**Status:** Accepted — design closed 2026-09-05; aspect terminology aligned 2026-09-08; kind-slot semantics fixed 2026-09-09; chart source fixed to declared `Unit.chart` and ⊤_d constructibility stated 2026-09-09
+**Status:** Accepted — design closed 2026-09-05; aspect terminology aligned 2026-09-08; kind-slot semantics fixed 2026-09-09; chart source fixed to declared `Unit.chart` and ⊤_d constructibility stated 2026-09-09; **chart source re-opened to the declared edge vocabulary and §4's two misclassification cases withdrawn 2026-10-18** (see [010 §Amendment](010-chart-nomenclature.md#amendment-2026-10-18))
 **Target release:** 3.1.0 (minor; new refusals on previously-wrong paths are fixes)
 **Prerequisites:** 2.2.0 infrastructure (#279, #280, #282); 3.0.0 pseudo-dimension retirement, `Number` frozen, #280-full identity
 **Prerequisite supplied by:** [013](013-the-vector-is-the-only-carrier.md) — the pseudo-dimension retirement is specified there; the ⊤_d multiplication rule is narrowed per 013 §4.
@@ -48,7 +48,7 @@ resolution runs correctly and is stapled onto a raw magnitude addition.
 | Stratum | Owned by | Refuses on | Contributes |
 |---|---|---|---|
 | dimension | `Unit` → `Vector` | incompatible φ | `result_unit` |
-| chart | `Unit.chart` + kind flags | operation ill-formed on this chart | factors, offset, `result_displacement` |
+| chart | `Unit`'s edge vocabulary (§4) + kind flags | operation ill-formed on this chart | factors, offset, `result_displacement` |
 | kind | `Kind` lattice | different trees; LCA `refuse`; partial+strict | `result_kind` |
 | aspect | `Aspect` (see ADR) | family conflict; partial+strict | `result_aspects` |
 
@@ -67,20 +67,36 @@ yields categories 2–3 and the eight-category taxonomy below.
 
 ## 4. Chart
 
-**Three classes, on the unit:** ratio, interval, logarithmic. **Declared as
-`Unit.chart` and read from there** — never inferred from `base_form`, and
-never from an edge to a sibling unit. The derivation from Map type (Linear →
-ratio, Affine → interval, Log → logarithmic, read off the edge to the
-fiber's canonical ratio unit) survives only as a load- and merge-time
-validator; units with no such edge default to ratio and are re-validated
-when an edge arrives.
+**Three classes, on the unit:** ratio, interval, logarithmic. **Read from the
+declared edge vocabulary** — never inferred from `base_form`, and never from an
+arbitrary edge to a sibling unit. A unit's numerals are a logarithm iff it is
+the source of an `exp` edge or the target of a `log` edge; its origin is
+conventional iff it is separated from its fiber's true-zero unit by an
+offset-bearing edge. Units with no edge at all default to ratio — necessarily,
+since `interval` and `logarithmic` are relational — and are re-derived when an
+edge arrives.
 
-Two `[live]` misclassifications force the declared field over inference, and
-both become validator fixtures: `dyne` has no direct edge to read, and its
-`base_form is None` for basis-scoping reasons, not chart structure (#283) —
-inference would refuse `2 × 20 dyn` like `2 × 20 °C`; `decibel`'s direct
-edge is a `LinearMap` to `bel` — sibling edges are automorphisms *within* a
-chart, so edge-reading misreads log units as ratio.
+Whether a unit's origin is *true* or *conventional* is undecidable from the maps
+alone (the pure-scaling group is the stabilizer of 0 inside the affine group), so
+each fiber holding a non-ratio unit must declare which unit realises its true
+zero. For `Dimension(temperature)` that is `kelvin`. One per-fiber fact, not a
+per-unit field.
+
+> **Withdrawn 2026-10-18.** This section previously read "**Declared as
+> `Unit.chart` and read from there**", with the Map derivation surviving "only as
+> a load- and merge-time validator", and cited two `[live]` misclassifications as
+> forcing the declared field over inference. Both cases fail on re-test.
+> `dyne`'s `base_form` is **populated** (`prefactor=1e-05`, `m·kg·s⁻²`), so it
+> classifies as ratio correctly either way; what refuses `20 dyn + 1 N` is
+> stratum 1 (`Dimension(cgs_force)` ≠ `Dimension(force)`), and `2 × 20 dyn` — the
+> operation named here — does not refuse at all (#340). `decibel`'s `LinearMap`
+> to `bel` does defeat *undirected* sibling-edge reading, but `decibel` also
+> carries a declared `exp` edge to `fraction`, which classifies it correctly when
+> direction is read. Neither forces a declared field. Full reasoning and the
+> catalog-wide verification are in
+> [010 §Amendment](010-chart-nomenclature.md#amendment-2026-10-18); the record of
+> the withdrawal is
+> [`../proposals/declared-unit-chart.md`](../proposals/declared-unit-chart.md).
 
 **Two kind flags refine the effective chart:**
 

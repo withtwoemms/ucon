@@ -3,8 +3,8 @@
 **Status:** Withdrawn as an implementation plan; retained as the record of why, and of the three bugs it exposed
 **Date:** 2026-10-17; revised 2026-10-18 (twice) after working the open questions one at a time
 **Implements:** [`../decisions/010-chart-nomenclature.md`](../decisions/010-chart-nomenclature.md) (Accepted) and [`../decisions/009-turnstile.md`](../decisions/009-turnstile.md) §4
-**Lands:** nothing, as scoped — see §6. The field, the TOML key, the cache bump and the validator are all withdrawn; what replaces them is #339, #340, #341 and one open decision on ADR 010. The chart *dispatch* remains 3.1.0.
-**Disposition:** this document is now a record of why the chart stratum does not need a declared field, plus the three bugs working it exposed. Superseded by whatever decides the ADR 010 question in §6.
+**Lands:** nothing, as scoped — see §6. The field, the TOML key, the cache bump and the validator are all withdrawn; what replaces them is #339, #340 and #341. The chart *dispatch* remains 3.1.0.
+**Disposition:** this document is now a record of why the chart stratum does not need a declared field, plus the three bugs working it exposed. ADR 010 carries the resulting [Amendment](../decisions/010-chart-nomenclature.md#amendment-2026-10-18) and ADR 009 §4 is re-pointed; those are authoritative, this is the reasoning behind them.
 
 All evidence below verified against `main` at `dcf7f8d`, re-run after each revision.
 
@@ -19,8 +19,8 @@ from 207 declared edge rows plus one physical fact (§4.1). So there is no field
 to declare and no validator to write. Question 4 reverses: re-keying the 2.2.2
 refusal would introduce silent magnitude corruption, because `base_form` is
 load-bearing for the arithmetic and not merely for the meaningfulness check
-(§5). Three bugs came out of the work — #339, #340, #341 — and one decision is
-owed on ADR 010 (§6).
+(§5). Three bugs came out of the work — #339, #340, #341 — and the ADR 010
+question it raised is settled in §6, by amendment to 010 and 009.
 
 ---
 
@@ -389,9 +389,21 @@ as the declaration they already are. It is closer to ADR 010's spirit than a new
 field would be: the author still declares, in the place where the author already
 declares.
 
-It is nonetheless a departure from ADR 010's letter, and this proposal does not
-have the standing to make it. **Open for decision**, and the only thing in this
-document that needs one.
+It is nonetheless a departure from ADR 010's letter, and a proposal has no
+standing to make it.
+
+**Settled 2026-10-18.** ADR 010 carries an
+[Amendment](../decisions/010-chart-nomenclature.md#amendment-2026-10-18) and ADR
+009 §4 is re-pointed, both in place per the house convention (009's own Status
+line already records three prior in-place amendments). The naming Decision is
+untouched; what changed is one Consequences bullet that contradicted ADR 010's
+own rationale — "Why chart" already states that *"a `Map`'s algebraic form
+(Linear / Affine / Log) **is** the chart classification"*, which the bullet then
+forbade using. Both original bans stand: not from `base_form`, not from an
+arbitrary sibling edge. The two `[live]` cases 009 §4 cited as forcing a
+declared field are withdrawn there, since both fail on re-test (`dyne`'s
+`base_form` is populated; `decibel` is read correctly once edge direction is
+read).
 ## 7. Not here
 
 - **Chart dispatch** — point/displacement algebra, `20 °C + 5 K`, `2 × 20 °C` refusing, the affine mean, `dBm + dB` admitting across dimensions. All 3.1.0 (ADR 009 §4, §12).
@@ -400,18 +412,9 @@ document that needs one.
 
 ## 8. Open
 
-One decision, and three questions that are not this document's to answer.
-
-**The decision — §6's ADR 010 question.** §4.1 derives the chart class from the
-declared edge vocabulary rather than from a new declared field. That is a
-departure from ADR 010's letter ("never inferred") though arguably not its
-spirit, since the author still declares in the place the author already
-declares. ADR 010 is Accepted; a proposal cannot overturn it. Either ADR 010 is
-amended to admit the edge vocabulary as the declaration, or a declared field
-lands anyway as a second copy of derivable information. **Nothing else in this
-document is blocked on anything else.**
-
-Not this document's:
+**Nothing in this document.** The ADR 010 question is settled in §6; the three
+bugs are #339, #340 and #341. What remains are questions this document never
+owned:
 
 - What `fraction` denotes — a power ratio or a field ratio (#336). The answer
   should be the one #307 and ADR 013 carry forward.
