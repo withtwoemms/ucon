@@ -188,12 +188,16 @@ draft keyed on — `decibel → fraction` is `Exp`, `fraction → decibel` is `L
 A validator reading `LogMap` in the direction it implies classifies all nine as
 nothing.
 
-Both fixtures the draft named also fail as fixtures. `dyne → newton` composes to
-a `LinearMap`, so a composed-path derivation gets `ratio` right — `dyne`'s
-problem is `base_form is None`, which is the 2.2.2 proxy, a different mechanism
-(§5). And `decibel` misreads as `ratio` only if you anchor it on `bel`; anchored
-on `fraction` its map is `ExpMap`. Neither is a counterexample to edge-reading
-as such.
+Both fixtures the draft named also fail as fixtures, and `dyne` fails twice
+over: it is **not a chart case at all**. Its `base_form` is populated
+(`prefactor=1e-05`, `m·kg·s⁻²`) and `dyne → newton` composes to a `LinearMap`,
+so the proxy and a composed-path derivation both classify it `ratio` —
+correctly. What actually refuses `20 dyn + 1 N` is **stratum 1**:
+`Dimension(cgs_force)` is not `Dimension(force)`. That is basis-graph territory
+(#323, ADR 013), and ADR 009 §4's listing it among the chart misclassifications
+is itself the error. `decibel`, meanwhile, misreads as `ratio` only if you
+anchor it on `bel`; anchored on `fraction` its map is `ExpMap`. Neither is a
+counterexample to edge-reading as such.
 
 ### What the validator can check
 
@@ -237,6 +241,14 @@ Together they cover all 12 declarations; apart, neither does.
   `LogMap(scale=−1, base=10, reference=1.0)`; `7 pH → 1e-07 mol/L`. It is the
   single violation Check B reports, which is the check working.
 
+`rankine` also needs a **second, separable fix**: its TOML entry has no
+`base_form`, though it is a pure scaling of kelvin on a fully covered fiber. It
+sits in the catalog beside the three affine scales and inherited their omission.
+`base_form = {prefactor: 5/9, factors: [[kelvin, 1.0]]}` is the whole change,
+and it is independent of charts, #283 and ADR 013 — the one `None` in the table
+above with no structural cause. `pH` needs no such fix: it is correctly
+non-normalizable, just for the wrong stated reason.
+
 Against the corrected census both checks report **0 disagreements and 0
 violations across 946 pairs**. That is the acceptance criterion for this
 release: the two sweeps become tests, and the census below becomes the catalog
@@ -245,7 +257,29 @@ declaration they check.
 
 The roadmap row says the `base_form is None` proxy gives way to declared `Unit.chart`. That is the behaviour-visible half: it changes **which pairs refuse**.
 
-**Proposal: two commits, not one.** Land the field, parameters, validator, and catalog declarations first; re-key `_is_algebraically_normalizable` second, with the five accidental refusals enumerated in its message. A bisect can then separate "chart declared" from "refusal re-keyed" — they fail differently and a reviewer should be able to tell which.
+**Proposal: two commits, not one.** Land the field, parameters, validator, and catalog declarations first; re-key `_is_algebraically_normalizable` second. A bisect can then separate "chart declared" from "refusal re-keyed" — they fail differently and a reviewer should be able to tell which.
+
+The draft said "the five accidental refusals." Counted, it is **62 pairs over 50
+units**. `base_form is None` holds for **62 of 234** units, and only **12** of
+those are genuinely non-ratio; the proxy is *sound but imprecise* — nothing with
+a populated `base_form` has a non-ratio chart, so it never under-refuses, but
+it over-refuses by 50 units. The `None` splits into four causes, which is ADR
+010's "conflates unrelated `None` causes" made countable:
+
+| cause | n | resolved by |
+|---|---|---|
+| out of the SI basis (CGS-EM, atomic, Planck, the unnamed unity unit) | 28 | #283 |
+| pseudo-dimensional (angle, ratio, count families) | 21 | ADR 013's retirement, 3.0.0 |
+| genuine chart structure | 12 | this release |
+| **unexplained** — `rankine` | 1 | a one-line catalog fix (below) |
+
+So the re-key cannot deliver all 62 on its own: it owns the 12. The other 50 are
+waiting on #283 and 3.0.0, and the re-key is what makes it *safe* to stop
+asking `base_form` a question it was never answering.
+
+Live, verified today: `20 °R + 5 K`, `50 % + 1 fraction` and `20 °C + 5 K` all
+raise `UnitsNotNormalizable`. Only the third is correct, and even it refuses for
+the wrong reason.
 
 ## 6. Migration
 

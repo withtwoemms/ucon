@@ -55,6 +55,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `LogMap(scale=−1, base=10, reference=1)`). Census corrected to 222 / 3 / 9
   over 234 units.
 
+  Quantifying the proxy the re-key replaces: `base_form is None` holds for 62 of
+  234 units, of which only 12 are genuinely non-ratio. It never under-refuses —
+  nothing with a populated `base_form` has a non-ratio chart — but it
+  over-refuses by 50 units and **62 same-fiber pairs**, not the five the draft
+  claimed. The `None` has four causes: out of the SI basis (28, #283),
+  pseudo-dimensional (21, ADR 013), genuine chart structure (12, this release),
+  and `rankine` (1, an unexplained catalog omission — it is a pure scaling of
+  kelvin on a covered fiber and simply inherited the affine scales' missing
+  `base_form`). `dyne` is dropped as a chart case: its `base_form` is populated
+  and its map to `newton` is linear, so what refuses `20 dyn + 1 N` is stratum 1
+  (`Dimension(cgs_force)` ≠ `Dimension(force)`), not the chart proxy — ADR 009
+  §4 listed it under the wrong stratum.
+
 - **Implementation proposal for declaring `Unit.chart`.**
   [`proposals/declared-unit-chart`](docs/internal/proposals/declared-unit-chart.md)
   scopes the last owed v2.3.0 item.
