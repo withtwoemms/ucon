@@ -64,6 +64,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a second copy of derivable information. Census: **222 / 3 / 9** over 234 units
   (the "235" was an attribute count — one alias binding).
 
+  **`ROADMAP.md` brought into line**: the v2.3.0 row no longer promises a declared
+  `Unit.chart` (it carries #339/#340/#341 instead, and the `contingent` TOML key
+  is marked shipped); *Where the chart defects land* marks "refusal keys on a
+  principled marker" **withdrawn** with the magnitude-corruption reason, replaces
+  "five accidental refusals" with the measured 62 pairs over 34 units and their
+  four causes, drops `Unit.chart` from the open Turnstile prerequisites, notes
+  that retiring the normalizability check at 3.1.0 requires graph-routed
+  arithmetic first, and adds #339/#341 to the catalog-correctness list on the
+  UnitSafe gate.
+
   **ADR 010 and ADR 009 §4 amended in place** to match, per the house convention
   (009's Status line already records three prior in-place amendments). ADR 010's
   naming Decision is untouched; what changed is one Consequences bullet that
