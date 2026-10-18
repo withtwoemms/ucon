@@ -41,7 +41,8 @@ from ucon import (
     load_package,
     units,
 )
-from ucon import KindMismatch
+from ucon import KindArrivalRefused, KindMismatch
+from ucon import parse_unit
 from ucon._cache import _from_primitives, _to_primitives
 from ucon.core import Scale, Unit, UnitFactor, UnitProduct
 from ucon.dimension import FREQUENCY, LENGTH, NONE
@@ -126,6 +127,7 @@ class TestDefaultKindField(unittest.TestCase):
         self.assertEqual(units.becquerel.default_kind, "radioactive_activity")
         self.assertEqual(units.watt.default_kind, "real_power")
         self.assertEqual(units.volt_ampere.default_kind, "apparent_power")
+        self.assertEqual(units.var.default_kind, "reactive_power")
         # joule and pascal stay generic: no sibling SI unit marks a kind
         # distinction within energy or pressure, so a Number is free to
         # carry kinetic_energy, stress, etc. without being overwritten.
@@ -518,3 +520,45 @@ class TestUnitDefaultJoinsPermissively(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestReactivePowerUnit(unittest.TestCase):
+    """``var`` completes the W/VA/var degeneracy cluster (#345).
+
+    ``reactive_power`` was declared as a third disjoint sibling under
+    ``power`` but no unit carried it, so the kind was unreachable: nothing
+    could be expressed in it.
+    """
+
+    def test_var_resolves_under_every_spelling(self):
+        for spelling in ("var", "VAr", "volt_ampere_reactive"):
+            self.assertIs(parse_unit(spelling), units.var)
+
+    def test_var_is_prefixable(self):
+        # elec-030 writes `kvar`.
+        self.assertAlmostEqual(
+            Number(1, parse_unit("kvar")).to(units.var).quantity, 1000.0
+        )
+
+    def test_var_shares_the_coherent_power_base_form(self):
+        # Declared by hand: `var` carries no conversion edge, so the
+        # base_form BFS oracle never reaches it and cannot check the literal.
+        self.assertEqual(units.var.base_form, units.watt.base_form)
+        self.assertEqual(units.var.base_form, units.volt_ampere.base_form)
+
+    def test_cross_kind_conversions_refuse(self):
+        pairs = (
+            (units.watt, units.var),
+            (units.var, units.watt),
+            (units.var, units.volt_ampere),
+            (units.volt_ampere, units.var),
+        )
+        for src, dst in pairs:
+            with self.subTest(src=src.name, dst=dst.name):
+                with self.assertRaises(KindArrivalRefused):
+                    Number(1, src).to(dst)
+
+    def test_same_kind_arithmetic_still_works(self):
+        total = Number(1, units.var) + Number(2, units.var)
+        self.assertEqual(total.quantity, 3)
+        self.assertEqual(total.kind.name, "reactive_power")

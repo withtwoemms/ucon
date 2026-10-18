@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`var`, the volt-ampere reactive (#345).** Completes the W/VA/var
+  degeneracy cluster. `reactive_power` had been declared as a third disjoint
+  sibling under `power` but no unit carried it, so the kind was unreachable —
+  nothing could be expressed in it. `var` declares
+  `default_kind = "reactive_power"`, resolves as `var` / `VAr` /
+  `volt_ampere_reactive`, takes SI prefixes (`kvar`), and shares the coherent
+  power `base_form` (`m²·kg·s⁻³`) with `watt` and `volt_ampere`. All four
+  cross-kind conversions in the cluster now refuse — `W → var`, `var → W`,
+  `var → VA`, `VA → var` — while same-kind arithmetic and prefix scaling
+  work. No conversion edge is declared on purpose: the refusal belongs to the
+  kind stratum, exactly as `watt ↔ volt_ampere` already does. Note this also
+  means the `base_form` BFS oracle never reaches `var`, so its literal is
+  checked against `watt`'s in the tests rather than by
+  `make base-forms-check`.
+
 ### Fixed
 
 - **The base_form oracle no longer propagates across an offset, retiring the

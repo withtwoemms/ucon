@@ -260,6 +260,7 @@ tonne_oil_equivalent: Unit
 torr: Unit
 troy_ounce: Unit
 turn: Unit
+var: Unit
 volt: Unit
 volt_ampere: Unit
 watt: Unit

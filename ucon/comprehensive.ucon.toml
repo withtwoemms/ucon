@@ -1517,6 +1517,23 @@ factors = [
 ]
 
 [[units]]
+name = "var"
+dimension = "power"
+default_kind = "reactive_power"
+aliases = [
+    "VAr",
+    "volt_ampere_reactive",
+]
+
+[units.base_form]
+prefactor = 1.0
+factors = [
+    ["meter", 2.0],
+    ["kilogram", 1.0],
+    ["second", -3.0],
+]
+
+[[units]]
 name = "volt_ampere"
 dimension = "power"
 default_kind = "apparent_power"
