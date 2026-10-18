@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-- **`Unit.chart` proposal revised: two of its four questions answered by
-  deletion, one by replacement.** (#336 filed alongside) Working the open
-  questions showed every one of the original recommendations was wrong. The
-  proposed fourth chart class is **declined**: `−log₁₀(1−x) + −log₁₀(1−y) = −log₁₀[(1−x)(1−y)]`, so addition on
+- **`Unit.chart` withdrawn: the catalog already declares the chart class.**
+  (#336, #339, #340, #341 filed alongside) Working the four open questions one at
+  a time retired every recommendation the proposal originally made, and then the
+  proposal itself. The proposed fourth chart class is **declined**: `−log₁₀(1−x) + −log₁₀(1−y) = −log₁₀[(1−x)(1−y)]`, so addition on
   the `nines` chart has exactly one meaning — multiply the referenced quantity,
   which is the parallel-redundancy law and precisely what a logarithmic chart
   does. The "ambiguity" that motivated the class was a confusion between a rival
@@ -20,7 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same distinction without anyone calling it ambiguous. `nines` is
   `logarithmic`. `PolynomialMap` is not an inhabitant either — the PT100 curve
   relates temperature to resistance, a cross-dimensional edge, not a numeral
-  scheme.
+  scheme. (That conclusion stands, but #341 supplies the real reason `nines` is
+  not interchangeable with the other levels: its edge hides `x ↦ 1 − x`, a change
+  of quantity, inside a map that should only change scale.)
 
   And `logarithmic` needs **no parameters**. `reference` is already a field on
   `LogMap`/`ExpMap` and already populated (`decibel_milliwatt → watt` carries
@@ -37,36 +39,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (the signal-to-noise idiom), and it cannot be rewritten as
   `level + (−level)` because negating a point is meaningless.
 
-  The **load-time validator is replaced**, not deleted. Its proposed derivation
-  — read the expected class off "the edge to the fiber's canonical ratio unit" —
-  is not well-defined: `base_units.base_for` resolves for 7 of 72 fibers, so no
-  anchor exists for any of the nine logarithmic units; conversion nonlinearity
-  is symmetric, so the unanchored derivation yields 31 false refusals on a
-  234-unit catalog (`kelvin` derives `interval`; `watt`, `pascal`, `percent`
-  derive `logarithmic`); and "the edge" is neither singular (`celsius` has
-  three, spanning two map types) nor sufficient (`reaumur`'s only direct edge is
-  linear, to `celsius`). Two checks take its place — an anchored one separating
-  `interval` from `ratio` where a base unit exists, and an anchor-free
-  biconditional for `logarithmic`: a same-fiber conversion is non-affine iff
-  exactly one endpoint is logarithmic. Swept over 946 pairs the pair of checks
-  found **two wrong catalog declarations**: `rankine` is `ratio`, not `interval`
-  (`0 °R = 0 K`; its map to kelvin is `LinearMap(5/9)`), and `pH` is
-  `logarithmic` and was missing entirely (`molar → pH` is
-  `LogMap(scale=−1, base=10, reference=1)`). Census corrected to 222 / 3 / 9
-  over 234 units.
+  **The validator is withdrawn, not replaced — and so is the field.** Two
+  successive derivations for it were wrong. The second claimed a same-fiber
+  conversion is non-affine iff exactly one endpoint is `logarithmic`, "verified
+  over 946 pairs with 0 violations"; the catalog has **971** unordered
+  same-fiber pairs, 21 unreachable, **950** convertible, and the four that raise
+  `ValueError: Logarithm argument must be positive` at the probe points sat
+  inside a bare `except Exception: continue`. 950 − 4 = 946, so the evidence was
+  the input minus exactly the counterexamples. `nines → decibel` is
+  `10·log₁₀(1 − 10⁻ⁿ)`, not affine, with **both** endpoints `logarithmic`.
 
-  Quantifying the proxy the re-key replaces: `base_form is None` holds for 62 of
-  234 units, of which only 12 are genuinely non-ratio. It never under-refuses —
-  nothing with a populated `base_form` has a non-ratio chart — but it
-  over-refuses by 50 units and **62 same-fiber pairs**, not the five the draft
-  claimed. The `None` has four causes: out of the SI basis (28, #283),
-  pseudo-dimensional (21, ADR 013), genuine chart structure (12, this release),
-  and `rankine` (1, an unexplained catalog omission — it is a pure scaling of
-  kelvin on a covered fiber and simply inherited the affine scales' missing
-  `base_form`). `dyne` is dropped as a chart case: its `base_form` is populated
-  and its map to `newton` is linear, so what refuses `20 dyn + 1 N` is stratum 1
-  (`Dimension(cgs_force)` ≠ `Dimension(force)`), not the chart proxy — ADR 009
-  §4 listed it under the wrong stratum.
+  What the work established instead: the catalog **already declares** the chart
+  class, distributed across its edge-key vocabulary. Across all 207 declared
+  edges there are exactly three shapes — 196 bare `factor` (pure scaling), 2
+  `factor`+`offset` (conventional zero, both `celsius`-sourced), 9 `map`
+  (log/exp/composed). A unit's numerals are a logarithm iff it is the source of
+  an `exp` edge or the target of a `log` edge; origin classes are the components
+  under pure-scaling edges, which splits `Dimension(temperature)` into
+  `{kelvin, rankine}`, `{celsius, reaumur}`, `{fahrenheit}`. Add one physical
+  fact — thermodynamic temperature has an absolute zero, realised by `kelvin` —
+  and the full census falls out for all 234 units with zero disagreements. So
+  there is no TOML key, no `to_toml` emission, no `_CACHE_SCHEMA` bump, no
+  dataclass field and no 12 hand-written declarations; a declared field would be
+  a second copy of derivable information. Census: **222 / 3 / 9** over 234 units
+  (the "235" was an attribute count — one alias binding). Whether deriving it is
+  compatible with ADR 010's "never inferred" is the one open decision.
+
+  **The 2.2.2 re-key reverses.** The 62 same-fiber pairs it would unblock are
+  *correct* refusals with a misleading message, not accidental ones.
+  `_canonical_magnitude` is documented as not consulting any graph and falls
+  back to the raw quantity, so admitting `50 % + 1 fraction` would yield `51 %`
+  where the answer is `150 %`, and `20 °R + 5 K` would yield `25` where the
+  answer is `16.111 K`. `base_form` is load-bearing for the arithmetic, not only
+  for the meaningfulness check; the two predicates are independent and both are
+  needed. The 62 pairs are unblocked by #283, ADR 013's retirement and #339 —
+  not by relaxing the gate. They span **34** units, not the 50 previously
+  claimed, and compose as 61 both-`None` plus one (`kelvin`/`rankine`).
+
+  Three bugs were filed from the work: #339 (`rankine`'s `base_form` suppressed
+  by a hand-written allowlist, which the generator's own BFS oracle contradicts),
+  #340 (scalar `*`/`/` ungated on all 12 non-ratio units — `Number(10, dBW) * 2`
+  returns `20 dBW`, i.e. 100 W; plus `BaseForm` accepting `prefactor=-1`/`nan`
+  against its own docstring, and `_set_base_form` having no chart guard, so one
+  call makes the proxy unsound with CI green), and #341 (two log edges targeting
+  a quantity other than the one charted — `nines` hides `x ↦ 1 − x` in the
+  catalog's only `composed` edge; `pH` is a level on `Dimension(concentration)`
+  with a defaulted reference that names the wrong quantity). `dyne` is dropped
+  as a chart case: its `base_form` is populated and its map to `newton` is
+  linear, so ADR 009 §4's "its `base_form is None`" — the stratum's founding
+  example — is a flat factual error.
 
 - **Implementation proposal for declaring `Unit.chart`.**
   [`proposals/declared-unit-chart`](docs/internal/proposals/declared-unit-chart.md)
