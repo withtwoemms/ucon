@@ -142,6 +142,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The built-in catalog now declares the dimensionless KOQ cluster.** (#344)
+  `dimensionless_ratio` refuses implicit joins between `efficiency`,
+  `relative_humidity`, `mass_fraction`, `volume_fraction`, `amount_fraction`,
+  `bioavailability`, `strain`, `reynolds`, `mach`, and `froude`, so these
+  semantically distinct quantities are available to the kind layer.
+
 - **`contingent` now has a TOML key, so a packaged dated table arrives
   dated.** (#329) `ConversionContext.contingent` (#320) refuses to compose a
   path across two *different* contingent contexts — two dated tables inventing

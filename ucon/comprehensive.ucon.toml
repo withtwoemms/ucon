@@ -5241,6 +5241,65 @@ parent = "pressure"
 name = "radiation_weighting_factor"
 dimension = "none"
 
+# --- Cluster 9: Dimensionless ratio kinds  (1) ---
+# These quantities share the dimensionless vector but are not interchangeable
+# without an explicit formula.  Keeping them under a refusing root prevents
+# unrelated fractions and dimensionless numbers from joining silently.
+[[kinds]]
+name = "dimensionless_ratio"
+dimension = "none"
+join_policy = "refuse"
+
+[[kinds]]
+name = "efficiency"
+dimension = "none"
+parent = "dimensionless_ratio"
+
+[[kinds]]
+name = "relative_humidity"
+dimension = "none"
+parent = "dimensionless_ratio"
+
+[[kinds]]
+name = "mass_fraction"
+dimension = "none"
+parent = "dimensionless_ratio"
+
+[[kinds]]
+name = "volume_fraction"
+dimension = "none"
+parent = "dimensionless_ratio"
+
+[[kinds]]
+name = "amount_fraction"
+dimension = "none"
+parent = "dimensionless_ratio"
+
+[[kinds]]
+name = "bioavailability"
+dimension = "none"
+parent = "dimensionless_ratio"
+
+[[kinds]]
+name = "strain"
+dimension = "none"
+parent = "dimensionless_ratio"
+
+[[kinds]]
+name = "reynolds"
+dimension = "none"
+parent = "dimensionless_ratio"
+
+[[kinds]]
+name = "mach"
+dimension = "none"
+parent = "dimensionless_ratio"
+
+[[kinds]]
+name = "froude"
+dimension = "none"
+parent = "dimensionless_ratio"
+
 # ── Formulas ──────────────────────────────────────────────────────────
 #
 # Kind-aware arithmetic dispatch tables.  Each formula declares its

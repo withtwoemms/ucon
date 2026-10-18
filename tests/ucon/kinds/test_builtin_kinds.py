@@ -15,14 +15,15 @@ def lattice() -> KindLattice:
 
 
 class TestBuiltinKindsLoaded:
-    """Verify the lattice boots with the expected 25 kinds."""
+    """Verify the lattice boots with the expected built-in kinds."""
 
     def test_lattice_count(self, lattice: KindLattice) -> None:
-        assert len(lattice) == 27  # + periodic_frequency (#327)
+        assert len(lattice) == 38  # + dimensionless KOQ cluster (#344)
 
     def test_all_root_kinds_present(self, lattice: KindLattice) -> None:
         roots = ["energy", "frequency", "specific_energy", "voltage",
-                 "molar_energy", "molar_entropy", "power", "pressure"]
+                 "molar_energy", "molar_entropy", "power", "pressure",
+                 "dimensionless_ratio"]
         for name in roots:
             assert name in lattice, f"Root kind {name!r} missing"
 
@@ -36,6 +37,9 @@ class TestBuiltinKindsLoaded:
             "molar_entropy_quantity", "molar_heat_capacity",
             "real_power", "apparent_power", "reactive_power",
             "thermodynamic_pressure", "mechanical_stress",
+            "efficiency", "relative_humidity", "mass_fraction",
+            "volume_fraction", "amount_fraction", "bioavailability",
+            "strain", "reynolds", "mach", "froude",
         ]
         for name in leaves:
             assert name in lattice, f"Leaf kind {name!r} missing"
