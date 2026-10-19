@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The base_form oracle no longer propagates across an offset, retiring the
+  hand-written allowlist.** `scripts/generate_base_forms.py` walked affine
+  edges by *slope* and ignored the offset, so it would mint `base_form = 1·K`
+  for `celsius`. A four-name list (`_NULL_BASE_FORM_NAMES`) suppressed that
+  after the fact — and is how `rankine` came to be suppressed in error. The
+  BFS now refuses to cross an offset-bearing affine edge, exactly as it already
+  refuses a log/exp edge, so `celsius`/`fahrenheit`/`reaumur` are **absent from
+  the expected map on their own** and the list is empty
+  (`compared=144 agreed=144 drifted=0 null-by-design=0`). The list survives as
+  an empty name because its *positive* assertion has no replacement yet:
+  inferring it from absence conflates "underivable" with "unreached", since the
+  oracle reaches 144 of 234 units and such a check rejects `tesla`, `weber`,
+  `siemens`, `molar` and ~90 others.
+
 - **`rankine` carries a `base_form` (#339).** It is a pure scaling of kelvin —
   `0 °R = 0 K`, factor `5/9` — but was named in
   `generate_base_forms._NULL_BASE_FORM_NAMES` beside the three
