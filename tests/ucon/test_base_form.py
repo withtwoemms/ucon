@@ -18,6 +18,7 @@ materialized.
 """
 
 import math
+from fractions import Fraction
 import subprocess
 import sys
 
@@ -299,11 +300,22 @@ class TestRankineBaseForm:
     factor 5/9. Only the degree *size* is Fahrenheit's.
     """
 
-    def test_rankine_has_a_base_form(self):
+    def test_rankine_prefactor_is_the_exact_seed_rounded_once(self):
+        # House convention (v2.1.6/2.1.7, tests/ucon/test_customary_prefactors.py):
+        # compose the exact value in ``Fraction`` and convert to float exactly
+        # once, then assert *equality* with that double — not a tolerance. The
+        # Rankine scale is defined by T/°R = (9/5)(T/K), so the seed is 5/9 and
+        # is exact by definition rather than measured.
         bf = units.rankine.base_form
         assert bf is not None
         assert bf.factors == ((units.kelvin, 1.0),)
-        assert abs(bf.prefactor - 5.0 / 9.0) < 1e-15
+        assert bf.prefactor == float(Fraction(5, 9))
+
+    def test_rankine_prefactor_matches_its_declared_edge(self):
+        # The catalog declares kelvin -> rankine as factor 1.8; the base_form
+        # prefactor is its reciprocal and must agree bit-for-bit, or the two
+        # routes to kelvin disagree.
+        assert units.rankine.base_form.prefactor == 1 / 1.8
 
     def test_conventional_zero_scales_still_have_none(self):
         # celsius/fahrenheit/reaumur are affine to kelvin; no prefactor can
