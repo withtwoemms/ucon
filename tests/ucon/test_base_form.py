@@ -339,3 +339,40 @@ class TestRankineBaseForm:
         # The missing base_form made this raise UnitsNotNormalizable.
         result = units.rankine(20) + units.kelvin(5)
         assert abs(result.to(units.kelvin).quantity - (100.0 / 9.0 + 5.0)) < 1e-12
+
+
+class TestAffineScalesAreSelfSuppressing:
+    """The BFS oracle must not mint a base_form across an offset (#339).
+
+    ``_NULL_BASE_FORM_NAMES`` used to list the conventional-zero temperature
+    scales by hand, because the oracle propagated an affine edge's *slope* and
+    ignored its offset — minting ``1·K`` for ``celsius``. The oracle now
+    refuses to cross an offset-bearing edge, so those units are absent from
+    the expected map on their own and the list is empty.
+    """
+
+    def _expected(self):
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+        from generate_base_forms import _compute_expected_base_forms
+        from ucon.conversion import get_default_graph
+        return _compute_expected_base_forms(get_default_graph())
+
+    def test_allowlist_is_empty(self):
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+        from generate_base_forms import _NULL_BASE_FORM_NAMES
+        assert _NULL_BASE_FORM_NAMES == set()
+
+    def test_conventional_zero_scales_are_not_derived(self):
+        expected = self._expected()
+        for u in (units.celsius, units.fahrenheit, units.reaumur):
+            assert u not in expected, f"{u.name} must not be derivable across its offset"
+
+    def test_pure_scaling_sibling_is_derived(self):
+        # rankine shares kelvin's zero, so the oracle must reach it.
+        expected = self._expected()
+        assert units.rankine in expected
+        assert abs(expected[units.rankine].prefactor - 5.0 / 9.0) < 1e-15

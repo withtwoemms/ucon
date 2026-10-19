@@ -126,18 +126,25 @@ _COHERENT_SI_NAMES = {
     'linear_density': 'denier',
 }
 
-# Affine and logarithmic units MUST have base_form=None.  The drift script
-# asserts this category remains ``None``; if any new affine/log unit lands,
-# add it to this set explicitly.
-_NULL_BASE_FORM_NAMES = {
-    # ``rankine`` is NOT here: it is a pure scaling of kelvin (0 °R = 0 K,
-    # factor 5/9), so the BFS oracle derives its base_form correctly.  It was
-    # grouped with the conventional-zero scales by Fahrenheit degree size.
-    'celsius', 'fahrenheit', 'reaumur',
-    # logarithmic / dimensionless level units have no (prefactor, factors)
-    # representation either; uncomment if/when present:
-    # 'decibel', 'bel', 'neper',
-}
+# Deliberately empty.  Units with no (prefactor, factors) representation are
+# **self-suppressing** now that the BFS refuses to propagate through edges that
+# have no such representation: a log/exp edge (no slope to read), and an
+# offset-bearing affine edge (no prefactor expresses a shifted origin).  Such
+# units never enter the expected map, so there is nothing to exempt by name.
+#
+# Verified with this empty: `celsius`, `fahrenheit` and `reaumur` are absent
+# from the expected map, and `rankine` -- a pure scaling of kelvin -- is
+# present and derived correctly.  The list previously held all four, which is
+# how `rankine` came to be suppressed in error (#339).
+#
+# It survives as an empty name rather than being deleted because the
+# *positive* assertion it used to make -- "these units must stay None" -- has
+# no replacement yet.  Inferring it from absence does not work: the oracle
+# reaches 144 of 234 units, so absence conflates "underivable" with
+# "unreached", and such a check rejects `tesla`, `weber`, `siemens`, `molar`
+# and ~90 others.  A real replacement must mark blocked-vs-unreached during
+# the walk.
+_NULL_BASE_FORM_NAMES: set[str] = set()
 
 
 # ----------------------------------------------------------------------
@@ -271,6 +278,9 @@ def _compute_expected_base_forms(graph: ConversionGraph) -> dict[Unit, BaseForm]
                 if isinstance(neighbor, RebasedUnit):
                     continue
                 if not isinstance(edge_map, (LinearMap, AffineMap)):
+                    queue.append(neighbor)
+                    continue
+                if getattr(edge_map, 'b', 0.0):
                     queue.append(neighbor)
                     continue
                 try:
