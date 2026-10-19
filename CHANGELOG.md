@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- **`ROADMAP.md`: v2.3.0 re-scoped, the KOQ floor split, and 3.0.0's
+  prerequisites made explicit.** Thirteen issues surfaced this week (#339–#348,
+  #352–#354) reduce to four root causes, the largest being the pseudo-dimension
+  tags — eight open issues are their consequences (#307, #318, #321, #336, #341,
+  #344, #346, #348). The retirement unblocks the most, so its prerequisites were
+  audited. Two had been mis-read as features merely queued in front of it:
+  **#292 currency is a prerequisite** (no `currency` dimension or unit exists
+  today and the SI basis still carries `information` in slot 8, so 3.0.0's
+  "folds into slot 9 … and the shim transform retires" has nothing to fold), and
+  **part of the KOQ floor is a prerequisite** (`xdom-018`, `xdom-020` and
+  `pr-028` refuse today *only* because the tags differ, so the angle kinds and
+  the product-signature `default_kind` mechanism must precede the retirement or
+  three must-fails regress).
+
+  So the KOQ catalog floor **splits**: the angle clusters and the
+  product-signature mechanism become v2.4.0 (#342, #343, #344's angle half,
+  #348's kind half), and the half that genuinely needs the merged fiber becomes
+  v3.1.0 (#341, #346, the remaining dimensionless kinds, `sr = rad²`). The
+  Turnstile moves to v3.2.0. Array parity (#297, #298) was the only row found
+  *not* to be a prerequisite and is the only one left unsequenced. v2.6.0
+  currency keeps its place, now flagged as the gate it is.
+
+  v2.3.0 is re-scoped from "package infrastructure and the KOQ floor" to
+  **"stratum wiring and invariant enforcement"**: the three routes by which the
+  kind stratum can be bypassed (#340, #352, #353) and the invariants that were
+  allowlists (#340, #347). All independent of the dimensionless fiber, so
+  deliverable now — `rankine` (#339) and `var` (#345) already landed against it.
+
 - **`ROADMAP.md` resequenced, and v2.3.0 re-scoped.** Working the chart stratum
   and the KOQ floor surfaced thirteen issues (#339–#348, #352–#354) that reduce
   to four root causes, the largest being one thing: the pseudo-dimension tags.
