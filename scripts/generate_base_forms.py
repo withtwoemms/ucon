@@ -130,7 +130,10 @@ _COHERENT_SI_NAMES = {
 # asserts this category remains ``None``; if any new affine/log unit lands,
 # add it to this set explicitly.
 _NULL_BASE_FORM_NAMES = {
-    'celsius', 'fahrenheit', 'rankine', 'reaumur',
+    # ``rankine`` is NOT here: it is a pure scaling of kelvin (0 °R = 0 K,
+    # factor 5/9), so the BFS oracle derives its base_form correctly.  It was
+    # grouped with the conventional-zero scales by Fahrenheit degree size.
+    'celsius', 'fahrenheit', 'reaumur',
     # logarithmic / dimensionless level units have no (prefactor, factors)
     # representation either; uncomment if/when present:
     # 'decibel', 'bel', 'neper',

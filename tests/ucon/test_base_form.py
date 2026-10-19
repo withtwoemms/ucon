@@ -18,6 +18,7 @@ materialized.
 """
 
 import math
+from fractions import Fraction
 import subprocess
 import sys
 
@@ -288,3 +289,53 @@ class TestArithmeticRegressions:
         mu = units.pascal_second(0.001)
         Re = (rho * v * L) / mu
         assert abs(Re.quantity - 100000.0) < 1e-6
+
+
+class TestRankineBaseForm:
+    """``rankine`` is a pure scaling of kelvin, so it carries a base_form (#339).
+
+    It had been named in ``generate_base_forms._NULL_BASE_FORM_NAMES`` beside
+    the three conventional-zero scales, which asserted its base_form stay
+    ``None``. Rankine is the absolute Fahrenheit-degree scale: ``0 °R = 0 K``,
+    factor 5/9. Only the degree *size* is Fahrenheit's.
+    """
+
+    def test_rankine_prefactor_is_the_exact_seed_rounded_once(self):
+        # House convention (v2.1.6/2.1.7, tests/ucon/test_customary_prefactors.py):
+        # compose the exact value in ``Fraction`` and convert to float exactly
+        # once, then assert *equality* with that double — not a tolerance. The
+        # Rankine scale is defined by T/°R = (9/5)(T/K), so the seed is 5/9 and
+        # is exact by definition rather than measured.
+        bf = units.rankine.base_form
+        assert bf is not None
+        assert bf.factors == ((units.kelvin, 1.0),)
+        assert bf.prefactor == float(Fraction(5, 9))
+
+    def test_rankine_prefactor_matches_its_declared_edge(self):
+        # The catalog declares kelvin -> rankine as factor 1.8; the base_form
+        # prefactor is its reciprocal and must agree bit-for-bit, or the two
+        # routes to kelvin disagree.
+        assert units.rankine.base_form.prefactor == 1 / 1.8
+
+    def test_conventional_zero_scales_still_have_none(self):
+        # celsius/fahrenheit/reaumur are affine to kelvin; no prefactor can
+        # express an offset, so their base_form must stay None.
+        assert units.celsius.base_form is None
+        assert units.fahrenheit.base_form is None
+        assert units.reaumur.base_form is None
+
+    def test_rankine_shares_kelvins_zero(self):
+        assert abs(units.rankine(0).to(units.kelvin).quantity) < 1e-15
+
+    def test_canonical_magnitude_is_in_kelvin(self):
+        # Before #339 this silently returned the raw quantity (20), because
+        # _canonical_magnitude falls back to it when base_form is None.
+        assert abs(units.rankine(20).canonical_magnitude - 100.0 / 9.0) < 1e-12
+
+    def test_to_base_converts_rather_than_no_ops(self):
+        assert abs(units.rankine(20).to_base().quantity - 100.0 / 9.0) < 1e-12
+
+    def test_addition_with_kelvin_is_admitted(self):
+        # The missing base_form made this raise UnitsNotNormalizable.
+        result = units.rankine(20) + units.kelvin(5)
+        assert abs(result.to(units.kelvin).quantity - (100.0 / 9.0 + 5.0)) < 1e-12

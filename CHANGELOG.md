@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`rankine` carries a `base_form` (#339).** It is a pure scaling of kelvin —
+  `0 °R = 0 K`, factor `5/9` — but was named in
+  `generate_base_forms._NULL_BASE_FORM_NAMES` beside the three
+  conventional-zero scales, under a comment reading "Affine and logarithmic
+  units MUST have base_form=None". Rankine is neither: it is the absolute
+  Fahrenheit-degree scale, and only the degree *size* is Fahrenheit's. The
+  generator's own BFS oracle derives the right value, so removing the name
+  makes `make base-forms-check` demand it (`compared=144 agreed=144
+  drifted=0 null-by-design=3`). The stored prefactor follows the house
+  convention established in v2.1.6/2.1.7 — compose the exact value in
+  `Fraction` and convert to float exactly once — so the regression test
+  asserts *equality* with `float(Fraction(5, 9))` and with the reciprocal of
+  the declared `kelvin → rankine` edge factor, rather than a tolerance. Two
+  consequences fixed:
+  `units.rankine(20) + units.kelvin(5)` no longer raises
+  `UnitsNotNormalizable`, and `canonical_magnitude` / `to_base()` now convert
+  (`100/9 K`) instead of silently returning the raw quantity.
+
 ### Documentation
 
 - **`ROADMAP.md`: v2.3.0 re-scoped, the KOQ floor split, and 3.0.0's
