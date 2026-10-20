@@ -48,6 +48,7 @@ from ucon.core.exceptions import (
     KindArrivalRefused,
     KindDimensionMismatch,
     KindMismatch,
+    ScalarArithmeticRefused,
     UnitDefinitionMismatch,
     UnitsNotNormalizable,
 )
@@ -2807,6 +2808,7 @@ class Number:
 
         # Scalar multiplication
         if isinstance(other, (int, float)):
+            self._require_scalar_scaling("scale")
             new_uncertainty = None
             if self.uncertainty is not None:
                 new_uncertainty = abs(other) * self.uncertainty
@@ -2876,6 +2878,48 @@ class Number:
         raise UnitsNotNormalizable(
             left=self.unit, right=other.unit, operation=operation
         )
+
+    def _require_scalar_scaling(self, operation: str) -> None:
+        """Refuse a scalar ``*`` / ``/`` on a level or a point (#340).
+
+        Scalar multiplication is repeated addition: ``a * n`` is
+        ``a + a + …``, identical on every unit in the catalog, the broken
+        cases included. So it answers to the **additive** rules, not the
+        multiplicative ones, and the question is whether the unit's
+        coordinate has a magnitude to repeat:
+
+        =========================  =========================  ==========
+        operand                    expands to                 verdict
+        =========================  =========================  ==========
+        ``2 × (20 °C)``            point + point              refuse
+        ``2 × (10 dBW)``           level + level              refuse
+        ``2 × (3 dB)``             gain + gain = ``6 dB``     admit
+        ``(10 dB) / 2``            the geometric half         admit
+        ``2 × (1 Gy)``             same kind, same unit       admit
+        =========================  =========================  ==========
+
+        ``3 dB + 3 dB = 6 dB`` is not a concession: the ratios cascade
+        (1.995² = 3.981), which is what a gain is for. Only a coordinate
+        with a *referent* — a level, or an interval point — fails, and
+        :meth:`ucon.conversion.Graph.scale_class` is what tells them
+        apart.
+
+        Note the asymmetry this leaves: ``20 °C + 20 °C`` still answers
+        ``<40 °C>``, because :meth:`_require_normalizable` exempts
+        same-unit operands. Closing that is the additive half of the same
+        hole and is not in #340's scope; the scalar forms are gated here
+        because they have no second operand to exempt.
+
+        Exponentiation is untouched: ``a ** 2`` is repeated
+        *multiplication*, a different rule.
+        """
+        scale_class = _scale_class(self.unit)
+        if scale_class in ('point', 'level'):
+            raise ScalarArithmeticRefused(
+                unit=self.unit,
+                operation=operation,
+                scale_class=scale_class,
+            )
 
     def _additive_operand(self, other: 'Number') -> tuple:
         """``other``'s quantity and uncertainty expressed in ``self.unit``.
@@ -3033,6 +3077,7 @@ class Number:
 
         # Scalar division — preserves kind
         if isinstance(other, (int, float)):
+            self._require_scalar_scaling("scale")
             new_uncertainty = None
             if self.uncertainty is not None:
                 new_uncertainty = self.uncertainty / abs(other)
@@ -3228,8 +3273,12 @@ class Number:
         A scalar numerator is admitted — the forward form takes a scalar
         denominator — by reading it as the dimensionless quantity it is,
         which is what makes ``2 / units.meter(3)`` a reciprocal length.
+
+        The level-vs-gain gate applies here too: a reciprocal reads the
+        operand's magnitude, and a level or a point has none to read.
         """
         if isinstance(other, (int, float)):
+            self._require_scalar_scaling("invert")
             other = Number(other)
         elif isinstance(other, Ratio):
             other = other.evaluate()

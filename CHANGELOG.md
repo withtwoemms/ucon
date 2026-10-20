@@ -57,6 +57,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Scalar `*` and `/` are gated on level-vs-gain, and the `base_form`
+  invariants are enforced (#340).** Three independent holes, one family.
+
+  `Number.__mul__` and `Number.__truediv__` consulted neither `base_form`
+  nor any chart notion when the other operand was a scalar, so every
+  logarithmic and interval unit returned a wrong magnitude in silence:
+  `Number(10, units.decibel_watt) * 2` answered `<20 dBW>` — 100 W, where
+  twice 10 W is 13.010 dBW — `Number(10, units.celsius) * 2` answered
+  `<20 °C>`, and `Number(7, units.pH) * 2` answered `<14 pH>`, which is
+  1e-14 mol/L rather than 2e-07. The gate is derived rather than
+  stipulated: scalar multiplication is repeated addition (`a * n` was
+  identical to `a + a + …` on every unit in the catalog, the broken cases
+  included), so it answers to the **additive** rules. `2 × (20 °C)`
+  expands to point + point and refuses; `2 × (10 dBW)` to level + level
+  and refuses; `2 × (3 dB)` to gain + gain, which is the cascade of two
+  3 dB gains (ratio 1.995² = 3.981 = 6 dB) and still admits, as does
+  `10 dB / 2`, the geometric half. The refusal is the new
+  `ScalarArithmeticRefused`, and it covers `a * 2`, `a / 2`, `2 * a` and
+  `2 / a`. `a ** 2` is untouched — repeated *multiplication* is a
+  different rule. Eleven shipped units are affected: `celsius`,
+  `fahrenheit`, `reaumur`, `decibel_watt`, `decibel_milliwatt`,
+  `decibel_volt`, `decibel_spl`, `pH` and `nines` refuse, while `decibel`,
+  `bel` and `neper` keep scaling. `rankine` keeps scaling too: it is a
+  pure scaling of kelvin with a true zero (#339), not an interval scale,
+  notwithstanding the issue's list.
+
+  `BaseForm` was a bare frozen dataclass with no validation, contradicting
+  its own docstring: `prefactor=-1`, `nan`, `inf` and `0.0` were all
+  accepted, as was `factors=()`. `__post_init__` now enforces a positive,
+  finite prefactor and a non-empty factor tuple of `(Unit, exponent)`
+  pairs. The empty tuple is refused deliberately — a dimensionless unit
+  carries `base_form=None`, and the route ADR 013 §5 sets out for making
+  one normalizable is a *self-referential* factorization (`1 USD ≡ 1 ×
+  USD`), which is non-empty; admitting `()` would also give every
+  dimensionless unit the same empty `base_signature`, so `1 percent` and
+  `1 radian` would read as mutually normalizable. No shipped unit, loader
+  path, or cache round-trip constructs one.
+
+  `Unit._set_base_form` guarded only "already set", so one call made the
+  v2.2.2 normalizability refusal unsound with CI green:
+  `units.decibel_watt._set_base_form(BaseForm(((kilogram, 1.), (meter, 2.),
+  (second, -3.)), 1.0))` turned `10 dBW + 1 W` into `<11.0 dBW>` (11 W is
+  10.414 dBW) while `make base-forms-check` stayed green. The set is now
+  refused on any unit whose declared edges give it no `(prefactor,
+  factors)` representation, which makes the proxy structural rather than
+  a contingent fact about the shipped TOML — the job the hand-maintained
+  `_NULL_BASE_FORM_NAMES` list was doing before it emptied.
+
+  Both guards ask one new read-only query, `Graph.scale_class(unit)`,
+  which returns `"ratio"`, `"gain"`, `"level"` or `"point"`. It is #356's
+  rule read in the other direction: the base-form oracle refuses to
+  *propagate* across a log/exp edge or an affine edge bearing an offset,
+  and `scale_class` walks outward from a unit over exactly the
+  complementary edges, looking for a base-form anchor. Locality would not
+  have done — `reaumur`'s own edge to `celsius` carries no offset, yet it
+  must stay `None` because its only path to `kelvin` runs through
+  `celsius`'s — so the walk covers the whole multiplicative neighbourhood,
+  and it reads the product-edge table too, which is where `pH`'s only
+  edge lives. Direction is recovered from the map type rather than the
+  offset: `add_edge` stores an inverse alongside every edge, so the
+  logarithmic side is the side you leave by exponentiating, which is what
+  keeps `fraction` — the referent side of a `LogMap` to each of `bel`,
+  `decibel`, `neper` and `nines` — a ratio scale. The level-vs-gain split
+  is *not* the `reference` field alone: `decibel_watt → watt` carries
+  `reference=1.0` because 0 dBW is 1 W, numerically indistinguishable from
+  a bare `dB`, and `decibel_volt` likewise; what separates them is that
+  the referent is dimensionful. Two things the query does not catch, by
+  construction: a unit the graph declares no edges for reads as a ratio
+  scale (absence of structure is not evidence of non-ratio structure —
+  this is what keeps a freshly-constructed `Unit` usable and both loader
+  passes working, since `base_form` resolves in pass 6b and edges
+  materialize in pass 9), and unanchored pseudo-dimensional ratio scales
+  such as `radian` and `percent` are indistinguishable from that case.
+  Not closed here: `20 °C + 20 °C` still answers `<40 °C>`, because
+  `_require_normalizable` exempts same-unit operands — the additive half
+  of the same hole, and not in #340's scope.
+
 - **Formula-signature collisions are refused at registration (#347).** The
   registry's three kind-identity tiers (EXACT, COMMUTATIVE, and GENERALIZED
   through the indexes they share) answer with one formula per input signature,
