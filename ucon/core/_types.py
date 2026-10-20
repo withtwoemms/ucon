@@ -39,7 +39,7 @@ else:
     from typing_extensions import Annotated  # type: ignore[assignment]
 
 from ucon._active import _active as _sys_active_var
-from ucon.aspects.exceptions import AspectNotApplicable
+from ucon.aspects.exceptions import AspectNotApplicable, AspectRefused
 from ucon.aspects.resolution import resolve_add_aspects, resolve_mul_aspects
 from ucon.aspects.types import Aspect
 from ucon.basis import Basis, BasisGraph
@@ -2527,6 +2527,116 @@ class Number:
             return True
         return True
 
+    def _resolve_eq_aspects(self, other: 'Number') -> bool:
+        """Whether the aspect stratum admits comparing these two operands.
+
+        The peer of :meth:`_resolve_eq_kind`, and refused the same way:
+        ``__eq__`` stays total, so an aspect conflict is reported as
+        "unequal" rather than raised. Two sibling positions in one
+        family — a dry-basis and a wet-basis dose — are not the same
+        quantity however their magnitudes compare, which is exactly
+        what ``+``, ``*`` and ``/`` already refuse.
+
+        Resolution runs on the multiplicative rule, which reads nothing
+        ambient and never warns: it refuses only a genuine in-family
+        join the LCA's policy rejects, and lets partial presence (one
+        operand aspect-silent) carry. Comparison therefore refuses
+        exactly on conflict, never on silence.
+        """
+        if not self.aspects or not other.aspects:
+            return True
+        try:
+            resolve_mul_aspects(self.aspects, other.aspects, op="Comparing")
+        except AspectRefused:
+            return False
+        return True
+
+    def _require_orderable_kind(self, other: 'Number') -> None:
+        """Refuse an ordering whose operands' kinds cannot be joined.
+
+        The raising counterpart of :meth:`_resolve_eq_kind`. Ordering
+        has no total-function obligation — there is no third answer a
+        bool can carry — so a refused join propagates as
+        :class:`~ucon.kinds.exceptions.JoinRefused`, the refusal ``+``
+        already gives the same pair.
+        """
+        if self.kind is None or other.kind is None:
+            return
+        if self.kind == other.kind:
+            return
+        ctx = _sys_active_var.get()
+        if ctx is None:
+            return
+        try:
+            ctx.kinds.join(self.kind, other.kind)
+        except KindNotFound:
+            # A kind the active lattice does not know: no verdict to give.
+            return
+
+    def _compare(self, other: 'Number') -> int:
+        """Three-way comparison over the normalized magnitudes.
+
+        The single gate every ordering operator routes through, so all
+        four agree with each other and with :meth:`__eq__`: the "equal"
+        verdict uses the same ``1e-12`` window, which keeps ``a <= b``
+        true wherever ``a == b`` is.
+
+        Every stratum is consulted before any magnitude is read.
+        Dimension and kind mismatches and aspect conflicts refuse, as
+        they do for ``+``; the **chart** stratum does not, because
+        ordering survives any monotone change of coordinate and all
+        three chart classes are monotone — ``3 dB < 10 dB`` and
+        ``20 °C < 25 °C`` are well posed where ``3 dB + 10 dB`` is not.
+        A pair whose units no algebraic factor relates still refuses,
+        the way :meth:`__eq__` refuses it: ``celsius(20) < kelvin(300)``
+        needs :meth:`to` first.
+
+        Returns
+        -------
+        int
+            ``-1``, ``0`` or ``1`` as ``self`` sorts below, with, or
+            above ``other``.
+
+        Raises
+        ------
+        TypeError
+            The operands' dimensions differ.
+        JoinRefused
+            The operands' kinds are incommensurable.
+        AspectRefused
+            The operands occupy conflicting positions in one aspect
+            family.
+        UnitsNotNormalizable
+            The units differ and no algebraic factor relates them.
+        """
+        if self.unit.dimension != other.unit.dimension:
+            raise TypeError(
+                f"Cannot compare Numbers with different dimensions: "
+                f"{self.unit.dimension} vs {other.unit.dimension}"
+            )
+
+        self._require_orderable_kind(other)
+        if self.aspects and other.aspects:
+            resolve_mul_aspects(self.aspects, other.aspects, op="Comparing")
+        self._require_normalizable(other, "compare")
+
+        difference = self._canonical_magnitude - other._canonical_magnitude
+        if abs(difference) < 1e-12:
+            return 0
+        return -1 if difference < 0 else 1
+
+    def _ordering_operand(self, other: _Quantifiable) -> 'Number | None':
+        """``other`` as a ``Number``, or ``None`` when it is not one.
+
+        Ordering accepts what :meth:`__eq__` accepts — a ``Number`` or a
+        ``Ratio``, which evaluates to one. Anything else yields
+        ``NotImplemented`` at the call site rather than a raise, so
+        Python can report the unsupported pair itself.
+        """
+        if isinstance(other, Ratio):
+            other = other.evaluate()
+        return other if isinstance(other, Number) else None
+
     def __mul__(self, other: _Quantifiable) -> 'Number':
         if isinstance(other, Ratio):
             other = other.evaluate()
@@ -2813,7 +2923,9 @@ class Number:
 
         Operands of differing dimension are unequal, and so are operands
         whose kinds the lattice refuses to join — an absorbed dose is
-        never equal to a dose equivalent, whatever the magnitudes.
+        never equal to a dose equivalent, whatever the magnitudes — and
+        so are operands holding conflicting positions in one aspect
+        family: a dry-basis dose is not a wet-basis dose.
         Otherwise the operands are compared after both are normalized to
         base-unit scale, so ``1 volt`` equals ``1000 millivolt``.
 
@@ -2845,6 +2957,11 @@ class Number:
         if not self._resolve_eq_kind(other):
             return False
 
+        # Conflicting positions in one aspect family are likewise
+        # incommensurable: the magnitudes describe different things.
+        if not self._resolve_eq_aspects(other):
+            return False
+
         # Same dimension, differing units: refuse rather than compare
         # magnitudes that do not denote the same thing.
         self._require_normalizable(other, "compare")
@@ -2854,6 +2971,107 @@ class Number:
             return False
 
         return True
+
+    def __ne__(self, other: _Quantifiable) -> bool:
+        """The negation of :meth:`__eq__`, defined rather than inherited.
+
+        Python's default ``__ne__`` already delegates to ``__eq__``, so
+        this changes no behavior; it is spelled out because every
+        stratum check ``__eq__`` grew had to be re-verified against the
+        inherited path to know that. A refusal ``__eq__`` raises is
+        raised here too — ``!=`` can no more assert inequality it cannot
+        determine than ``==`` can assert equality.
+        """
+        equal = self.__eq__(other)
+        if equal is NotImplemented:
+            return NotImplemented
+        return not equal
+
+    def __lt__(self, other: _Quantifiable) -> bool:
+        """Whether this quantity sorts below ``other``.
+
+        Operands are compared on their normalized magnitudes after every
+        stratum is consulted; see :meth:`_compare` for what refuses and
+        why the chart stratum does not.
+
+        Examples
+        --------
+        >>> from ucon import units
+        >>> units.foot(1) < units.meter(1)
+        True
+        """
+        operand = self._ordering_operand(other)
+        if operand is None:
+            return NotImplemented
+        return self._compare(operand) < 0
+
+    def __le__(self, other: _Quantifiable) -> bool:
+        """Whether this quantity sorts below ``other`` or equals it."""
+        operand = self._ordering_operand(other)
+        if operand is None:
+            return NotImplemented
+        return self._compare(operand) <= 0
+
+    def __gt__(self, other: _Quantifiable) -> bool:
+        """Whether this quantity sorts above ``other``."""
+        operand = self._ordering_operand(other)
+        if operand is None:
+            return NotImplemented
+        return self._compare(operand) > 0
+
+    def __ge__(self, other: _Quantifiable) -> bool:
+        """Whether this quantity sorts above ``other`` or equals it."""
+        operand = self._ordering_operand(other)
+        if operand is None:
+            return NotImplemented
+        return self._compare(operand) >= 0
+
+    # --- Reflected forms ---------------------------------------------------
+    #
+    # Each reflected operator admits exactly what its forward form
+    # admits; they exist to remove a dispatch asymmetry, not to widen the
+    # protocol. So `2 * a` works because `a * 2` does, and `2 + a` stays
+    # a TypeError because `a + 2` is one. Where the operands do not
+    # commute the order is restored before delegating.
+
+    def __rmul__(self, other: _Quantifiable) -> 'Number':
+        """``other * self``. Multiplication commutes, so delegate."""
+        return self.__mul__(other)
+
+    def __radd__(self, other: 'Number') -> 'Number':
+        """``other + self``. Addition commutes, so delegate."""
+        return self.__add__(other)
+
+    def __rsub__(self, other: 'Number') -> 'Number':
+        """``other - self``, with the operand order restored.
+
+        Subtraction does not commute, so this cannot delegate to
+        :meth:`__sub__`; the left operand runs the subtraction instead.
+        Only operands :meth:`__sub__` itself accepts are admitted — a
+        bare scalar minus a ``Number`` is as unsupported as the forward
+        form, and reports the same way.
+        """
+        if isinstance(other, Ratio):
+            other = other.evaluate()
+        if not isinstance(other, Number):
+            return NotImplemented
+        return other.__sub__(self)
+
+    def __rtruediv__(self, other: _Quantifiable) -> 'Number':
+        """``other / self``, with the operand order restored.
+
+        Division does not commute either, so the left operand runs it.
+        A scalar numerator is admitted — the forward form takes a scalar
+        denominator — by reading it as the dimensionless quantity it is,
+        which is what makes ``2 / units.meter(3)`` a reciprocal length.
+        """
+        if isinstance(other, (int, float)):
+            other = Number(other)
+        elif isinstance(other, Ratio):
+            other = other.evaluate()
+        if not isinstance(other, Number):
+            return NotImplemented
+        return other.__truediv__(self)
 
     def __pow__(self, power: Union[int, float]) -> 'Number':
         """Raise Number to a power.

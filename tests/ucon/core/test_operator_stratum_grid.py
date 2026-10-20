@@ -14,9 +14,13 @@ is what makes the next ungated operator fail CI instead of shipping.
 Expectations are classifications, not messages: a refusal names the
 exception type, an admission says only that the operator answered
 (``==``/``!=`` additionally pin the boolean). ``NO_OP`` marks an
-operator Python does not dispatch at all — ordering, reflected scalar
-multiplication, floor division, negation — which is missing capability
-(#353 and the ROADMAP's unsequenced ergonomics row), not a stratum hole.
+operator Python does not dispatch at all — floor division, negation —
+which is missing capability (#353 and the ROADMAP's unsequenced
+ergonomics row), not a stratum hole.
+
+The ordering rows, the reflected scalar rows and the aspect column's
+``==``/``!=`` cells were ``NO_OP``/admitting when this grid was written
+and were closed by #353.
 """
 
 from __future__ import annotations
@@ -31,6 +35,8 @@ from ucon import (
     DimensionMismatch,
     KindArrivalRefused,
     Number,
+    Ratio,
+    Scale,
     UnitsNotNormalizable,
     units,
 )
@@ -88,12 +94,16 @@ OPERATORS: Dict[str, Callable[[Number, Number], object]] = {
     "a == b": lambda a, b: a == b,
     "a != b": lambda a, b: a != b,
     "a < b": lambda a, b: a < b,
+    "a <= b": lambda a, b: a <= b,
+    "a > b": lambda a, b: a > b,
+    "a >= b": lambda a, b: a >= b,
     "a // b": lambda a, b: a // b,
     "a.to(b.unit)": lambda a, b: a.to(b.unit),
     "hash(a)": lambda a, b: hash(a),
     "a * 2": lambda a, b: a * 2,
     "a / 2": lambda a, b: a / 2,
     "2 * a": lambda a, b: 2 * a,
+    "2 / a": lambda a, b: 2 / a,
     "-a": lambda a, b: -a,
     "abs(a)": lambda a, b: abs(a),
     "a.to_base()": lambda a, b: a.to_base(),
@@ -110,10 +120,13 @@ OPERATORS: Dict[str, Callable[[Number, Number], object]] = {
 # returns a value | 3.2.0"). Until then the chart stratum is enforced only
 # where `base_form` happens to proxy for it (the additive rows, and `==`).
 #
-# The aspect column's `==`/`!=` admissions are likewise current behaviour
-# rather than endorsed behaviour: `__eq__` consults dimension and kind, not
-# aspect. #352 is scoped to the kind stratum; recorded here so the gap is
-# visible rather than discovered.
+# The ordering rows admit on the chart column where the additive rows
+# refuse. That is derived, not conceded: ordering survives any monotone
+# change of coordinate, and the identity, affine and log coordinates are
+# all monotone, so `3 dB < 10 dB` and `20 °C < 25 °C` are well posed
+# where `3 dB + 10 dB` is not. What the chart cell records is narrower —
+# `celsius` and `kelvin` have no algebraic factor relating them, so the
+# comparison needs `.to()` first, exactly as `==` does.
 
 GRID: Dict[Tuple[str, str], object] = {
     # --- additive: every stratum refuses -----------------------------------
@@ -146,24 +159,46 @@ GRID: Dict[Tuple[str, str], object] = {
     ("a ** 2", "aspect"): ADMITS,
     # --- comparison --------------------------------------------------------
     # `==` stays total: a refusal is reported as "unequal", never raised.
-    # The kind cells closed in #352 (they answered True/False).
+    # The kind cells closed in #352; the aspect cells in #353.
     ("a == b", "dimension"): False,
     ("a == b", "chart"): UnitsNotNormalizable,
     ("a == b", "kind"): False,
-    ("a == b", "aspect"): True,
-    # `__ne__` is undefined and inherits from `__eq__`.
+    ("a == b", "aspect"): False,
+    # `__ne__` is defined in #353 rather than inherited, and negates
+    # `__eq__` cell for cell — refusals included.
     ("a != b", "dimension"): True,
     ("a != b", "chart"): UnitsNotNormalizable,
     ("a != b", "kind"): True,
-    ("a != b", "aspect"): False,
-    ("a < b", "dimension"): NO_OP,
-    ("a < b", "chart"): NO_OP,
-    ("a < b", "kind"): NO_OP,
-    ("a < b", "aspect"): NO_OP,
+    ("a != b", "aspect"): True,
+    # Ordering refuses on dimension, kind and aspect, as `+` does, and
+    # admits across charts — see the note above. All four operators route
+    # through one three-way comparison, so the rows are identical.
+    ("a < b", "dimension"): TypeError,
+    ("a < b", "chart"): UnitsNotNormalizable,
+    ("a < b", "kind"): JoinRefused,
+    ("a < b", "aspect"): AspectRefused,
+    ("a <= b", "dimension"): TypeError,
+    ("a <= b", "chart"): UnitsNotNormalizable,
+    ("a <= b", "kind"): JoinRefused,
+    ("a <= b", "aspect"): AspectRefused,
+    ("a > b", "dimension"): TypeError,
+    ("a > b", "chart"): UnitsNotNormalizable,
+    ("a > b", "kind"): JoinRefused,
+    ("a > b", "aspect"): AspectRefused,
+    ("a >= b", "dimension"): TypeError,
+    ("a >= b", "chart"): UnitsNotNormalizable,
+    ("a >= b", "kind"): JoinRefused,
+    ("a >= b", "aspect"): AspectRefused,
     ("a // b", "dimension"): NO_OP,
     ("a // b", "chart"): NO_OP,
     ("a // b", "kind"): NO_OP,
     ("a // b", "aspect"): NO_OP,
+    # `Number` is a mutable dataclass, so defining `__eq__` without
+    # `__hash__` is defensible rather than accidental: hashing on mutable
+    # fields is the hazard `__hash__ = None` exists to prevent. #353
+    # leaves these four cells alone; ADR 009 sequences "`Number` frozen"
+    # at 3.0.0, after which the hash can be taken on the canonical
+    # magnitude (`1 m == 100 cm`, so `(quantity, unit)` would not do).
     ("hash(a)", "dimension"): TypeError,
     ("hash(a)", "chart"): TypeError,
     ("hash(a)", "kind"): TypeError,
@@ -183,10 +218,16 @@ GRID: Dict[Tuple[str, str], object] = {
     ("a / 2", "chart"): ADMITS,
     ("a / 2", "kind"): ADMITS,
     ("a / 2", "aspect"): ADMITS,
-    ("2 * a", "dimension"): NO_OP,
-    ("2 * a", "chart"): NO_OP,
-    ("2 * a", "kind"): NO_OP,
-    ("2 * a", "aspect"): NO_OP,
+    # The reflected forms, added in #353. Each admits exactly what its
+    # forward form admits, so these mirror the `a * 2` / `a / 2` rows.
+    ("2 * a", "dimension"): ADMITS,
+    ("2 * a", "chart"): ADMITS,
+    ("2 * a", "kind"): ADMITS,
+    ("2 * a", "aspect"): ADMITS,
+    ("2 / a", "dimension"): ADMITS,
+    ("2 / a", "chart"): ADMITS,
+    ("2 / a", "kind"): ADMITS,
+    ("2 / a", "aspect"): ADMITS,
     ("-a", "dimension"): TypeError,
     ("-a", "chart"): TypeError,
     ("-a", "kind"): TypeError,
@@ -278,3 +319,182 @@ def test_kinded_over_unkinded_division_still_cancels() -> None:
     quotient = Number(100, units.gray) / unkinded
     assert quotient.quantity == 2.0
     assert quotient.kind is None
+
+
+# --- the cells #353 closed, spelled out ------------------------------------
+
+def test_ordering_crosses_units_within_a_dimension() -> None:
+    """`1 ft < 1 m`, the comparison pint, unyt and astropy all answer True."""
+    assert (Number(1, units.foot) < Number(1, units.meter)) is True
+    assert (Number(1, units.meter) < Number(1, units.foot)) is False
+    assert (Number(1, units.meter) > Number(1, units.foot)) is True
+    assert (Number(1, units.foot) <= Number(1, units.meter)) is True
+    assert (Number(1, units.foot) >= Number(1, units.meter)) is False
+
+
+def test_ordering_agrees_with_equality_across_scales() -> None:
+    """A scale change is not an ordering: `1 m` and `100 cm` tie."""
+    centimeter = Scale.centi * units.meter
+    meter, hundred_cm = Number(1, units.meter), Number(100, centimeter)
+    assert (meter == hundred_cm) is True
+    assert (meter < hundred_cm) is False
+    assert (meter > hundred_cm) is False
+    assert (meter <= hundred_cm) is True
+    assert (meter >= hundred_cm) is True
+
+
+def test_ordering_admits_the_logarithmic_chart() -> None:
+    """`3 dB < 10 dB`: a log coordinate is monotone, so ordering survives it."""
+    assert (Number(3, units.decibel) < Number(10, units.decibel)) is True
+    assert (Number(10, units.decibel) < Number(3, units.decibel)) is False
+    assert (Number(10, units.decibel) >= Number(10, units.decibel)) is True
+
+
+def test_ordering_admits_the_interval_chart() -> None:
+    """`20 °C < 25 °C`: an affine coordinate is monotone too."""
+    assert (Number(20, units.celsius) < Number(25, units.celsius)) is True
+    assert (Number(25, units.celsius) <= Number(20, units.celsius)) is False
+    assert (Number(20, units.celsius) >= Number(20, units.celsius)) is True
+
+
+def test_ordering_across_charts_refuses_like_equality() -> None:
+    """`celsius(20) < kelvin(300)` refuses exactly where `==` does.
+
+    Not a chart refusal: no algebraic factor relates the two units, so
+    there is no magnitude to compare until `.to()` has been called.
+    """
+    celsius, kelvin = Number(20, units.celsius), Number(300, units.kelvin)
+    with pytest.raises(UnitsNotNormalizable):
+        celsius == kelvin
+    for comparison in (lambda: celsius < kelvin, lambda: celsius <= kelvin,
+                       lambda: celsius > kelvin, lambda: celsius >= kelvin):
+        with pytest.raises(UnitsNotNormalizable):
+            comparison()
+
+
+def test_sorted_min_and_max_work() -> None:
+    """The point of the exercise: the stdlib protocols come for free."""
+    lengths = [Number(3, units.meter), Number(1, units.meter),
+               Number(2, units.meter)]
+    assert [n.quantity for n in sorted(lengths)] == [1, 2, 3]
+    assert max(Number(1, units.meter), Number(2, units.foot)).unit is units.meter
+    assert min(Number(1, units.meter), Number(2, units.foot)).unit is units.foot
+
+
+def test_conflicting_aspects_are_unequal() -> None:
+    """Sibling positions in one family compare False, and `!=` True.
+
+    `+`, `*` and `/` all raise `AspectRefused` for this pair while `==`
+    answered `True` — the aspect peer of the kind hole #352 closed.
+    """
+    a, b = _aspect_pair()
+    assert (a == b) is False
+    assert (a != b) is True
+
+
+def test_aspect_silence_is_not_an_aspect_conflict() -> None:
+    """One operand aspect-silent is partial presence, not conflict.
+
+    Comparison refuses on conflict only, so the carry rule's reading is
+    the one `==` takes: an unqualified operand contradicts nothing.
+    """
+    aspected, _ = _aspect_pair()
+    plain = Number(1, units.gray)
+    assert (aspected == plain) is True
+    assert (aspected != plain) is False
+    assert (aspected <= plain) is True
+
+
+def test_identical_aspects_still_compare() -> None:
+    """Equal positions carry through, as they do under every operator."""
+    aspected, _ = _aspect_pair()
+    twin = Number(1, units.gray, aspects=aspected.aspects)
+    assert (aspected == twin) is True
+    assert (aspected < twin) is False
+
+
+def test_reflected_scalar_multiplication_matches_the_forward_form() -> None:
+    """`2 * a` answers what `a * 2` answers, for every operand type."""
+    length = Number(3, units.meter)
+    assert (2 * length).quantity == (length * 2).quantity == 6
+    assert (2.5 * length).quantity == (length * 2.5).quantity == 7.5
+    assert (2 * length).unit is length.unit
+
+
+def test_reflected_scalar_multiplication_preserves_the_strata() -> None:
+    """Delegation means the kind and aspects ride along unchanged."""
+    dose = Number(1, units.gray)
+    doubled = 2 * dose
+    assert doubled.kind == dose.kind
+    aspected, _ = _aspect_pair()
+    assert (2 * aspected).aspects == aspected.aspects
+
+
+def test_reflected_division_restores_the_operand_order() -> None:
+    """`2 / a` is a reciprocal, not `a / 2`."""
+    reciprocal = 2 / Number(4, units.meter)
+    assert reciprocal.quantity == 0.5
+    assert reciprocal.unit.dimension == (units.meter ** -1).dimension
+    assert (Number(4, units.meter) / 2).quantity == 2.0
+
+
+def test_reflected_additive_forms_refuse_as_the_forward_forms_do() -> None:
+    """A bare scalar has no dimension, so neither direction admits it.
+
+    `__radd__`/`__rsub__` exist to remove the dispatch asymmetry, not to
+    widen what `+` and `-` accept: all four spellings are a `TypeError`.
+    """
+    length = Number(3, units.meter)
+    for expression in (lambda: 2 + length, lambda: length + 2,
+                       lambda: 2 - length, lambda: length - 2):
+        with pytest.raises(TypeError):
+            expression()
+
+
+def test_reflected_subtraction_keeps_the_operand_order() -> None:
+    """Where the operands are commensurable, `b - a` is not `a - b`."""
+    two, half = Number(2), Number(0.5)
+    assert two.__rsub__(half).quantity == -1.5
+    assert (half - two).quantity == -1.5
+    assert (two - half).quantity == 1.5
+
+
+def test_number_stays_unhashable() -> None:
+    """Deliberate: `Number` is mutable, so #353 leaves `__hash__` alone."""
+    with pytest.raises(TypeError):
+        hash(Number(1, units.meter))
+
+
+def test_ordering_accepts_a_ratio_as_equality_does() -> None:
+    """A `Ratio` evaluates to a `Number`, so it is orderable too."""
+    ratio = Ratio(Number(4, units.meter), Number(2, units.meter))
+    assert (Number(1) < ratio) is True
+    assert (Number(3) > ratio) is True
+    assert (Number(2) <= ratio) is True
+    assert (Number(2) >= ratio) is True
+
+
+def test_ordering_against_a_foreign_type_defers_to_python() -> None:
+    """Non-quantities yield `NotImplemented`, so Python reports the pair."""
+    length = Number(1, units.meter)
+    assert length.__lt__(2) is NotImplemented
+    assert length.__le__("x") is NotImplemented
+    assert length.__gt__(None) is NotImplemented
+    assert length.__ge__(object()) is NotImplemented
+    with pytest.raises(TypeError, match="not supported between"):
+        length < 2
+
+
+def test_reflected_forms_against_a_foreign_type_defer_to_python() -> None:
+    """Same contract on the reflected side: defer, never raise."""
+    length = Number(1, units.meter)
+    assert length.__rmul__("x") is NotImplemented
+    assert length.__rsub__(2) is NotImplemented
+    assert length.__rtruediv__("x") is NotImplemented
+
+
+def test_reflected_subtraction_takes_a_ratio_left_operand() -> None:
+    """`Ratio` defines no `__sub__`, so `__rsub__` is the path it takes."""
+    ratio = Ratio(Number(4, units.meter), Number(2, units.meter))
+    assert (ratio - Number(1)).quantity == 1.0
+    assert Number(1).__rtruediv__(ratio).quantity == 2.0

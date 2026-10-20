@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Ordering and the reflected operators on `Number` (#353).** `Number`
+  implemented `__eq__` and nothing else of the comparison protocol, so
+  `units.meter(1) < units.foot(1)` was a bare `TypeError` and `sorted`, `min`
+  and `max` were all unavailable — the one place ucon stood alone, since pint,
+  unyt and astropy all answer `1 ft < 1 m` → `True`. `__lt__`, `__le__`,
+  `__gt__` and `__ge__` now route through one three-way `_compare`, so the
+  four agree with each other and with `__eq__` (same `1e-12` window, so
+  `a <= b` holds wherever `a == b` does). Every stratum is consulted before a
+  magnitude is read: dimension mismatch, a kind join the lattice refuses, and
+  an aspect conflict all refuse exactly as `+` refuses them. The **chart**
+  stratum does not refuse — ordering survives any monotone change of
+  coordinate and all three chart classes are monotone, so `3 dB < 10 dB` and
+  `20 °C < 25 °C` are well posed where `3 dB + 10 dB` is not. A pair no
+  algebraic factor relates still needs `.to()` first, so
+  `celsius(20) < kelvin(300)` raises `UnitsNotNormalizable`, exactly as `==`
+  does for it.
+  `__ne__` is now defined rather than inherited — no behavior change, but
+  every stratum check `__eq__` grew is now visibly on the `!=` path too.
+  The reflected forms `__rmul__`, `__radd__`, `__rsub__` and `__rtruediv__`
+  close a dispatch asymmetry: `2 * units.meter(3)` raised `TypeError` for
+  every unit in the catalog while `units.meter(3) * 2` answered `<6 m>`. Each
+  reflected form admits exactly what its forward form admits — so `2 * a` and
+  `2 / a` work (and `2 / units.meter(4)` is a reciprocal length, the operand
+  order restored rather than delegated), while `2 + a` and `2 - a` stay
+  `TypeError` because `a + 2` and `a - 2` are. `__hash__` stays unimplemented
+  on purpose: `Number` is a mutable dataclass, so hashing on its fields is the
+  hazard `__hash__ = None` exists to prevent; ADR 009 sequences
+  "`Number` frozen" at 3.0.0, and the hash belongs after it (on the canonical
+  magnitude, since `1 m == 100 cm`). `__floordiv__` likewise stays absent — it
+  is new semantics to design, not a stratum hole.
+
 - **`var`, the volt-ampere reactive (#345).** Completes the W/VA/var
   degeneracy cluster. `reactive_power` had been declared as a third disjoint
   sibling under `power` but no unit carried it, so the kind was unreachable —
@@ -25,6 +56,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `make base-forms-check`.
 
 ### Fixed
+
+- **`==` and `!=` consult the aspect stratum (#353).** The aspect peer of the
+  kind hole #352 closed, and left open there deliberately since #352 was
+  scoped to kinds: two `Number(1, units.gray)` values carrying *sibling*
+  positions under one `Aspect` root — a dry-basis dose against a wet-basis
+  dose — compared `True`, while `+`, `*` and `/` all raised `AspectRefused`
+  for the same pair. `_resolve_eq_aspects` closes it in `_resolve_eq_kind`'s
+  idiom: resolution runs on the multiplicative rule (which reads nothing
+  ambient and never warns) and a refusal is reported as *unequal* rather than
+  raised, so `__eq__` stays total. Comparison therefore refuses on conflict
+  only, never on silence — an aspect-silent operand contradicts nothing, so
+  `gray(1)#dry == gray(1)` is still `True`. Ordering, which has no
+  total-function obligation, raises `AspectRefused` for the conflicting pair
+  instead.
 
 - **`/` and `==` consult the kind stratum (#352).** Two operators bypassed it
   while `+`, `*` and `.to()` all gated: `gray(1) / sievert(1)` cancelled both
