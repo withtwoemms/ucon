@@ -130,6 +130,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   passes working, since `base_form` resolves in pass 6b and edges
   materialize in pass 9), and unanchored pseudo-dimensional ratio scales
   such as `radian` and `percent` are indistinguishable from that case.
+  The query's verdict for a plain `Unit` is memoized per graph in
+  `_scale_class_cache`, which `add_edge` clears alongside the two
+  conversion caches — the walk would otherwise cost ~20 µs on every
+  scalar `*` over a unit with no `base_form` (`radian`, `gauss`,
+  `percent`), against ~2 µs before. The base-form fast path sits ahead of
+  the cache read, so a unit that acquires one is never answered from a
+  stale entry.
+
   Not closed here: `20 °C + 20 °C` still answers `<40 °C>`, because
   `_require_normalizable` exempts same-unit operands — the additive half
   of the same hole, and not in #340's scope.

@@ -31,6 +31,7 @@ from ucon import graph as graph_mod
 from ucon.core import Unit
 from ucon.conversion import get_default_graph
 from ucon.dimension import LENGTH, TEMPERATURE
+from ucon.maps import AffineMap
 
 
 # -----------------------------------------------------------------------
@@ -616,6 +617,21 @@ class TestScaleClass:
             "decibel_milliwatt", "decibel_spl", "decibel_volt",
             "decibel_watt", "nines", "pH",
         ]
+
+    def test_a_new_edge_invalidates_the_memoized_verdict(self):
+        """The verdict is cached per graph, so `add_edge` must clear it.
+
+        A freshly-declared unit reads as a ratio scale until the edge that
+        makes it a point arrives.
+        """
+        graph = get_default_graph().copy()
+        centigrade = Unit(name="centigrade_edge", dimension=TEMPERATURE)
+        graph.register_unit(centigrade)
+        assert graph.scale_class(centigrade) == "ratio"
+        graph.add_edge(
+            src=centigrade, dst=units.kelvin, map=AffineMap(a=1.0, b=273.15),
+        )
+        assert graph.scale_class(centigrade) == "point"
 
     def test_a_product_is_as_unscalable_as_its_worst_factor(self):
         graph = get_default_graph()

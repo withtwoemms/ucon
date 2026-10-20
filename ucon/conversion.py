@@ -146,6 +146,11 @@ class Graph:
     # :meth:`convert_with_license` so ``Number.to`` can tell a dated-table
     # re-kind from an unlicensed one.
     _conversion_license_cache: dict[tuple, 'str | None'] = field(default_factory=dict)
+    # Scale-structure verdicts: unit -> "ratio" / "gain" / "level" / "point".
+    # Read on every scalar `Number * k`, so the multiplicative-closure walk
+    # :meth:`scale_class` performs is paid once per unit. Cleared when edges
+    # are added, alongside the conversion caches above.
+    _scale_class_cache: dict[Unit, str] = field(default_factory=dict)
 
     # ------------- Edge Management -------------------------------------------
 
@@ -266,6 +271,9 @@ class Graph:
         # Clear conversion cache (new edge may create shorter paths)
         self._conversion_cache.clear()
         self._conversion_license_cache.clear()
+        # A new edge can change a unit's scale structure (it may be the
+        # offset or the log edge that makes it a point or a level).
+        self._scale_class_cache.clear()
 
         # If basis_graph is set, validate cross-basis compatibility
         if self._basis_graph is not None and basis_transform is None:
@@ -628,11 +636,15 @@ class Graph:
         A unit can be wired entirely through product edges — ``pH`` has
         ``mole/liter ↔ pH`` and no plain unit edge at all — so a query
         that reads only ``_unit_edges`` would call it structureless.
+
+        The key is spelled inline rather than built from
+        ``_product_key(UnitProduct.from_unit(unit))``: for one factor at
+        exponent 1 the sort is a no-op, and this query runs on the
+        multiplicative-closure walk, once per node.
         """
-        try:
-            key = self._product_key(UnitProduct.from_unit(unit))
-        except Exception:  # noqa: BLE001 — an unkeyable unit has no product edges
+        if not self._product_edges:
             return []
+        key = ((unit.name, unit.dimension, Scale.one, 1),)
         return list(self._product_edges.get(key, {}).values())
 
     def scale_class(self, unit: Union[Unit, UnitProduct]) -> str:
@@ -680,6 +692,12 @@ class Graph:
         scale, because its only path to ``kelvin`` runs through
         ``celsius``'s. So the walk is over the whole multiplicative
         neighbourhood, and the evidence is collected from every node in it.
+
+        The verdict for a plain :class:`Unit` is memoized in
+        ``_scale_class_cache``, which :meth:`add_edge` clears. The
+        base-form fast path below sits *before* the cache read, so a unit
+        that acquires one through ``_set_base_form`` is not answered from
+        a stale entry.
         """
         if isinstance(unit, UnitProduct):
             # A product is as unscalable as its least scalable factor.
@@ -695,6 +713,15 @@ class Graph:
         if getattr(unit, 'base_form', None) is not None:
             return 'ratio'
 
+        cached = self._scale_class_cache.get(unit)
+        if cached is not None:
+            return cached
+        verdict = self._compute_scale_class(unit)
+        self._scale_class_cache[unit] = verdict
+        return verdict
+
+    def _compute_scale_class(self, unit: Unit) -> str:
+        """The walk :meth:`scale_class` memoizes. See it for the contract."""
         dim_edges = self._unit_edges.get(unit.dimension, {})
         component = {unit}
         queue: deque = deque([unit])
@@ -774,6 +801,7 @@ class Graph:
         new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
         new._contingent_edges = dict(self._contingent_edges)
         new._conversion_license_cache = dict(self._conversion_license_cache)
+        new._scale_class_cache = dict(self._scale_class_cache)
         new._kind_lattice = self._kind_lattice.copy() if self._kind_lattice is not None else None
         new._aspect_forest = self._aspect_forest  # immutable after construction, share reference
         new._formula_registry = self._formula_registry if hasattr(self, '_formula_registry') else None
