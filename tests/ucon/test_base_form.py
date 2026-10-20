@@ -29,6 +29,7 @@ from ucon import units
 from ucon.core import BaseForm, UnitProduct, UnitFactor
 from ucon import graph as graph_mod
 from ucon.core import Unit
+from ucon.conversion import get_default_graph
 
 
 # -----------------------------------------------------------------------
@@ -376,3 +377,80 @@ class TestAffineScalesAreSelfSuppressing:
         expected = self._expected()
         assert units.rankine in expected
         assert abs(expected[units.rankine].prefactor - 5.0 / 9.0) < 1e-15
+
+
+# -----------------------------------------------------------------------
+# BaseForm validates its own invariants (#340)
+# -----------------------------------------------------------------------
+
+class TestBaseFormValidation:
+    """``BaseForm`` enforced none of the invariants its docstring claimed.
+
+    ``BaseForm(factors=(), prefactor=-1)``, ``nan``, ``0.0`` and the
+    empty factor tuple were all accepted, so a ``base_form`` that existed
+    was no evidence that it meant anything.
+    """
+
+    @pytest.mark.parametrize("prefactor", [
+        -1, -1.0, 0, 0.0, float("nan"), float("inf"), float("-inf"),
+    ])
+    def test_prefactor_must_be_positive_and_finite(self, prefactor):
+        with pytest.raises(ValueError, match="positive and finite"):
+            BaseForm(factors=((units.meter, 1.0),), prefactor=prefactor)
+
+    @pytest.mark.parametrize("prefactor", ["1.0", None, object()])
+    def test_prefactor_must_be_a_real_number(self, prefactor):
+        with pytest.raises(TypeError, match="real number"):
+            BaseForm(factors=((units.meter, 1.0),), prefactor=prefactor)
+
+    def test_exact_rational_prefactor_is_admitted(self):
+        """Strict on value, permissive on type: a ``Fraction`` is a real."""
+        bf = BaseForm(factors=((units.meter, 1.0),), prefactor=Fraction(1, 3))
+        assert float(bf.prefactor) == pytest.approx(1 / 3)
+
+    def test_factors_must_be_non_empty(self):
+        """The empty product is not a decomposition — see the ADR 013 note.
+
+        A dimensionless unit carries ``base_form=None``; the route to
+        making one normalizable is a self-referential factorization, which
+        is non-empty. Admitting ``()`` would also give every dimensionless
+        unit the same empty ``base_signature``.
+        """
+        with pytest.raises(ValueError, match="at least one factor"):
+            BaseForm(factors=())
+        with pytest.raises(ValueError, match="at least one factor"):
+            BaseForm(factors=(), prefactor=2.0)
+
+    @pytest.mark.parametrize("factors", [
+        ((units.meter,),),
+        ((units.meter, 1.0, 2.0),),
+        ([units.meter, 1.0],),
+        ("meter",),
+    ])
+    def test_factors_must_be_unit_exponent_pairs(self, factors):
+        with pytest.raises(TypeError):
+            BaseForm(factors=factors)
+
+    def test_factor_exponent_must_be_a_real_number(self):
+        with pytest.raises(TypeError, match="exponent"):
+            BaseForm(factors=((units.meter, "1.0"),))
+
+    def test_nothing_shipped_violates_the_invariants(self):
+        """The validation is a guard, not a migration: the catalog is clean.
+
+        Checked over the graph's nodes rather than ``ucon.units``, so the
+        TOML loader and the cache round-trip are both covered.
+        """
+        graph = get_default_graph()
+        checked = 0
+        for adjacency in graph._unit_edges.values():
+            for node in adjacency:
+                bf = getattr(node, "base_form", None)
+                if bf is None:
+                    continue
+                checked += 1
+                assert bf.factors, f"{node.name} has an empty base_form"
+                assert bf.prefactor > 0 and math.isfinite(bf.prefactor), (
+                    f"{node.name} has prefactor {bf.prefactor!r}"
+                )
+        assert checked > 100, "sweep found suspiciously few base forms"

@@ -408,9 +408,88 @@ class BaseForm:
 
     Never infer a unit's chart/scale structure from ``base_form is
     None`` alone — the two causes above are unrelated.
+
+    The invariants above are enforced in :meth:`__post_init__`, so a
+    ``BaseForm`` that exists is a ``BaseForm`` that means something. Two
+    of them are deliberately *not* enforced: dimensional consistency
+    with the parent Unit (the parent is not reachable from here, and the
+    CGS-mechanical carve-out above would have to be spelled out as an
+    exception), and "canonical base units only" (which base units are
+    canonical is a property of the basis, not of this tuple).
+
+    ``factors`` must be non-empty. A unit whose decomposition is the
+    *empty* product — "1 U ≡ prefactor" — is not spelled that way here:
+    dimensionless units carry ``base_form = None``, and the route ADR 013
+    §5 sets out for making them normalizable is a **self-referential**
+    factorization (``1 USD ≡ 1 × USD``, the kilogram pattern), which is
+    non-empty. Admitting the empty tuple would also give every
+    dimensionless unit the same empty :attr:`Unit.base_signature`, so
+    ``1 percent`` and ``1 radian`` would read as mutually normalizable
+    and combine — the v2.2.2 refusal this class underwrites.
     """
     factors: tuple  # tuple[tuple[Unit, float], ...]
     prefactor: float = 1.0
+
+    def __post_init__(self) -> None:
+        """Enforce the invariants the class docstring states.
+
+        Raises
+        ------
+        TypeError
+            ``prefactor`` is not a real number, or ``factors`` holds
+            something other than ``(unit, exponent)`` pairs.
+        ValueError
+            ``prefactor`` is not positive and finite, or ``factors`` is
+            empty.
+        """
+        # ``float()`` would parse a string, so ask for ``__float__``
+        # instead: that admits int, float, Fraction, Decimal and numpy
+        # scalars, and refuses ``"1.0"``.
+        if not hasattr(type(self.prefactor), '__float__'):
+            raise TypeError(
+                f"BaseForm prefactor must be a real number, got "
+                f"{self.prefactor!r}"
+            )
+        try:
+            prefactor = float(self.prefactor)
+        except (TypeError, ValueError):
+            raise TypeError(
+                f"BaseForm prefactor must be a real number, got "
+                f"{self.prefactor!r}"
+            ) from None
+        if not math.isfinite(prefactor) or prefactor <= 0.0:
+            raise ValueError(
+                f"BaseForm prefactor must be positive and finite, got "
+                f"{self.prefactor!r}; a non-positive or non-finite "
+                f"prefactor denotes no decomposition. A unit with no "
+                f"(prefactor, factors) representation carries "
+                f"base_form=None instead."
+            )
+        if not self.factors:
+            raise ValueError(
+                "BaseForm requires at least one factor: 1 U ≡ prefactor × "
+                "b₁^e₁ × … × bₙ^eₙ is vacuous with n = 0. A dimensionless "
+                "unit carries base_form=None, or — per ADR 013 §5 — a "
+                "self-referential factorization ((U, 1.0),)."
+            )
+        for entry in self.factors:
+            if not isinstance(entry, tuple) or len(entry) != 2:
+                raise TypeError(
+                    f"BaseForm factors must be (unit, exponent) pairs, got "
+                    f"{entry!r}"
+                )
+            factor_unit, exponent = entry
+            if not isinstance(factor_unit, Unit):
+                raise TypeError(
+                    f"BaseForm factor {entry!r} does not name a Unit"
+                )
+            if not isinstance(exponent, (int, float)) or isinstance(
+                exponent, bool
+            ):
+                raise TypeError(
+                    f"BaseForm factor exponent must be a real number, got "
+                    f"{exponent!r}"
+                )
 
 
 # =====================================================================
