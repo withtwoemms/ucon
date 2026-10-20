@@ -24,12 +24,13 @@ import sys
 
 import pytest
 
-from ucon import Scale, Number, Ratio
+from ucon import Scale, Number, Ratio, UnitsNotNormalizable
 from ucon import units
 from ucon.core import BaseForm, UnitProduct, UnitFactor
 from ucon import graph as graph_mod
 from ucon.core import Unit
 from ucon.conversion import get_default_graph
+from ucon.dimension import LENGTH, TEMPERATURE
 
 
 # -----------------------------------------------------------------------
@@ -454,3 +455,192 @@ class TestBaseFormValidation:
                     f"{node.name} has prefactor {bf.prefactor!r}"
                 )
         assert checked > 100, "sweep found suspiciously few base forms"
+
+
+# -----------------------------------------------------------------------
+# _set_base_form guards the normalizability proxy (#340)
+# -----------------------------------------------------------------------
+
+class TestSetBaseFormGuard:
+    """``_set_base_form`` guarded only "already set".
+
+    One call installing a plausible ``BaseForm`` on ``decibel_watt`` made
+    ``10 dBW + 1 W`` answer ``<11.0 dBW>`` — 11 W is 10.414 dBW — with
+    ``make base-forms-check`` still green. The proxy "nothing with a
+    populated base_form has a non-ratio chart" was a contingent fact
+    about the shipped TOML; the guard makes it structural.
+    """
+
+    _WATT_FORM = ((units.kilogram, 1.0), (units.meter, 2.0),
+                  (units.second, -3.0))
+
+    def test_a_level_is_refused(self):
+        with pytest.raises(ValueError, match="level coordinate"):
+            units.decibel_watt._set_base_form(
+                BaseForm(self._WATT_FORM, 1.0)
+            )
+
+    def test_the_refusal_keeps_the_2_2_2_guard_sound(self):
+        """The attack from the issue, run and then checked."""
+        with pytest.raises(ValueError):
+            units.decibel_watt._set_base_form(
+                BaseForm(self._WATT_FORM, 1.0)
+            )
+        assert units.decibel_watt.base_form is None
+        with pytest.raises(UnitsNotNormalizable):
+            Number(10, units.decibel_watt) + Number(1, units.watt)
+
+    @pytest.mark.parametrize("name", [
+        "decibel_milliwatt", "decibel_volt", "decibel_spl",
+    ])
+    def test_every_shipped_level_is_refused(self, name):
+        with pytest.raises(ValueError, match="level coordinate"):
+            getattr(units, name)._set_base_form(
+                BaseForm(self._WATT_FORM, 1.0)
+            )
+
+    def test_an_interval_point_is_refused(self):
+        with pytest.raises(ValueError, match="point coordinate"):
+            units.celsius._set_base_form(
+                BaseForm(((units.kelvin, 1.0),), 1.0)
+            )
+
+    def test_reaumur_is_refused_though_its_own_edge_has_no_offset(self):
+        """The case locality misses.
+
+        ``reaumur``'s only declared edge is a pure scaling to ``celsius``.
+        It must stay ``None`` all the same, because its only path to
+        ``kelvin`` runs through ``celsius``'s offset — so the guard walks
+        the multiplicative neighbourhood rather than the unit's own edges.
+        """
+        with pytest.raises(ValueError, match="point coordinate"):
+            units.reaumur._set_base_form(
+                BaseForm(((units.kelvin, 1.0),), 1.25)
+            )
+
+    def test_a_gain_is_refused_too(self):
+        """``dB`` admits scalar arithmetic but still has no base form.
+
+        The two acceptance sets differ on purpose: a gain composes under
+        addition, and has no ``(prefactor, factors)`` representation in
+        SI base units.
+        """
+        with pytest.raises(ValueError, match="gain coordinate"):
+            units.decibel._set_base_form(BaseForm(((units.meter, 1.0),)))
+
+    def test_a_unit_with_no_declared_edges_is_still_admitted(self):
+        """What keeps the two sanctioned callers working.
+
+        ``base_form`` is resolved in load pass 6b; edges are materialized
+        in pass 9. A unit the graph declares nothing about reads as a
+        ratio scale, because absence of structure is not evidence of
+        non-ratio structure.
+        """
+        metre = Unit(name="metre", dimension=LENGTH, aliases=("metre",))
+        metre._set_base_form(units.meter.base_form)
+        assert metre.base_form is units.meter.base_form
+
+    def test_a_foreign_interval_unit_is_admitted_for_the_same_reason(self):
+        """The declared gap, stated: locality is not the limit, declaration is.
+
+        A brand-new temperature unit nothing has wired up is indistinguishable
+        from an unanchored ratio scale, so the guard admits it.
+        """
+        centigrade = Unit(name="centigrade", dimension=TEMPERATURE)
+        centigrade._set_base_form(BaseForm(((units.kelvin, 1.0),), 1.0))
+        assert centigrade.base_form is not None
+
+    def test_the_prior_guards_still_hold(self):
+        with pytest.raises(TypeError, match="expects a BaseForm"):
+            units.meter._set_base_form("not a base form")
+        with pytest.raises(ValueError, match="already set"):
+            units.meter._set_base_form(BaseForm(((units.meter, 1.0),)))
+
+
+# -----------------------------------------------------------------------
+# Graph.scale_class — the structural query both guards ask (#340)
+# -----------------------------------------------------------------------
+
+class TestScaleClass:
+    """The #356 edge rule, read from a unit outward instead of inward.
+
+    ``scripts/generate_base_forms.py`` refuses to propagate a base form
+    across a log/exp edge or an offset-bearing affine edge.
+    ``Graph.scale_class`` walks the same two blocks in the other
+    direction, so the operators and the mutation contract can ask offline
+    what the oracle answers.
+    """
+
+    @pytest.mark.parametrize(("name", "expected"), [
+        ("meter", "ratio"),
+        ("kelvin", "ratio"),
+        ("rankine", "ratio"),      # a pure scaling of kelvin, true zero
+        ("gray", "ratio"),
+        ("radian", "ratio"),       # unanchored pseudo-dimension
+        ("percent", "ratio"),
+        ("fraction", "ratio"),     # the referent side of every log edge
+        ("gauss", "ratio"),        # cross-basis, no same-dimension edges
+        ("celsius", "point"),
+        ("fahrenheit", "point"),
+        ("reaumur", "point"),
+        ("decibel", "gain"),
+        ("bel", "gain"),
+        ("neper", "gain"),
+        ("decibel_watt", "level"),
+        ("decibel_milliwatt", "level"),
+        ("decibel_volt", "level"),
+        ("decibel_spl", "level"),
+        ("pH", "level"),           # wired only through a product edge
+        ("nines", "level"),        # a composed map, not a bare logarithm
+    ])
+    def test_shipped_classification(self, name, expected):
+        assert get_default_graph().scale_class(getattr(units, name)) == expected
+
+    def test_only_eleven_shipped_units_are_not_ratio_scales(self):
+        """The whole catalog, so a new non-ratio unit shows up here."""
+        graph = get_default_graph()
+        verdicts = {}
+        for adjacency in graph._unit_edges.values():
+            for node in adjacency:
+                if isinstance(node, Unit) and type(node) is Unit:
+                    verdicts[node.name] = graph.scale_class(node)
+        for name in ("pH", "nines"):
+            verdicts[name] = graph.scale_class(getattr(units, name))
+        assert sorted(n for n, v in verdicts.items() if v == "point") == [
+            "celsius", "fahrenheit", "reaumur",
+        ]
+        assert sorted(n for n, v in verdicts.items() if v == "gain") == [
+            "bel", "decibel", "neper",
+        ]
+        assert sorted(n for n, v in verdicts.items() if v == "level") == [
+            "decibel_milliwatt", "decibel_spl", "decibel_volt",
+            "decibel_watt", "nines", "pH",
+        ]
+
+    def test_a_product_is_as_unscalable_as_its_worst_factor(self):
+        graph = get_default_graph()
+        assert graph.scale_class(units.meter / units.second) == "ratio"
+        assert graph.scale_class(units.celsius / units.second) == "point"
+        assert graph.scale_class(units.decibel_watt / units.second) == "level"
+
+    def test_no_non_ratio_unit_carries_a_base_form(self):
+        """The positive assertion ``_NULL_BASE_FORM_NAMES`` used to make.
+
+        The allowlist emptied in #339 once the oracle became
+        self-suppressing, and its surviving comment records that the
+        *positive* claim — "these units must stay ``None``" — had no
+        replacement, because absence from the expected map conflates
+        "underivable" with "unreached". ``scale_class`` separates the two,
+        so the claim is assertable again: this is the invariant the v2.2.2
+        normalizability proxy rests on.
+        """
+        graph = get_default_graph()
+        offenders = []
+        for adjacency in graph._unit_edges.values():
+            for node in adjacency:
+                if getattr(node, "base_form", None) is None:
+                    continue
+                verdict = graph.scale_class(node)
+                if verdict != "ratio":
+                    offenders.append((node.name, verdict))
+        assert offenders == []

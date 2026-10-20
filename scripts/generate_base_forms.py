@@ -144,6 +144,13 @@ _COHERENT_SI_NAMES = {
 # "unreached", and such a check rejects `tesla`, `weber`, `siemens`, `molar`
 # and ~90 others.  A real replacement must mark blocked-vs-unreached during
 # the walk.
+#
+# #340 supplies that replacement from the other direction:
+# `Graph.scale_class(unit)` walks *outward* from a unit over the same two
+# blocks this BFS refuses to cross, so it reports "blocked" (point / level /
+# gain) distinctly from "unreached" (ratio, unanchored).
+# `tests/ucon/test_base_form.py::TestScaleClass` asserts the positive claim
+# with it, and `Unit._set_base_form` enforces it at the mutation site.
 _NULL_BASE_FORM_NAMES: set[str] = set()
 
 
