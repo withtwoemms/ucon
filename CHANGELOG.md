@@ -57,6 +57,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Formula-signature collisions are refused at registration (#347).** The
+  registry's three kind-identity tiers (EXACT, COMMUTATIVE, and GENERALIZED
+  through the indexes they share) answer with one formula per input signature,
+  but `register` wrote those indexes with `setdefault` — so two formulas
+  claiming one signature with *different* output kinds were both admitted and
+  the kind the stratum read came down to which was registered first. Measured:
+  `FormulaRegistry([f1, f2])` resolved to `f1`, `FormulaRegistry([f2, f1])` to
+  `f2`, silently and at `MatchKind.EXACT`. The ancestor walk's existing
+  `AmbiguousFormula` could not catch it — `setdefault` had already erased the
+  loser before any tier ran, so the collision was invisible to lookup by
+  construction. `register` now refuses the pair up front with the new
+  `CollidingFormula`, naming both formulas, the contested signature and the
+  two output kinds, and leaving the registry unmodified. One rule at the one
+  ingestion site covers all three tiers and therefore both `FormulaRegistry`
+  consumers, `*` and `/` alike. Two formulas claiming one signature that
+  *agree* on `output_kind` remain admissible, first writer wins: the resolved
+  kind is the same whichever answers, so one relationship declared twice under
+  different names is legitimate overlap, not a collision. The DIMENSIONAL
+  tier's indexes are deliberately unguarded — that tier discards kind identity
+  by construction and is opt-in per call (`dimension_fallback=True`, which
+  neither `*` nor `/` passes), so overlap there is the documented cost of
+  asking for it. The shipped catalog declares one formula, so no collision was
+  reachable without user registration and the guard costs the catalog nothing.
+
 - **`==` and `!=` consult the aspect stratum (#353).** The aspect peer of the
   kind hole #352 closed, and left open there deliberately since #352 was
   scoped to kinds: two `Number(1, units.gray)` values carrying *sibling*

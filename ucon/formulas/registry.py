@@ -15,6 +15,12 @@ instances by name and by input-kind tuple, with tiered resolution via
 4. **DIMENSIONAL** — dimension-tuple match ignoring kind identity
    (opt-in via ``dimension_fallback=True``).
 
+Tiers 1-3 key off kind identity and answer with one formula per
+signature, so two formulas claiming one signature with different
+output kinds are refused at :meth:`FormulaRegistry.register` rather
+than resolved arbitrarily. Tier 4 discards kind identity by
+construction and is opt-in per call; overlap there is by design.
+
 There is no module-level default registry in v1.9.x. In v2.0.0 the
 registry becomes a member of ``UnitSystem``; this module's API does
 not change.
@@ -27,7 +33,12 @@ from typing import TYPE_CHECKING, Iterable, Iterator, Mapping, Tuple
 if TYPE_CHECKING:
     from ucon.kinds import KindLattice
 
-from ucon.formulas.exceptions import AmbiguousFormula, DuplicateFormula, FormulaNotFound
+from ucon.formulas.exceptions import (
+    AmbiguousFormula,
+    CollidingFormula,
+    DuplicateFormula,
+    FormulaNotFound,
+)
 from ucon.formulas.types import KindFormula, LookupResult, MatchKind
 from ucon.kinds import Kind, KindNotFound
 
@@ -74,6 +85,13 @@ class FormulaRegistry:
     the original ordering and a canonical sorted key — so
     ``voltage × current`` and ``current × voltage`` both resolve to
     the same formula at any arity via :meth:`resolve`.
+
+    Two formulas claiming one input signature with *different* output
+    kinds are refused at registration with
+    :class:`~ucon.formulas.exceptions.CollidingFormula`: resolution
+    answers with one formula per signature, so admitting both would
+    make the answer depend on registration order. Agreeing output kinds
+    are admitted, first writer wins. See :meth:`register`.
     """
 
     def __init__(self, formulas: Iterable[KindFormula] = ()) -> None:
@@ -88,24 +106,79 @@ class FormulaRegistry:
     # ---------- ingestion ----------
 
     def register(self, formula: KindFormula) -> None:
-        """Add a formula to the registry. Refuses duplicate names."""
+        """Add a formula to the registry.
+
+        Refuses duplicate names, and refuses a *signature collision*:
+        a second claim on an input-kind signature that an already
+        registered formula claims, where the two disagree on
+        ``output_kind``. Every kind-identity tier (EXACT, COMMUTATIVE,
+        and GENERALIZED through the indexes they share) answers with at
+        most one formula per signature, so admitting such a pair would
+        make the resolved output kind a function of registration order.
+        Refusing at ingestion is the one rule that covers all three
+        tiers, and so every consumer of :meth:`apply` — ``*`` and ``/``
+        alike — at once.
+
+        Two formulas may claim one signature when they *agree* on
+        ``output_kind``: the kind the stratum reads is the same
+        whichever resolves, so the first registered wins. That is the
+        legitimate overlap — one relationship declared twice under
+        different names — and it stays admissible.
+
+        The dimension indexes backing the DIMENSIONAL tier are
+        deliberately *not* guarded. That tier discards kind identity by
+        construction and is opt-in per call (``dimension_fallback=True``,
+        which neither ``*`` nor ``/`` passes), so overlap there is the
+        documented cost of asking for it rather than an unsound
+        ingestion.
+
+        Raises
+        ------
+        DuplicateFormula
+            A formula with this name is already registered.
+        CollidingFormula
+            Another formula claims one of this formula's input
+            signatures with a different output kind. The registry is
+            left unmodified.
+        """
         if formula.name in self._by_name:
             raise DuplicateFormula(formula.name)
-        self._by_name[formula.name] = formula
 
         key = formula.input_kind_tuple()
-        # First-writer wins on input-tuple collisions; the name index
-        # is the primary key.
-        self._by_inputs.setdefault(key, formula)
+        # Every signature this formula claims in the kind-identity
+        # indexes: the declared order, plus the arity-2 commutative
+        # mirror.
+        claims: list[tuple[Kind, ...]] = [key]
         if formula.commutative and len(key) == 2 and key[0] != key[1]:
-            self._by_inputs.setdefault((key[1], key[0]), formula)
+            claims.append((key[1], key[0]))
+        canonical = (
+            tuple(sorted(key, key=lambda k: k.name)) if formula.commutative else None
+        )
+
+        # Refuse before touching any index, so a refused registration
+        # leaves the registry exactly as it was.
+        for claim in claims:
+            claimant = self._by_inputs.get(claim)
+            if claimant is not None and claimant.output_kind != formula.output_kind:
+                raise CollidingFormula(claimant, formula, claim)
+        if canonical is not None:
+            claimant = self._by_inputs_canonical.get(canonical)
+            if claimant is not None and claimant.output_kind != formula.output_kind:
+                raise CollidingFormula(claimant, formula, canonical)
+
+        self._by_name[formula.name] = formula
+
+        # First writer wins among formulas agreeing on output kind; the
+        # name index is the primary key.
+        for claim in claims:
+            self._by_inputs.setdefault(claim, formula)
 
         # Canonical sorted key for commutative n-ary lookup.
-        if formula.commutative:
-            canonical = tuple(sorted(key, key=lambda k: k.name))
+        if canonical is not None:
             self._by_inputs_canonical.setdefault(canonical, formula)
 
-        # Dimension-tuple indexes for dimensional fallback.
+        # Dimension-tuple indexes for dimensional fallback. Unguarded by
+        # design; see above.
         dim_key = tuple(k.dimension for k in key)
         self._by_dimensions.setdefault(dim_key, formula)
         if formula.commutative:
