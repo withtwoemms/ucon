@@ -8,7 +8,13 @@ Exceptions raised by the formula registry.
 from __future__ import annotations
 
 
-__all__ = ["AmbiguousFormula", "FormulaError", "FormulaNotFound", "DuplicateFormula"]
+__all__ = [
+    "AmbiguousFormula",
+    "CollidingFormula",
+    "DuplicateFormula",
+    "FormulaError",
+    "FormulaNotFound",
+]
 
 
 class FormulaError(Exception):
@@ -57,4 +63,41 @@ class AmbiguousFormula(FormulaError):
         super().__init__(
             f"Ambiguous: {len(candidates)} formulas match at distance "
             f"{distance}: {names}"
+        )
+
+
+class CollidingFormula(FormulaError):
+    """Two formulas claim one input signature with differing output kinds.
+
+    Every kind-identity resolution tier reads indexes keyed by input
+    signature and returns at most one formula, so a second claim on an
+    already-claimed signature would make the resolved output kind a
+    function of registration order.
+    :meth:`~ucon.formulas.registry.FormulaRegistry.register` refuses it
+    instead.
+
+    Formulas that claim one signature but *agree* on ``output_kind`` are
+    not a collision: the kind the stratum reads is the same whichever
+    one resolves, so the first registered wins and registration
+    succeeds.
+
+    ``signature`` carries the contested input-kind tuple; ``existing``
+    and ``incoming`` carry the two formulas.
+    """
+
+    def __init__(
+        self,
+        existing: "KindFormula",
+        incoming: "KindFormula",
+        signature: tuple["Kind", ...],
+    ) -> None:
+        self.existing = existing
+        self.incoming = incoming
+        self.signature = signature
+        rendered = " × ".join(kind.name for kind in signature)
+        super().__init__(
+            f"Formula {incoming.name!r} claims input signature "
+            f"({rendered}), already claimed by {existing.name!r}, with a "
+            f"different output kind ({incoming.output_kind.name!r} vs "
+            f"{existing.output_kind.name!r})"
         )

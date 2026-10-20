@@ -18,6 +18,7 @@ gained semantics in v1.9.2.
 
 from ucon.formulas.exceptions import (
     AmbiguousFormula,
+    CollidingFormula,
     DuplicateFormula,
     FormulaError,
     FormulaNotFound,
@@ -38,4 +39,5 @@ __all__ = [
     "FormulaNotFound",
     "DuplicateFormula",
     "AmbiguousFormula",
+    "CollidingFormula",
 ]
