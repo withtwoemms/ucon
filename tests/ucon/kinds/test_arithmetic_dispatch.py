@@ -294,6 +294,60 @@ class TestDivDimensionlessYieldsNone:
         assert result.kind is None
         assert result.quantity == 2.0
 
+    def test_div_dimensionless_consults_formula_first(self) -> None:
+        """A formula may name the quotient's kind (#352)."""
+        signal = Kind("signal_power", dimension=POWER)
+        reference = Kind("reference_power", dimension=POWER)
+        ratio = Kind("power_ratio", dimension=NONE)
+
+        formula = KindFormula(
+            name="power_ratio",
+            expression="S / R",
+            input_kinds={"S": signal, "R": reference},
+            output_kind=ratio,
+            commutative=False,
+        )
+        registry = FormulaRegistry([formula])
+        lattice = KindLattice([signal, reference, ratio])
+        sys = active_system()
+
+        with use(sys, formulas=registry, kinds=lattice):
+            a = Number(100, watt, kind=signal)
+            b = Number(50, watt, kind=reference)
+            result = a / b
+            assert result.kind is ratio
+            assert result.quantity == 2.0
+
+    def test_div_dimensionless_refused_join_raises(self) -> None:
+        """No formula and a refused join: the quotient is meaningless, so
+        it refuses rather than cancelling to a bare 1.0 (#352)."""
+        parent = Kind("specific_energy", dimension=ENERGY,
+                      join_policy=JoinPolicy.REFUSE)
+        left = Kind("absorbed", dimension=ENERGY, parent=parent)
+        right = Kind("equivalent", dimension=ENERGY, parent=parent)
+
+        registry = FormulaRegistry()  # empty
+        lattice = KindLattice([parent, left, right])
+        sys = active_system()
+
+        with use(sys, formulas=registry, kinds=lattice):
+            a = Number(2, joule, kind=left)
+            b = Number(2, joule, kind=right)
+            with pytest.raises(FormulaNotFound):
+                a / b
+
+    def test_div_dimensionless_joinable_kinds_yield_none(self) -> None:
+        """Differing kinds the lattice joins stay an anonymous ratio."""
+        lattice, energy, ke, pe = _energy_lattice()
+        sys = active_system()
+
+        with use(sys, formulas=FormulaRegistry(), kinds=lattice):
+            a = Number(100, joule, kind=ke)
+            b = Number(50, joule, kind=pe)
+            result = a / b
+            assert result.kind is None
+            assert result.quantity == 2.0
+
 
 class TestDivScalarPreservesKind:
     """__truediv__: S1 — scalar division preserves kind."""

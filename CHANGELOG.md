@@ -26,6 +26,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`/` and `==` consult the kind stratum (#352).** Two operators bypassed it
+  while `+`, `*` and `.to()` all gated: `gray(1) / sievert(1)` cancelled both
+  kinds and answered a bare `<1.0>`, and `gray(1) == sievert(1)` answered
+  `True` — the same claim `must-fail-011` exists to block, reachable without
+  ever calling `.to()`. The hole was per-operator naming: `__truediv__`'s
+  *dimensionless* branch hardcoded `kind=None` (its dimensionful branch has
+  always routed through `_resolve_mul_kind`), and `__eq__` had no kind
+  resolver at all. Two resolvers in the existing idiom close it —
+  `_resolve_truediv_kind` consults the `FormulaRegistry` first, so a formula
+  may legitimately name the quotient's kind, and refuses with
+  `FormulaNotFound` (the precedent `__mul__` sets for the same pair) when the
+  lattice refuses the join; `_resolve_eq_kind` reports a refusal as *unequal*
+  rather than raising, the treatment the cross-dimension case already gets
+  (`meter(1) == second(1)` is `False`), which keeps `__eq__` total and makes
+  `!=` follow by inheritance. So `W == VA`, `Hz == Bq` and `Gy == Sv` are now
+  `False`, and `Gy / Sv` refuses. Same-kind quotients, kinded-over-unkinded
+  quotients, and kinds the lattice *can* join stay anonymous ratios
+  (`kind=None`). The operator × stratum cross-product is now asserted
+  cell-by-cell in `tests/ucon/core/test_operator_stratum_grid.py`, so the next
+  ungated operator fails CI; the chart column's admissions are recorded as
+  expected-for-now, since chart dispatch lands with four-stratum dispatch in
+  v3.2.0.
+
 - **The base_form oracle no longer propagates across an offset, retiring the
   hand-written allowlist.** `scripts/generate_base_forms.py` walked affine
   edges by *slope* and ignored the offset, so it would mint `base_form = 1·K`
