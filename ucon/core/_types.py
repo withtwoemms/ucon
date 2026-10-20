@@ -52,7 +52,7 @@ from ucon.core.exceptions import (
     UnitsNotNormalizable,
 )
 from ucon.formulas.exceptions import FormulaNotFound
-from ucon.kinds.exceptions import JoinRefused, KindNotFound
+from ucon.kinds.exceptions import DisjointKinds, JoinRefused, KindNotFound
 from ucon.dimension import Dimension, NONE
 from ucon.kinds.types import Kind
 
@@ -2458,6 +2458,75 @@ class Number:
             return result_kind
         return None
 
+    def _resolve_truediv_kind(self, other: 'Number') -> 'Kind | None':
+        """Resolve the result kind for a *dimensionless* quotient.
+
+        The dimensionful quotient routes through
+        :meth:`_resolve_mul_kind`; this is the branch where the units
+        cancel and the stratum would otherwise be discarded. The
+        magnitude is defensible (both operands reduce to the same base
+        unit) but the operation need not be: dividing an absorbed dose
+        by a dose equivalent cancels to ``1.0`` while claiming the two
+        are commensurable, which is exactly what ``+`` and ``.to()``
+        refuse.
+
+        Same-kind and kinded/unkinded quotients stay anonymous ratios
+        (``kind=None``). For two differing kinds the
+        :class:`~ucon.formulas.registry.FormulaRegistry` is consulted
+        first — a formula may legitimately name the quotient's kind.
+        Absent a formula the lattice decides: joinable kinds yield an
+        anonymous ratio, kinds the lattice refuses to join raise
+        :class:`~ucon.formulas.exceptions.FormulaNotFound`, the same
+        refusal ``__mul__`` already raises for the pair.
+        """
+        if self.kind is None or other.kind is None:
+            return None
+        if self.kind == other.kind:
+            return None
+        ctx = _sys_active_var.get()
+        if ctx is None:
+            return None
+        try:
+            _, result_kind, _ = ctx.formulas.apply(
+                {"left": self.kind, "right": other.kind},
+                lattice=ctx.kinds,
+            )
+            return result_kind
+        except FormulaNotFound as missing:
+            try:
+                ctx.kinds.join(self.kind, other.kind)
+            except (JoinRefused, DisjointKinds):
+                raise missing from None
+            except KindNotFound:
+                # Kinds the active lattice does not know: no verdict to
+                # give, so keep the pre-stratum behaviour.
+                return None
+            return None
+
+    def _resolve_eq_kind(self, other: 'Number') -> bool:
+        """Whether the kind stratum admits comparing these two operands.
+
+        ``__eq__`` has to stay total and non-throwing, so a refusal here
+        is reported as "unequal" rather than raised — the treatment the
+        cross-dimension case already gets (``meter(1) == second(1)`` is
+        ``False``). Two kinds the lattice refuses to join are
+        incommensurable, so no magnitude comparison can make them equal.
+        """
+        if self.kind is None or other.kind is None:
+            return True
+        if self.kind == other.kind:
+            return True
+        ctx = _sys_active_var.get()
+        if ctx is None:
+            return True
+        try:
+            ctx.kinds.join(self.kind, other.kind)
+        except (JoinRefused, DisjointKinds):
+            return False
+        except KindNotFound:
+            return True
+        return True
+
     def __mul__(self, other: _Quantifiable) -> 'Number':
         if isinstance(other, Ratio):
             other = other.evaluate()
@@ -2717,13 +2786,16 @@ class Number:
             return abs(result_quantity) * rel_c if rel_c > 0 else None
 
         # --- Case 1: Dimensionless result ----------------------------------
-        # Same-kind division yields kind=None (dimensionless ratio).
+        # Same-kind division yields kind=None (dimensionless ratio);
+        # differing kinds are dispatched through the stratum.
         if not unit_quot.dimension:
             num = self._canonical_magnitude
             den = other._canonical_magnitude
             result = num / den
+            result_kind = self._resolve_truediv_kind(other)
             return Number(quantity=result, unit=UnitProduct({}),
-                          uncertainty=compute_uncertainty(result), kind=None,
+                          uncertainty=compute_uncertainty(result),
+                          kind=result_kind,
                           )._carry(self._resolve_mul_aspects(other, op="Dividing"))
 
         # --- Case 2: Dimensionful result -----------------------------------
@@ -2739,9 +2811,11 @@ class Number:
     def __eq__(self, other: _Quantifiable) -> bool:
         """Compare two quantities, normalizing for scale.
 
-        Operands of differing dimension are unequal. Operands of the same
-        dimension are compared after both are normalized to base-unit
-        scale, so ``1 volt`` equals ``1000 millivolt``.
+        Operands of differing dimension are unequal, and so are operands
+        whose kinds the lattice refuses to join — an absorbed dose is
+        never equal to a dose equivalent, whatever the magnitudes.
+        Otherwise the operands are compared after both are normalized to
+        base-unit scale, so ``1 volt`` equals ``1000 millivolt``.
 
         Raises
         ------
@@ -2764,6 +2838,11 @@ class Number:
 
         # Dimensions must match
         if self.unit.dimension != other.unit.dimension:
+            return False
+
+        # Kinds the lattice refuses to join are incommensurable: no
+        # magnitude comparison can make them equal.
+        if not self._resolve_eq_kind(other):
             return False
 
         # Same dimension, differing units: refuse rather than compare
