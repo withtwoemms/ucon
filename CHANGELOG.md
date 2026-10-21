@@ -11,726 +11,351 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Ordering and the reflected operators on `Number` (#353).** `Number`
-  implemented `__eq__` and nothing else of the comparison protocol, so
-  `units.meter(1) < units.foot(1)` was a bare `TypeError` and `sorted`, `min`
-  and `max` were all unavailable — the one place ucon stood alone, since pint,
-  unyt and astropy all answer `1 ft < 1 m` → `True`. `__lt__`, `__le__`,
-  `__gt__` and `__ge__` now route through one three-way `_compare`, so the
-  four agree with each other and with `__eq__` (same `1e-12` window, so
-  `a <= b` holds wherever `a == b` does). Every stratum is consulted before a
-  magnitude is read: dimension mismatch, a kind join the lattice refuses, and
-  an aspect conflict all refuse exactly as `+` refuses them. The **chart**
-  stratum does not refuse — ordering survives any monotone change of
-  coordinate and all three chart classes are monotone, so `3 dB < 10 dB` and
-  `20 °C < 25 °C` are well posed where `3 dB + 10 dB` is not. A pair no
-  algebraic factor relates still needs `.to()` first, so
-  `celsius(20) < kelvin(300)` raises `UnitsNotNormalizable`, exactly as `==`
-  does for it.
-  `__ne__` is now defined rather than inherited — no behavior change, but
-  every stratum check `__eq__` grew is now visibly on the `!=` path too.
-  The reflected forms `__rmul__`, `__radd__`, `__rsub__` and `__rtruediv__`
-  close a dispatch asymmetry: `2 * units.meter(3)` raised `TypeError` for
-  every unit in the catalog while `units.meter(3) * 2` answered `<6 m>`. Each
-  reflected form admits exactly what its forward form admits — so `2 * a` and
-  `2 / a` work (and `2 / units.meter(4)` is a reciprocal length, the operand
-  order restored rather than delegated), while `2 + a` and `2 - a` stay
-  `TypeError` because `a + 2` and `a - 2` are. `__hash__` stays unimplemented
-  on purpose: `Number` is a mutable dataclass, so hashing on its fields is the
-  hazard `__hash__ = None` exists to prevent; ADR 009 sequences
-  "`Number` frozen" at 3.0.0, and the hash belongs after it (on the canonical
-  magnitude, since `1 m == 100 cm`). `__floordiv__` likewise stays absent — it
-  is new semantics to design, not a stratum hole.
+- **Ordering and the reflected operators on `Number` (#353).** `__lt__`,
+  `__le__`, `__gt__` and `__ge__` route through one three-way `_compare` and
+  agree with `__eq__` (same `1e-12` window), so `sorted`, `min` and `max` now
+  work and `units.meter(1) < units.foot(1)` is no longer a `TypeError`. A
+  dimension mismatch, a kind join the lattice refuses, and an aspect conflict
+  all refuse ordering exactly as `+` refuses them; the chart stratum does not,
+  since all three chart classes are monotone, so `3 dB < 10 dB` and
+  `20 °C < 25 °C` are well posed. A pair no algebraic factor relates still
+  needs `.to()` first — `celsius(20) < kelvin(300)` raises
+  `UnitsNotNormalizable`. `__ne__` is now defined rather than inherited. The
+  reflected `__rmul__`, `__radd__`, `__rsub__` and `__rtruediv__` each admit
+  exactly what their forward form admits, so `2 * units.meter(3)` answers
+  `<6 m>` and `2 / units.meter(4)` a reciprocal length, while `2 + a` and
+  `2 - a` stay `TypeError`. `__hash__` and `__floordiv__` stay absent — the
+  hash waits on `Number` being frozen (#362, sequenced at 3.0.0 by ADR 009).
 
 - **`var`, the volt-ampere reactive (#345).** Completes the W/VA/var
-  degeneracy cluster. `reactive_power` had been declared as a third disjoint
-  sibling under `power` but no unit carried it, so the kind was unreachable —
-  nothing could be expressed in it. `var` declares
-  `default_kind = "reactive_power"`, resolves as `var` / `VAr` /
-  `volt_ampere_reactive`, takes SI prefixes (`kvar`), and shares the coherent
-  power `base_form` (`m²·kg·s⁻³`) with `watt` and `volt_ampere`. All four
-  cross-kind conversions in the cluster now refuse — `W → var`, `var → W`,
-  `var → VA`, `VA → var` — while same-kind arithmetic and prefix scaling
-  work. No conversion edge is declared on purpose: the refusal belongs to the
-  kind stratum, exactly as `watt ↔ volt_ampere` already does. Note this also
-  means the `base_form` BFS oracle never reaches `var`, so its literal is
-  checked against `watt`'s in the tests rather than by
-  `make base-forms-check`.
+  degeneracy cluster: `reactive_power` was declared but unreachable, no unit
+  carrying it. `var` declares `default_kind = "reactive_power"`, resolves as
+  `var` / `VAr` / `volt_ampere_reactive`, takes SI prefixes (`kvar`), and
+  shares the coherent power `base_form` (`m²·kg·s⁻³`) with `watt` and
+  `volt_ampere`. All four cross-kind conversions in the cluster now refuse —
+  `W → var`, `var → W`, `var → VA`, `VA → var` — while same-kind arithmetic
+  and prefix scaling work. No conversion edge is declared: the refusal belongs
+  to the kind stratum, as `watt ↔ volt_ampere` already does. `var` is
+  unreachable by the `base_form` BFS oracle, so `make base-forms-check` does
+  not cover it.
 
 - **`PolynomialMap`: calibration curves become expressible, with a
-  single-valued inverse.** (#331) Every morphism `ucon` could express was
-  closed-form invertible in one line — scaling, offset, logarithm, reciprocal,
-  and the `ComposedMap` fallback. Real instrumentation is not: a platinum RTD
-  follows the Callendar–Van Dusen equation `R(T) = R0·(1 + A·T + B·T²)`, the
-  NIST ITS-90 thermocouple reference functions are degree 8–13 polynomials, and
-  a load cell or a standard curve is a fitted quadratic. None of them is a
-  composition of the five existing maps, so the only ways to carry one were a
-  `ComposedMap` chain that cannot represent `x²` or an opaque callable that does
-  not serialize.
+  single-valued inverse (#331).** Real calibrations — Callendar–Van Dusen for
+  a platinum RTD, the NIST ITS-90 thermocouple references, a fitted load-cell
+  quadratic — are not compositions of the five existing maps.
+  `PolynomialMap(coefficients, domain, rel_uncertainty=0.0)` takes
+  coefficients in **ascending** order (`coefficients[i]` multiplies `x**i`),
+  matching the TOML `coefficients` key; composition with another polynomial or
+  with a linear/affine map folds into one `PolynomialMap`. `inverse()` returns
+  a `PolynomialInverseMap` — the single branch monotone on the declared
+  `domain`, so uncertainty transports as across any other edge. A polynomial
+  that turns inside its domain raises the new `NonMonotoneOnDomain` naming the
+  turning points rather than choosing a root; narrowing the domain to one side
+  restores the branch, and a critical point *on* a boundary is fine (`x²` over
+  `[0, 1]` inverts to the square root). Degree 1 inverts to an `AffineMap`;
+  degree 0 is not invertible. Both types round-trip through package TOML
+  (`type = "polynomial"`, `type = "polynomial_inverse"`) and the binary cache,
+  and `_CACHE_SCHEMA` is bumped to 4 — an older cache carries no tag for
+  either type. `Unit.chart` is untouched.
 
-  `PolynomialMap(coefficients, domain, rel_uncertainty=0.0)` takes coefficients
-  in **ascending** order — `coefficients[i]` multiplies `x**i`, constant term
-  first, matching how the equations are published (`R0·(1 + A·T + B·T²)` reads
-  off as `[R0, R0·A, R0·B]`) and the TOML `coefficients` key. Evaluation is
-  Horner, the derivative is the analytic derivative polynomial, and composition
-  is exact: polynomial ∘ polynomial, and polynomial ∘ linear/affine, fold into
-  one `PolynomialMap` carrying the inner map's input domain.
+- **The KOQ floor: degeneracy-cluster units declare their kind (#327).** Where
+  the SI gives two units the same dimension to mark a kind distinction, those
+  units now carry a `default_kind`: `gray → absorbed_dose`,
+  `sievert → dose_equivalent`, `hertz → periodic_frequency`,
+  `becquerel → radioactive_activity`, `watt → real_power`,
+  `volt_ampere → apparent_power`. One kind is added, `periodic_frequency`.
+  With #322's refusing clause, `1 Gy → Sv`, `1 Bq → Hz` and `1 W → VA` refuse
+  across a static edge while a dated/contingent table still licenses a
+  re-kind. `joule` and `pascal` are left generic — no sibling SI unit
+  distinguishes work from heat or pressure from stress, so a Number stays free
+  to carry `kinetic_energy` or `mechanical_stress`; the torque/energy and
+  pressure/stress must-fails are the model's declared-kind responsibility
+  (ucon-tools#62).
 
-  **The domain is what makes the inverse a function.** A polynomial of degree
-  ≥ 2 is not injective, so its inverse has up to `n` real branches, while
-  `Map.inverse()` is declared `-> Map` and every caller consumes it as one:
-  `ConversionGraph._add_unit_edge`, `_add_product_edge`, `add_rebased_edge`,
-  `_add_context_edge`, and the binary cache all store `map.inverse()` *as* the
-  reverse adjacency entry, and a graph edge cannot be "one of three maps".
-  Rather than widen the ABC and push the ambiguity into every one of those
-  sites, `PolynomialMap` carries the validity range the calibration was
-  published with — IEC 60751 gives Callendar–Van Dusen over 0…850 °C; NIST
-  gives each thermocouple polynomial a sub-range — and `inverse()` returns the
-  single branch monotone on it, as a `PolynomialInverseMap` (safeguarded
-  Newton/bisection over the declared bracket, derivative by the implicit
-  function theorem, so uncertainty transports through a reverse calibration
-  edge like any other). Round-trips are accurate to ~1e-14 relative.
+- **The arrival rule — `.to()` re-kinds at a `default_kind` unit**
+  (#305, #322, #327). The second half of `Unit.default_kind`, whose
+  declaration shipped in #306; ADR 011 states the rule:
 
-  A polynomial that *turns* inside its declared domain raises the new
-  `NonMonotoneOnDomain` naming the turning points, rather than silently
-  choosing a root — `PolynomialMap((0, 0, 1), domain=(-1, 1))` has two equally
-  valid preimages for every positive input, and returning either one is a
-  fabricated answer. Narrowing the domain to one side restores the branch. A
-  critical point *on* a boundary does not break monotonicity, so `x²` over
-  `[0, 1]` inverts to the square root. Degeneracies delegate rather than carry
-  machinery they do not need: degree 1 inverts to an `AffineMap`, and degree 0
-  (constant) is not invertible.
+  > the target's declared kind wins, **unless it is already an ancestor of the
+  > current kind**, in which case the finer kind survives — and when the two
+  > kinds are **siblings**, only an edge licensed by a contingent context may
+  > re-kind; a static edge **refuses**.
 
-  Both types round-trip through package TOML (`type = "polynomial"`,
-  `type = "polynomial_inverse"`) and through the binary graph cache.
-  `_CACHE_SCHEMA` is bumped to 4: a cache written before this change has no
-  tag for either type, and rehydrating a polynomial edge from it would fail
-  rather than silently degrade. `Unit.chart` is untouched — whether a
-  polynomial chart is a fourth chart class under
-  [decisions/010](docs/internal/decisions/010-chart-nomenclature.md) is a
-  separate question from the map primitive, and this change settles only the
-  primitive.
+  Narrowing is unlicensed on the same grounds as siblings: both relabel onto a
+  claim the value does not imply, so both refuse across a static edge with the
+  new `KindArrivalRefused` (exported from `ucon`). So
+  `Number(1, gray, kind=absorbed_dose).to(sievert)` refuses, a dated FX table
+  still re-kinds `usd → eur`, and conversion *within* a kind keeps the finer
+  label — 8 bits of `payload_size` are 1 byte of it. Across *different*
+  dimensions the conversion transformed the stuff (`E = h·f`), so the arrival
+  kind is adopted with no license, and converting to a unit that declares no
+  kind drops a kind that no longer fits the result's dimension. The new
+  `Graph.convert_with_license` returns the licensing context's name alongside
+  the map; `convert` is unchanged. Resolution is best-effort — an unknown
+  declared name leaves the kind untouched. Aspects are unaffected, and
+  `NumberArray` has no kind stratum (#297).
 
-- **The KOQ floor: degeneracy-cluster units declare their kind.** (#327)
-  Where the SI gives two units the same dimension precisely to mark a kind
-  distinction, those units now carry a `default_kind`: `gray → absorbed_dose`
-  and `sievert → dose_equivalent`; `hertz → periodic_frequency` and
-  `becquerel → radioactive_activity`; `watt → real_power` and
-  `volt_ampere → apparent_power`. With #322's refusing clause this makes
-  `1 Gy → Sv`, `1 Bq → Hz`, `1 W → VA` refuse across a static edge (siblings
-  under a `refuse` root) while a dated/contingent table still licenses a
-  re-kind. One kind is added, `periodic_frequency`, as hertz's sibling of
-  `radioactive_activity`.
+- **`ConversionContext.contingent` — dated tables no longer chain (#317).** A
+  context edge is either *definitional*, licensed by an exact constant, or
+  *contingent* — a dated table that could have been otherwise. The rule: a
+  path may draw on **at most one** contingent context. Composing a tariff
+  (`joule → USD`) with a rate table (`USD → EUR`) previously returned a euro
+  energy price nobody quoted; it now raises the new
+  `ContingentCompositionRefused`, which names both tables and is distinct from
+  `ConversionNotFound` because a declined path and an absent one are different
+  facts. `contingent` defaults to `False`, so nothing shipped changes —
+  `spectroscopy` and `boltzmann` are exact by SI and keep chaining.
+  Composition *within* one contingent context is permitted, which is what
+  ADR 011's star topology relies on: `EUR → GBP` resolves through USD from a
+  single table at a single date.
 
-  `joule` and `pascal` are left generic: no sibling SI unit distinguishes
-  work from heat, or pressure from stress, so a Number is free to carry
-  `kinetic_energy`, `mechanical_stress`, etc. without a unit default
-  overwriting it. The torque/energy and pressure/stress must-fails are the
-  model's declared-kind responsibility (ucon-tools#62), not a unit default.
-
-- **The arrival rule's license now covers narrowing, and only within a
-  fiber.** (#327, refining #322) A re-kind needs a contingent license when
-  the declaration does not *widen* the current kind — siblings **and**
-  generic-to-specific narrowing both relabel onto a claim the value does not
-  imply, so both refuse across a static edge. Across *different* dimensions
-  the conversion itself transformed the stuff (`E = h·f`: frequency →
-  energy), so the arrival kind is adopted with no license, and a conversion
-  to a unit that declares no kind drops a current kind that no longer fits
-  the result's dimension rather than carrying it onto the wrong fiber.
-
-- **The arrival rule — `.to()` re-kinds at a `default_kind` unit.** (#305)
-  The second half of `Unit.default_kind`. #306 shipped the declaration and
-  its attachment at construction and left this open; ADR 011 states both
-  the rule and the defect motivating it. `.to()` preserved the source kind
-  unconditionally, so `convert(100, USD → EUR, kind="usd")` returned 92.14
-  euros *still kinded `usd`* — a rate edge genuinely transformed the stuff,
-  and the label did not follow.
-
-  The rule is stated so one form serves both declarers ADR 011 names:
-
-  > the target's declared kind wins, **unless it is already an ancestor of
-  > the current kind**, in which case the finer kind survives — and when
-  > the two kinds are **siblings**, only an edge licensed by a contingent
-  > context may re-kind; a static edge **refuses**.
-
-  Without the second clause the rule relabels. `Number(1, gray,
-  kind=absorbed_dose).to(sievert)` over a factor-1 edge would return
-  `<1 Sv [dose_equivalent]>` — a label nothing earned, since nothing
-  performed the weighting that makes it true, and precisely the
-  kind-of-quantity failure the UnitSafe benchmark exists to catch. A dated
-  FX table is the licensed case (`usd → eur` still re-kinds); `Gy → Sv`
-  across a static edge raises `KindArrivalRefused` (exported from `ucon`).
-  The license is surfaced by the new `Graph.convert_with_license`, which
-  returns the contingent context's name alongside the map; `convert` is
-  unchanged.
-
-  Currency converts between *siblings* — `usd` and `eur` under a `currency`
-  root — so arrival re-kinds. Information converts *within* a kind, since
-  `bit` and `byte` both declare `information`, so a Number carrying
-  `payload_size` is not demoted to its ancestor: 8 bits of payload are 1
-  byte of payload. An unconditional "target wins" would have served the
-  first and broken the second.
-
-  Resolution stays best-effort, matching attachment: a declared name the
-  active lattice does not know leaves the kind untouched rather than
-  raising. Aspects are unaffected — the rule governs the kind stratum only.
-
-  **No shipped unit declares a `default_kind`**, so this changes nothing in
-  the built-in catalog. `NumberArray` has no kind stratum at all (#297), so
-  array parity follows that work rather than this one.
-
-- **`ConversionContext.contingent` — dated tables no longer chain.** (#317)
-  A context edge encodes either a *definitional* relation, licensed by an
-  exact constant, or a *contingent* one — a dated table that could have been
-  otherwise. Composing definitional edges derives a fact; composing edges
-  from two different contingent contexts invents a figure neither table
-  published.
-
-  That was reachable. With a tariff (`joule → USD`) and a rate table
-  (`USD → EUR`) both active, `Number(1, joule).to(EUR)` returned a euro
-  energy price nobody quoted — uncitable, guaranteed to disagree with a
-  directly quoted figure, and carrying no date of its own.
-
-  The rule: **a path may draw on at most one contingent context.** New
-  `ContingentCompositionRefused` names both tables when it declines, and is
-  distinct from `ConversionNotFound` because a declined path and an absent
-  one are different facts.
-
-  `contingent` defaults to `False`, so nothing shipped changes: `spectroscopy`
-  and `boltzmann` are exact by SI and keep chaining — `meter → reciprocal_meter`
-  still derives through `joule` without being declared, and
-  `meter → kelvin` still composes across both.
-
-  Composition *within* one contingent context is deliberately permitted,
-  which is what ADR 011's star-topology convention relies on: a rate package
-  quotes every currency against one base and the cross-rates derive from it.
-  `EUR → GBP` resolves through USD from a single table, at a single date.
-
-- **`[[contexts]]` in package TOML — conversion contexts ship as data.**
-  (#282) `ConversionContext` is the one mechanism for conditional, scoped,
-  constant-licensed conversion *between* dimensions — "λ ↔ ν given c",
-  "dose units ↔ mass given a formulation constant" — and it was the one
-  thing a domain package could not distribute. Graph-level TOML already
-  round-tripped contexts; `UnitPackage` had no `contexts` field, so the
-  package path could not.
-
-  A package now declares `[[contexts]]` with nested `[[contexts.edges]]`,
-  parsed into the new `ContextDef` and exposed as `UnitPackage.contexts`.
-  Array-of-tables with a `name`, matching every other package section
-  rather than the keyed-table form graph TOML uses for `[contexts.<name>]`.
-
-  Context edges reuse `EdgeDef`, so they support everything an ordinary
-  edge does — the `factor`/`offset` shorthand, explicit `map` specs, and
-  constant-licensed factor expressions. That last one carries the weight
-  here: a cross-dimensional edge is almost always licensed by a constant
-  the package also declares, and `factor = "k_d"` now resolves against it.
-
+- **`[[contexts]]` in package TOML — conversion contexts ship as data
+  (#282).** `UnitPackage` had no `contexts` field, so a domain package could
+  not distribute a context even though graph-level TOML round-tripped one. A
+  package now declares `[[contexts]]` with nested `[[contexts.edges]]`, parsed
+  into the new `ContextDef` and exposed as `UnitPackage.contexts` —
+  array-of-tables with a `name`, matching every other package section rather
+  than graph TOML's keyed `[contexts.<name>]`. Context edges reuse `EdgeDef`,
+  so the `factor`/`offset` shorthand, explicit `map` specs, and
+  constant-licensed factor expressions (`factor = "k_d"`) all work.
   `Graph.with_package` **registers** each context rather than inserting its
-  edges, which is the distinction that makes a context a context: loading
-  the package makes the conversion *available*, and it only applies while
-  `using_context` has it active. Registration runs after units and
-  constants, since an endpoint or factor may name something the package
-  itself introduced.
+  edges — loading the package makes the conversion available, and it applies
+  only while `using_context` has it active. Pre-existing limit, unchanged:
+  context edges resolve between plain units, not scaled or composite
+  endpoints, so `meter → hertz` resolves under a context, `nm → THz` does not.
 
-  Note a pre-existing limit this does not change: context edges resolve
-  between plain units, not through scaled or composite endpoints —
-  `_convert_products` compares dimensions before consulting
-  cross-dimensional edges, so `meter → hertz` resolves under a context
-  while `nm → THz` does not. Unrelated to packaging; it applies equally to
-  the built-in `spectroscopy` and `boltzmann` contexts.
-
-- **`default_kind` on `Unit` — the first unit→kind association.** (#305)
-  A unit may now declare the `Kind` it measures when nothing says
-  otherwise, via `Unit(default_kind="...")` or a `default_kind` key on a
-  `[[units]]` entry. A `Number` constructed with no explicit `kind=`
-  takes the declaration; an explicit `kind=` always wins. Names resolve
-  against a lattice at load time (local lattice before ambient, as
-  `Constant.kind` already does) and are qualified by the `namespace`
-  rewriter, so a package may declare both a kind and the units that name
-  it. Resolution at construction is best-effort: a name the active
-  lattice does not know leaves the Number unkinded rather than raising.
-  Like `scalable`, the field is metadata — excluded from `Unit`
-  equality and hashing. Purely additive: no unit in the built-in catalog
-  declares one, so nothing changes until a package opts in. The
-  *arrival* rule — what `.to()` should do when the target unit declares
-  a conflicting `default_kind` — remains open and is unchanged here.
+- **`default_kind` on `Unit` — the first unit→kind association (#305).** A
+  unit may declare the `Kind` it measures when nothing says otherwise, via
+  `Unit(default_kind="...")` or a `default_kind` key on a `[[units]]` entry. A
+  `Number` built with no explicit `kind=` takes the declaration; an explicit
+  `kind=` always wins. Names resolve against a lattice at load time (local
+  before ambient, as `Constant.kind` already does) and are qualified by the
+  `namespace` rewriter, so a package may declare both a kind and the units
+  that name it; resolution is best-effort, leaving the Number unkinded rather
+  than raising on a name the active lattice does not know. Like `scalable`,
+  the field is metadata — excluded from `Unit` equality and hashing.
 
 ### Changed
 
 - **Unit-declared kinds join unkinded operands permissively; explicit kinds
-  stay strict.** (#325) A kind attached by `Unit.default_kind` is a default,
+  stay strict (#325).** A kind attached by `Unit.default_kind` is a default,
   not an assertion. Under strict mode a default-kinded operand meeting an
   unkinded one now inherits the default under `+`/`−` and drops it under
-  `×`/`÷`, silently — `1 Hz + 1 (1/s)` is the same quantity written two
-  ways, and `1 Hz × 3 s` is a compound that declares nothing. A kind the
-  caller attached explicitly still raises `KindMismatch` as before.
-  Provenance is derived, not stored: a kind is a default iff it equals what
-  the unit's own declaration resolves to.
-
-  This is the prerequisite for `default_kind` on the degeneracy-cluster
-  units (the 2.3.0 KOQ floor): without it, the moment `hertz` declared
-  `frequency`, every mixed expression it appears in would have regressed.
-  No shipped unit declares a `default_kind` yet, so nothing changes today.
-
-- **Roadmap recast around the UnitSafe gate; ADR 013 proposed.** `ROADMAP.md`
-  ordered the planned releases by principle; it now orders them by what the
-  UnitSafe benchmark exercises. v2.3.0 becomes *Package infrastructure and the
-  KOQ floor* — the arrival rule's refusing clause and `default_kind` on every
-  degeneracy cluster, since 27 of the benchmark's 62 kind-of-quantity must-fail
-  pairs (`Gy → Sv`, `N·m → J`, `W → VA`, `Bq → Hz`, `Pa → J/m³`) convert
-  freely today and the shipped rule relabels rather than refuses. v2.3.1
-  becomes *Unity and the dimensionless fold* (#307, #318). Array parity and
-  quantity ergonomics move up to v2.4.0; currency moves to v2.6.0 with zero
-  benchmark exposure. Two deprecation rungs (v2.5.0, v2.7.0) precede v3.0.0,
-  which is gated on v2.3.0 by name. A *The UnitSafe gate* section records what
-  the benchmark does and does not exercise in this library.
-
-  The *Where the chart defects land* table replaces "angle becomes a real
-  dimension" — angle stays a quantity of dimension one, with `plane_angle` and
-  `solid_angle` as kinds — and splits the five refusals owed today to the 2.2.2
-  normalizability check into three to re-own and two to correct to admits.
-
-  [ADR 013](docs/internal/decisions/013-the-vector-is-the-only-carrier.md)
-  (*The vector is the only carrier*, Proposed) specifies the pseudo-dimension
-  retirement v3.0.0 has named without content: dimensional identity lives in
-  the basis vector; tags are absorbed or dissolved, never deleted to `none`;
-  currency is a basis component; `count` and the angle family are kinds on
-  unity; linear ratios are `Scale`; kinds compose through a normal form. It
-  supersedes ADRs 005, 011, and 012 and supplies the prerequisite ADR 009 names;
-  each carries a cross-reference. The intended `%` API is specified by example
-  in [proposals/percent-on-unity](docs/internal/proposals/percent-on-unity.md).
+  `×`/`÷`, silently — `1 Hz + 1 (1/s)` is one quantity written two ways, and
+  `1 Hz × 3 s` is a compound that declares nothing. A kind the caller attached
+  explicitly still raises `KindMismatch`. Provenance is derived, not stored: a
+  kind is a default iff it equals what the unit's own declaration resolves to.
+  Prerequisite for the KOQ floor's declarations — without it, every mixed
+  expression `hertz` appears in would have regressed.
 
 ### Fixed
 
 - **Scalar `*` and `/` are gated on level-vs-gain, and the `base_form`
-  invariants are enforced (#340).** Three independent holes, one family.
+  invariants are enforced (#340).** `Number.__mul__` and `__truediv__`
+  consulted no chart notion when the other operand was a scalar, so every
+  logarithmic and interval unit returned a wrong magnitude in silence —
+  `Number(10, units.decibel_watt) * 2` answered `<20 dBW>`, which is 100 W
+  where twice 10 W is 13.010 dBW. Scalar multiplication is repeated addition,
+  so it now answers to the **additive** rules: point + point and level + level
+  refuse with the new `ScalarArithmeticRefused`, while gain + gain admits, so
+  `2 × (3 dB)` is still the 6 dB cascade and `10 dB / 2` the geometric half.
+  The gate covers `a * 2`, `a / 2`, `2 * a` and `2 / a`; `a ** 2` is untouched
+  — repeated *multiplication* is a different rule. Nine shipped units refuse:
+  `celsius`, `fahrenheit`, `reaumur`, `decibel_watt`, `decibel_milliwatt`,
+  `decibel_volt`, `decibel_spl`, `pH` and `nines`, while `decibel`, `bel`,
+  `neper` and `rankine` (#339) keep scaling.
 
-  `Number.__mul__` and `Number.__truediv__` consulted neither `base_form`
-  nor any chart notion when the other operand was a scalar, so every
-  logarithmic and interval unit returned a wrong magnitude in silence:
-  `Number(10, units.decibel_watt) * 2` answered `<20 dBW>` — 100 W, where
-  twice 10 W is 13.010 dBW — `Number(10, units.celsius) * 2` answered
-  `<20 °C>`, and `Number(7, units.pH) * 2` answered `<14 pH>`, which is
-  1e-14 mol/L rather than 2e-07. The gate is derived rather than
-  stipulated: scalar multiplication is repeated addition (`a * n` was
-  identical to `a + a + …` on every unit in the catalog, the broken cases
-  included), so it answers to the **additive** rules. `2 × (20 °C)`
-  expands to point + point and refuses; `2 × (10 dBW)` to level + level
-  and refuses; `2 × (3 dB)` to gain + gain, which is the cascade of two
-  3 dB gains (ratio 1.995² = 3.981 = 6 dB) and still admits, as does
-  `10 dB / 2`, the geometric half. The refusal is the new
-  `ScalarArithmeticRefused`, and it covers `a * 2`, `a / 2`, `2 * a` and
-  `2 / a`. `a ** 2` is untouched — repeated *multiplication* is a
-  different rule. Eleven shipped units are affected: `celsius`,
-  `fahrenheit`, `reaumur`, `decibel_watt`, `decibel_milliwatt`,
-  `decibel_volt`, `decibel_spl`, `pH` and `nines` refuse, while `decibel`,
-  `bel` and `neper` keep scaling. `rankine` keeps scaling too: it is a
-  pure scaling of kelvin with a true zero (#339), not an interval scale,
-  notwithstanding the issue's list.
-
-  `BaseForm` was a bare frozen dataclass with no validation, contradicting
-  its own docstring: `prefactor=-1`, `nan`, `inf` and `0.0` were all
-  accepted, as was `factors=()`. `__post_init__` now enforces a positive,
-  finite prefactor and a non-empty factor tuple of `(Unit, exponent)`
-  pairs. The empty tuple is refused deliberately — a dimensionless unit
-  carries `base_form=None`, and the route ADR 013 §5 sets out for making
-  one normalizable is a *self-referential* factorization (`1 USD ≡ 1 ×
-  USD`), which is non-empty; admitting `()` would also give every
-  dimensionless unit the same empty `base_signature`, so `1 percent` and
-  `1 radian` would read as mutually normalizable. No shipped unit, loader
-  path, or cache round-trip constructs one.
-
-  `Unit._set_base_form` guarded only "already set", so one call made the
-  v2.2.2 normalizability refusal unsound with CI green:
-  `units.decibel_watt._set_base_form(BaseForm(((kilogram, 1.), (meter, 2.),
-  (second, -3.)), 1.0))` turned `10 dBW + 1 W` into `<11.0 dBW>` (11 W is
-  10.414 dBW) while `make base-forms-check` stayed green. The set is now
-  refused on any unit whose declared edges give it no `(prefactor,
-  factors)` representation, which makes the proxy structural rather than
-  a contingent fact about the shipped TOML — the job the hand-maintained
-  `_NULL_BASE_FORM_NAMES` list was doing before it emptied.
+  Two invariants stop being allowlists. `BaseForm.__post_init__` now enforces
+  a positive, finite prefactor and a non-empty tuple of `(Unit, exponent)`
+  pairs, where `prefactor=-1`, `nan`, `inf`, `0.0` and `factors=()` were all
+  accepted before. And `Unit._set_base_form` guarded only "already set", so
+  one call could turn `10 dBW + 1 W` into `<11.0 dBW>` with
+  `make base-forms-check` green; it is now refused on any unit whose declared
+  edges give it no `(prefactor, factors)` representation.
 
   Both guards ask one new read-only query, `Graph.scale_class(unit)`,
-  which returns `"ratio"`, `"gain"`, `"level"` or `"point"`. It is #356's
-  rule read in the other direction: the base-form oracle refuses to
-  *propagate* across a log/exp edge or an affine edge bearing an offset,
-  and `scale_class` walks outward from a unit over exactly the
-  complementary edges, looking for a base-form anchor. Locality would not
-  have done — `reaumur`'s own edge to `celsius` carries no offset, yet it
-  must stay `None` because its only path to `kelvin` runs through
-  `celsius`'s — so the walk covers the whole multiplicative neighbourhood,
-  and it reads the product-edge table too, which is where `pH`'s only
-  edge lives. Direction is recovered from the map type rather than the
-  offset: `add_edge` stores an inverse alongside every edge, so the
-  logarithmic side is the side you leave by exponentiating, which is what
-  keeps `fraction` — the referent side of a `LogMap` to each of `bel`,
-  `decibel`, `neper` and `nines` — a ratio scale. The level-vs-gain split
-  is *not* the `reference` field alone: `decibel_watt → watt` carries
-  `reference=1.0` because 0 dBW is 1 W, numerically indistinguishable from
-  a bare `dB`, and `decibel_volt` likewise; what separates them is that
-  the referent is dimensionful. Two things the query does not catch, by
-  construction: a unit the graph declares no edges for reads as a ratio
-  scale (absence of structure is not evidence of non-ratio structure —
-  this is what keeps a freshly-constructed `Unit` usable and both loader
-  passes working, since `base_form` resolves in pass 6b and edges
-  materialize in pass 9), and unanchored pseudo-dimensional ratio scales
-  such as `radian` and `percent` are indistinguishable from that case.
-  The query's verdict for a plain `Unit` is memoized per graph in
-  `_scale_class_cache`, which `add_edge` clears alongside the two
-  conversion caches — the walk would otherwise cost ~20 µs on every
-  scalar `*` over a unit with no `base_form` (`radian`, `gauss`,
-  `percent`), against ~2 µs before. The base-form fast path sits ahead of
-  the cache read, so a unit that acquires one is never answered from a
-  stale entry.
+  returning `"ratio"`, `"gain"`, `"level"` or `"point"` — #356's rule read in
+  reverse, over a unit's whole multiplicative neighbourhood (product-edge
+  table included) rather than its own edges. A unit the graph declares no
+  edges for reads as a ratio scale, as do unanchored ratio scales such as
+  `radian` and `percent`. Verdicts are memoized per graph, cleared by
+  `add_edge`. Not closed here: `20 °C + 20 °C` still answers `<40 °C>`, since
+  `_require_normalizable` exempts same-unit operands.
 
-  Not closed here: `20 °C + 20 °C` still answers `<40 °C>`, because
-  `_require_normalizable` exempts same-unit operands — the additive half
-  of the same hole, and not in #340's scope.
-
-- **Formula-signature collisions are refused at registration (#347).** The
-  registry's three kind-identity tiers (EXACT, COMMUTATIVE, and GENERALIZED
-  through the indexes they share) answer with one formula per input signature,
-  but `register` wrote those indexes with `setdefault` — so two formulas
-  claiming one signature with *different* output kinds were both admitted and
-  the kind the stratum read came down to which was registered first. Measured:
-  `FormulaRegistry([f1, f2])` resolved to `f1`, `FormulaRegistry([f2, f1])` to
-  `f2`, silently and at `MatchKind.EXACT`. The ancestor walk's existing
-  `AmbiguousFormula` could not catch it — `setdefault` had already erased the
-  loser before any tier ran, so the collision was invisible to lookup by
-  construction. `register` now refuses the pair up front with the new
-  `CollidingFormula`, naming both formulas, the contested signature and the
-  two output kinds, and leaving the registry unmodified. One rule at the one
-  ingestion site covers all three tiers and therefore both `FormulaRegistry`
-  consumers, `*` and `/` alike. Two formulas claiming one signature that
-  *agree* on `output_kind` remain admissible, first writer wins: the resolved
-  kind is the same whichever answers, so one relationship declared twice under
-  different names is legitimate overlap, not a collision. The DIMENSIONAL
-  tier's indexes are deliberately unguarded — that tier discards kind identity
-  by construction and is opt-in per call (`dimension_fallback=True`, which
-  neither `*` nor `/` passes), so overlap there is the documented cost of
-  asking for it. The shipped catalog declares one formula, so no collision was
-  reachable without user registration and the guard costs the catalog nothing.
+- **Formula-signature collisions are refused at registration (#347).**
+  `FormulaRegistry.register` wrote its kind-identity indexes with
+  `setdefault`, so two formulas claiming one input signature with *different*
+  output kinds were both admitted and the kind the stratum read came down to
+  registration order — invisible to lookup, since the loser was erased before
+  any tier ran and the ancestor walk's `AmbiguousFormula` never saw it.
+  `register` now refuses the pair up front with the new `CollidingFormula`,
+  naming both formulas, the contested signature and the two output kinds, and
+  leaves the registry unmodified. One rule at the one ingestion site covers
+  the EXACT, COMMUTATIVE and GENERALIZED tiers, and so both `*` and `/`. Two
+  formulas that *agree* on `output_kind` remain admissible, first writer wins.
+  The DIMENSIONAL tier stays unguarded: it discards kind identity by
+  construction and is opt-in per call (`dimension_fallback=True`).
 
 - **`==` and `!=` consult the aspect stratum (#353).** The aspect peer of the
-  kind hole #352 closed, and left open there deliberately since #352 was
-  scoped to kinds: two `Number(1, units.gray)` values carrying *sibling*
-  positions under one `Aspect` root — a dry-basis dose against a wet-basis
-  dose — compared `True`, while `+`, `*` and `/` all raised `AspectRefused`
-  for the same pair. `_resolve_eq_aspects` closes it in `_resolve_eq_kind`'s
-  idiom: resolution runs on the multiplicative rule (which reads nothing
-  ambient and never warns) and a refusal is reported as *unequal* rather than
-  raised, so `__eq__` stays total. Comparison therefore refuses on conflict
-  only, never on silence — an aspect-silent operand contradicts nothing, so
-  `gray(1)#dry == gray(1)` is still `True`. Ordering, which has no
-  total-function obligation, raises `AspectRefused` for the conflicting pair
-  instead.
+  kind hole #352 closed: two `Number(1, units.gray)` values carrying *sibling*
+  positions under one `Aspect` root compared `True` while `+`, `*` and `/` all
+  raised `AspectRefused`. `_resolve_eq_aspects` resolves on the multiplicative
+  rule and reports a refusal as *unequal* rather than raising, so `__eq__`
+  stays total. Comparison therefore refuses on conflict only, never on silence
+  — `gray(1)#dry == gray(1)` is still `True`. Ordering, which carries no
+  total-function obligation, raises `AspectRefused` for the pair instead.
 
-- **`/` and `==` consult the kind stratum (#352).** Two operators bypassed it
-  while `+`, `*` and `.to()` all gated: `gray(1) / sievert(1)` cancelled both
-  kinds and answered a bare `<1.0>`, and `gray(1) == sievert(1)` answered
-  `True` — the same claim `must-fail-011` exists to block, reachable without
-  ever calling `.to()`. The hole was per-operator naming: `__truediv__`'s
-  *dimensionless* branch hardcoded `kind=None` (its dimensionful branch has
-  always routed through `_resolve_mul_kind`), and `__eq__` had no kind
-  resolver at all. Two resolvers in the existing idiom close it —
-  `_resolve_truediv_kind` consults the `FormulaRegistry` first, so a formula
-  may legitimately name the quotient's kind, and refuses with
-  `FormulaNotFound` (the precedent `__mul__` sets for the same pair) when the
-  lattice refuses the join; `_resolve_eq_kind` reports a refusal as *unequal*
-  rather than raising, the treatment the cross-dimension case already gets
-  (`meter(1) == second(1)` is `False`), which keeps `__eq__` total and makes
-  `!=` follow by inheritance. So `W == VA`, `Hz == Bq` and `Gy == Sv` are now
-  `False`, and `Gy / Sv` refuses. Same-kind quotients, kinded-over-unkinded
-  quotients, and kinds the lattice *can* join stay anonymous ratios
-  (`kind=None`). The operator × stratum cross-product is now asserted
-  cell-by-cell in `tests/ucon/core/test_operator_stratum_grid.py`, so the next
-  ungated operator fails CI; the chart column's admissions are recorded as
-  expected-for-now, since chart dispatch lands with four-stratum dispatch in
-  v3.2.0.
+- **`/` and `==` consult the kind stratum (#352).** `gray(1) / sievert(1)`
+  cancelled both kinds and answered a bare `<1.0>`, and
+  `gray(1) == sievert(1)` answered `True` — the claim `must-fail-011` exists
+  to block, reachable without ever calling `.to()`. `_resolve_truediv_kind`
+  consults the `FormulaRegistry` first, so a formula may name the quotient's
+  kind, and refuses with `FormulaNotFound` when the lattice refuses the join;
+  `_resolve_eq_kind` reports a refusal as *unequal* rather than raising,
+  keeping `__eq__` total and `!=` following by inheritance. So `W == VA`,
+  `Hz == Bq` and `Gy == Sv` are now `False` and `Gy / Sv` refuses, while
+  same-kind quotients, kinded-over-unkinded quotients, and kinds the lattice
+  *can* join stay anonymous ratios (`kind=None`). The operator × stratum
+  cross-product is now asserted cell-by-cell in
+  `tests/ucon/core/test_operator_stratum_grid.py`, so the next ungated
+  operator fails CI; the chart column's admissions are recorded as
+  expected-for-now, since chart dispatch lands in v3.2.0.
 
-- **The base_form oracle no longer propagates across an offset, retiring the
+- **The `base_form` oracle no longer propagates across an offset, retiring the
   hand-written allowlist.** `scripts/generate_base_forms.py` walked affine
-  edges by *slope* and ignored the offset, so it would mint `base_form = 1·K`
-  for `celsius`. A four-name list (`_NULL_BASE_FORM_NAMES`) suppressed that
-  after the fact — and is how `rankine` came to be suppressed in error. The
-  BFS now refuses to cross an offset-bearing affine edge, exactly as it already
-  refuses a log/exp edge, so `celsius`/`fahrenheit`/`reaumur` are **absent from
-  the expected map on their own** and the list is empty
-  (`compared=144 agreed=144 drifted=0 null-by-design=0`). The list survives as
-  an empty name because its *positive* assertion has no replacement yet:
-  inferring it from absence conflates "underivable" with "unreached", since the
-  oracle reaches 144 of 234 units and such a check rejects `tesla`, `weber`,
-  `siemens`, `molar` and ~90 others.
+  edges by slope and ignored the offset, so it would mint `base_form = 1·K`
+  for `celsius`; a four-name list (`_NULL_BASE_FORM_NAMES`) suppressed that
+  after the fact, which is how `rankine` came to be suppressed in error. The
+  BFS now refuses to cross an offset-bearing affine edge exactly as it already
+  refuses a log/exp edge, so `celsius`/`fahrenheit`/`reaumur` are absent from
+  the expected map on their own and the list is empty. It survives as an empty
+  name because its *positive* assertion has no replacement: the oracle reaches
+  144 of 234 units, so inferring the null set from absence would reject
+  `tesla`, `weber`, `siemens`, `molar` and ~90 others.
 
 - **`rankine` carries a `base_form` (#339).** It is a pure scaling of kelvin —
   `0 °R = 0 K`, factor `5/9` — but was named in
   `generate_base_forms._NULL_BASE_FORM_NAMES` beside the three
-  conventional-zero scales, under a comment reading "Affine and logarithmic
-  units MUST have base_form=None". Rankine is neither: it is the absolute
-  Fahrenheit-degree scale, and only the degree *size* is Fahrenheit's. The
-  generator's own BFS oracle derives the right value, so removing the name
-  makes `make base-forms-check` demand it (`compared=144 agreed=144
-  drifted=0 null-by-design=3`). The stored prefactor follows the house
-  convention established in v2.1.6/2.1.7 — compose the exact value in
-  `Fraction` and convert to float exactly once — so the regression test
-  asserts *equality* with `float(Fraction(5, 9))` and with the reciprocal of
-  the declared `kelvin → rankine` edge factor, rather than a tolerance. Two
-  consequences fixed:
-  `units.rankine(20) + units.kelvin(5)` no longer raises
-  `UnitsNotNormalizable`, and `canonical_magnitude` / `to_base()` now convert
-  (`100/9 K`) instead of silently returning the raw quantity.
+  conventional-zero scales. Rankine is the absolute Fahrenheit-degree scale;
+  only the degree *size* is Fahrenheit's. Removing the name makes
+  `make base-forms-check` demand the value the generator's own BFS oracle
+  already derives, and the stored prefactor follows the v2.1.6/2.1.7
+  convention — compose exactly in `Fraction`, convert to float once — so the
+  regression test asserts equality with `float(Fraction(5, 9))` rather than a
+  tolerance. Two consequences: `units.rankine(20) + units.kelvin(5)` no longer
+  raises `UnitsNotNormalizable`, and `canonical_magnitude` / `to_base()` now
+  convert (`100/9 K`) instead of returning the raw quantity.
 
-- **`contingent` now has a TOML key, so a packaged dated table arrives
-  dated.** (#329) `ConversionContext.contingent` (#320) refuses to compose a
-  path across two *different* contingent contexts — two dated tables inventing
-  a figure neither published. The flag had no serialized representation, so a
-  context shipped in a package always loaded as **definitional** and the guard
-  never fired on it. A package declaring a September hub tariff
-  (`joule → USD`) and the ECB's euro reference rates (`USD → EUR`), both
-  `contingent = true`, resolved euros per joule silently:
-  `1 GJ → EUR` gave `<12.285333333333334>` — uncitable, guaranteed to
-  disagree with any directly quoted EUR/J rate, and carrying no date of its
-  own. The identical tables built in-process already refused, so only the
-  serializer was at fault.
-
-  The flag now survives `ContextDef` and `[[contexts]]` parsing,
-  `ContextDef.materialize`, `from_toml`, `to_toml`, and the binary cache.
-  `_CACHE_SCHEMA` is bumped to 3: a stale cache missing the key would restore
-  `False` and reintroduce exactly this defect. The default is unchanged — a
-  context is definitional unless it says otherwise.
+- **`contingent` now has a TOML key, so a packaged dated table arrives dated
+  (#329).** `ConversionContext.contingent` (#320) had no serialized
+  representation, so a context shipped in a package always loaded as
+  **definitional** and the composition guard never fired on it: a package
+  declaring a hub tariff (`joule → USD`) and euro reference rates
+  (`USD → EUR`), both `contingent = true`, resolved `1 GJ → EUR` silently. The
+  flag now survives `ContextDef` and `[[contexts]]` parsing,
+  `ContextDef.materialize`, `from_toml`, `to_toml` and the binary cache, and
+  `_CACHE_SCHEMA` is bumped to 3 — a stale cache missing the key would restore
+  `False` and reintroduce the defect. The default is unchanged: a context is
+  definitional unless it says otherwise.
 
 ### Documentation
 
-- **`[Unreleased]` consolidated and the v2.3.0 roadmap row brought current.**
-  Each PR in the v2.3.0 train appended its own section header, leaving nine
-  (`Added` x4, `Fixed` x2, `Documentation` x2, `Changed`) interleaved in release
-  order rather than one of each. CLAUDE.md names this file the source of truth
-  for "did this land?", which nine interleaved sections defeat. All 23 entries
-  are preserved in order within `Added` / `Changed` / `Fixed` / `Documentation`.
-  The v2.3.0 row also still listed #352 and #347 as owed after both shipped
-  (#360, #363), and read `In progress`; it now reads `Complete`, with
-  `__hash__` stated as **not in this release** — blocked on freezing `Number`
-  (#362) rather than deferred, so it does not hold the cut.
+- **`[Unreleased]` consolidated; the v2.3.0 roadmap row reads `Complete`.**
+  Nine interleaved section headers reduce to one each; #352 (#360) and #347
+  (#363) are marked shipped, and `__hash__` is stated as not in this release.
 
-- **`ROADMAP.md`: v2.3.0 re-scoped, the KOQ floor split, and 3.0.0's
-  prerequisites made explicit.** Thirteen issues surfaced this week (#339–#348,
-  #352–#354) reduce to four root causes, the largest being the pseudo-dimension
-  tags — eight open issues are their consequences (#307, #318, #321, #336, #341,
-  #344, #346, #348). The retirement unblocks the most, so its prerequisites were
-  audited. Two had been mis-read as features merely queued in front of it:
-  **#292 currency is a prerequisite** (no `currency` dimension or unit exists
-  today and the SI basis still carries `information` in slot 8, so 3.0.0's
-  "folds into slot 9 … and the shim transform retires" has nothing to fold), and
-  **part of the KOQ floor is a prerequisite** (`xdom-018`, `xdom-020` and
-  `pr-028` refuse today *only* because the tags differ, so the angle kinds and
-  the product-signature `default_kind` mechanism must precede the retirement or
-  three must-fails regress).
+- **`ROADMAP.md` recast around the UnitSafe gate and re-scoped; ADR 013
+  proposed.** The roadmap is now ordered by what the UnitSafe benchmark
+  exercises rather than by principle, with a *The UnitSafe gate* section
+  recording what the benchmark does and does not reach here, and a *Where the
+  chart defects land* table replacing "angle becomes a real dimension" — angle
+  stays a quantity of dimension one, with `plane_angle` and `solid_angle` as
+  kinds. Thirteen issues surfaced working the chart stratum and the KOQ floor
+  (#339–#348, #352–#354) reduce to four root causes, the largest being the
+  pseudo-dimension tags; eight open issues are its consequences (#307, #318,
+  #321, #336, #341, #344, #346, #348).
+  [ADR 013](docs/internal/decisions/013-the-vector-is-the-only-carrier.md)
+  (*The vector is the only carrier*, Proposed) supplies the retirement v3.0.0
+  had named without content — dimensional identity in the basis vector, tags
+  absorbed or dissolved rather than deleted to `none`, currency a basis
+  component, `count` and the angle family as kinds on unity, linear ratios as
+  `Scale`, kinds composing through a normal form. It supersedes ADRs 005, 011
+  and 012, each cross-referenced, and the intended `%` API is specified by
+  example in
+  [proposals/percent-on-unity](docs/internal/proposals/percent-on-unity.md).
 
-  So the KOQ catalog floor **splits**: the angle clusters and the
-  product-signature mechanism become v2.4.0 (#342, #343, #344's angle half,
-  #348's kind half), and the half that genuinely needs the merged fiber becomes
-  v3.1.0 (#341, #346, the remaining dimensionless kinds, `sr = rad²`). The
-  Turnstile moves to v3.2.0. Array parity (#297, #298) was the only row found
-  *not* to be a prerequisite and is the only one left unsequenced. v2.6.0
-  currency keeps its place, now flagged as the gate it is.
+  Where the releases now sit. **v2.3.0** is *stratum wiring and invariant
+  enforcement* — the three routes by which the kind stratum could be bypassed
+  (#340, #352, #353) and the invariants that were allowlists (#340, #347) —
+  with `rankine` (#339) and `var` (#345) landed against it. **v2.3.1** is
+  *Unity and the dimensionless fold* (#307, #318). The deprecation ladder,
+  3.0.0's only true prerequisite, moves forward to v2.4.0/v2.5.0. The KOQ
+  catalog floor **splits**: the angle clusters and the product-signature
+  `default_kind` mechanism become v2.4.0 (#342, #343, #344's angle half,
+  #348's kind half), and the half that needs the merged fiber becomes v3.1.0
+  (#341, #346, the remaining dimensionless kinds, `sr = rad²`). The Turnstile
+  moves to v3.2.0. Array parity (#297, #298) is the one row found *not* to be
+  a prerequisite and is left unsequenced; **#292 currency is** one — no
+  `currency` dimension or unit exists today and the SI basis still carries
+  `information` in slot 8 — as is part of the KOQ floor, since `xdom-018`,
+  `xdom-020` and `pr-028` refuse today *only* because the tags differ.
 
-  v2.3.0 is re-scoped from "package infrastructure and the KOQ floor" to
-  **"stratum wiring and invariant enforcement"**: the three routes by which the
-  kind stratum can be bypassed (#340, #352, #353) and the invariants that were
-  allowlists (#340, #347). All independent of the dimensionless fiber, so
-  deliverable now — `rankine` (#339) and `var` (#345) already landed against it.
-
-- **`ROADMAP.md` resequenced, and v2.3.0 re-scoped.** Working the chart stratum
-  and the KOQ floor surfaced thirteen issues (#339–#348, #352–#354) that reduce
-  to four root causes, the largest being one thing: the pseudo-dimension tags.
-  Eight open issues are its consequences (#307, #318, #321, #336, #341, #344,
-  #346, #348), and #342/#343 depend on #344, so ADR 013's retirement unblocks
-  ten. It had been scheduled at v3.0.0 behind array parity (v2.4.0) and native
-  currency (v2.6.0), **neither of which is a prerequisite for it**.
-
-  So: the deprecation ladder — 3.0.0's only true prerequisite — moves forward to
-  v2.4.0/v2.5.0; array parity and currency are left **unsequenced** rather than
-  renumbered, since where they land is a product-priority call and not a
-  dependency one; the KOQ *catalog* floor moves from v2.3.0 to a new v3.1.0 so it
-  is done once on the merged fiber instead of twice; and the Turnstile moves to
-  v3.2.0.
-
-  v2.3.0 is re-scoped from "package infrastructure and the KOQ floor" to
-  **"stratum wiring and invariant enforcement"** — closing the three routes by
-  which the kind stratum can be bypassed (#340 scalar `*`/`/`, #352 `==`, #353
-  the comparison protocol) and enforcing the invariants that were allowlists
-  (#340's `BaseForm` validation and `_set_base_form` guard, #347's formula
-  collisions). Everything in it is independent of the dimensionless fiber, so it
-  is deliverable now; `rankine` (#339) and `var` (#345) have already landed
-  against it.
-
-- **`Unit.chart` withdrawn: the catalog already declares the chart class.**
-  (#336, #339, #340, #341 filed alongside) Working the four open questions one at
-  a time retired every recommendation the proposal originally made, and then the
-  proposal itself. The proposed fourth chart class is **declined**: `−log₁₀(1−x) + −log₁₀(1−y) = −log₁₀[(1−x)(1−y)]`, so addition on
-  the `nines` chart has exactly one meaning — multiply the referenced quantity,
-  which is the parallel-redundancy law and precisely what a logarithmic chart
-  does. The "ambiguity" that motivated the class was a confusion between a rival
-  reading of `+` and a different function of the same inputs; the decibel makes
-  the same distinction without anyone calling it ambiguous. `nines` is
-  `logarithmic`. `PolynomialMap` is not an inhabitant either — the PT100 curve
-  relates temperature to resistance, a cross-dimensional edge, not a numeral
-  scheme. (That conclusion stands, but #341 supplies the real reason `nines` is
-  not interchangeable with the other levels: its edge hides `x ↦ 1 − x`, a change
-  of quantity, inside a map that should only change scale.)
-
-  And `logarithmic` needs **no parameters**. `reference` is already a field on
-  `LogMap`/`ExpMap` and already populated (`decibel_milliwatt → watt` carries
-  `reference=0.001`), which also makes point-vs-displacement derivable. The
-  field-vs-power distinction is already in `scale`, by the log power rule:
-  `P/P₀ = (F/F₀)²` and `ln(aᵇ) = b·ln(a)` make the exponent and the scale
-  interchangeable, and the catalog gets it right — `dBW`/`dBm` at `scale=0.1`
-  read +10 dB per decade, `dBV`/`dB SPL` at `scale=0.05` read +20 dB. So the
-  declared field is authority for the class and the Map carries the parameters,
-  exactly as ADR 010 said.
-
-  The revision also specifies all four logarithmic add/subtract combinations
-  rather than addition alone: `level − level` is the only producer of a gain
-  (the signal-to-noise idiom), and it cannot be rewritten as
-  `level + (−level)` because negating a point is meaningless.
-
-  **The validator is withdrawn, not replaced — and so is the field.** Two
-  successive derivations for it were wrong. The second claimed a same-fiber
-  conversion is non-affine iff exactly one endpoint is `logarithmic`, "verified
-  over 946 pairs with 0 violations"; the catalog has **971** unordered
-  same-fiber pairs, 21 unreachable, **950** convertible, and the four that raise
-  `ValueError: Logarithm argument must be positive` at the probe points sat
-  inside a bare `except Exception: continue`. 950 − 4 = 946, so the evidence was
-  the input minus exactly the counterexamples. `nines → decibel` is
-  `10·log₁₀(1 − 10⁻ⁿ)`, not affine, with **both** endpoints `logarithmic`.
-
-  What the work established instead: the catalog **already declares** the chart
-  class, distributed across its edge-key vocabulary. Across all 207 declared
-  edges there are exactly three shapes — 196 bare `factor` (pure scaling), 2
-  `factor`+`offset` (conventional zero, both `celsius`-sourced), 9 `map`
-  (log/exp/composed). A unit's numerals are a logarithm iff it is the source of
-  an `exp` edge or the target of a `log` edge; origin classes are the components
-  under pure-scaling edges, which splits `Dimension(temperature)` into
-  `{kelvin, rankine}`, `{celsius, reaumur}`, `{fahrenheit}`. Add one physical
-  fact — thermodynamic temperature has an absolute zero, realised by `kelvin` —
-  and the full census falls out for all 234 units with zero disagreements. So
-  there is no TOML key, no `to_toml` emission, no `_CACHE_SCHEMA` bump, no
-  dataclass field and no 12 hand-written declarations; a declared field would be
-  a second copy of derivable information. Census: **222 / 3 / 9** over 234 units
-  (the "235" was an attribute count — one alias binding).
-
-  **`ROADMAP.md` brought into line**: the v2.3.0 row no longer promises a declared
-  `Unit.chart` (it carries #339/#340/#341 instead, and the `contingent` TOML key
-  is marked shipped); *Where the chart defects land* marks "refusal keys on a
-  principled marker" **withdrawn** with the magnitude-corruption reason, replaces
-  "five accidental refusals" with the measured 62 pairs over 34 units and their
-  four causes, drops `Unit.chart` from the open Turnstile prerequisites, notes
-  that retiring the normalizability check at 3.1.0 requires graph-routed
-  arithmetic first, and adds #339/#341 to the catalog-correctness list on the
-  UnitSafe gate.
-
-  **ADR 010 and ADR 009 §4 amended in place** to match, per the house convention
-  (009's Status line already records three prior in-place amendments). ADR 010's
-  naming Decision is untouched; what changed is one Consequences bullet that
-  contradicted the ADR's own rationale — "Why chart" already states that *"a
-  `Map`'s algebraic form (Linear / Affine / Log) **is** the chart
-  classification"*, which the bullet then forbade using. Both original bans
-  stand: never from `base_form`, never from an arbitrary sibling edge. ADR 009
-  §4's two `[live]` cases cited as forcing a declared field are withdrawn, since
-  both fail on re-test — and ADR 010's Context, which claimed v2.2.0 "adds a
-  declared classification field on `Unit`", is marked counterfactual: no such
-  field shipped then or since. A declared field has no residual job even at
-  `extend` time, because `interval` and `logarithmic` are *relational* classes —
-  an offset from what, a logarithm of what — so a unit with no edge is
-  necessarily `ratio`; 009 §4 already conceded this, and the catalog agrees (16
-  edgeless units, none non-ratio; all 12 non-ratio units carry an edge).
-
-  **The 2.2.2 re-key reverses.** The 62 same-fiber pairs it would unblock are
-  *correct* refusals with a misleading message, not accidental ones.
-  `_canonical_magnitude` is documented as not consulting any graph and falls
-  back to the raw quantity, so admitting `50 % + 1 fraction` would yield `51 %`
-  where the answer is `150 %`, and `20 °R + 5 K` would yield `25` where the
-  answer is `16.111 K`. `base_form` is load-bearing for the arithmetic, not only
-  for the meaningfulness check; the two predicates are independent and both are
-  needed. The 62 pairs are unblocked by #283, ADR 013's retirement and #339 —
-  not by relaxing the gate. They span **34** units, not the 50 previously
-  claimed, and compose as 61 both-`None` plus one (`kelvin`/`rankine`).
-
-  Three bugs were filed from the work: #339 (`rankine`'s `base_form` suppressed
-  by a hand-written allowlist, which the generator's own BFS oracle contradicts),
-  #340 (scalar `*`/`/` ungated on all 12 non-ratio units — `Number(10, dBW) * 2`
-  returns `20 dBW`, i.e. 100 W; plus `BaseForm` accepting `prefactor=-1`/`nan`
-  against its own docstring, and `_set_base_form` having no chart guard, so one
-  call makes the proxy unsound with CI green), and #341 (two log edges targeting
-  a quantity other than the one charted — `nines` hides `x ↦ 1 − x` in the
-  catalog's only `composed` edge; `pH` is a level on `Dimension(concentration)`
-  with a defaulted reference that names the wrong quantity). `dyne` is dropped
-  as a chart case: its `base_form` is populated and its map to `newton` is
-  linear, so ADR 009 §4's "its `base_form is None`" — the stratum's founding
-  example — is a flat factual error.
-
-- **Implementation proposal for declaring `Unit.chart`.**
+- **`Unit.chart` withdrawn: the catalog already declares the chart class**
+  (#336, with #339, #340 and #341 filed alongside). The proposal under
   [`proposals/declared-unit-chart`](docs/internal/proposals/declared-unit-chart.md)
-  scopes the last owed v2.3.0 item.
-  [ADR 010](docs/internal/decisions/010-chart-nomenclature.md) already settled
-  the name, the three classes, and that chart is read from the declared field
-  only — never inferred — so the proposal addresses the four questions it and
-  [ADR 009](docs/internal/decisions/009-turnstile.md) §4 left open: whether the
-  deliberately-open taxonomy gains a fourth `transformed` class (`nines` is
-  logarithmic in the *complement*, and `PolynomialMap` is now in the tree);
-  what parameters `logarithmic` carries; what the load-time validator checks;
-  and whether the 2.2.2 refusal re-keys in the same release.
+  is withdrawn and **no field ships** — no TOML key, no `to_toml` emission, no
+  `_CACHE_SCHEMA` bump, no dataclass field, no hand-written declarations. The
+  class is derivable from the declared edge vocabulary: a unit's numerals are
+  a logarithm iff it is the source of an `exp` edge or the target of a `log`
+  edge, and origin classes are the components under pure-scaling edges; add
+  one physical fact — thermodynamic temperature has an absolute zero, realised
+  by `kelvin` — and the census of all 234 units falls out as **222 ratio / 3
+  interval / 9 logarithmic** with zero disagreements. The proposed fourth
+  `transformed` class is **declined**: addition on the `nines` chart has
+  exactly one meaning, the parallel-redundancy law, so `nines` is
+  `logarithmic`, and `PolynomialMap` is a cross-dimensional edge rather than a
+  numeral scheme. `logarithmic` needs no parameters either — `reference` is
+  already a populated field on `LogMap`/`ExpMap`, and the field-vs-power
+  distinction is already carried by `scale`.
 
-  Two findings came out of verifying it. `1 Np → 4.343 dB` and `1 B → 2.303 Np`
-  are both off by **exactly the field/power factor of 2** against SI Brochure
-  Table 8 (8.686 dB and 1.1513 Np) — because nothing declares whether a log
-  edge carries a field or a power ratio, which is why the proposal makes that a
-  declared parameter rather than a convention. And the logarithmic verdicts are
-  currently inverted: `0 dBm + 3 dB` (a level plus a gain, the one legitimate
-  operation) refuses, while `0 dBm + 0 dBm` (point plus point, ill-formed)
-  admits — refused at stratum 1, since `dBm` is `Dimension(power)` and `dB` is
-  `Dimension(ratio)`, before any chart logic could run.
-
-  Migration is **12 units, not 235**: `ratio` is the correct default for 223 of
-  them. No code change; the proposal is the acceptance list for the
-  implementation.
+  [ADR 010](docs/internal/decisions/010-chart-nomenclature.md) and
+  [ADR 009](docs/internal/decisions/009-turnstile.md) §4 are **amended in
+  place** per the house convention: ADR 010's naming Decision stands, but the
+  one Consequences bullet forbidding the class to be read from a `Map`'s
+  algebraic form is withdrawn (both original bans — never from `base_form`,
+  never from an arbitrary sibling edge — stand), its Context claim that v2.2.0
+  shipped a declared field is marked counterfactual, and 009 §4's two `[live]`
+  cases are withdrawn as failing on re-test. **The 2.2.2 re-key reverses**:
+  the 62 same-fiber pairs over 34 units it would have unblocked are *correct*
+  refusals with a misleading message, since `base_form` is load-bearing for
+  the arithmetic and not only for the meaningfulness check — admitting
+  `50 % + 1 fraction` would yield `51 %` where the answer is `150 %`. Those
+  pairs are unblocked by #283, ADR 013's retirement and #339, not by relaxing
+  the gate. `ROADMAP.md` is brought into line.
 
 - **ADR 012 — what "dimensionless" means.** The v3.0.0 pseudo-dimension
-  retirement is named in the roadmap as "degree et al. become first-class",
-  and that phrase admits two readings with opposite consequences. ADR 012
-  records the decision required — *does a named dimensionless unit remain a
+  retirement is named in the roadmap as "degree et al. become first-class", a
+  phrase that admits two readings with opposite consequences. ADR 012 records
+  the decision required — *does a named dimensionless unit remain a
   distinguishable symbol in the unit algebra, or is it unity?* — with both
-  options costed. Proposed, not accepted: it states the evidence and defers
-  the choice.
-
+  options costed, plus a third that resolves per family, since `radian²` has a
+  correct target (steradian) while `count²` has none. Proposed, not accepted.
   Three open issues are symptoms of the same gap: `Dimension(none)` factors
   are dropped from `UnitProduct` at construction while pseudo-dimensions
   survive (#318), `parse_unit("1")` yields `ratio` where a formula wants
   `none` (#307), and pseudo-dimensional units cannot normalize so comparison
-  refuses across them (#313).
-
-  The ADR also separates three families that "dimensionless" currently
-  bundles — exact-factor (`percent`, `degree`, `steradian`), no-relation
-  (distinct things tallied, owned by `⊤_d` at the kind stratum), and
-  non-multiplicative (`decibel`, owned by the chart stratum). Today's
-  `Dimension(ratio)` holds the first and third at once.
-
-  ADR 011 gains a pointer: it chose "dimensionless" for currency before the
-  factor-dropping behaviour was known, and that behaviour decides whether a
-  money rate is a unit or a kind — which is the first thing #292 must settle.
-
-  Also records a third option — resolve per family, since `radian²` has a
-  correct target (steradian) while `count²` has none — and an assessment of
-  money as `Dimension(count)`, which currency will ship on **without a
-  compatibility claim across v3.0.0**: the retirement decides `count` on its
-  own merits, and currency is rebuilt if that requires it. Saying so is what
-  keeps "currency depends on it" from becoming an argument at decision time.
-
-  And a sequencing hazard. `Dimension(count)` ships seven units — `each`,
-  `flop`, `op`, `instruction`, `cycle`, `request`, `event` — and no count
-  kinds, so the exposure is the whole throughput family. Giving them a
-  canonical scale before populating that lattice would turn today's refusal
-  of `flop/s + Hz` into a silent admission.
+  refuses across them (#313). The ADR separates three families that
+  "dimensionless" bundles — exact-factor (`percent`, `degree`, `steradian`),
+  no-relation (owned by `⊤_d` at the kind stratum) and non-multiplicative
+  (`decibel`, owned by the chart stratum) — of which today's
+  `Dimension(ratio)` holds the first and third at once. It also records a
+  sequencing hazard: `Dimension(count)` ships seven units and no count kinds,
+  so giving them a canonical scale before populating that lattice would turn
+  today's refusal of `flop/s + Hz` into a silent admission. Money is assessed
+  as `Dimension(count)`, which currency will ship on **without a compatibility
+  claim across v3.0.0**; ADR 011 gains a pointer, since it chose
+  "dimensionless" for currency before the factor-dropping behaviour was known
+  — the first thing #292 must settle.
 
 ## [2.2.2] - 2026-09-18
 
