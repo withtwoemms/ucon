@@ -57,7 +57,7 @@ from ucon.aspects import AspectForest as _AspectForest
 from ucon.core._parsing_graph import _parsing_graph
 from ucon.core.exceptions import ContingentCompositionRefused
 from ucon.kinds import KindLattice as _KindLattice
-from ucon.maps import Map, LinearMap, AffineMap, LogMap
+from ucon.maps import Map, LinearMap, AffineMap, ComposedMap, ExpMap, LogMap
 from ucon.resolver import parse_unit as _parse_unit
 from ucon._active import _active as _active_system
 
@@ -146,6 +146,11 @@ class Graph:
     # :meth:`convert_with_license` so ``Number.to`` can tell a dated-table
     # re-kind from an unlicensed one.
     _conversion_license_cache: dict[tuple, 'str | None'] = field(default_factory=dict)
+    # Scale-structure verdicts: unit -> "ratio" / "gain" / "level" / "point".
+    # Read on every scalar `Number * k`, so the multiplicative-closure walk
+    # :meth:`scale_class` performs is paid once per unit. Cleared when edges
+    # are added, alongside the conversion caches above.
+    _scale_class_cache: dict[Unit, str] = field(default_factory=dict)
 
     # ------------- Edge Management -------------------------------------------
 
@@ -266,6 +271,9 @@ class Graph:
         # Clear conversion cache (new edge may create shorter paths)
         self._conversion_cache.clear()
         self._conversion_license_cache.clear()
+        # A new edge can change a unit's scale structure (it may be the
+        # offset or the log edge that makes it a point or a level).
+        self._scale_class_cache.clear()
 
         # If basis_graph is set, validate cross-basis compatibility
         if self._basis_graph is not None and basis_transform is None:
@@ -581,6 +589,195 @@ class Graph:
         # authoritative as a hit in ``_unit_edges``.
         return self._name_registry_cs.get(unit.name) is unit
 
+    # ------------------------------------------------------------------
+    # Scale-structure query (#340)
+    # ------------------------------------------------------------------
+    # Two edge shapes carry no ``(prefactor, factors)`` meaning, and
+    # ``scripts/generate_base_forms.py`` refuses to propagate a base form
+    # across either of them (#356): a log/exp edge, which has no slope to
+    # read, and an affine edge bearing an offset, which no prefactor can
+    # express. The predicates below are that same rule, read in reverse —
+    # from a unit, outward — so the operators and the ``base_form``
+    # mutation contract can ask the question the oracle answers offline.
+
+    @staticmethod
+    def _propagates_prefactor(edge_map: Map) -> bool:
+        """Whether ``edge_map`` is a pure scaling, so a prefactor crosses it."""
+        if isinstance(edge_map, LinearMap):
+            return True
+        if isinstance(edge_map, AffineMap):
+            return not getattr(edge_map, 'b', 0.0)
+        return False
+
+    @staticmethod
+    def _exponentiates(edge_map: Map) -> bool:
+        """Whether *leaving* a node by ``edge_map`` exponentiates.
+
+        Direction matters and is recoverable: :meth:`add_edge` stores the
+        inverse alongside every edge, so the side that is the logarithmic
+        coordinate is the side you leave by exponentiating. ``watt →
+        decibel_watt`` is a :class:`~ucon.maps.LogMap`; ``decibel_watt →
+        watt`` is the :class:`~ucon.maps.ExpMap`. Reading the map type
+        rather than the offset is what keeps ``fraction`` — which has a
+        ``LogMap`` to every one of ``bel``, ``decibel``, ``neper`` and
+        ``nines`` — a ratio scale rather than a level.
+        """
+        if isinstance(edge_map, ExpMap):
+            return True
+        if isinstance(edge_map, ComposedMap):
+            # ``ComposedMap`` applies ``inner`` first, so the first step
+            # out of the node is the one that names the direction.
+            return Graph._exponentiates(edge_map.inner)
+        return False
+
+    def _product_edge_maps(self, unit: Unit) -> list:
+        """Maps leaving ``unit`` in the product-edge table.
+
+        A unit can be wired entirely through product edges — ``pH`` has
+        ``mole/liter ↔ pH`` and no plain unit edge at all — so a query
+        that reads only ``_unit_edges`` would call it structureless.
+
+        The key is spelled inline rather than built from
+        ``_product_key(UnitProduct.from_unit(unit))``: for one factor at
+        exponent 1 the sort is a no-op, and this query runs on the
+        multiplicative-closure walk, once per node.
+        """
+        if not self._product_edges:
+            return []
+        key = ((unit.name, unit.dimension, Scale.one, 1),)
+        return list(self._product_edges.get(key, {}).values())
+
+    def scale_class(self, unit: Union[Unit, UnitProduct]) -> str:
+        """Classify ``unit``'s coordinate from the edges this graph declares.
+
+        Returns one of:
+
+        ``"ratio"``
+            A magnitude with a true zero, so scaling it by a scalar means
+            something. Either the unit carries a :class:`~ucon.core.BaseForm`,
+            or a chain of pure scalings reaches one that does, or this
+            graph declares nothing to the contrary.
+        ``"gain"``
+            A logarithmic coordinate on a *dimensionless* ratio with a
+            unit referent — ``dB``, ``bel``, ``neper``. Adding two of
+            these composes the underlying ratios, so ``3 dB + 3 dB =
+            6 dB`` is the cascade of two gains and ``2 × 3 dB`` with it.
+        ``"level"``
+            A logarithmic coordinate on a dimensionful quantity —
+            ``dBW``, ``dBm``, ``dB SPL``, ``pH``. The coordinate names a
+            point against a referent, so doubling the coordinate squares
+            the quantity.
+        ``"point"``
+            An interval coordinate: every path out of its multiplicative
+            neighbourhood crosses an offset, and nothing in that
+            neighbourhood has a base form — ``celsius``, ``fahrenheit``,
+            ``reaumur``.
+
+        What this does **not** catch, by construction:
+
+        * A unit this graph declares no edges for reads as ``"ratio"`` —
+          absence of structure is not evidence of non-ratio structure.
+          That is what keeps a user's freshly-constructed ``Unit`` usable
+          and what makes the query safe to call during a load, before the
+          edges exist.
+        * Pseudo-dimensional units (``radian``, ``percent``) read as
+          ``"ratio"``: they are ratio scales, but unanchored ones, so the
+          query cannot tell them from the case above.
+        * Non-multiplicative maps that are neither log/exp nor an
+          offset-bearing affine (a :class:`~ucon.maps.PolynomialMap`, say)
+          are ignored. The rule is #356's rule, not a general one.
+
+        Locality alone would not do: ``reaumur``'s own edge to
+        ``celsius`` carries no offset, yet it must not read as a ratio
+        scale, because its only path to ``kelvin`` runs through
+        ``celsius``'s. So the walk is over the whole multiplicative
+        neighbourhood, and the evidence is collected from every node in it.
+
+        The verdict for a plain :class:`Unit` is memoized in
+        ``_scale_class_cache``, which :meth:`add_edge` clears. The
+        base-form fast path below sits *before* the cache read, so a unit
+        that acquires one through ``_set_base_form`` is not answered from
+        a stale entry.
+        """
+        if isinstance(unit, UnitProduct):
+            # A product is as unscalable as its least scalable factor.
+            verdict = 'ratio'
+            for factor in unit.factors:
+                factor_class = self.scale_class(factor.unit)
+                if factor_class in ('point', 'level'):
+                    return factor_class
+                if factor_class == 'gain':
+                    verdict = 'gain'
+            return verdict
+
+        if getattr(unit, 'base_form', None) is not None:
+            return 'ratio'
+
+        cached = self._scale_class_cache.get(unit)
+        if cached is not None:
+            return cached
+        verdict = self._compute_scale_class(unit)
+        self._scale_class_cache[unit] = verdict
+        return verdict
+
+    def _compute_scale_class(self, unit: Unit) -> str:
+        """The walk :meth:`scale_class` memoizes. See it for the contract."""
+        dim_edges = self._unit_edges.get(unit.dimension, {})
+        component = {unit}
+        queue: deque = deque([unit])
+        exp_blockers: list = []
+        offset_blockers: list = []
+        while queue:
+            current = queue.popleft()
+            if getattr(current, 'base_form', None) is not None:
+                return 'ratio'
+            neighbors = list(dim_edges.get(current, {}).items())
+            neighbors += [(None, m) for m in self._product_edge_maps(current)]
+            for neighbor, edge_map in neighbors:
+                if self._propagates_prefactor(edge_map):
+                    if neighbor is not None and neighbor not in component:
+                        component.add(neighbor)
+                        queue.append(neighbor)
+                elif self._exponentiates(edge_map):
+                    exp_blockers.append(edge_map)
+                elif isinstance(edge_map, AffineMap):
+                    offset_blockers.append(edge_map)
+
+        if exp_blockers:
+            # A gain is a bare logarithm of a dimensionless ratio against
+            # a unit referent. The referent cannot be read off
+            # ``reference`` alone: ``decibel_watt → watt`` carries
+            # ``reference=1.0`` because 0 dBW *is* 1 W, numerically
+            # indistinguishable from the bare ``decibel``. What separates
+            # them is that the referent is a watt — so the unit's own
+            # dimension is the half of the test that does the work.
+            bare = all(
+                isinstance(m, ExpMap) and m.reference == 1.0
+                for m in exp_blockers
+            )
+            if bare and not self._has_base_dimension(unit):
+                return 'gain'
+            return 'level'
+        if offset_blockers:
+            return 'point'
+        return 'ratio'
+
+    @staticmethod
+    def _has_base_dimension(unit: Unit) -> bool:
+        """Whether ``unit``'s dimension expands to base dimensions.
+
+        ``False`` for the pseudo-dimensions (angle, ratio, count, solid
+        angle) and for ``Dimension(none)`` — the same test the base-form
+        oracle uses to skip a partition as dimensionless.
+        """
+        expansion = getattr(unit.dimension, 'base_expansion', None)
+        if expansion is None:
+            return False
+        try:
+            return bool(expansion())
+        except Exception:  # noqa: BLE001 — an unexpandable dimension is not a base one
+            return False
+
     def copy(self) -> 'Graph':
         """Return a deep copy suitable for extension.
 
@@ -604,6 +801,7 @@ class Graph:
         new._contexts = dict(self._contexts)  # ConversionContext is frozen, share refs
         new._contingent_edges = dict(self._contingent_edges)
         new._conversion_license_cache = dict(self._conversion_license_cache)
+        new._scale_class_cache = dict(self._scale_class_cache)
         new._kind_lattice = self._kind_lattice.copy() if self._kind_lattice is not None else None
         new._aspect_forest = self._aspect_forest  # immutable after construction, share reference
         new._formula_registry = self._formula_registry if hasattr(self, '_formula_registry') else None

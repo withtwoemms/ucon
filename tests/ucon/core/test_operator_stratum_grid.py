@@ -20,7 +20,9 @@ ergonomics row), not a stratum hole.
 
 The ordering rows, the reflected scalar rows and the aspect column's
 ``==``/``!=`` cells were ``NO_OP``/admitting when this grid was written
-and were closed by #353.
+and were closed by #353. The four scalar rows' chart cells admitted until
+#340, which derived their refusal from scalar multiplication being
+repeated addition rather than from chart dispatch.
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ from ucon import (
     KindArrivalRefused,
     Number,
     Ratio,
+    ScalarArithmeticRefused,
     Scale,
     UnitsNotNormalizable,
     units,
@@ -113,12 +116,14 @@ OPERATORS: Dict[str, Callable[[Number, Number], object]] = {
 
 # --- the grid --------------------------------------------------------------
 #
-# Chart-column admissions (`a * b`, `a / b`, `a ** 2`, the scalar rows and
-# the representation changes) are expected-for-now: chart dispatch is not
+# The remaining chart-column admissions (`a * b`, `a / b`, `a ** 2` and the
+# representation changes) are expected-for-now: chart dispatch is not
 # implemented. It lands with four-stratum arithmetic dispatch in v3.2.0 —
 # see ROADMAP "Where the chart defects land" ("Chart-crossing arithmetic
-# returns a value | 3.2.0"). Until then the chart stratum is enforced only
-# where `base_form` happens to proxy for it (the additive rows, and `==`).
+# returns a value | 3.2.0"). Until then the chart stratum is enforced where
+# `base_form` happens to proxy for it (the additive rows, and `==`) and on
+# the four scalar rows, which #340 closed without chart dispatch — see the
+# note on those rows below.
 #
 # The ordering rows admit on the chart column where the additive rows
 # refuse. That is derived, not conceded: ordering survives any monotone
@@ -208,24 +213,39 @@ GRID: Dict[Tuple[str, str], object] = {
     ("a.to(b.unit)", "chart"): ADMITS,  # °C → K is the chart's own job
     ("a.to(b.unit)", "kind"): KindArrivalRefused,
     ("a.to(b.unit)", "aspect"): ADMITS,  # same unit; aspects thread through
-    # --- single-operand rows: nothing to refuse ----------------------------
-    # Scalar `*`/`/` are gated on level-vs-gain in #340, not here.
+    # --- single-operand rows -----------------------------------------------
+    # The scalar rows closed in #340, and the chart column is the only one
+    # they close. The rule is derived, not dispatched: scalar
+    # multiplication is repeated addition (`a * n == a + a + …`, identical
+    # on every unit in the catalog, the broken ones included), so it obeys
+    # the *additive* rules. `2 * (1 °C)` expands to `1 °C + 1 °C` — point
+    # plus point — and refuses; `2 * (10 dBW)` to level plus level, and
+    # refuses; `2 * (3 dB)` to gain plus gain, which is the cascade of two
+    # gains (`<6 dB>`, ratio 3.981 = 1.995²) and still admits. The
+    # distinction is level-versus-gain, read off the declared edges by
+    # `Graph.scale_class`, not a chart class on the unit.
+    #
+    # The chart fixture is `celsius`, a point, so all four cells refuse.
+    # Nothing else moved: the kind and aspect columns are `gray`, a ratio
+    # scale, and the dimension column is `meter`.
     ("a * 2", "dimension"): ADMITS,
-    ("a * 2", "chart"): ADMITS,
+    ("a * 2", "chart"): ScalarArithmeticRefused,
     ("a * 2", "kind"): ADMITS,
     ("a * 2", "aspect"): ADMITS,
     ("a / 2", "dimension"): ADMITS,
-    ("a / 2", "chart"): ADMITS,
+    ("a / 2", "chart"): ScalarArithmeticRefused,
     ("a / 2", "kind"): ADMITS,
     ("a / 2", "aspect"): ADMITS,
     # The reflected forms, added in #353. Each admits exactly what its
-    # forward form admits, so these mirror the `a * 2` / `a / 2` rows.
+    # forward form admits, so these mirror the `a * 2` / `a / 2` rows —
+    # including the #340 refusal, which `2 / a` earns on its own account:
+    # a reciprocal reads a magnitude, and a point has none.
     ("2 * a", "dimension"): ADMITS,
-    ("2 * a", "chart"): ADMITS,
+    ("2 * a", "chart"): ScalarArithmeticRefused,
     ("2 * a", "kind"): ADMITS,
     ("2 * a", "aspect"): ADMITS,
     ("2 / a", "dimension"): ADMITS,
-    ("2 / a", "chart"): ADMITS,
+    ("2 / a", "chart"): ScalarArithmeticRefused,
     ("2 / a", "kind"): ADMITS,
     ("2 / a", "aspect"): ADMITS,
     ("-a", "dimension"): TypeError,
@@ -498,3 +518,91 @@ def test_reflected_subtraction_takes_a_ratio_left_operand() -> None:
     ratio = Ratio(Number(4, units.meter), Number(2, units.meter))
     assert (ratio - Number(1)).quantity == 1.0
     assert Number(1).__rtruediv__(ratio).quantity == 2.0
+
+
+# --- the cells #340 closed, spelled out ------------------------------------
+
+def test_scaling_a_level_refuses() -> None:
+    """`10 dBW * 2` answered `<20 dBW>` — 100 W, where 2 x 10 W is 13.010 dBW."""
+    level = Number(10, units.decibel_watt)
+    for expression in (lambda: level * 2, lambda: 2 * level,
+                       lambda: level / 2, lambda: 2 / level):
+        with pytest.raises(ScalarArithmeticRefused):
+            expression()
+
+
+def test_scaling_an_interval_point_refuses() -> None:
+    """`10 °C * 2` answered `<20 °C>`, where twice 283.15 K is 293.15 °C."""
+    point = Number(10, units.celsius)
+    for expression in (lambda: point * 2, lambda: 2 * point,
+                       lambda: point / 2, lambda: 2 / point):
+        with pytest.raises(ScalarArithmeticRefused):
+            expression()
+
+
+def test_scaling_a_gain_still_admits() -> None:
+    """`3 dB + 3 dB = 6 dB` is the cascade of two gains, so `2 * 3 dB` is too.
+
+    Ratio 1.995 twice over is 3.981, which is 6 dB. The admission is the
+    derivation's own result, not an exemption carved around `dB`.
+    """
+    assert (Number(3, units.decibel) * 2).quantity == 6
+    assert (2 * Number(3, units.decibel)).quantity == 6
+    # The geometric half: `5 dB + 5 dB` is `10 dB`.
+    assert (Number(10, units.decibel) / 2).quantity == 5.0
+    for gain in (units.bel, units.neper):
+        assert (Number(2, gain) * 2).quantity == 4
+
+
+def test_the_level_gain_split_is_not_the_reference_field() -> None:
+    """`decibel_watt`'s log edge carries `reference=1.0`, as a bare `dB` does.
+
+    0 dBW *is* 1 W, so the referent's numeric value is 1 and the field
+    cannot tell a level from a gain on its own — `decibel_volt` is the
+    same story (0 dBV is 1 V). What separates them is that the referent
+    is a watt: the level is dimensionful, the gain is not.
+    """
+    for level in (units.decibel_watt, units.decibel_volt,
+                  units.decibel_milliwatt, units.decibel_spl, units.pH):
+        with pytest.raises(ScalarArithmeticRefused):
+            Number(1, level) * 2
+    for gain in (units.decibel, units.bel, units.neper):
+        assert (Number(1, gain) * 2).quantity == 2
+
+
+def test_rankine_scales_because_it_is_a_ratio_scale() -> None:
+    """`°R` is listed with the affine units but has a true zero.
+
+    A pure scaling of kelvin (#339), so it carries a `base_form` and
+    `2 x 10 °R` is simply `20 °R`.
+    """
+    assert units.rankine.base_form is not None
+    assert (Number(10, units.rankine) * 2).quantity == 20
+
+
+def test_reaumur_refuses_though_its_own_edge_carries_no_offset() -> None:
+    """Locality is not enough: `°Ré → °C` is a pure scaling.
+
+    Réaumur is an interval scale all the same, because its only path to
+    kelvin runs through celsius's offset. The gate walks the whole
+    multiplicative neighbourhood for exactly this case.
+    """
+    with pytest.raises(ScalarArithmeticRefused):
+        Number(10, units.reaumur) * 2
+
+
+def test_pseudo_dimensional_ratio_scales_still_scale() -> None:
+    """`radian`, `percent` and friends have no `base_form` and are fine.
+
+    They are unanchored ratio scales, not points or levels, so the gate
+    must not read "no base_form" as "no magnitude".
+    """
+    for unit in (units.radian, units.degree, units.percent, units.fraction,
+                 units.permille, units.steradian, units.gauss,
+                 units.electron_volt):
+        assert (Number(2, unit) * 2).quantity == 4
+
+
+def test_exponentiation_is_out_of_scope() -> None:
+    """`a ** 2` is repeated *multiplication*, a different rule entirely."""
+    assert (Number(2, units.celsius) ** 2).quantity == 4

@@ -48,6 +48,7 @@ from ucon.core.exceptions import (
     KindArrivalRefused,
     KindDimensionMismatch,
     KindMismatch,
+    ScalarArithmeticRefused,
     UnitDefinitionMismatch,
     UnitsNotNormalizable,
 )
@@ -363,6 +364,51 @@ class Scale(Enum):
 
 
 # =====================================================================
+# Scale-structure lookup (#340)
+# =====================================================================
+
+def _ambient_graph():
+    """The conversion graph the ContextVars point at, or ``None``.
+
+    Resolved the same way :meth:`Number.to` resolves it — context-local
+    graph first, then the active :class:`~ucon.system.UnitSystem` — and
+    with the same no-deferred-imports discipline: both ContextVars are
+    Layer-0/Layer-1 leaves imported at the top of this module, and the
+    graph is used by duck-typed call only, so ``ucon.core`` never imports
+    ``ucon.conversion``.
+
+    Returns ``None`` rather than raising when no graph is reachable. Every
+    caller here is a *guard*, and a guard that cannot see the structure
+    must not invent it.
+    """
+    graph = _parsing_graph.get()
+    if graph is not None:
+        return graph
+    ctx = _sys_active_var.get()
+    if ctx is None:
+        return None
+    return ctx.system.conversion_graph
+
+
+def _scale_class(unit) -> str:
+    """``Graph.scale_class(unit)``, or ``"ratio"`` when no graph is reachable.
+
+    See :meth:`ucon.conversion.Graph.scale_class` for what the four
+    verdicts mean and what the query does not catch.
+    """
+    graph = _ambient_graph()
+    if graph is None:
+        return 'ratio'
+    try:
+        return graph.scale_class(unit)
+    except AttributeError:
+        # A graph-shaped object that predates this query (a test double,
+        # a pickled graph from an older release) answers nothing; stay
+        # permissive rather than failing an arithmetic operation.
+        return 'ratio'
+
+
+# =====================================================================
 # BaseForm
 # =====================================================================
 
@@ -408,9 +454,88 @@ class BaseForm:
 
     Never infer a unit's chart/scale structure from ``base_form is
     None`` alone — the two causes above are unrelated.
+
+    The invariants above are enforced in :meth:`__post_init__`, so a
+    ``BaseForm`` that exists is a ``BaseForm`` that means something. Two
+    of them are deliberately *not* enforced: dimensional consistency
+    with the parent Unit (the parent is not reachable from here, and the
+    CGS-mechanical carve-out above would have to be spelled out as an
+    exception), and "canonical base units only" (which base units are
+    canonical is a property of the basis, not of this tuple).
+
+    ``factors`` must be non-empty. A unit whose decomposition is the
+    *empty* product — "1 U ≡ prefactor" — is not spelled that way here:
+    dimensionless units carry ``base_form = None``, and the route ADR 013
+    §5 sets out for making them normalizable is a **self-referential**
+    factorization (``1 USD ≡ 1 × USD``, the kilogram pattern), which is
+    non-empty. Admitting the empty tuple would also give every
+    dimensionless unit the same empty :attr:`Unit.base_signature`, so
+    ``1 percent`` and ``1 radian`` would read as mutually normalizable
+    and combine — the v2.2.2 refusal this class underwrites.
     """
     factors: tuple  # tuple[tuple[Unit, float], ...]
     prefactor: float = 1.0
+
+    def __post_init__(self) -> None:
+        """Enforce the invariants the class docstring states.
+
+        Raises
+        ------
+        TypeError
+            ``prefactor`` is not a real number, or ``factors`` holds
+            something other than ``(unit, exponent)`` pairs.
+        ValueError
+            ``prefactor`` is not positive and finite, or ``factors`` is
+            empty.
+        """
+        # ``float()`` would parse a string, so ask for ``__float__``
+        # instead: that admits int, float, Fraction, Decimal and numpy
+        # scalars, and refuses ``"1.0"``.
+        if not hasattr(type(self.prefactor), '__float__'):
+            raise TypeError(
+                f"BaseForm prefactor must be a real number, got "
+                f"{self.prefactor!r}"
+            )
+        try:
+            prefactor = float(self.prefactor)
+        except (TypeError, ValueError):
+            raise TypeError(
+                f"BaseForm prefactor must be a real number, got "
+                f"{self.prefactor!r}"
+            ) from None
+        if not math.isfinite(prefactor) or prefactor <= 0.0:
+            raise ValueError(
+                f"BaseForm prefactor must be positive and finite, got "
+                f"{self.prefactor!r}; a non-positive or non-finite "
+                f"prefactor denotes no decomposition. A unit with no "
+                f"(prefactor, factors) representation carries "
+                f"base_form=None instead."
+            )
+        if not self.factors:
+            raise ValueError(
+                "BaseForm requires at least one factor: 1 U ≡ prefactor × "
+                "b₁^e₁ × … × bₙ^eₙ is vacuous with n = 0. A dimensionless "
+                "unit carries base_form=None, or — per ADR 013 §5 — a "
+                "self-referential factorization ((U, 1.0),)."
+            )
+        for entry in self.factors:
+            if not isinstance(entry, tuple) or len(entry) != 2:
+                raise TypeError(
+                    f"BaseForm factors must be (unit, exponent) pairs, got "
+                    f"{entry!r}"
+                )
+            factor_unit, exponent = entry
+            if not isinstance(factor_unit, Unit):
+                raise TypeError(
+                    f"BaseForm factor {entry!r} does not name a Unit"
+                )
+            if not isinstance(exponent, (int, float)) or isinstance(
+                exponent, bool
+            ):
+                raise TypeError(
+                    f"BaseForm factor exponent must be a real number, got "
+                    f"{exponent!r}"
+                )
 
 
 # =====================================================================
@@ -506,10 +631,40 @@ class Unit:
         below ensures no unit ever has its ``base_form`` overwritten after
         its first assignment.
 
+        Beyond idempotency, the set is refused on any unit whose declared
+        structure says no ``(prefactor, factors)`` representation exists
+        — a logarithmic coordinate (level or gain) or an interval one.
+        Without that check the v2.2.2 normalizability refusal is sound
+        only by coincidence: one call installing a plausible-looking
+        ``BaseForm`` on ``decibel_watt`` makes ``10 dBW + 1 W`` answer
+        ``<11.0 dBW>``, with ``make base-forms-check`` still green. The
+        question is put to the ambient graph's
+        :meth:`~ucon.conversion.Graph.scale_class`, which reads the same
+        two blocking edge shapes the base-form oracle refuses to
+        propagate across (#356).
+
+        The guard is silent in two situations, both by construction:
+
+        * **No graph is reachable, or the unit has no declared edges.**
+          Both sanctioned callers above run before their graph's edges
+          exist (``base_form`` is resolved in load pass 6b; edges are
+          materialized in pass 9), so neither is affected — which is the
+          point. A foreign unit being anchored against a bridged system
+          (``metre._set_base_form(meter.base_form)``) is likewise
+          admitted, there or not.
+        * **Unanchored ratio scales** — pseudo-dimensional units such as
+          ``radian`` and ``percent`` have no base form to be reached
+          from, so the query cannot distinguish them from the case above
+          and reads them as ratio scales. Dimensional consistency between
+          ``bf`` and ``self.dimension`` is a separate invariant and is
+          not checked here either.
+
         Raises
         ------
         ValueError
-            If the Unit already has a non-None ``base_form``.
+            If the Unit already has a non-None ``base_form``, or its
+            declared edges give it no ``(prefactor, factors)``
+            representation.
         TypeError
             If ``bf`` is not a BaseForm instance.
         """
@@ -520,6 +675,16 @@ class Unit:
         if self.base_form is not None:
             raise ValueError(
                 f"base_form already set on {self!r}; refusing to overwrite"
+            )
+        scale_class = _scale_class(self)
+        if scale_class != 'ratio':
+            raise ValueError(
+                f"{self.name!r} is a {scale_class} coordinate, so it has no "
+                f"(prefactor, factors) representation: every path from it to "
+                f"base units crosses an edge that carries none (a log/exp "
+                f"edge, or an affine edge bearing an offset). Refusing to set "
+                f"base_form; a unit like this keeps base_form=None, which is "
+                f"what makes the normalizability refusal sound."
             )
         object.__setattr__(self, 'base_form', bf)
 
@@ -2643,6 +2808,7 @@ class Number:
 
         # Scalar multiplication
         if isinstance(other, (int, float)):
+            self._require_scalar_scaling("scale")
             new_uncertainty = None
             if self.uncertainty is not None:
                 new_uncertainty = abs(other) * self.uncertainty
@@ -2712,6 +2878,48 @@ class Number:
         raise UnitsNotNormalizable(
             left=self.unit, right=other.unit, operation=operation
         )
+
+    def _require_scalar_scaling(self, operation: str) -> None:
+        """Refuse a scalar ``*`` / ``/`` on a level or a point (#340).
+
+        Scalar multiplication is repeated addition: ``a * n`` is
+        ``a + a + …``, identical on every unit in the catalog, the broken
+        cases included. So it answers to the **additive** rules, not the
+        multiplicative ones, and the question is whether the unit's
+        coordinate has a magnitude to repeat:
+
+        =========================  =========================  ==========
+        operand                    expands to                 verdict
+        =========================  =========================  ==========
+        ``2 × (20 °C)``            point + point              refuse
+        ``2 × (10 dBW)``           level + level              refuse
+        ``2 × (3 dB)``             gain + gain = ``6 dB``     admit
+        ``(10 dB) / 2``            the geometric half         admit
+        ``2 × (1 Gy)``             same kind, same unit       admit
+        =========================  =========================  ==========
+
+        ``3 dB + 3 dB = 6 dB`` is not a concession: the ratios cascade
+        (1.995² = 3.981), which is what a gain is for. Only a coordinate
+        with a *referent* — a level, or an interval point — fails, and
+        :meth:`ucon.conversion.Graph.scale_class` is what tells them
+        apart.
+
+        Note the asymmetry this leaves: ``20 °C + 20 °C`` still answers
+        ``<40 °C>``, because :meth:`_require_normalizable` exempts
+        same-unit operands. Closing that is the additive half of the same
+        hole and is not in #340's scope; the scalar forms are gated here
+        because they have no second operand to exempt.
+
+        Exponentiation is untouched: ``a ** 2`` is repeated
+        *multiplication*, a different rule.
+        """
+        scale_class = _scale_class(self.unit)
+        if scale_class in ('point', 'level'):
+            raise ScalarArithmeticRefused(
+                unit=self.unit,
+                operation=operation,
+                scale_class=scale_class,
+            )
 
     def _additive_operand(self, other: 'Number') -> tuple:
         """``other``'s quantity and uncertainty expressed in ``self.unit``.
@@ -2869,6 +3077,7 @@ class Number:
 
         # Scalar division — preserves kind
         if isinstance(other, (int, float)):
+            self._require_scalar_scaling("scale")
             new_uncertainty = None
             if self.uncertainty is not None:
                 new_uncertainty = self.uncertainty / abs(other)
@@ -3064,8 +3273,12 @@ class Number:
         A scalar numerator is admitted — the forward form takes a scalar
         denominator — by reading it as the dimensionless quantity it is,
         which is what makes ``2 / units.meter(3)`` a reciprocal length.
+
+        The level-vs-gain gate applies here too: a reciprocal reads the
+        operand's magnitude, and a level or a point has none to read.
         """
         if isinstance(other, (int, float)):
+            self._require_scalar_scaling("invert")
             other = Number(other)
         elif isinstance(other, Ratio):
             other = other.evaluate()

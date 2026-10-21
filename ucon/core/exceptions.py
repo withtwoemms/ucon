@@ -288,3 +288,74 @@ class ContingentCompositionRefused(Exception):
             f"would be a figure neither table published, with no date of "
             f"its own. Convert through one table at a time."
         )
+
+
+class ScalarArithmeticRefused(Exception):
+    """``n * k`` / ``n / k`` on a coordinate that does not admit scaling.
+
+    Raised by :meth:`ucon.Number.__mul__`, :meth:`ucon.Number.__truediv__`
+    and :meth:`ucon.Number.__rtruediv__` when the scalar operand would
+    scale a *level* or a *point* rather than a magnitude.
+
+    Scalar multiplication is repeated addition — ``n * 2`` is ``n + n``,
+    and before this gate landed the two agreed on every unit in the
+    catalog, wrong answers included. So it obeys the additive rules, not
+    the multiplicative ones:
+
+    * ``2 × (20 °C)`` expands to ``20 °C + 20 °C`` — a point plus a
+      point, which the interval chart does not define. Refused.
+    * ``2 × (10 dBW)`` expands to ``10 dBW + 10 dBW`` — a level plus a
+      level. 10 dBW is 10 W; the answer is 13.010 dBW, never 20 dBW.
+      Refused.
+    * ``2 × (3 dB)`` expands to ``3 dB + 3 dB`` — a gain plus a gain,
+      which is the cascade of two gains and equals ``6 dB``
+      (1.995² = 3.981). **Admitted**, and still correct.
+    * ``10 dB / 2`` is the geometric half, ``5 dB + 5 dB = 10 dB``.
+      **Admitted.**
+
+    The conversion graph knows the quantity these coordinates stand for.
+    Scale there and come back::
+
+        (level.to(units.watt) * 2).to(level.unit)
+
+    Attributes
+    ----------
+    unit : Unit | UnitProduct
+        The operand's unit.
+    operation : str
+        The operation that refused (``"scale"`` or ``"invert"``).
+    scale_class : str
+        ``"level"`` or ``"point"`` — see
+        :meth:`ucon.conversion.Graph.scale_class`.
+    """
+
+    _WHY = {
+        'level': (
+            "a logarithmic level against a dimensionful referent, so "
+            "scaling the coordinate raises the quantity to a power"
+        ),
+        'point': (
+            "an interval coordinate with no true zero, so scaling it "
+            "scales an arbitrary origin along with the quantity"
+        ),
+    }
+
+    def __init__(
+        self,
+        *,
+        unit,
+        operation: str,
+        scale_class: str,
+    ) -> None:
+        self.unit = unit
+        self.operation = operation
+        self.scale_class = scale_class
+        name = getattr(unit, "name", None) or repr(unit)
+        why = self._WHY.get(
+            scale_class, "not a ratio-scale coordinate"
+        )
+        super().__init__(
+            f"Cannot {operation} {name!r} by a scalar: it is {why}. "
+            f"`x * 2` is `x + x`, which this coordinate does not define. "
+            f"Convert to the quantity's ratio-scale unit with .to() first."
+        )
