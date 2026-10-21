@@ -55,6 +55,249 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checked against `watt`'s in the tests rather than by
   `make base-forms-check`.
 
+- **`PolynomialMap`: calibration curves become expressible, with a
+  single-valued inverse.** (#331) Every morphism `ucon` could express was
+  closed-form invertible in one line — scaling, offset, logarithm, reciprocal,
+  and the `ComposedMap` fallback. Real instrumentation is not: a platinum RTD
+  follows the Callendar–Van Dusen equation `R(T) = R0·(1 + A·T + B·T²)`, the
+  NIST ITS-90 thermocouple reference functions are degree 8–13 polynomials, and
+  a load cell or a standard curve is a fitted quadratic. None of them is a
+  composition of the five existing maps, so the only ways to carry one were a
+  `ComposedMap` chain that cannot represent `x²` or an opaque callable that does
+  not serialize.
+
+  `PolynomialMap(coefficients, domain, rel_uncertainty=0.0)` takes coefficients
+  in **ascending** order — `coefficients[i]` multiplies `x**i`, constant term
+  first, matching how the equations are published (`R0·(1 + A·T + B·T²)` reads
+  off as `[R0, R0·A, R0·B]`) and the TOML `coefficients` key. Evaluation is
+  Horner, the derivative is the analytic derivative polynomial, and composition
+  is exact: polynomial ∘ polynomial, and polynomial ∘ linear/affine, fold into
+  one `PolynomialMap` carrying the inner map's input domain.
+
+  **The domain is what makes the inverse a function.** A polynomial of degree
+  ≥ 2 is not injective, so its inverse has up to `n` real branches, while
+  `Map.inverse()` is declared `-> Map` and every caller consumes it as one:
+  `ConversionGraph._add_unit_edge`, `_add_product_edge`, `add_rebased_edge`,
+  `_add_context_edge`, and the binary cache all store `map.inverse()` *as* the
+  reverse adjacency entry, and a graph edge cannot be "one of three maps".
+  Rather than widen the ABC and push the ambiguity into every one of those
+  sites, `PolynomialMap` carries the validity range the calibration was
+  published with — IEC 60751 gives Callendar–Van Dusen over 0…850 °C; NIST
+  gives each thermocouple polynomial a sub-range — and `inverse()` returns the
+  single branch monotone on it, as a `PolynomialInverseMap` (safeguarded
+  Newton/bisection over the declared bracket, derivative by the implicit
+  function theorem, so uncertainty transports through a reverse calibration
+  edge like any other). Round-trips are accurate to ~1e-14 relative.
+
+  A polynomial that *turns* inside its declared domain raises the new
+  `NonMonotoneOnDomain` naming the turning points, rather than silently
+  choosing a root — `PolynomialMap((0, 0, 1), domain=(-1, 1))` has two equally
+  valid preimages for every positive input, and returning either one is a
+  fabricated answer. Narrowing the domain to one side restores the branch. A
+  critical point *on* a boundary does not break monotonicity, so `x²` over
+  `[0, 1]` inverts to the square root. Degeneracies delegate rather than carry
+  machinery they do not need: degree 1 inverts to an `AffineMap`, and degree 0
+  (constant) is not invertible.
+
+  Both types round-trip through package TOML (`type = "polynomial"`,
+  `type = "polynomial_inverse"`) and through the binary graph cache.
+  `_CACHE_SCHEMA` is bumped to 4: a cache written before this change has no
+  tag for either type, and rehydrating a polynomial edge from it would fail
+  rather than silently degrade. `Unit.chart` is untouched — whether a
+  polynomial chart is a fourth chart class under
+  [decisions/010](docs/internal/decisions/010-chart-nomenclature.md) is a
+  separate question from the map primitive, and this change settles only the
+  primitive.
+
+- **The KOQ floor: degeneracy-cluster units declare their kind.** (#327)
+  Where the SI gives two units the same dimension precisely to mark a kind
+  distinction, those units now carry a `default_kind`: `gray → absorbed_dose`
+  and `sievert → dose_equivalent`; `hertz → periodic_frequency` and
+  `becquerel → radioactive_activity`; `watt → real_power` and
+  `volt_ampere → apparent_power`. With #322's refusing clause this makes
+  `1 Gy → Sv`, `1 Bq → Hz`, `1 W → VA` refuse across a static edge (siblings
+  under a `refuse` root) while a dated/contingent table still licenses a
+  re-kind. One kind is added, `periodic_frequency`, as hertz's sibling of
+  `radioactive_activity`.
+
+  `joule` and `pascal` are left generic: no sibling SI unit distinguishes
+  work from heat, or pressure from stress, so a Number is free to carry
+  `kinetic_energy`, `mechanical_stress`, etc. without a unit default
+  overwriting it. The torque/energy and pressure/stress must-fails are the
+  model's declared-kind responsibility (ucon-tools#62), not a unit default.
+
+- **The arrival rule's license now covers narrowing, and only within a
+  fiber.** (#327, refining #322) A re-kind needs a contingent license when
+  the declaration does not *widen* the current kind — siblings **and**
+  generic-to-specific narrowing both relabel onto a claim the value does not
+  imply, so both refuse across a static edge. Across *different* dimensions
+  the conversion itself transformed the stuff (`E = h·f`: frequency →
+  energy), so the arrival kind is adopted with no license, and a conversion
+  to a unit that declares no kind drops a current kind that no longer fits
+  the result's dimension rather than carrying it onto the wrong fiber.
+
+- **The arrival rule — `.to()` re-kinds at a `default_kind` unit.** (#305)
+  The second half of `Unit.default_kind`. #306 shipped the declaration and
+  its attachment at construction and left this open; ADR 011 states both
+  the rule and the defect motivating it. `.to()` preserved the source kind
+  unconditionally, so `convert(100, USD → EUR, kind="usd")` returned 92.14
+  euros *still kinded `usd`* — a rate edge genuinely transformed the stuff,
+  and the label did not follow.
+
+  The rule is stated so one form serves both declarers ADR 011 names:
+
+  > the target's declared kind wins, **unless it is already an ancestor of
+  > the current kind**, in which case the finer kind survives — and when
+  > the two kinds are **siblings**, only an edge licensed by a contingent
+  > context may re-kind; a static edge **refuses**.
+
+  Without the second clause the rule relabels. `Number(1, gray,
+  kind=absorbed_dose).to(sievert)` over a factor-1 edge would return
+  `<1 Sv [dose_equivalent]>` — a label nothing earned, since nothing
+  performed the weighting that makes it true, and precisely the
+  kind-of-quantity failure the UnitSafe benchmark exists to catch. A dated
+  FX table is the licensed case (`usd → eur` still re-kinds); `Gy → Sv`
+  across a static edge raises `KindArrivalRefused` (exported from `ucon`).
+  The license is surfaced by the new `Graph.convert_with_license`, which
+  returns the contingent context's name alongside the map; `convert` is
+  unchanged.
+
+  Currency converts between *siblings* — `usd` and `eur` under a `currency`
+  root — so arrival re-kinds. Information converts *within* a kind, since
+  `bit` and `byte` both declare `information`, so a Number carrying
+  `payload_size` is not demoted to its ancestor: 8 bits of payload are 1
+  byte of payload. An unconditional "target wins" would have served the
+  first and broken the second.
+
+  Resolution stays best-effort, matching attachment: a declared name the
+  active lattice does not know leaves the kind untouched rather than
+  raising. Aspects are unaffected — the rule governs the kind stratum only.
+
+  **No shipped unit declares a `default_kind`**, so this changes nothing in
+  the built-in catalog. `NumberArray` has no kind stratum at all (#297), so
+  array parity follows that work rather than this one.
+
+- **`ConversionContext.contingent` — dated tables no longer chain.** (#317)
+  A context edge encodes either a *definitional* relation, licensed by an
+  exact constant, or a *contingent* one — a dated table that could have been
+  otherwise. Composing definitional edges derives a fact; composing edges
+  from two different contingent contexts invents a figure neither table
+  published.
+
+  That was reachable. With a tariff (`joule → USD`) and a rate table
+  (`USD → EUR`) both active, `Number(1, joule).to(EUR)` returned a euro
+  energy price nobody quoted — uncitable, guaranteed to disagree with a
+  directly quoted figure, and carrying no date of its own.
+
+  The rule: **a path may draw on at most one contingent context.** New
+  `ContingentCompositionRefused` names both tables when it declines, and is
+  distinct from `ConversionNotFound` because a declined path and an absent
+  one are different facts.
+
+  `contingent` defaults to `False`, so nothing shipped changes: `spectroscopy`
+  and `boltzmann` are exact by SI and keep chaining — `meter → reciprocal_meter`
+  still derives through `joule` without being declared, and
+  `meter → kelvin` still composes across both.
+
+  Composition *within* one contingent context is deliberately permitted,
+  which is what ADR 011's star-topology convention relies on: a rate package
+  quotes every currency against one base and the cross-rates derive from it.
+  `EUR → GBP` resolves through USD from a single table, at a single date.
+
+- **`[[contexts]]` in package TOML — conversion contexts ship as data.**
+  (#282) `ConversionContext` is the one mechanism for conditional, scoped,
+  constant-licensed conversion *between* dimensions — "λ ↔ ν given c",
+  "dose units ↔ mass given a formulation constant" — and it was the one
+  thing a domain package could not distribute. Graph-level TOML already
+  round-tripped contexts; `UnitPackage` had no `contexts` field, so the
+  package path could not.
+
+  A package now declares `[[contexts]]` with nested `[[contexts.edges]]`,
+  parsed into the new `ContextDef` and exposed as `UnitPackage.contexts`.
+  Array-of-tables with a `name`, matching every other package section
+  rather than the keyed-table form graph TOML uses for `[contexts.<name>]`.
+
+  Context edges reuse `EdgeDef`, so they support everything an ordinary
+  edge does — the `factor`/`offset` shorthand, explicit `map` specs, and
+  constant-licensed factor expressions. That last one carries the weight
+  here: a cross-dimensional edge is almost always licensed by a constant
+  the package also declares, and `factor = "k_d"` now resolves against it.
+
+  `Graph.with_package` **registers** each context rather than inserting its
+  edges, which is the distinction that makes a context a context: loading
+  the package makes the conversion *available*, and it only applies while
+  `using_context` has it active. Registration runs after units and
+  constants, since an endpoint or factor may name something the package
+  itself introduced.
+
+  Note a pre-existing limit this does not change: context edges resolve
+  between plain units, not through scaled or composite endpoints —
+  `_convert_products` compares dimensions before consulting
+  cross-dimensional edges, so `meter → hertz` resolves under a context
+  while `nm → THz` does not. Unrelated to packaging; it applies equally to
+  the built-in `spectroscopy` and `boltzmann` contexts.
+
+- **`default_kind` on `Unit` — the first unit→kind association.** (#305)
+  A unit may now declare the `Kind` it measures when nothing says
+  otherwise, via `Unit(default_kind="...")` or a `default_kind` key on a
+  `[[units]]` entry. A `Number` constructed with no explicit `kind=`
+  takes the declaration; an explicit `kind=` always wins. Names resolve
+  against a lattice at load time (local lattice before ambient, as
+  `Constant.kind` already does) and are qualified by the `namespace`
+  rewriter, so a package may declare both a kind and the units that name
+  it. Resolution at construction is best-effort: a name the active
+  lattice does not know leaves the Number unkinded rather than raising.
+  Like `scalable`, the field is metadata — excluded from `Unit`
+  equality and hashing. Purely additive: no unit in the built-in catalog
+  declares one, so nothing changes until a package opts in. The
+  *arrival* rule — what `.to()` should do when the target unit declares
+  a conflicting `default_kind` — remains open and is unchanged here.
+
+### Changed
+
+- **Unit-declared kinds join unkinded operands permissively; explicit kinds
+  stay strict.** (#325) A kind attached by `Unit.default_kind` is a default,
+  not an assertion. Under strict mode a default-kinded operand meeting an
+  unkinded one now inherits the default under `+`/`−` and drops it under
+  `×`/`÷`, silently — `1 Hz + 1 (1/s)` is the same quantity written two
+  ways, and `1 Hz × 3 s` is a compound that declares nothing. A kind the
+  caller attached explicitly still raises `KindMismatch` as before.
+  Provenance is derived, not stored: a kind is a default iff it equals what
+  the unit's own declaration resolves to.
+
+  This is the prerequisite for `default_kind` on the degeneracy-cluster
+  units (the 2.3.0 KOQ floor): without it, the moment `hertz` declared
+  `frequency`, every mixed expression it appears in would have regressed.
+  No shipped unit declares a `default_kind` yet, so nothing changes today.
+
+- **Roadmap recast around the UnitSafe gate; ADR 013 proposed.** `ROADMAP.md`
+  ordered the planned releases by principle; it now orders them by what the
+  UnitSafe benchmark exercises. v2.3.0 becomes *Package infrastructure and the
+  KOQ floor* — the arrival rule's refusing clause and `default_kind` on every
+  degeneracy cluster, since 27 of the benchmark's 62 kind-of-quantity must-fail
+  pairs (`Gy → Sv`, `N·m → J`, `W → VA`, `Bq → Hz`, `Pa → J/m³`) convert
+  freely today and the shipped rule relabels rather than refuses. v2.3.1
+  becomes *Unity and the dimensionless fold* (#307, #318). Array parity and
+  quantity ergonomics move up to v2.4.0; currency moves to v2.6.0 with zero
+  benchmark exposure. Two deprecation rungs (v2.5.0, v2.7.0) precede v3.0.0,
+  which is gated on v2.3.0 by name. A *The UnitSafe gate* section records what
+  the benchmark does and does not exercise in this library.
+
+  The *Where the chart defects land* table replaces "angle becomes a real
+  dimension" — angle stays a quantity of dimension one, with `plane_angle` and
+  `solid_angle` as kinds — and splits the five refusals owed today to the 2.2.2
+  normalizability check into three to re-own and two to correct to admits.
+
+  [ADR 013](docs/internal/decisions/013-the-vector-is-the-only-carrier.md)
+  (*The vector is the only carrier*, Proposed) specifies the pseudo-dimension
+  retirement v3.0.0 has named without content: dimensional identity lives in
+  the basis vector; tags are absorbed or dissolved, never deleted to `none`;
+  currency is a basis component; `count` and the angle family are kinds on
+  unity; linear ratios are `Scale`; kinds compose through a normal form. It
+  supersedes ADRs 005, 011, and 012 and supplies the prerequisite ADR 009 names;
+  each carries a cross-reference. The intended `%` API is specified by example
+  in [proposals/percent-on-unity](docs/internal/proposals/percent-on-unity.md).
+
 ### Fixed
 
 - **Scalar `*` and `/` are gated on level-vs-gain, and the `base_form`
@@ -235,7 +478,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `UnitsNotNormalizable`, and `canonical_magnitude` / `to_base()` now convert
   (`100/9 K`) instead of silently returning the raw quantity.
 
+- **`contingent` now has a TOML key, so a packaged dated table arrives
+  dated.** (#329) `ConversionContext.contingent` (#320) refuses to compose a
+  path across two *different* contingent contexts — two dated tables inventing
+  a figure neither published. The flag had no serialized representation, so a
+  context shipped in a package always loaded as **definitional** and the guard
+  never fired on it. A package declaring a September hub tariff
+  (`joule → USD`) and the ECB's euro reference rates (`USD → EUR`), both
+  `contingent = true`, resolved euros per joule silently:
+  `1 GJ → EUR` gave `<12.285333333333334>` — uncitable, guaranteed to
+  disagree with any directly quoted EUR/J rate, and carrying no date of its
+  own. The identical tables built in-process already refused, so only the
+  serializer was at fault.
+
+  The flag now survives `ContextDef` and `[[contexts]]` parsing,
+  `ContextDef.materialize`, `from_toml`, `to_toml`, and the binary cache.
+  `_CACHE_SCHEMA` is bumped to 3: a stale cache missing the key would restore
+  `False` and reintroduce exactly this defect. The default is unchanged — a
+  context is definitional unless it says otherwise.
+
 ### Documentation
+
+- **`[Unreleased]` consolidated and the v2.3.0 roadmap row brought current.**
+  Each PR in the v2.3.0 train appended its own section header, leaving nine
+  (`Added` x4, `Fixed` x2, `Documentation` x2, `Changed`) interleaved in release
+  order rather than one of each. CLAUDE.md names this file the source of truth
+  for "did this land?", which nine interleaved sections defeat. All 23 entries
+  are preserved in order within `Added` / `Changed` / `Fixed` / `Documentation`.
+  The v2.3.0 row also still listed #352 and #347 as owed after both shipped
+  (#360, #363), and read `In progress`; it now reads `Complete`, with
+  `__hash__` stated as **not in this release** — blocked on freezing `Number`
+  (#362) rather than deferred, so it does not hold the cut.
 
 - **`ROADMAP.md`: v2.3.0 re-scoped, the KOQ floor split, and 3.0.0's
   prerequisites made explicit.** Thirteen issues surfaced this week (#339–#348,
@@ -420,183 +693,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them. No code change; the proposal is the acceptance list for the
   implementation.
 
-### Fixed
-
-- **`contingent` now has a TOML key, so a packaged dated table arrives
-  dated.** (#329) `ConversionContext.contingent` (#320) refuses to compose a
-  path across two *different* contingent contexts — two dated tables inventing
-  a figure neither published. The flag had no serialized representation, so a
-  context shipped in a package always loaded as **definitional** and the guard
-  never fired on it. A package declaring a September hub tariff
-  (`joule → USD`) and the ECB's euro reference rates (`USD → EUR`), both
-  `contingent = true`, resolved euros per joule silently:
-  `1 GJ → EUR` gave `<12.285333333333334>` — uncitable, guaranteed to
-  disagree with any directly quoted EUR/J rate, and carrying no date of its
-  own. The identical tables built in-process already refused, so only the
-  serializer was at fault.
-
-  The flag now survives `ContextDef` and `[[contexts]]` parsing,
-  `ContextDef.materialize`, `from_toml`, `to_toml`, and the binary cache.
-  `_CACHE_SCHEMA` is bumped to 3: a stale cache missing the key would restore
-  `False` and reintroduce exactly this defect. The default is unchanged — a
-  context is definitional unless it says otherwise.
-
-### Added
-
-- **`PolynomialMap`: calibration curves become expressible, with a
-  single-valued inverse.** (#331) Every morphism `ucon` could express was
-  closed-form invertible in one line — scaling, offset, logarithm, reciprocal,
-  and the `ComposedMap` fallback. Real instrumentation is not: a platinum RTD
-  follows the Callendar–Van Dusen equation `R(T) = R0·(1 + A·T + B·T²)`, the
-  NIST ITS-90 thermocouple reference functions are degree 8–13 polynomials, and
-  a load cell or a standard curve is a fitted quadratic. None of them is a
-  composition of the five existing maps, so the only ways to carry one were a
-  `ComposedMap` chain that cannot represent `x²` or an opaque callable that does
-  not serialize.
-
-  `PolynomialMap(coefficients, domain, rel_uncertainty=0.0)` takes coefficients
-  in **ascending** order — `coefficients[i]` multiplies `x**i`, constant term
-  first, matching how the equations are published (`R0·(1 + A·T + B·T²)` reads
-  off as `[R0, R0·A, R0·B]`) and the TOML `coefficients` key. Evaluation is
-  Horner, the derivative is the analytic derivative polynomial, and composition
-  is exact: polynomial ∘ polynomial, and polynomial ∘ linear/affine, fold into
-  one `PolynomialMap` carrying the inner map's input domain.
-
-  **The domain is what makes the inverse a function.** A polynomial of degree
-  ≥ 2 is not injective, so its inverse has up to `n` real branches, while
-  `Map.inverse()` is declared `-> Map` and every caller consumes it as one:
-  `ConversionGraph._add_unit_edge`, `_add_product_edge`, `add_rebased_edge`,
-  `_add_context_edge`, and the binary cache all store `map.inverse()` *as* the
-  reverse adjacency entry, and a graph edge cannot be "one of three maps".
-  Rather than widen the ABC and push the ambiguity into every one of those
-  sites, `PolynomialMap` carries the validity range the calibration was
-  published with — IEC 60751 gives Callendar–Van Dusen over 0…850 °C; NIST
-  gives each thermocouple polynomial a sub-range — and `inverse()` returns the
-  single branch monotone on it, as a `PolynomialInverseMap` (safeguarded
-  Newton/bisection over the declared bracket, derivative by the implicit
-  function theorem, so uncertainty transports through a reverse calibration
-  edge like any other). Round-trips are accurate to ~1e-14 relative.
-
-  A polynomial that *turns* inside its declared domain raises the new
-  `NonMonotoneOnDomain` naming the turning points, rather than silently
-  choosing a root — `PolynomialMap((0, 0, 1), domain=(-1, 1))` has two equally
-  valid preimages for every positive input, and returning either one is a
-  fabricated answer. Narrowing the domain to one side restores the branch. A
-  critical point *on* a boundary does not break monotonicity, so `x²` over
-  `[0, 1]` inverts to the square root. Degeneracies delegate rather than carry
-  machinery they do not need: degree 1 inverts to an `AffineMap`, and degree 0
-  (constant) is not invertible.
-
-  Both types round-trip through package TOML (`type = "polynomial"`,
-  `type = "polynomial_inverse"`) and through the binary graph cache.
-  `_CACHE_SCHEMA` is bumped to 4: a cache written before this change has no
-  tag for either type, and rehydrating a polynomial edge from it would fail
-  rather than silently degrade. `Unit.chart` is untouched — whether a
-  polynomial chart is a fourth chart class under
-  [decisions/010](docs/internal/decisions/010-chart-nomenclature.md) is a
-  separate question from the map primitive, and this change settles only the
-  primitive.
-
-- **The KOQ floor: degeneracy-cluster units declare their kind.** (#327)
-  Where the SI gives two units the same dimension precisely to mark a kind
-  distinction, those units now carry a `default_kind`: `gray → absorbed_dose`
-  and `sievert → dose_equivalent`; `hertz → periodic_frequency` and
-  `becquerel → radioactive_activity`; `watt → real_power` and
-  `volt_ampere → apparent_power`. With #322's refusing clause this makes
-  `1 Gy → Sv`, `1 Bq → Hz`, `1 W → VA` refuse across a static edge (siblings
-  under a `refuse` root) while a dated/contingent table still licenses a
-  re-kind. One kind is added, `periodic_frequency`, as hertz's sibling of
-  `radioactive_activity`.
-
-  `joule` and `pascal` are left generic: no sibling SI unit distinguishes
-  work from heat, or pressure from stress, so a Number is free to carry
-  `kinetic_energy`, `mechanical_stress`, etc. without a unit default
-  overwriting it. The torque/energy and pressure/stress must-fails are the
-  model's declared-kind responsibility (ucon-tools#62), not a unit default.
-
-- **The arrival rule's license now covers narrowing, and only within a
-  fiber.** (#327, refining #322) A re-kind needs a contingent license when
-  the declaration does not *widen* the current kind — siblings **and**
-  generic-to-specific narrowing both relabel onto a claim the value does not
-  imply, so both refuse across a static edge. Across *different* dimensions
-  the conversion itself transformed the stuff (`E = h·f`: frequency →
-  energy), so the arrival kind is adopted with no license, and a conversion
-  to a unit that declares no kind drops a current kind that no longer fits
-  the result's dimension rather than carrying it onto the wrong fiber.
-
-
-- **The arrival rule — `.to()` re-kinds at a `default_kind` unit.** (#305)
-  The second half of `Unit.default_kind`. #306 shipped the declaration and
-  its attachment at construction and left this open; ADR 011 states both
-  the rule and the defect motivating it. `.to()` preserved the source kind
-  unconditionally, so `convert(100, USD → EUR, kind="usd")` returned 92.14
-  euros *still kinded `usd`* — a rate edge genuinely transformed the stuff,
-  and the label did not follow.
-
-  The rule is stated so one form serves both declarers ADR 011 names:
-
-  > the target's declared kind wins, **unless it is already an ancestor of
-  > the current kind**, in which case the finer kind survives — and when
-  > the two kinds are **siblings**, only an edge licensed by a contingent
-  > context may re-kind; a static edge **refuses**.
-
-  Without the second clause the rule relabels. `Number(1, gray,
-  kind=absorbed_dose).to(sievert)` over a factor-1 edge would return
-  `<1 Sv [dose_equivalent]>` — a label nothing earned, since nothing
-  performed the weighting that makes it true, and precisely the
-  kind-of-quantity failure the UnitSafe benchmark exists to catch. A dated
-  FX table is the licensed case (`usd → eur` still re-kinds); `Gy → Sv`
-  across a static edge raises `KindArrivalRefused` (exported from `ucon`).
-  The license is surfaced by the new `Graph.convert_with_license`, which
-  returns the contingent context's name alongside the map; `convert` is
-  unchanged.
-
-  Currency converts between *siblings* — `usd` and `eur` under a `currency`
-  root — so arrival re-kinds. Information converts *within* a kind, since
-  `bit` and `byte` both declare `information`, so a Number carrying
-  `payload_size` is not demoted to its ancestor: 8 bits of payload are 1
-  byte of payload. An unconditional "target wins" would have served the
-  first and broken the second.
-
-  Resolution stays best-effort, matching attachment: a declared name the
-  active lattice does not know leaves the kind untouched rather than
-  raising. Aspects are unaffected — the rule governs the kind stratum only.
-
-  **No shipped unit declares a `default_kind`**, so this changes nothing in
-  the built-in catalog. `NumberArray` has no kind stratum at all (#297), so
-  array parity follows that work rather than this one.
-
-### Added
-
-- **`ConversionContext.contingent` — dated tables no longer chain.** (#317)
-  A context edge encodes either a *definitional* relation, licensed by an
-  exact constant, or a *contingent* one — a dated table that could have been
-  otherwise. Composing definitional edges derives a fact; composing edges
-  from two different contingent contexts invents a figure neither table
-  published.
-
-  That was reachable. With a tariff (`joule → USD`) and a rate table
-  (`USD → EUR`) both active, `Number(1, joule).to(EUR)` returned a euro
-  energy price nobody quoted — uncitable, guaranteed to disagree with a
-  directly quoted figure, and carrying no date of its own.
-
-  The rule: **a path may draw on at most one contingent context.** New
-  `ContingentCompositionRefused` names both tables when it declines, and is
-  distinct from `ConversionNotFound` because a declined path and an absent
-  one are different facts.
-
-  `contingent` defaults to `False`, so nothing shipped changes: `spectroscopy`
-  and `boltzmann` are exact by SI and keep chaining — `meter → reciprocal_meter`
-  still derives through `joule` without being declared, and
-  `meter → kelvin` still composes across both.
-
-  Composition *within* one contingent context is deliberately permitted,
-  which is what ADR 011's star-topology convention relies on: a rate package
-  quotes every currency against one base and the cross-rates derive from it.
-  `EUR → GBP` resolves through USD from a single table, at a single date.
-
-### Documentation
-
 - **ADR 012 — what "dimensionless" means.** The v3.0.0 pseudo-dimension
   retirement is named in the roadmap as "degree et al. become first-class",
   and that phrase admits two readings with opposite consequences. ADR 012
@@ -633,101 +729,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   kinds, so the exposure is the whole throughput family. Giving them a
   canonical scale before populating that lattice would turn today's refusal
   of `flop/s + Hz` into a silent admission.
-
-### Added
-
-- **`[[contexts]]` in package TOML — conversion contexts ship as data.**
-  (#282) `ConversionContext` is the one mechanism for conditional, scoped,
-  constant-licensed conversion *between* dimensions — "λ ↔ ν given c",
-  "dose units ↔ mass given a formulation constant" — and it was the one
-  thing a domain package could not distribute. Graph-level TOML already
-  round-tripped contexts; `UnitPackage` had no `contexts` field, so the
-  package path could not.
-
-  A package now declares `[[contexts]]` with nested `[[contexts.edges]]`,
-  parsed into the new `ContextDef` and exposed as `UnitPackage.contexts`.
-  Array-of-tables with a `name`, matching every other package section
-  rather than the keyed-table form graph TOML uses for `[contexts.<name>]`.
-
-  Context edges reuse `EdgeDef`, so they support everything an ordinary
-  edge does — the `factor`/`offset` shorthand, explicit `map` specs, and
-  constant-licensed factor expressions. That last one carries the weight
-  here: a cross-dimensional edge is almost always licensed by a constant
-  the package also declares, and `factor = "k_d"` now resolves against it.
-
-  `Graph.with_package` **registers** each context rather than inserting its
-  edges, which is the distinction that makes a context a context: loading
-  the package makes the conversion *available*, and it only applies while
-  `using_context` has it active. Registration runs after units and
-  constants, since an endpoint or factor may name something the package
-  itself introduced.
-
-  Note a pre-existing limit this does not change: context edges resolve
-  between plain units, not through scaled or composite endpoints —
-  `_convert_products` compares dimensions before consulting
-  cross-dimensional edges, so `meter → hertz` resolves under a context
-  while `nm → THz` does not. Unrelated to packaging; it applies equally to
-  the built-in `spectroscopy` and `boltzmann` contexts.
-
-- **`default_kind` on `Unit` — the first unit→kind association.** (#305)
-  A unit may now declare the `Kind` it measures when nothing says
-  otherwise, via `Unit(default_kind="...")` or a `default_kind` key on a
-  `[[units]]` entry. A `Number` constructed with no explicit `kind=`
-  takes the declaration; an explicit `kind=` always wins. Names resolve
-  against a lattice at load time (local lattice before ambient, as
-  `Constant.kind` already does) and are qualified by the `namespace`
-  rewriter, so a package may declare both a kind and the units that name
-  it. Resolution at construction is best-effort: a name the active
-  lattice does not know leaves the Number unkinded rather than raising.
-  Like `scalable`, the field is metadata — excluded from `Unit`
-  equality and hashing. Purely additive: no unit in the built-in catalog
-  declares one, so nothing changes until a package opts in. The
-  *arrival* rule — what `.to()` should do when the target unit declares
-  a conflicting `default_kind` — remains open and is unchanged here.
-### Changed
-
-- **Unit-declared kinds join unkinded operands permissively; explicit kinds
-  stay strict.** (#325) A kind attached by `Unit.default_kind` is a default,
-  not an assertion. Under strict mode a default-kinded operand meeting an
-  unkinded one now inherits the default under `+`/`−` and drops it under
-  `×`/`÷`, silently — `1 Hz + 1 (1/s)` is the same quantity written two
-  ways, and `1 Hz × 3 s` is a compound that declares nothing. A kind the
-  caller attached explicitly still raises `KindMismatch` as before.
-  Provenance is derived, not stored: a kind is a default iff it equals what
-  the unit's own declaration resolves to.
-
-  This is the prerequisite for `default_kind` on the degeneracy-cluster
-  units (the 2.3.0 KOQ floor): without it, the moment `hertz` declared
-  `frequency`, every mixed expression it appears in would have regressed.
-  No shipped unit declares a `default_kind` yet, so nothing changes today.
-
-- **Roadmap recast around the UnitSafe gate; ADR 013 proposed.** `ROADMAP.md`
-  ordered the planned releases by principle; it now orders them by what the
-  UnitSafe benchmark exercises. v2.3.0 becomes *Package infrastructure and the
-  KOQ floor* — the arrival rule's refusing clause and `default_kind` on every
-  degeneracy cluster, since 27 of the benchmark's 62 kind-of-quantity must-fail
-  pairs (`Gy → Sv`, `N·m → J`, `W → VA`, `Bq → Hz`, `Pa → J/m³`) convert
-  freely today and the shipped rule relabels rather than refuses. v2.3.1
-  becomes *Unity and the dimensionless fold* (#307, #318). Array parity and
-  quantity ergonomics move up to v2.4.0; currency moves to v2.6.0 with zero
-  benchmark exposure. Two deprecation rungs (v2.5.0, v2.7.0) precede v3.0.0,
-  which is gated on v2.3.0 by name. A *The UnitSafe gate* section records what
-  the benchmark does and does not exercise in this library.
-
-  The *Where the chart defects land* table replaces "angle becomes a real
-  dimension" — angle stays a quantity of dimension one, with `plane_angle` and
-  `solid_angle` as kinds — and splits the five refusals owed today to the 2.2.2
-  normalizability check into three to re-own and two to correct to admits.
-
-  [ADR 013](docs/internal/decisions/013-the-vector-is-the-only-carrier.md)
-  (*The vector is the only carrier*, Proposed) specifies the pseudo-dimension
-  retirement v3.0.0 has named without content: dimensional identity lives in
-  the basis vector; tags are absorbed or dissolved, never deleted to `none`;
-  currency is a basis component; `count` and the angle family are kinds on
-  unity; linear ratios are `Scale`; kinds compose through a normal form. It
-  supersedes ADRs 005, 011, and 012 and supplies the prerequisite ADR 009 names;
-  each carries a cross-reference. The intended `%` API is specified by example
-  in [proposals/percent-on-unity](docs/internal/proposals/percent-on-unity.md).
 
 ## [2.2.2] - 2026-09-18
 
