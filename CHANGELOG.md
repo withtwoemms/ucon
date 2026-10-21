@@ -9,36 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **The angle kinds, `plane_angle` and `solid_angle` (#348, #344).** The first
-  half of the pre-retirement KOQ floor. `radian` declares
-  `default_kind = "plane_angle"` and `steradian` declares
-  `default_kind = "solid_angle"`, so `Number(1, units.radian).kind` is now
-  `plane_angle`. `degree`, `gradian`, `turn`, `arcminute` and `arcsecond` carry
-  `plane_angle` too, and `square_degree` carries `solid_angle` — they are the
-  same quantity in different units, and nothing regressed from saying so.
-  Nothing refuses that did not refuse before: `rad → sr` still raises
-  `DimensionMismatch`, `rad/s → Hz` still raises `ConversionNotFound`, and
-  `W/m² → W/sr` still raises `DimensionMismatch`, each for the same reason as
-  before. The kinds are insurance, not a gate — ADR 013 dissolves the `angle`
-  and `solid_angle` pseudo-dimension tags at 3.0.0, and once the tags go the
-  kinds are all that is left to refuse on.
-
-  They are **two independent roots**, not siblings under a shared refusing
-  root. A shared root is not expressible: the kinds carry different dimensions
-  and `KindLattice` rejects a cross-dimension parent edge
-  (`CrossDimensionParent`). Two roots make `lca` report `DisjointKinds`, a
-  harder refusal than `JoinRefused`. What this forecloses is SI's `sr = rad²`:
-  a *power* relation, which no parent edge expresses even where the dimensions
-  agree, so it waits on composing kinds. It survives meanwhile only as the
-  hand-squared `square_degree → steradian` edge factor,
-  `(π/180)² = 0.00030461741978670857`.
-
-  This insures `xdom-018` (`rad → sr`) alone. `xdom-020` (`rad/s → Hz`) is
-  *not* insured: `default_kind` attaches on atomic units, and `rad/s` is a
-  `UnitProduct`, which carries no kind — that needs `default_kind` on product
-  signatures (#342, #343). `pr-028` (`W/m² → W/sr`) needs no insurance: it
-  refuses on genuine SI signatures (`M·T⁻³` vs `M·L²·T⁻³`), since the
-  `solid_angle` tag never reaches the `W/sr` product dimension at all.
+- **The angle kinds, `plane_angle` and `solid_angle` (#348, #344).** `radian`,
+  `degree`, `gradian`, `turn`, `arcminute` and `arcsecond` declare
+  `default_kind = "plane_angle"`; `steradian` and `square_degree` declare
+  `solid_angle`. They are **two independent roots**, not siblings: the kinds
+  carry different dimensions and `KindLattice` rejects a cross-dimension parent
+  edge (`CrossDimensionParent`), so `lca` reports `DisjointKinds`. This
+  forecloses SI's `sr = rad²`, a *power* relation no parent edge expresses; it
+  waits on composing kinds and survives meanwhile only as the hand-squared
+  `square_degree → steradian` factor. Nothing new refuses — `rad → sr`,
+  `rad/s → Hz` and `W/m² → W/sr` raise what they raised before — the kinds are
+  insurance for ADR 013, which dissolves the `angle` pseudo-dimension at 3.0.0.
+  Of the cross-domain cases this insures `xdom-018` alone: `rad/s` is a
+  `UnitProduct` carrying no kind (needs #342, #343), and `W/m² → W/sr` refuses
+  on genuine SI signatures (`M·T⁻³` vs `M·L²·T⁻³`) with no tag involved.
 
 ## [2.3.0] - 2026-10-20
 
