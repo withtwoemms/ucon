@@ -685,6 +685,7 @@ dimension = "none"
 [[units]]
 name = "arcsecond"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "arcsec",
     "\"",
@@ -701,6 +702,7 @@ aliases = [
 [[units]]
 name = "arcminute"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "arcmin",
     "'",
@@ -2164,6 +2166,7 @@ aliases = [
 [[units]]
 name = "degree"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "deg",
     "°",
@@ -2188,6 +2191,7 @@ aliases = [
 [[units]]
 name = "square_degree"
 dimension = "solid_angle"
+default_kind = "solid_angle"
 aliases = [
     "deg²",
     "sq_deg",
@@ -2456,6 +2460,7 @@ factors = [
 [[units]]
 name = "gradian"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "grad",
     "gon",
@@ -3352,6 +3357,7 @@ factors = [
 [[units]]
 name = "radian"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "rad",
     "radians",
@@ -3388,6 +3394,7 @@ factors = [
 [[units]]
 name = "turn"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "rev",
     "revolution",
@@ -3482,6 +3489,7 @@ factors = [
 [[units]]
 name = "steradian"
 dimension = "solid_angle"
+default_kind = "solid_angle"
 aliases = [
     "sr",
 ]
@@ -5259,6 +5267,27 @@ parent = "pressure"
 name = "mechanical_stress"
 dimension = "pressure"
 parent = "pressure"
+
+# --- Cluster 9: Angle kinds  (two single-member fibers) ---
+# Plane angle and solid angle are *not* siblings. They carry distinct
+# dimensional signatures (``angle`` vs ``solid_angle``) and the lattice
+# forbids a parent edge across dimensions (``CrossDimensionParent``), so
+# a shared root is not expressible: they are two independent roots, which
+# ``lca`` reports as ``DisjointKinds``.
+#
+# SI's ``sr = rad^2`` is a *power* relation, not a subtype relation, so no
+# parent edge would capture it even if the dimensions agreed. Until kinds
+# compose (#348) the relation survives only as the hand-squared edge factor
+# on ``square_degree -> steradian``.
+[[kinds]]
+name = "plane_angle"
+dimension = "angle"
+join_policy = "refuse"
+
+[[kinds]]
+name = "solid_angle"
+dimension = "solid_angle"
+join_policy = "refuse"
 
 [[kinds]]
 name = "radiation_weighting_factor"
