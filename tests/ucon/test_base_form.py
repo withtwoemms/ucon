@@ -592,7 +592,12 @@ class TestScaleClass:
         ("decibel_volt", "level"),
         ("decibel_spl", "level"),
         ("pH", "level"),           # wired only through a product edge
-        ("nines", "level"),        # a composed map, not a bare logarithm
+        # ``nines`` leaves by ComposedMap(inner=ExpMap, outer=AffineMap).
+        # The affine is a change of *quantity* (availability to
+        # unavailability, #341), not of coordinate, so the exponentiation
+        # it wraps is as bare as ``bel``'s and ``nines`` is a gain:
+        # ``3 nines + 3 nines = 6 nines`` is the parallel-redundancy law.
+        ("nines", "gain"),
     ])
     def test_shipped_classification(self, name, expected):
         assert get_default_graph().scale_class(getattr(units, name)) == expected
@@ -611,11 +616,11 @@ class TestScaleClass:
             "celsius", "fahrenheit", "reaumur",
         ]
         assert sorted(n for n, v in verdicts.items() if v == "gain") == [
-            "bel", "decibel", "neper",
+            "bel", "decibel", "neper", "nines",
         ]
         assert sorted(n for n, v in verdicts.items() if v == "level") == [
             "decibel_milliwatt", "decibel_spl", "decibel_volt",
-            "decibel_watt", "nines", "pH",
+            "decibel_watt", "pH",
         ]
 
     def test_a_new_edge_invalidates_the_memoized_verdict(self):
@@ -660,3 +665,26 @@ class TestScaleClass:
                 if verdict != "ratio":
                     offenders.append((node.name, verdict))
         assert offenders == []
+
+
+class TestScalarAgreesWithRepeatedAddition:
+    """``n * a`` must answer what ``a + a + ...`` answers (#341).
+
+    Scalar multiplication is repeated addition, so the scalar gate and
+    the additive path cannot disagree about a unit. ``nines`` broke the
+    invariant: ``3 nines + 3 nines`` admitted while ``3 nines * 2``
+    refused, because the gain test required a bare ``ExpMap`` and
+    ``nines`` leaves by a ``ComposedMap`` wrapping one.
+    """
+
+    @pytest.mark.parametrize("name", ["bel", "decibel", "neper", "nines"])
+    def test_dimensionless_logarithmic_units_agree(self, name):
+        unit = getattr(units, name)
+        doubled = Number(3, unit) * 2
+        summed = Number(3, unit) + Number(3, unit)
+        assert doubled.quantity == summed.quantity
+        assert doubled.unit == summed.unit
+
+    def test_nines_composes_deficits(self):
+        """3 nines + 3 nines = 6 nines is the parallel-redundancy law."""
+        assert (Number(3, units.nines) * 2).quantity == 6

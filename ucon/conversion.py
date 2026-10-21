@@ -610,6 +610,22 @@ class Graph:
         return False
 
     @staticmethod
+    def _exp_component(edge_map: Map) -> Union[ExpMap, None]:
+        """The :class:`~ucon.maps.ExpMap` that makes leaving exponentiate.
+
+        :meth:`_exponentiates` already looks through a
+        :class:`~ucon.maps.ComposedMap` to decide *whether* a node is left
+        by exponentiating; anything asking *which* exponentiation it is
+        must look through the same way, or a wrapped map is read as a
+        different kind of coordinate than the bare one it wraps.
+        """
+        if isinstance(edge_map, ExpMap):
+            return edge_map
+        if isinstance(edge_map, ComposedMap):
+            return Graph._exp_component(edge_map.inner)
+        return None
+
+    @staticmethod
     def _exponentiates(edge_map: Map) -> bool:
         """Whether *leaving* a node by ``edge_map`` exponentiates.
 
@@ -751,9 +767,16 @@ class Graph:
             # indistinguishable from the bare ``decibel``. What separates
             # them is that the referent is a watt — so the unit's own
             # dimension is the half of the test that does the work.
+            # Read through a ``ComposedMap`` exactly as
+            # ``_exponentiates`` does. ``nines`` leaves by
+            # ``ComposedMap(inner=ExpMap, outer=AffineMap)`` — the affine
+            # is a change of *quantity* (availability to unavailability,
+            # #341), not a change of coordinate, so the exponentiation it
+            # wraps is as bare as ``bel``'s.
+            exp_components = [Graph._exp_component(m) for m in exp_blockers]
             bare = all(
-                isinstance(m, ExpMap) and m.reference == 1.0
-                for m in exp_blockers
+                component is not None and component.reference == 1.0
+                for component in exp_components
             )
             if bare and not self._has_base_dimension(unit):
                 return 'gain'

@@ -57,6 +57,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`nines` is a gain, not a level (#341).** The scalar gate landed in #340
+  refused `3 nines * 2` while the additive path admitted
+  `3 nines + 3 nines = <6 9s>`, breaking the invariant the gate is derived
+  from — scalar multiplication is repeated addition, so the two cannot
+  disagree. Cause: the gain test required a bare `ExpMap`, and `nines`
+  leaves its node by `ComposedMap(inner=ExpMap, outer=AffineMap)`. That
+  inner affine is a change of **quantity** — availability to unavailability
+  — not of coordinate, so the exponentiation it wraps is as bare as `bel`'s.
+  `Graph._exponentiates` already looked through a `ComposedMap` to decide
+  *whether* a node is left by exponentiating; the `bare` test now looks
+  through it the same way to decide *which* exponentiation, via a new
+  `Graph._exp_component`. `nines` joins `bel`, `decibel` and `neper` as a
+  gain; `decibel_watt`, `decibel_milliwatt`, `decibel_volt`, `decibel_spl`
+  and `pH` remain levels, and the three interval scales remain points.
+  Gating on the map's *shape* rather than its semantics was the same proxy
+  mistake that produced #338 and #339 — the `ComposedMap` is a defect in
+  the edge (#341), not a property of the chart, and should not reach
+  arithmetic that is currently correct.
+
 - **Scalar `*` and `/` are gated on level-vs-gain, and the `base_form`
   invariants are enforced (#340).** Three independent holes, one family.
 
