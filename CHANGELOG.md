@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **A regression suite pinning the deferred behaviours**
+  (`tests/ucon/test_deferred_behaviours.py`). Eleven assertions record what
+  ucon does *today* where what it does is known-wrong, filed, and blocked
+  behind a release that has not happened: the `nines` scalar/additive
+  contradiction (#341), same-unit addition on points and levels (#340's
+  explicitly out-of-scope half, ADR 009 §3), `lm → cd` (#346), the
+  dimensionless kinds that cannot attach to `percent`/`fraction` (#344),
+  `rad² ↔ sr` and the idempotent tag algebra (#348), `Number` being
+  unhashable (#353, blocked on #362), `**` dropping the kind, and the
+  torque/energy and pressure/energy-density clusters converting freely
+  (#342, #343). Each test's docstring names the issue, the blocker and the
+  release that closes it, so changing one of these behaviours fails CI and
+  points the reader at the filed cause instead of inviting a re-diagnosis.
+  The file is not a specification of intent; it is the companion to
+  `tests/ucon/core/test_operator_stratum_grid.py` for behaviours that are
+  not cells of that grid.
+
 ## [2.3.0] - 2026-10-20
 
 ### Added
