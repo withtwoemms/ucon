@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The angle kinds, `plane_angle` and `solid_angle` (#348, #344).** `radian`,
+  `degree`, `gradian`, `turn`, `arcminute` and `arcsecond` declare
+  `default_kind = "plane_angle"`; `steradian` and `square_degree` declare
+  `solid_angle`. They are **two independent roots**, not siblings: the kinds
+  carry different dimensions and `KindLattice` rejects a cross-dimension parent
+  edge (`CrossDimensionParent`), so `lca` reports `DisjointKinds`. This
+  forecloses SI's `sr = rad²`, a *power* relation no parent edge expresses; it
+  waits on composing kinds and survives meanwhile only as the hand-squared
+  `square_degree → steradian` factor. Nothing new refuses — `rad → sr`,
+  `rad/s → Hz` and `W/m² → W/sr` raise what they raised before — the kinds are
+  insurance for ADR 013, which dissolves the `angle` pseudo-dimension at 3.0.0.
+  Of the cross-domain cases this insures `xdom-018` alone: `rad/s` is a
+  `UnitProduct` carrying no kind (needs #342, #343), and `W/m² → W/sr` refuses
+  on genuine SI signatures (`M·T⁻³` vs `M·L²·T⁻³`) with no tag involved.
+
 ## [2.3.0] - 2026-10-20
 
 ### Added
