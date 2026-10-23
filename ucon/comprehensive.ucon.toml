@@ -5293,11 +5293,13 @@ parent = "pressure"
 #    unity a shared root becomes legal, so the argument for two roots
 #    expires exactly when the retirement lands.
 #
-# Also unbought: ADR 013 section 2 asks this kind to refuse both
-# ``rad -> sr`` and ``rad -> %``. Only the first is. ``percent``/
-# ``fraction`` carry no kind and cannot yet (#344), and arrival at an
-# unkinded unit does not refuse -- the kind rides through, as
-# ``var -> boiler_horsepower`` shows, arriving ``[reactive_power]``.
+# Still missing: ADR 013 section 2 asks these kinds to refuse both
+# ``rad -> sr`` and ``rad -> %``. They only refuse the first. Nothing
+# here makes ``rad -> %`` refuse, for two reasons that compound:
+# ``percent``/``fraction`` carry no kind and cannot yet (#344), and a
+# conversion INTO a unit that has no kind does not refuse anyway -- the
+# source's kind just rides along. ``var -> boiler_horsepower`` shows
+# that today: it converts, and arrives still tagged ``[reactive_power]``.
 [[kinds]]
 name = "plane_angle"
 dimension = "angle"
