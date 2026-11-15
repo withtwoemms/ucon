@@ -685,6 +685,7 @@ dimension = "none"
 [[units]]
 name = "arcsecond"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "arcsec",
     "\"",
@@ -701,6 +702,7 @@ aliases = [
 [[units]]
 name = "arcminute"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "arcmin",
     "'",
@@ -2164,6 +2166,7 @@ aliases = [
 [[units]]
 name = "degree"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "deg",
     "°",
@@ -2188,6 +2191,7 @@ aliases = [
 [[units]]
 name = "square_degree"
 dimension = "solid_angle"
+default_kind = "solid_angle"
 aliases = [
     "deg²",
     "sq_deg",
@@ -2456,6 +2460,7 @@ factors = [
 [[units]]
 name = "gradian"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "grad",
     "gon",
@@ -3352,6 +3357,7 @@ factors = [
 [[units]]
 name = "radian"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "rad",
     "radians",
@@ -3388,6 +3394,7 @@ factors = [
 [[units]]
 name = "turn"
 dimension = "angle"
+default_kind = "plane_angle"
 aliases = [
     "rev",
     "revolution",
@@ -3482,6 +3489,7 @@ factors = [
 [[units]]
 name = "steradian"
 dimension = "solid_angle"
+default_kind = "solid_angle"
 aliases = [
     "sr",
 ]
@@ -5259,6 +5267,48 @@ parent = "pressure"
 name = "mechanical_stress"
 dimension = "pressure"
 parent = "pressure"
+
+# --- Cluster 9: Angle kinds  (two single-member fibers) ---
+#
+# FIRST HALF OF A TWO-STEP MIGRATION. Three things are owed at 3.0.0 and
+# none is visible from the two declarations below.
+#
+# 1. The ``dimension`` keys must be rewritten to unity. ADR 013 section 2
+#    puts both kinds on unity; ``angle``/``solid_angle`` are the tags that
+#    same ADR retires. They are spelled this way only because nothing else
+#    attaches today -- a kind on ``Dimension(none)`` is refused on a
+#    ``Dimension(angle)`` unit (``KindDimensionMismatch``).
+#
+# 2. Kind composition (ADR 013 section 4) cannot work until (1) lands.
+#    ``solid_angle`` is meant to be the name ``plane_angle x plane_angle``
+#    collapses to, which needs both on the same dimension; today
+#    ``(radian*radian).dimension`` is ``Dimension(angle)``. So SI's
+#    ``sr = rad^2`` survives only as the hand-squared ``square_degree ->
+#    steradian`` factor, (pi/180)^2. Parentage was never its vehicle --
+#    a power relation is not a subtype relation; composition is (#348).
+#
+# 3. Two roots is forced now, free later -- re-decide it. A shared root is
+#    rejected today (``CrossDimensionParent``), which is why these are two
+#    roots that ``lca`` reports as ``DisjointKinds``. Once both sit on
+#    unity a shared root becomes legal, so the argument for two roots
+#    expires exactly when the retirement lands.
+#
+# Still missing: ADR 013 section 2 asks these kinds to refuse both
+# ``rad -> sr`` and ``rad -> %``. They only refuse the first. Nothing
+# here makes ``rad -> %`` refuse, for two reasons that compound:
+# ``percent``/``fraction`` carry no kind and cannot yet (#344), and a
+# conversion INTO a unit that has no kind does not refuse anyway -- the
+# source's kind just rides along. ``var -> boiler_horsepower`` shows
+# that today: it converts, and arrives still tagged ``[reactive_power]``.
+[[kinds]]
+name = "plane_angle"
+dimension = "angle"
+join_policy = "refuse"
+
+[[kinds]]
+name = "solid_angle"
+dimension = "solid_angle"
+join_policy = "refuse"
 
 [[kinds]]
 name = "radiation_weighting_factor"
