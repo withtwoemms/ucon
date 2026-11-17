@@ -43,6 +43,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tests/ucon/core/test_operator_stratum_grid.py` for behaviours that are
   not cells of that grid.
 
+### Documentation
+
+- **The v2.4.0 roadmap row records that #342 and #343 moved to #373.** Both issues
+  prescribed `default_kind` on product signatures. Measurement against UnitSafe says
+  otherwise: four of cluster 7's six must-fails convert a unit to itself
+  (`MPa → MPa`), which no unit-keyed tag can reach, and tagging `J/m³` with
+  `energy_density` would fail the must-pass `0.5 MJ/m³ → kPa` — the same operation as
+  the must-fail `500 kJ/m³ → kPa`, differing only in the claim. A `kind=` argument on
+  `Number.to()` (#373) clears 12 of the 14 must-fails against the lattice as it
+  stands, since `join(torque, energy)` already refuses while `join(torque, torque)`
+  admits. Both issues keep their diagnoses and carry a comment pointing at #373.
+
 ## [2.3.0] - 2026-10-20
 
 ### Added
