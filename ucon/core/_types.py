@@ -2169,6 +2169,7 @@ class Number:
         propagate_factor_uncertainty: bool = False,
         *,
         system: "UnitSystem | None" = None,
+        kind: "Kind | str | None" = None,
     ):
         """Convert this Number to a different unit expression.
 
@@ -2190,6 +2191,28 @@ class Number:
             When provided, routes through ``system.conversion_graph`` for graph
             lookups and ``system.units`` for string-target parsing. Takes
             precedence over ``graph=`` when both are given.
+        kind : Kind or str, optional
+            The kind the caller *claims* the result is. Default ``None`` leaves
+            the arrival rule to resolve the kind, which is the behaviour of
+            every call that does not pass it.
+
+            When given, the claim is checked against the current kind using the
+            same lattice join that ``+`` applies, and a claim the lattice
+            refuses to join raises — ``JoinRefused`` or ``DisjointKinds``,
+            propagated so the reason travels with it. A compatible claim stands
+            as the result's kind.
+
+            The point is that some errors live in the claim rather than in the
+            units. ``100 MPa`` of tensile stress reported as a hydrostatic
+            pressure converts a unit to itself, so nothing about the units can
+            refuse it; ``0.5 MJ/m³ → kPa`` is a legitimate modulus of
+            resilience while ``500 kJ/m³ → kPa`` *as a stress* is not, and the
+            two are the same conversion. Only the claim separates them.
+
+            A claim whose dimension differs from the current kind's is taken as
+            given rather than joined: the conversion moved the quantity across
+            fibers, so there is no relabel within one fiber to police. An
+            unresolvable name raises ``KindNotFound``.
 
         Returns
         -------
@@ -2270,7 +2293,7 @@ class Number:
                 if new_unc == 0.0:
                     new_unc = None
             return Number(quantity=converted, unit=target, uncertainty=new_unc,
-                          kind=self._arrival_kind(target, license=_license))._carry(self.aspects)
+                          kind=self._arrival_kind(target, license=_license, claim=kind))._carry(self.aspects)
 
         # --- General path: wrap into UnitProducts ---
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
@@ -2285,7 +2308,7 @@ class Number:
                 new_uncertainty = self.uncertainty * abs(factor)
             return Number(quantity=self.quantity * factor, unit=target,
                           uncertainty=new_uncertainty,
-                          kind=self._arrival_kind(target, license=_license))._carry(self.aspects)
+                          kind=self._arrival_kind(target, license=_license, claim=kind))._carry(self.aspects)
 
         # Pass raw Units to graph.convert() when possible, so the graph
         # can use _convert_units() which handles cross-basis via rebased units.
@@ -2339,9 +2362,15 @@ class Number:
 
         return Number(quantity=converted_quantity, unit=target,
                       uncertainty=new_uncertainty,
-                      kind=self._arrival_kind(target, license=_license))._carry(self.aspects)
+                      kind=self._arrival_kind(target, license=_license, claim=kind))._carry(self.aspects)
 
-    def _arrival_kind(self, target_unit, *, license: "str | None" = None) -> "Kind | None":
+    def _arrival_kind(
+        self,
+        target_unit,
+        *,
+        license: "str | None" = None,
+        claim: "Kind | str | None" = None,
+    ) -> "Kind | None":
         """The kind a conversion onto ``target_unit`` should produce.
 
         ADR 011's rule: arrival at a unit declaring a ``default_kind``
@@ -2385,6 +2414,32 @@ class Number:
         test cannot run and the declaration wins — which is the currency
         case, the one the rule was written for.
         """
+        if claim is not None:
+            claimed = claim if isinstance(claim, Kind) else _resolve_default_kind(claim)
+            if claimed is None:
+                raise KindNotFound(str(claim))
+            # Nothing to cross: no current kind, or the claim restates it.
+            if self.kind is None or self.kind == claimed:
+                return claimed
+            # Different fibers means the conversion itself moved the stuff
+            # across dimensions (E = h·f); the claim is not a relabel *within*
+            # one fiber, so the join gate does not apply.
+            if self.kind.dimension != claimed.dimension:
+                return claimed
+            ctx = _sys_active_var.get()
+            lattice = getattr(ctx, "kinds", None) if ctx is not None else None
+            if lattice is None:
+                # Cannot classify the claim; stay best-effort, matching
+                # attachment at construction.
+                return claimed
+            # The one gate, shared with ``+``: a claim that the lattice
+            # refuses to join is a claim the value does not support.
+            # ``join`` raises ``JoinRefused``/``DisjointKinds``, which carry
+            # the reason (which parent refused, or that the roots are
+            # distinct) and so are propagated rather than rewrapped.
+            lattice.join(self.kind, claimed)
+            return claimed
+
         declared = getattr(target_unit, "default_kind", None)
         target_dim = getattr(target_unit, "dimension", None)
 

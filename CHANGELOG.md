@@ -24,6 +24,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `UnitProduct` carrying no kind (needs #342, #343), and `W/m² → W/sr` refuses
   on genuine SI signatures (`M·T⁻³` vs `M·L²·T⁻³`) with no tag involved.
 
+
+- **`Number.to(..., kind=)` — the kind the caller claims the result is (#373,
+  #342, #343).** Default `None` leaves the arrival rule in charge, so every
+  existing call is unchanged. A claim is checked against the current kind using
+  the same lattice join `+` already applies, and one the lattice refuses raises
+  `JoinRefused` or `DisjointKinds`, propagated so the reason travels with it. A
+  claim whose dimension differs is taken as given rather than joined — the
+  conversion crossed fibers, so there is no relabel within one to police.
+  `KindNotFound` for an unresolvable name.
+
+  This reaches errors that no property of a unit can. *"Report 100 MPa of
+  tensile stress as a hydrostatic pressure"* converts `MPa → MPa`, so source and
+  target are the same unit; `0.5 MJ/m³ → kPa` is a legitimate modulus of
+  resilience while `500 kJ/m³ → kPa` *as a stress* is not, and unclaimed the two
+  are one conversion returning `<500.0 kPa>`. Only the claim separates them,
+  which is why the product-signature `default_kind` plan recorded on #342/#343
+  could not: a tag on `N·m` must pick between the torque rows and the
+  seismic-moment row and breaks whichever it does not pick.
+
+- **An `energy_density` kind**, declared and attached to nothing. A second root
+  on `Dimension(pressure)` rather than a child of `pressure`: same dimension and
+  same derivation — `(N·m)/m³` reduces to `N/m²` — but a different quantity, so
+  `lca` reports `DisjointKinds` against the pressure family. `J/m³` carries no
+  `default_kind` deliberately, for the reason above.
+
 ### Documentation
 
 - **A regression suite pinning the deferred behaviours**
@@ -43,7 +68,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tests/ucon/core/test_operator_stratum_grid.py` for behaviours that are
   not cells of that grid.
 
-### Documentation
 
 - **The v2.4.0 roadmap row records that #342 and #343 moved to #373.** Both issues
   prescribed `default_kind` on product signatures. Measurement against UnitSafe says
