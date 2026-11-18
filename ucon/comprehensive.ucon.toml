@@ -5268,6 +5268,22 @@ name = "mechanical_stress"
 dimension = "pressure"
 parent = "pressure"
 
+# Energy density is not a kind of pressure. Same dimension, same derivation
+# ((N*m)/m^3 reduces to N/m^2), different quantity -- so it is a second root
+# on ``Dimension(pressure)`` rather than a child, and ``lca`` reports
+# ``DisjointKinds`` against the pressure family.
+#
+# Declared but attached to nothing. ``J/m^3`` deliberately carries no
+# ``default_kind``: the cluster's own rows need the same conversion admitted
+# and refused depending on what the caller claims --
+# ``0.5 MJ/m^3 -> kPa`` is a modulus of resilience (admits) while
+# ``500 kJ/m^3 -> kPa`` as a stress refuses. Only a claim separates them,
+# which is what ``Number.to(..., kind=)`` supplies (#373, #343).
+[[kinds]]
+name = "energy_density"
+dimension = "pressure"
+join_policy = "refuse"
+
 # --- Cluster 9: Angle kinds  (two single-member fibers) ---
 #
 # FIRST HALF OF A TWO-STEP MIGRATION. Three things are owed at 3.0.0 and
