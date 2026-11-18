@@ -16,6 +16,7 @@ Design record: ``docs/internal/decisions/008-aspect-stratum.md``.
 
 from ucon.aspects.exceptions import (
     AspectError,
+    AspectClaimRefused,
     AspectNotApplicable,
     AspectRefused,
 )
@@ -31,5 +32,6 @@ __all__ = [
     "resolve_mul_aspects",
     "AspectError",
     "AspectRefused",
+    "AspectClaimRefused",
     "AspectNotApplicable",
 ]
