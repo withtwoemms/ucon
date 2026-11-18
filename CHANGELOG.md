@@ -27,12 +27,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`Number.to(..., kind=)` — the kind the caller claims the result is (#373,
   #342, #343).** Default `None` leaves the arrival rule in charge, so every
-  existing call is unchanged. A claim is checked against the current kind using
-  the same lattice join `+` already applies, and one the lattice refuses raises
-  `JoinRefused` or `DisjointKinds`, propagated so the reason travels with it. A
-  claim whose dimension differs is taken as given rather than joined — the
+  existing call is unchanged. A claim is admitted only if it is *implied* by the
+  kind already carried — it restates that kind, or weakens it to an ancestor
+  whose `join_policy` permits generalizing across that ancestor's children.
+  Strengthening a kind or exchanging it for a sibling raises the new
+  `KindClaimRefused`. A claim whose dimension differs is taken as given: the
   conversion crossed fibers, so there is no relabel within one to police.
   `KindNotFound` for an unresolvable name.
+
+  The gate is deliberately **not** the join `+` applies. Join answers what two
+  kinds yield together and lifts to their ancestor under its policy; a claim
+  asks whether the value supports an assertion, which the lift does not answer.
+  A family can be freely summable and still have members that are not
+  interchangeable: `electric_potential + electromotive_force` is a legitimate
+  `voltage` while reporting one as the other is not, and `static + dynamic`
+  pressure sums to a total that neither member may be relabelled as. Gating on
+  the join admitted a sibling swap and a strengthening claim in every family
+  whose root carries `JoinPolicy.LCA` — `voltage` and `molar_entropy` in the
+  shipped catalog, 8 of the 70 same-dimension kind pairs.
 
   This reaches errors that no property of a unit can. *"Report 100 MPa of
   tensile stress as a hydrostatic pressure"* converts `MPa → MPa`, so source and

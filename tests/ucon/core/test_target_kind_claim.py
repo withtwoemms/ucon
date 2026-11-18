@@ -11,7 +11,8 @@ attached to a unit can reach them.
 import pytest
 
 from ucon import Number, parse_unit, units
-from ucon.kinds.exceptions import DisjointKinds, JoinRefused, KindNotFound
+from ucon.core.exceptions import KindClaimRefused
+from ucon.kinds.exceptions import KindNotFound
 from ucon.system import active_kinds
 
 
@@ -49,7 +50,7 @@ class TestClusterFiveTorqueEnergy:
     def test_torque_claimed_as_energy_refuses(self, kinds, newton_metre):
         """*"A wrench applies 50 N·m of torque. Report this as the work done
         in joules."*"""
-        with pytest.raises(JoinRefused):
+        with pytest.raises(KindClaimRefused):
             Number(50, newton_metre, kind=kinds.get('torque')).to(
                 units.joule, kind='energy'
             )
@@ -60,7 +61,7 @@ class TestClusterFiveTorqueEnergy:
         Narrowing is refused as well as widening, so the direction a problem
         is phrased in does not decide whether it is caught.
         """
-        with pytest.raises(JoinRefused):
+        with pytest.raises(KindClaimRefused):
             Number(500, units.joule, kind=kinds.get('energy')).to(
                 parse_unit('N*m'), kind='torque'
             )
@@ -97,7 +98,7 @@ class TestClusterSevenPressureFamily:
         unreachable by any catalog change.
         """
         mpa = parse_unit('MPa')
-        with pytest.raises(JoinRefused):
+        with pytest.raises(KindClaimRefused):
             Number(100, mpa, kind=kinds.get('mechanical_stress')).to(
                 mpa, kind='thermodynamic_pressure'
             )
@@ -113,7 +114,7 @@ class TestClusterSevenPressureFamily:
     def test_energy_density_claimed_as_pressure_refuses(self, kinds):
         """*"Equate the energy density of an EM field (1 J/m³) with a pressure
         of 1 Pa."*"""
-        with pytest.raises(DisjointKinds):
+        with pytest.raises(KindClaimRefused):
             Number(1, parse_unit('J/m^3'), kind=kinds.get('energy_density')).to(
                 units.pascal, kind='thermodynamic_pressure'
             )
@@ -121,7 +122,7 @@ class TestClusterSevenPressureFamily:
     def test_energy_density_claimed_as_stress_refuses(self, kinds):
         """*"Convert energy density of a compressed gas (500 kJ/m³) to a stress
         of 500 kPa."*"""
-        with pytest.raises(DisjointKinds):
+        with pytest.raises(KindClaimRefused):
             Number(500, parse_unit('kJ/m^3'), kind=kinds.get('energy_density')).to(
                 parse_unit('kPa'), kind='mechanical_stress'
             )
@@ -162,18 +163,70 @@ class TestClaimSemantics:
         with pytest.raises(KindNotFound):
             Number(1, newton_metre).to(units.joule, kind='no_such_kind')
 
-    def test_the_gate_is_the_one_addition_already_applies(self, kinds):
-        """``+`` and a claimed ``.to()`` refuse the same pair.
+    def test_claiming_is_not_the_predicate_addition_applies(self, kinds):
+        """The claim gate is *not* ``+``'s join, and must not be.
 
-        The parameter adds no second predicate; it only gives the conversion
-        path an argument to ask the existing one with.
+        Join answers "what do these two yield together" and lifts to their
+        ancestor under its policy. A claim asks "does the value support this
+        assertion", which the lift does not answer -- a family can be freely
+        summable and still have members that are not interchangeable.
+
+        ``voltage`` is the witness: its root carries ``JoinPolicy.LCA``, so
+        ``+`` admits its children and joins them at the root, while claiming
+        one child for a value carrying the other is refused.
         """
-        mpa = parse_unit('MPa')
-        stress, pressure = (
-            kinds.get('mechanical_stress'),
-            kinds.get('thermodynamic_pressure'),
+        potential = kinds.get('electric_potential')
+        emf = kinds.get('electromotive_force')
+
+        total = Number(1, units.volt, kind=potential) + Number(1, units.volt, kind=emf)
+        assert total.kind.name == 'voltage'
+
+        with pytest.raises(KindClaimRefused):
+            Number(1, units.volt, kind=potential).to(units.volt, kind='electromotive_force')
+
+    def test_a_refusing_ancestor_still_refuses_the_weakening(self, kinds):
+        """``energy`` declines to stand for ``torque`` -- the cluster-5 case.
+
+        Weakening is admitted only where the ancestor's policy permits
+        generalizing across its children. ``energy.join_policy`` is
+        ``refuse``, so it does not.
+        """
+        with pytest.raises(KindClaimRefused):
+            Number(1, parse_unit('N*m'), kind=kinds.get('torque')).to(
+                units.joule, kind='energy'
+            )
+
+    def test_weakening_to_a_permitting_ancestor_admits(self, kinds):
+        """``electric_potential`` may be reported as the generic ``voltage``.
+
+        Deliberate forgetting: a weaker claim the value does support.
+        """
+        result = Number(1, units.volt, kind=kinds.get('electric_potential')).to(
+            units.volt, kind='voltage'
         )
-        with pytest.raises(JoinRefused):
-            Number(1, mpa, kind=stress) + Number(1, mpa, kind=pressure)
-        with pytest.raises(JoinRefused):
-            Number(1, mpa, kind=stress).to(mpa, kind='thermodynamic_pressure')
+        assert result.kind.name == 'voltage'
+
+    def test_strengthening_refuses(self, kinds):
+        """A generic value may not be claimed as a particular.
+
+        ``1 V`` carrying only ``voltage`` is not an electromotive force, and
+        nothing measured which. Gating on join admitted this, because the lift
+        of an ancestor with its own descendant is the descendant.
+        """
+        with pytest.raises(KindClaimRefused):
+            Number(1, units.volt, kind=kinds.get('voltage')).to(
+                units.volt, kind='electromotive_force'
+            )
+
+    def test_sibling_swap_refuses_under_a_permitting_root(self, kinds):
+        """The other hole gating on join left open, in both directions.
+
+        ``molar_entropy`` is the second ``LCA``-rooted family in the catalog.
+        """
+        jmol = parse_unit('J/(mol*K)')
+        quantity = kinds.get('molar_entropy_quantity')
+        capacity = kinds.get('molar_heat_capacity')
+        with pytest.raises(KindClaimRefused):
+            Number(1, jmol, kind=quantity).to(jmol, kind='molar_heat_capacity')
+        with pytest.raises(KindClaimRefused):
+            Number(1, jmol, kind=capacity).to(jmol, kind='molar_entropy_quantity')

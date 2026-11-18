@@ -161,6 +161,54 @@ class KindArrivalRefused(Exception):
         )
 
 
+class KindClaimRefused(Exception):
+    """A conversion's claimed result kind is not supported by the value.
+
+    Raised by :meth:`ucon.Number.to` when the caller passes ``kind=`` and the
+    claim is not *implied* by the kind the Number already carries. A claim may
+    restate what is held, or weaken it to an ancestor whose ``join_policy``
+    permits generalizing across that ancestor's children. It may not do either
+    of the other two things:
+
+    - **Strengthen.** A volt carrying the generic ``voltage`` claimed as
+      ``electromotive_force`` asserts a specificity nothing measured. The
+      generic does not imply the particular.
+    - **Swap siblings.** A dynamic pressure reported as a static pressure, or
+      an ``electric_potential`` relabelled ``electromotive_force``. Neither
+      implies the other, whatever their parent's join policy says about
+      *adding* them — ``static + dynamic`` is a legitimate total pressure while
+      calling one the other is not.
+
+    The distinction this draws is between combining and asserting. ``+`` asks
+    what two kinds yield together and lifts to their ancestor under its policy.
+    A claim asks whether the value supports an assertion, which the lift does
+    not answer: a family may be freely summable and still have members that are
+    not interchangeable.
+
+    Attributes
+    ----------
+    current : Kind
+        The kind the Number carries.
+    claimed : Kind
+        The kind the caller claimed the result is.
+    unit : Unit | UnitProduct
+        The target unit.
+    """
+
+    def __init__(self, *, current: 'Kind', claimed: 'Kind', unit: 'Unit | UnitProduct') -> None:
+        self.current = current
+        self.claimed = claimed
+        self.unit = unit
+        unit_name = getattr(unit, "name", None) or repr(unit)
+        super().__init__(
+            f"Cannot claim {claimed.name!r} for a value carrying {current.name!r} "
+            f"on conversion to {unit_name!r}: the claim is not implied by the "
+            f"current kind. A claim may restate the current kind, or weaken it "
+            f"to an ancestor that permits generalizing; it may not strengthen "
+            f"the current kind or exchange it for a sibling."
+        )
+
+
 class KindDimensionMismatch(Exception):
     """Kind's dimension does not match the Number's unit dimension.
 
