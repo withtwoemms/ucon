@@ -15,6 +15,7 @@ from ucon.core._parsing_graph import _get_parsing_graph, _parsing_graph
 from ucon.core.exceptions import (
     DimensionNotCovered,
     KindArrivalRefused,
+    KindClaimRefused,
     KindDimensionMismatch,
     KindMismatch,
     NonScalableError,
@@ -53,6 +54,7 @@ __all__ = [
     'Exponent',
     'KindConstraint',
     'KindArrivalRefused',
+    'KindClaimRefused',
     'KindDimensionMismatch',
     'KindMismatch',
     'NonScalableError',

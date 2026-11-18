@@ -46,6 +46,7 @@ from ucon.basis import Basis, BasisGraph
 from ucon.core._parsing_graph import _parsing_graph
 from ucon.core.exceptions import (
     KindArrivalRefused,
+    KindClaimRefused,
     KindDimensionMismatch,
     KindMismatch,
     ScalarArithmeticRefused,
@@ -55,7 +56,7 @@ from ucon.core.exceptions import (
 from ucon.formulas.exceptions import FormulaNotFound
 from ucon.kinds.exceptions import DisjointKinds, JoinRefused, KindNotFound
 from ucon.dimension import Dimension, NONE
-from ucon.kinds.types import Kind
+from ucon.kinds.types import JoinPolicy, Kind
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -2196,11 +2197,19 @@ class Number:
             the arrival rule to resolve the kind, which is the behaviour of
             every call that does not pass it.
 
-            When given, the claim is checked against the current kind using the
-            same lattice join that ``+`` applies, and a claim the lattice
-            refuses to join raises — ``JoinRefused`` or ``DisjointKinds``,
-            propagated so the reason travels with it. A compatible claim stands
-            as the result's kind.
+            When given, the claim is admitted only if it is *implied* by the
+            kind already carried: it restates that kind, or weakens it to an
+            ancestor whose ``join_policy`` permits generalizing across that
+            ancestor's children. Strengthening a kind, or exchanging it for a
+            sibling, raises ``KindClaimRefused``. An admitted claim stands as
+            the result's kind.
+
+            This is deliberately **not** the join ``+`` applies. Join answers
+            what two kinds yield together and lifts to their ancestor; a claim
+            asks whether the value supports an assertion, which the lift does
+            not answer. A family can be freely summable and still have members
+            that are not interchangeable — static and dynamic pressure sum to a
+            total pressure, and neither may be reported as the other.
 
             The point is that some errors live in the claim rather than in the
             units. ``100 MPa`` of tensile stress reported as a hydrostatic
@@ -2432,12 +2441,33 @@ class Number:
                 # Cannot classify the claim; stay best-effort, matching
                 # attachment at construction.
                 return claimed
-            # The one gate, shared with ``+``: a claim that the lattice
-            # refuses to join is a claim the value does not support.
-            # ``join`` raises ``JoinRefused``/``DisjointKinds``, which carry
-            # the reason (which parent refused, or that the roots are
-            # distinct) and so are propagated rather than rewrapped.
-            lattice.join(self.kind, claimed)
+            # A claim is admitted when it is *implied* by what is held: the
+            # claim restates the current kind, or weakens it to an ancestor
+            # whose policy permits generalizing across that ancestor's
+            # children.
+            #
+            # This is deliberately **not** the join ``+`` applies. Join answers
+            # "what do these two yield together" and lifts to their ancestor
+            # under its policy; a claim asks "does the value support this
+            # assertion", which the lift does not answer. A family can be
+            # freely summable and still have members that are not
+            # interchangeable -- static and dynamic pressure sum to a total
+            # pressure, and neither may be reported as the other. Gating on
+            # join admitted both a sibling swap and a strengthening claim
+            # wherever a root carried ``JoinPolicy.LCA``.
+            if not lattice.is_descendant(self.kind, claimed):
+                # Not an ancestor: a sibling, a strengthening, or a disjoint
+                # root. None is implied by the current kind.
+                raise KindClaimRefused(
+                    current=self.kind, claimed=claimed, unit=target_unit
+                )
+            if claimed.join_policy is not JoinPolicy.LCA:
+                # Weakening, but the ancestor declines to stand for its
+                # children -- ``energy`` refusing to absorb ``torque`` is the
+                # catalog saying the generalization is not sound.
+                raise KindClaimRefused(
+                    current=self.kind, claimed=claimed, unit=target_unit
+                )
             return claimed
 
         declared = getattr(target_unit, "default_kind", None)
