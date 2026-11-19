@@ -88,6 +88,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only under `UCON_NO_CACHE=1` — latent until this release, since no aspects were
   declared. Encode, decode and a parent-first builder now mirror the kinds pass.
 
+- **The surface power density kinds: `irradiance`, `radiative_forcing` and
+  `heat_flux` (#344).** Three ISO 80000-7 / IPCC quantities share `W/m²`, and
+  UnitSafe names the confusion directly — *"equate radiative forcing with heat
+  flux as physically identical quantities"* and *"report solar irradiance as
+  radiative forcing"*. Disjoint siblings under a refusing
+  `surface_power_density` root, the idiom the power, pressure and frequency
+  clusters already use, so a crossing refuses while every same-kind conversion
+  in the cluster still admits. Nothing attaches them: `W/m²` is a `UnitProduct`
+  and the unit genuinely does not say which quantity it carries, so the caller
+  states it with `Number.to(..., kind=)`.
+
+  This is the first kind in the catalog whose dimension is declared as an
+  **expression** (`"mass/time^3"`) rather than a registered name, since `W/m²`
+  reduces to M·T⁻³ and SI does not name it.
+
+### Fixed
+
+- **A kind on an unnamed derived dimension no longer breaks the TOML
+  round-trip.** `Dimension` renders a vector with no registered name as
+  `derived(mass/time^3)`, which is a *rendering*, not an identifier —
+  `parse_dimension` rejects it with *"Unknown dimension identifier 'derived'"*.
+  Both `_serialize_kind` and `_dimension_to_expression` treated it as a name and
+  emitted it verbatim, so any such kind failed to reload. The expression is now
+  rebuilt from the vector (`M/T^3`) whenever the name is a `derived(...)`
+  rendering. Latent until now, because no kind was declared on an unnamed
+  dimension.
+
 ### Documentation
 
 - **A regression suite pinning the deferred behaviours**

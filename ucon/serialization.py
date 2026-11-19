@@ -417,11 +417,7 @@ def _serialize_constant(const: Constant) -> dict:
 def _serialize_kind(kind: Kind) -> dict:
     """Serialize a Kind to TOML dict."""
     d: dict = {"name": kind.name}
-    d["dimension"] = (
-        kind.dimension.name
-        if kind.dimension.name
-        else _dimension_to_expression(kind.dimension)
-    )
+    d["dimension"] = _dimension_to_expression(kind.dimension)
     if kind.parent is not None:
         d["parent"] = kind.parent.name
     if kind.join_policy != JoinPolicy.LCA:
@@ -481,8 +477,15 @@ def _collect_aspects(graph, explicit_aspects: 'AspectForest | None') -> list[dic
 
 
 def _dimension_to_expression(dim: Dimension) -> str:
-    """Convert an unnamed Dimension to a parseable string expression."""
-    if dim.name:
+    """Convert a Dimension to a parseable string expression.
+
+    A ``derived(...)`` name is a *rendering*, not an identifier: it is what
+    ``Dimension`` prints for a vector with no registered name, and
+    ``parse_dimension`` cannot read it back ("Unknown dimension identifier
+    'derived'"). So it does not short-circuit here -- only a real registered
+    name does, and anything else is rebuilt from the vector.
+    """
+    if dim.name and not dim.name.startswith("derived("):
         return dim.name
     # Build from vector: e.g. "M*L^2/T^2"
     parts_num: list[str] = []
