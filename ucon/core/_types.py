@@ -39,7 +39,11 @@ else:
     from typing_extensions import Annotated  # type: ignore[assignment]
 
 from ucon._active import _active as _sys_active_var
-from ucon.aspects.exceptions import AspectNotApplicable, AspectRefused
+from ucon.aspects.exceptions import (
+    AspectClaimRefused,
+    AspectNotApplicable,
+    AspectRefused,
+)
 from ucon.aspects.resolution import resolve_add_aspects, resolve_mul_aspects
 from ucon.aspects.types import Aspect
 from ucon.basis import Basis, BasisGraph
@@ -2171,6 +2175,7 @@ class Number:
         *,
         system: "UnitSystem | None" = None,
         kind: "Kind | str | None" = None,
+        aspect=None,
     ):
         """Convert this Number to a different unit expression.
 
@@ -2222,6 +2227,24 @@ class Number:
             given rather than joined: the conversion moved the quantity across
             fibers, so there is no relabel within one fiber to police. An
             unresolvable name raises ``KindNotFound``.
+        aspect : Aspect, str, or iterable of either, optional
+            The aspect(s) the caller claims the result carries. Default
+            ``None`` carries the current aspects through unchanged.
+
+            Admitted by the same rule as ``kind=``, resolved **family-wise**: a
+            claim must restate the aspect carried in its family, or weaken it
+            to an ancestor whose ``join_policy`` permits generalizing.
+            Strengthening or swapping siblings raises ``AspectClaimRefused``; a
+            claim in one family leaves the others untouched.
+
+            Aspects are where combining and asserting come apart most visibly.
+            ``pressure_role`` carries ``JoinPolicy.LCA`` so that
+            ``static + dynamic`` sums to the family root — a total pressure,
+            role unspecified, which is what Bernoulli's ``P0 = P + ½ρV²``
+            produces. The join therefore *admits* that pair, while reporting
+            one as the other must refuse. One family declaration serves both,
+            because addition consults the policy and a claim consults
+            implication.
 
         Returns
         -------
@@ -2302,7 +2325,7 @@ class Number:
                 if new_unc == 0.0:
                     new_unc = None
             return Number(quantity=converted, unit=target, uncertainty=new_unc,
-                          kind=self._arrival_kind(target, license=_license, claim=kind))._carry(self.aspects)
+                          kind=self._arrival_kind(target, license=_license, claim=kind))._carry(self._claimed_aspects(aspect, target, graph))
 
         # --- General path: wrap into UnitProducts ---
         src = self.unit if isinstance(self.unit, UnitProduct) else UnitProduct.from_unit(self.unit)
@@ -2317,7 +2340,7 @@ class Number:
                 new_uncertainty = self.uncertainty * abs(factor)
             return Number(quantity=self.quantity * factor, unit=target,
                           uncertainty=new_uncertainty,
-                          kind=self._arrival_kind(target, license=_license, claim=kind))._carry(self.aspects)
+                          kind=self._arrival_kind(target, license=_license, claim=kind))._carry(self._claimed_aspects(aspect, target, graph))
 
         # Pass raw Units to graph.convert() when possible, so the graph
         # can use _convert_units() which handles cross-basis via rebased units.
@@ -2371,7 +2394,7 @@ class Number:
 
         return Number(quantity=converted_quantity, unit=target,
                       uncertainty=new_uncertainty,
-                      kind=self._arrival_kind(target, license=_license, claim=kind))._carry(self.aspects)
+                      kind=self._arrival_kind(target, license=_license, claim=kind))._carry(self._claimed_aspects(aspect, target, graph))
 
     def _arrival_kind(
         self,
@@ -2519,6 +2542,79 @@ class Number:
         if needs_license and license is None:
             raise KindArrivalRefused(current=self.kind, arrival=arrival, unit=target_unit)
         return arrival
+
+    def _claimed_aspects(self, claim, target_unit, graph) -> 'FrozenSet[Aspect]':
+        """The aspects a conversion should carry, given an optional claim.
+
+        ``claim`` is ``None`` for every call that does not pass ``aspect=``,
+        and the aspects ride through unchanged — the behaviour since the
+        stratum shipped.
+
+        A claim is admitted by the same rule as a claimed kind: it must be
+        *implied* by what is carried in that aspect's family, meaning it
+        restates it or weakens it to an ancestor whose ``join_policy`` permits
+        generalizing. Resolution is family-wise, so a claim in one family
+        leaves the others alone.
+
+        The gate is deliberately not the family join. ``pressure_role``
+        carries ``JoinPolicy.LCA`` so that ``static + dynamic`` resolves to the
+        root, which is what a total pressure is; the join therefore *admits*
+        that pair, while reporting one as the other must refuse. Combining and
+        asserting are different questions.
+        """
+        if claim is None:
+            return self.aspects
+
+        forest = getattr(graph, '_aspect_forest', None)
+        claims = [claim] if isinstance(claim, (str, Aspect)) else list(claim)
+
+        resolved = []
+        for c in claims:
+            if isinstance(c, Aspect):
+                resolved.append(c)
+                continue
+            if forest is None:
+                raise AspectNotApplicable(
+                    f"Cannot resolve aspect name {c!r}: no aspect forest is "
+                    f"loaded on the conversion graph."
+                )
+            # ``AspectForest.get`` raises ``AspectError`` for an unknown
+            # name, carrying the name it could not resolve; propagated rather
+            # than rewrapped.
+            resolved.append(forest.get(c))
+
+        def root_of(a):
+            while a.parent is not None:
+                a = a.parent
+            return a
+
+        def ancestors_of(a):
+            out, cur = [], a.parent
+            while cur is not None:
+                out.append(cur)
+                cur = cur.parent
+            return out
+
+        held_by_family = {root_of(a).name: a for a in self.aspects}
+        result = set(self.aspects)
+        for claimed in resolved:
+            family = root_of(claimed).name
+            held = held_by_family.get(family)
+            if held is None:
+                # Nothing carried in this family; the caller is supplying what
+                # they know rather than contradicting anything.
+                result.add(claimed)
+                continue
+            if held == claimed:
+                continue
+            if claimed not in ancestors_of(held) or \
+                    claimed.join_policy is not JoinPolicy.LCA:
+                raise AspectClaimRefused(
+                    current=held, claimed=claimed, unit=target_unit
+                )
+            result.discard(held)
+            result.add(claimed)
+        return frozenset(result)
 
     def _is_scale_only_conversion(self, src: UnitProduct, dst: UnitProduct) -> bool:
         """Check if conversion is just a scale change (same base units)."""

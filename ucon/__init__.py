@@ -112,6 +112,7 @@ from ucon.formulas import FormulaRegistry
 from ucon.aspects import (
     Aspect,
     AspectError,
+    AspectClaimRefused,
     AspectNotApplicable,
     AspectRefused,
 )
@@ -198,6 +199,7 @@ __all__ = [
     'InvalidRename',
     'Aspect',
     'AspectError',
+    'AspectClaimRefused',
     'AspectNotApplicable',
     'AspectRefused',
     'Kind',

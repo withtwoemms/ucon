@@ -61,6 +61,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `lca` reports `DisjointKinds` against the pressure family. `J/m³` carries no
   `default_kind` deliberately, for the reason above.
 
+- **`Number.to(..., aspect=)`, and the first aspect families in the catalog
+  (#343).** Closes the last two must-fails of UnitSafe's pressure cluster —
+  *"report dynamic pressure as static pressure"* and *"equate atmospheric with
+  lithostatic pressure"* — taking it to 6 of 6. Both convert a unit to itself
+  **and** carry the same kind on both sides, so neither a unit nor a kind could
+  reach them: what differs is an adjective.
+
+  `pressure_role` (`static_pressure`, `dynamic_pressure`) and `pressure_origin`
+  (`atmospheric_pressure`, `lithostatic_pressure`, `hydrostatic_pressure`) are
+  declared on `join_policy = "lca"` with `applies_to` naming the pressure kinds,
+  so a quantity with no kind cannot carry them. They are **not** kinds, and the
+  reason is a must-pass row: `P0 = P + ½ρV²` is static plus dynamic, kinds refuse
+  addition across disjoint members, so kind-ifying these would make Bernoulli's
+  equation refuse. As aspects the sum lifts to the family root — a total
+  pressure, role unspecified — while the relabel still refuses, because a claim
+  is gated on implication rather than on the join (#376). One declaration serves
+  both operations.
+
+  Claims resolve family-wise, so a value may carry a role and an origin at once
+  and a claim about one leaves the other alone. Unknown names propagate the
+  forest's own `AspectError`.
+
+- **The graph cache now carries the aspect forest.** `ucon/_cache.py` serialized
+  the kind lattice and silently dropped aspects, so a declared forest existed
+  only under `UCON_NO_CACHE=1` — latent until this release, since no aspects were
+  declared. Encode, decode and a parent-first builder now mirror the kinds pass.
+
 ### Documentation
 
 - **A regression suite pinning the deferred behaviours**

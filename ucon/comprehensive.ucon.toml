@@ -5344,3 +5344,61 @@ notes = "H = D * w_R (ICRP 103). Radiation weighting converts absorbed dose (gra
   [formulas.inputs]
   D   = { kind = "absorbed_dose" }
   w_R = { kind = "radiation_weighting_factor" }
+
+# =============================================================================
+# Aspects
+# =============================================================================
+# The first aspect families in the catalog. Both exist because a pressure can
+# be qualified in ways that are *not* different quantities -- the distinction
+# ``cluster_7`` needs for its last two must-fails (#343).
+#
+# Why these are aspects and not kinds: UnitSafe's stagnation-pressure row,
+# ``P0 = P + 1/2*rho*V^2``, is a must-PASS. That is static plus dynamic. Kinds
+# refuse addition across disjoint members, so declaring these as kinds would
+# make Bernoulli's equation refuse. Aspects are adjectives -- they say
+# something further about a quantity without changing what it *is* -- and a
+# family on ``join_policy = "lca"`` sums to its root, which is exactly what a
+# total pressure is: some pressure, role unspecified.
+#
+# The relabel still refuses, because a *claim* is gated on implication rather
+# than on the join (#376): a sibling claim is refused whatever the root's join
+# policy says about adding. One declaration therefore serves both operations.
+#
+# ``applies_to`` names the pressure kinds only. A quantity with no kind cannot
+# carry these (``AspectNotApplicable``), which is deliberate: the caller
+# stating a role must also state what it is a role *of*.
+
+[[aspects]]
+name = "pressure_role"
+applies_to = ["pressure", "thermodynamic_pressure"]
+join_policy = "lca"
+multiplication_policy = "carry"
+
+[[aspects]]
+name = "static_pressure"
+parent = "pressure_role"
+
+[[aspects]]
+name = "dynamic_pressure"
+parent = "pressure_role"
+
+# Independent of the role: which column of material produced the pressure.
+# Separate family, so a quantity may carry one from each and they resolve
+# family-wise.
+[[aspects]]
+name = "pressure_origin"
+applies_to = ["pressure", "thermodynamic_pressure"]
+join_policy = "lca"
+multiplication_policy = "carry"
+
+[[aspects]]
+name = "atmospheric_pressure"
+parent = "pressure_origin"
+
+[[aspects]]
+name = "lithostatic_pressure"
+parent = "pressure_origin"
+
+[[aspects]]
+name = "hydrostatic_pressure"
+parent = "pressure_origin"

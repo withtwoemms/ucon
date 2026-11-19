@@ -47,6 +47,10 @@ _HEADER_FMT = "!4sHBBB3s"
 _HEADER_SIZE = struct.calcsize(_HEADER_FMT)
 
 
+from ucon.aspects.forest import AspectForest
+from ucon.aspects.types import Aspect, MultPolicy
+from ucon.kinds.types import JoinPolicy
+
 def _env_disabled() -> bool:
     return os.environ.get("UCON_NO_CACHE", "").strip() in ("1", "true", "yes")
 
@@ -355,6 +359,22 @@ def _to_primitives(graph: "Graph") -> dict:
                 "p": kind.parent.name if kind.parent else None,
                 "jp": kind.join_policy.value,
                 "a": kind.aliases,
+            }
+
+    # --- Pass 5a: Aspects ---
+    # Mirrors the Kinds pass. Without this the forest is silently dropped on
+    # every cache hit, which is the default path -- declared aspects would
+    # exist only under ``UCON_NO_CACHE=1``.
+    aspect_forest = getattr(graph, "_aspect_forest", None)
+    if aspect_forest is not None:
+        for aspect in aspect_forest:
+            out[f"a:{aspect.name}"] = {
+                "_t": "A",
+                "n": aspect.name,
+                "p": aspect.parent.name if aspect.parent else None,
+                "jp": aspect.join_policy.value,
+                "at": sorted(aspect.applies_to),
+                "mp": aspect.multiplication_policy.value,
             }
 
     # --- Pass 5b: Formulas ---
@@ -729,6 +749,16 @@ def _from_primitives(raw: dict) -> "Graph":
         kind_lattice = KindLattice(kind_obj_map.values())
         graph._kind_lattice = kind_lattice
 
+    # --- Pass 7a: Aspects ---
+    aspect_data_map: dict[str, dict] = {}
+    for key, val in raw.items():
+        if key.startswith("a:") and val.get("_t") == "A":
+            aspect_data_map[val["n"]] = val
+    if aspect_data_map:
+        aspect_obj_map: dict[str, "Aspect"] = {}
+        _build_aspects_recursive(aspect_data_map, aspect_obj_map)
+        graph._aspect_forest = AspectForest(aspect_obj_map.values())
+
     # --- Pass 7b: Formulas ---
     formula_data: list[dict] = []
     for key, val in raw.items():
@@ -873,6 +903,35 @@ def _from_primitives(raw: dict) -> "Graph":
         graph._contexts[val["n"]] = ctx
 
     return graph
+
+
+def _build_aspects_recursive(
+    data_map: dict[str, dict],
+    obj_map: dict[str, "Aspect"],
+) -> None:
+    """Build Aspect objects in parent-first order.
+
+    The peer of :func:`_build_kinds_recursive`. Aspects carry no dimension, so
+    there is no dim_map; ``applies_to`` and ``multiplication_policy`` are
+    root-only and round-trip as declared.
+    """
+    def _build(name: str) -> "Aspect":
+        if name in obj_map:
+            return obj_map[name]
+        val = data_map[name]
+        parent = _build(val["p"]) if val["p"] is not None else None
+        aspect = Aspect(
+            name=val["n"],
+            parent=parent,
+            join_policy=JoinPolicy(val["jp"]),
+            applies_to=frozenset(val.get("at") or ()),
+            multiplication_policy=MultPolicy(val["mp"]),
+        )
+        obj_map[name] = aspect
+        return aspect
+
+    for aspect_name in data_map:
+        _build(aspect_name)
 
 
 def _build_kinds_recursive(

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "AspectClaimRefused",
     "AspectError",
     "AspectRefused",
     "AspectNotApplicable",
@@ -71,6 +72,48 @@ class AspectRefused(AspectError):
                 f"(family '{family.name}') and the other is silent"
             )
         super().__init__(f"Aspect refusal: {detail}")
+
+
+class AspectClaimRefused(AspectError):
+    """A conversion's claimed aspect is not supported by the value.
+
+    The aspect peer of
+    :class:`~ucon.core.exceptions.KindClaimRefused`, and admitted by the same
+    rule: a claim may restate the aspect already carried in that family, or
+    weaken it to an ancestor whose ``join_policy`` permits generalizing across
+    that ancestor's children. It may not strengthen, nor exchange one sibling
+    for another.
+
+    This is the stratum where the distinction between combining and asserting
+    bites hardest. ``pressure_role`` carries ``JoinPolicy.LCA`` precisely so
+    that ``static + dynamic`` resolves to the family root — a total pressure,
+    role unspecified, which is what Bernoulli's ``P0 = P + ½ρV²`` produces.
+    Reporting a dynamic pressure *as* a static pressure is a different act, and
+    refusing it is not in tension with summing them: one asks what two
+    quantities make together, the other whether a value supports an assertion.
+
+    Attributes
+    ----------
+    current : Aspect
+        The aspect carried in the claimed aspect's family.
+    claimed : Aspect
+        The aspect the caller claimed.
+    unit : Unit | UnitProduct
+        The target unit.
+    """
+
+    def __init__(self, *, current, claimed, unit) -> None:
+        self.current = current
+        self.claimed = claimed
+        self.unit = unit
+        unit_name = getattr(unit, "name", None) or repr(unit)
+        super().__init__(
+            f"Cannot claim aspect {claimed.name!r} for a value carrying "
+            f"{current.name!r} on conversion to {unit_name!r}: the claim is not "
+            f"implied by the aspect already carried. A claim may restate it, or "
+            f"weaken it to an ancestor that permits generalizing; it may not "
+            f"strengthen it or exchange it for a sibling."
+        )
 
 
 class AspectNotApplicable(AspectError):
