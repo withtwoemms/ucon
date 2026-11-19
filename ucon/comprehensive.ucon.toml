@@ -5383,6 +5383,66 @@ name = "heat_flux"
 dimension = "mass/time^3"
 parent = "surface_power_density"
 
+# --- Cluster 12: Volumetric flow rate  (L^3/T) ---
+# A clearance and a blood flow share mL/min and are not the same quantity. A
+# clearance is a derived proportionality -- the volume of plasma cleared of
+# drug per unit time -- while a blood flow is an actual volume moved. UnitSafe:
+# "equate renal clearance (120 mL/min) with hepatic blood flow (1.5 L/min) as
+# the same quantity".
+#
+# They do not sum: total body clearance is the sum of *clearances* by route,
+# never of a clearance and a flow, so these are kinds rather than aspects.
+#
+# Every clearance must-pass row in the benchmark is a same-kind unit conversion
+# (hepatic 1.5 L/min to mL/min, renal 120 mL/min to L/h, creatinine 1.8 mL/s to
+# mL/min), which stays admitted; only the crossing refuses.
+#
+# Deliberately *not* declared here: ``gfr`` as a sibling of ``clearance``. The
+# benchmark keys its GFR must-pass rows as ``clearance``, so splitting them
+# would refuse a claim the dataset makes -- that pair needs the harness
+# question settled first.
+[[kinds]]
+name = "volumetric_flow_rate"
+dimension = "L^3/T"
+join_policy = "refuse"
+
+[[kinds]]
+name = "clearance"
+dimension = "L^3/T"
+parent = "volumetric_flow_rate"
+
+[[kinds]]
+name = "blood_flow"
+dimension = "L^3/T"
+parent = "volumetric_flow_rate"
+
+# --- Cluster 13: Length-valued quantities  (L) ---
+# Pump head is energy per unit weight, which reduces to a length and is
+# conventionally reported in metres. It is not a distance. UnitSafe: "equate 10
+# meters of pump head directly with 10 meters of pipe length".
+#
+# Head and distance do not sum, so again kinds. ``distance`` is the generic
+# member rather than a bare ``length`` to keep the kind name distinct from the
+# dimension of the same name.
+#
+# Nothing attaches these: ``meter`` carries no ``default_kind`` and must not,
+# since the overwhelming majority of lengths are plain distances and tagging
+# the unit would force a claim on every one of them.
+[[kinds]]
+name = "length_quantity"
+dimension = "length"
+join_policy = "refuse"
+
+[[kinds]]
+name = "distance"
+dimension = "length"
+parent = "length_quantity"
+
+[[kinds]]
+name = "hydraulic_head"
+dimension = "length"
+parent = "length_quantity"
+
 # =============================================================================
 # Aspects
 # =============================================================================
