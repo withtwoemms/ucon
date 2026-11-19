@@ -34,7 +34,7 @@ class TestBuiltinKindsLoaded:
     """Verify the lattice boots with the expected 29 kinds."""
 
     def test_lattice_count(self, lattice: KindLattice) -> None:
-        assert len(lattice) == 40  # + angle (#348), energy_density (#343), surface power density / flow / length (#344)
+        assert len(lattice) == 42  # + angle (#348), energy_density (#343), the #344 clusters
 
     def test_all_root_kinds_present(self, lattice: KindLattice) -> None:
         roots = ["energy", "frequency", "specific_energy", "voltage",
