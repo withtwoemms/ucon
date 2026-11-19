@@ -5345,6 +5345,44 @@ notes = "H = D * w_R (ICRP 103). Radiation weighting converts absorbed dose (gra
   D   = { kind = "absorbed_dose" }
   w_R = { kind = "radiation_weighting_factor" }
 
+# --- Cluster 11: Surface power density  (M*T^-3) ---
+# Three ISO 80000-7 / IPCC quantities share W/m^2 and are not interchangeable.
+# The benchmark names the error directly: "equate radiative forcing with heat
+# flux as physically identical quantities", and "report solar irradiance as
+# radiative forcing".
+#
+# Disjoint siblings under a refusing root, which is the idiom the power,
+# pressure and frequency clusters already use. Same-kind conversions still
+# admit -- every must-pass row here is one (irradiance to mW/cm^2, forcing to
+# mW/m^2, heat flux to BTU/(h*ft^2)) -- while a crossing refuses.
+#
+# The dimension is spelled as an expression rather than a registered name:
+# W/m^2 reduces to M*T^-3, which has no SI name.
+#
+# Nothing attaches these. ``W/m^2`` is a ``UnitProduct`` and carries no
+# ``default_kind``, so the caller states which quantity is meant via
+# ``Number.to(..., kind=)`` (#373). That is the right carrier here: the unit
+# genuinely does not say whether a given W/m^2 is a forcing or a flux.
+[[kinds]]
+name = "surface_power_density"
+dimension = "mass/time^3"
+join_policy = "refuse"
+
+[[kinds]]
+name = "irradiance"
+dimension = "mass/time^3"
+parent = "surface_power_density"
+
+[[kinds]]
+name = "radiative_forcing"
+dimension = "mass/time^3"
+parent = "surface_power_density"
+
+[[kinds]]
+name = "heat_flux"
+dimension = "mass/time^3"
+parent = "surface_power_density"
+
 # =============================================================================
 # Aspects
 # =============================================================================
