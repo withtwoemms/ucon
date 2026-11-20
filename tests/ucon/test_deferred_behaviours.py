@@ -279,8 +279,18 @@ class TestExponentiationDropsTheKind:
         answer with. A normal-form `DerivedKind` and "a `**` dispatch
         row" are v3.2.0 (ADR 013 §4).
 
-        Fixed in: v2.3.1 (ROADMAP, *Unity and the dimensionless fold*:
-        "`**` never yields an unkinded result").
+        Fixed in: v3.2.0. The ROADMAP claimed v2.3.1, three minor
+        releases ahead of the prerequisite named just above; corrected
+        2026-11-20 to sit beside the `**` dispatch row.
+
+        Why it matters, since `kind is None` reads as harmless: `**`
+        launders the kind stratum. `Gy[absorbed_dose] + Sv[dose_equivalent]`
+        raises `JoinRefused`, while `(Gy)**2 + (Sv)**2` answers
+        `<13.0 Gy²>` — squaring two incommensurable quantities makes them
+        addable. And `None` is a false claim rather than a missing one:
+        `Gy²` has a kind, it has no registered *name*, exactly as `m × m`
+        is `derived(length^2)` and ADR 013 calls that "unnamed, not
+        wrong".
         """
         dose = active().kinds.get('absorbed_dose')
         kinded = Number(1, units.gray, kind=dose)
