@@ -82,7 +82,9 @@ class CollidingFormula(FormulaError):
     succeeds.
 
     ``signature`` carries the contested input-kind tuple; ``existing``
-    and ``incoming`` carry the two formulas.
+    and ``incoming`` carry the two formulas; ``operation`` is the symbol
+    of the operation they contest, since a product and a quotient over
+    one input tuple are *different* signatures and do not collide.
     """
 
     def __init__(
@@ -90,11 +92,13 @@ class CollidingFormula(FormulaError):
         existing: "KindFormula",
         incoming: "KindFormula",
         signature: tuple["Kind", ...],
+        operation: str = "×",
     ) -> None:
         self.existing = existing
         self.incoming = incoming
         self.signature = signature
-        rendered = " × ".join(kind.name for kind in signature)
+        self.operation = operation
+        rendered = f" {operation} ".join(kind.name for kind in signature)
         super().__init__(
             f"Formula {incoming.name!r} claims input signature "
             f"({rendered}), already claimed by {existing.name!r}, with a "

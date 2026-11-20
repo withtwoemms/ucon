@@ -19,6 +19,7 @@ Schema
     notes = "..."                # optional
     generalizes = false          # optional, default false
     commutative = true           # optional, default true
+    operation = "*"              # optional, "*" (default) or "/"
       [formulas.inputs]
       D   = { kind = "absorbed_dose" }
       w_R = { kind = "radiation_weighting_factor" }
@@ -36,6 +37,7 @@ else:
     import tomli as tomllib
 
 from ucon.formulas import FormulaRegistry, KindFormula
+from ucon.formulas.types import Operation
 from ucon.kinds import KindLattice
 
 
@@ -111,6 +113,7 @@ def parse_formulas_payload(
                 output_kind=output_kind,
                 generalizes=bool(raw.get("generalizes", False)),
                 commutative=bool(raw.get("commutative", True)),
+                operation=Operation(str(raw.get("operation", "*"))),
                 notes=str(raw.get("notes", "")),
             )
         )

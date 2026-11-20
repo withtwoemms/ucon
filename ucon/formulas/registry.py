@@ -39,7 +39,12 @@ from ucon.formulas.exceptions import (
     DuplicateFormula,
     FormulaNotFound,
 )
-from ucon.formulas.types import KindFormula, LookupResult, MatchKind
+from ucon.formulas.types import (
+    KindFormula,
+    LookupResult,
+    MatchKind,
+    Operation,
+)
 from ucon.kinds import Kind, KindNotFound
 
 
@@ -145,14 +150,17 @@ class FormulaRegistry:
             raise DuplicateFormula(formula.name)
 
         key = formula.input_kind_tuple()
+        op = formula.operation.value
         # Every signature this formula claims in the kind-identity
         # indexes: the declared order, plus the arity-2 commutative
-        # mirror.
-        claims: list[tuple[Kind, ...]] = [key]
+        # mirror. Each is prefixed with the operation, so a product and
+        # a quotient over the same inputs are distinct signatures and
+        # neither answers the other's lookup (#381).
+        claims: list[tuple[object, ...]] = [(op, *key)]
         if formula.commutative and len(key) == 2 and key[0] != key[1]:
-            claims.append((key[1], key[0]))
+            claims.append((op, key[1], key[0]))
         canonical = (
-            tuple(sorted(key, key=lambda k: k.name)) if formula.commutative else None
+            (op, *sorted(key, key=lambda k: k.name)) if formula.commutative else None
         )
 
         # Refuse before touching any index, so a refused registration
@@ -160,11 +168,11 @@ class FormulaRegistry:
         for claim in claims:
             claimant = self._by_inputs.get(claim)
             if claimant is not None and claimant.output_kind != formula.output_kind:
-                raise CollidingFormula(claimant, formula, claim)
+                raise CollidingFormula(claimant, formula, claim[1:], op)
         if canonical is not None:
             claimant = self._by_inputs_canonical.get(canonical)
             if claimant is not None and claimant.output_kind != formula.output_kind:
-                raise CollidingFormula(claimant, formula, canonical)
+                raise CollidingFormula(claimant, formula, canonical[1:], op)
 
         self._by_name[formula.name] = formula
 
@@ -179,10 +187,10 @@ class FormulaRegistry:
 
         # Dimension-tuple indexes for dimensional fallback. Unguarded by
         # design; see above.
-        dim_key = tuple(k.dimension for k in key)
+        dim_key = (op, *(k.dimension for k in key))
         self._by_dimensions.setdefault(dim_key, formula)
         if formula.commutative:
-            dim_canonical = tuple(sorted(dim_key, key=str))
+            dim_canonical = (op, *sorted(dim_key[1:], key=str))
             self._by_dimensions_canonical.setdefault(dim_canonical, formula)
 
     # ---------- public lookups ----------
@@ -213,7 +221,9 @@ class FormulaRegistry:
             raise FormulaNotFound(name)
         return formula
 
-    def lookup(self, *input_kinds: Kind) -> KindFormula:
+    def lookup(
+        self, *input_kinds: Kind, operation: Operation = Operation.MULTIPLY
+    ) -> KindFormula:
         """Resolve a formula by exact input-kind tuple.
 
         Performs EXACT tier lookup only (including the arity-2
@@ -225,15 +235,16 @@ class FormulaRegistry:
         FormulaNotFound
             If no formula matches the supplied input kinds.
         """
-        key = tuple(input_kinds)
+        key = (operation.value, *input_kinds)
         formula = self._by_inputs.get(key)
         if formula is None:
-            raise FormulaNotFound(key)
+            raise FormulaNotFound(tuple(input_kinds))
         return formula
 
     def resolve(
         self,
         *input_kinds: Kind,
+        operation: Operation = Operation.MULTIPLY,
         lattice: "KindLattice | None" = None,
         dimension_fallback: bool = False,
     ) -> LookupResult:
@@ -273,31 +284,32 @@ class FormulaRegistry:
             Multiple formulas matched at the same GENERALIZED distance.
         """
         key = tuple(input_kinds)
+        op = operation.value
 
         # --- Tier 1: EXACT ---
-        formula = self._by_inputs.get(key)
+        formula = self._by_inputs.get((op, *key))
         if formula is not None:
             return LookupResult(formula, MatchKind.EXACT)
 
         # --- Tier 2: COMMUTATIVE ---
-        canonical = tuple(sorted(key, key=lambda k: k.name))
+        canonical = (op, *sorted(key, key=lambda k: k.name))
         formula = self._by_inputs_canonical.get(canonical)
         if formula is not None:
             return LookupResult(formula, MatchKind.COMMUTATIVE)
 
         # --- Tier 3: GENERALIZED ---
         if lattice is not None:
-            result = self._generalized_search(key, lattice)
+            result = self._generalized_search(key, lattice, operation=operation)
             if result is not None:
                 return result
 
         # --- Tier 4: DIMENSIONAL ---
         if dimension_fallback:
-            dim_key = tuple(k.dimension for k in key)
-            formula = self._by_dimensions.get(dim_key)
+            dims = tuple(k.dimension for k in key)
+            formula = self._by_dimensions.get((op, *dims))
             if formula is not None:
                 return LookupResult(formula, MatchKind.DIMENSIONAL)
-            dim_canonical = tuple(sorted(dim_key, key=str))
+            dim_canonical = (op, *sorted(dims, key=str))
             formula = self._by_dimensions_canonical.get(dim_canonical)
             if formula is not None:
                 return LookupResult(formula, MatchKind.DIMENSIONAL)
@@ -306,12 +318,17 @@ class FormulaRegistry:
 
     # ---------- private helpers ----------
 
-    def _try_match(self, candidate: tuple[Kind, ...]) -> KindFormula | None:
+    def _try_match(
+        self,
+        candidate: tuple[Kind, ...],
+        operation: Operation = Operation.MULTIPLY,
+    ) -> KindFormula | None:
         """Check a candidate tuple against exact and canonical indexes."""
-        formula = self._by_inputs.get(candidate)
+        op = operation.value
+        formula = self._by_inputs.get((op, *candidate))
         if formula is not None:
             return formula
-        canonical = tuple(sorted(candidate, key=lambda k: k.name))
+        canonical = (op, *sorted(candidate, key=lambda k: k.name))
         return self._by_inputs_canonical.get(canonical)
 
     def _generalized_search(
@@ -319,6 +336,8 @@ class FormulaRegistry:
         input_kinds: tuple[Kind, ...],
         lattice: KindLattice,
         max_distance: int = 10,
+        *,
+        operation: Operation = Operation.MULTIPLY,
     ) -> LookupResult | None:
         """Ancestor-walk at increasing L1 distance.
 
@@ -346,7 +365,7 @@ class FormulaRegistry:
                     chains[i][d - 1] if d > 0 else input_kinds[i]
                     for i, d in enumerate(dist)
                 )
-                formula = self._try_match(candidate)
+                formula = self._try_match(candidate, operation)
                 if formula is not None and formula.generalizes:
                     hits[formula.name] = formula
             if len(hits) == 1:
@@ -363,6 +382,7 @@ class FormulaRegistry:
         self,
         inputs: Mapping[str, Kind],
         *,
+        operation: Operation = Operation.MULTIPLY,
         lattice: KindLattice | None = None,
         dimension_fallback: bool = False,
     ) -> Tuple[KindFormula, Kind, MatchKind]:
@@ -396,6 +416,9 @@ class FormulaRegistry:
         """
         kinds = tuple(inputs.values())
         result = self.resolve(
-            *kinds, lattice=lattice, dimension_fallback=dimension_fallback
+            *kinds,
+            operation=operation,
+            lattice=lattice,
+            dimension_fallback=dimension_fallback,
         )
         return result.formula, result.formula.output_kind, result.match_kind

@@ -19,6 +19,7 @@ import pytest
 from ucon import KindMismatch, Number
 from ucon.dimension import ENERGY, FORCE, LENGTH, MASS, NONE, POWER, TIME, VELOCITY
 from ucon.formulas import FormulaRegistry, KindFormula
+from ucon.formulas.types import Operation
 from ucon.formulas.exceptions import FormulaNotFound
 from ucon.kinds import Kind, KindLattice, JoinPolicy
 from ucon.kinds.exceptions import JoinRefused
@@ -257,6 +258,7 @@ class TestDivFormulaStampsKind:
             input_kinds={"P": power_kind, "v": velocity_kind},
             output_kind=force_kind,
             commutative=False,
+            operation=Operation.DIVIDE,
         )
         registry = FormulaRegistry([formula])
         lattice = KindLattice([power_kind, velocity_kind, force_kind])
@@ -306,6 +308,7 @@ class TestDivDimensionlessYieldsNone:
             input_kinds={"S": signal, "R": reference},
             output_kind=ratio,
             commutative=False,
+            operation=Operation.DIVIDE,
         )
         registry = FormulaRegistry([formula])
         lattice = KindLattice([signal, reference, ratio])
