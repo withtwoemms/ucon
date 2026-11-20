@@ -916,21 +916,41 @@ class TestPluralAliases(unittest.TestCase):
 
 
 class TestDimensionlessAliases(unittest.TestCase):
-    """Test 'dimensionless' / 'unitless' aliases for the fraction unit.
+    """'1', 'dimensionless' and 'unitless' resolve to canonical unity.
 
-    Models in the UnitSafe benchmark commonly emit 'dimensionless' or
-    'unitless' for ratios; both should resolve to the existing fraction
-    unit (dimension ratio).
+    These resolved to ``fraction`` until #307, on the reasoning that models
+    in the UnitSafe benchmark emit the words for *ratios*. The reasoning is
+    reversed: ``fraction`` carries ``Dimension(ratio)``, and a kind declared
+    on ``Dimension(none)`` -- which is what a Reynolds number, a strain or a
+    coefficient of friction is -- cannot attach to it. A model saying
+    "dimensionless" landed on the one fiber where dimensionless kinds are
+    unusable.
+
+    No benchmark must-pass row depends on the old mapping: all ten rows using
+    the words are must-fails, four of them in the cluster this unblocks.
+
+    ``fraction`` keeps ``frac`` and keeps ``Dimension(ratio)``; the ratio
+    fiber itself is retired into ``Scale`` at 3.0.0 per ADR 013, not here.
     """
 
     def test_dimensionless(self):
-        self.assertEqual(parse_unit("dimensionless"), units.fraction)
+        self.assertEqual(parse_unit("dimensionless"), units.one)
 
     def test_unitless(self):
-        self.assertEqual(parse_unit("unitless"), units.fraction)
+        self.assertEqual(parse_unit("unitless"), units.one)
+
+    def test_one_from_the_numeral(self):
+        self.assertEqual(parse_unit("1"), units.one)
+
+    def test_unity_is_dimension_none(self):
+        self.assertEqual(parse_unit("1").dimension, Dimension.none)
 
     def test_frac_still_works(self):
         self.assertEqual(parse_unit("frac"), units.fraction)
+
+    def test_fraction_keeps_its_own_dimension(self):
+        """The ratio fiber is untouched; only the aliases moved."""
+        self.assertEqual(units.fraction.dimension, Dimension.ratio)
 
 
 class TestMolarAliases(unittest.TestCase):

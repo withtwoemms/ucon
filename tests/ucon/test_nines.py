@@ -47,7 +47,16 @@ class TestFractionUnit(unittest.TestCase):
 
     def test_fraction_aliases(self):
         self.assertIn('frac', units.fraction.aliases)
-        self.assertIn('1', units.fraction.aliases)
+
+    def test_the_numeral_is_unity_not_a_fraction(self):
+        """``'1'`` moved to the canonical unity unit in #307.
+
+        ``fraction`` is a ratio; ``1`` is dimension one. Conflating them put
+        every dimensionless literal on the ratio fiber, where a
+        ``Dimension(none)`` kind cannot attach.
+        """
+        self.assertNotIn('1', units.fraction.aliases)
+        self.assertIn('1', units.one.aliases)
 
 
 class TestFractionToNines(unittest.TestCase):

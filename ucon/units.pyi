@@ -187,6 +187,7 @@ nines: Unit
 nit: Unit
 oersted: Unit
 ohm: Unit
+one: Unit
 op: Unit
 ounce: Unit
 ounce_force: Unit
