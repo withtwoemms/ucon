@@ -95,7 +95,7 @@ class TestIdempotence(unittest.TestCase):
     def setUp(self):
         self.meter = Unit(name="meter", dimension=LENGTH, aliases=("m",))
         self.gram = Unit(name="gram", dimension=MASS, aliases=("g",))
-        self.dimensionless = Unit(name="ratio", dimension=NONE, aliases=())
+        self.dimensionless = Unit(name="", dimension=NONE, aliases=())
 
     def test_simple_product_is_idempotent(self):
         m = UnitFactor(self.meter, Scale.one)
@@ -119,15 +119,24 @@ class TestCanonicalFormInvariants(unittest.TestCase):
 
     def setUp(self):
         self.meter = Unit(name="meter", dimension=LENGTH, aliases=("m",))
-        self.dimensionless = Unit(name="ratio", dimension=NONE, aliases=())
+        self.dimensionless = Unit(name="", dimension=NONE, aliases=())
         self.m = UnitFactor(self.meter, Scale.one)
-        self.r = UnitFactor(self.dimensionless, Scale.one)
+        self.r = UnitFactor(self.dimensionless, Scale.one)  # the unity
 
-    def test_no_dimensionless_factor_survives(self):
-        # Mix one LENGTH factor with a NONE-dim factor: only LENGTH remains.
+    def test_no_unity_factor_survives(self):
+        # Mix one LENGTH factor with the unity: only LENGTH remains.
         u = UnitProduct({self.m: 1.0, self.r: 1.0})
-        for fu in u.factors:
-            self.assertNotEqual(fu.dimension, NONE)
+        self.assertEqual([fu.name for fu in u.factors], ["meter"])
+
+    def test_a_named_dimension_one_factor_does_survive(self):
+        """#318 -- a currency is dimension-one and is not the identity.
+
+        Dropping it made ``USD/h`` inexpressible: the money vanished from
+        ``factors`` at construction, before any arithmetic.
+        """
+        usd = UnitFactor(Unit(name="USD", dimension=NONE, aliases=()), Scale.one)
+        u = UnitProduct({usd: 1.0, self.m: 1.0})
+        self.assertIn("USD", [fu.name for fu in u.factors])
 
     def test_no_zero_exponent_factor_survives(self):
         # A factor with exponent ~0 must be filtered out.
@@ -142,10 +151,16 @@ class TestCanonicalFormInvariants(unittest.TestCase):
 
 
 class TestDimensionlessAbsorption(unittest.TestCase):
-    """Dropped NONE-dim factors must compose their scale into canonical_scale."""
+    """A dropped *unity* factor composes its scale into canonical_scale.
+
+    Only the multiplicative identity is dropped. #318 keeps a dimension-one
+    factor that names a quantity -- a currency, and after the 3.0.0 retirement
+    every count and ratio unit -- so these cases use the anonymous unity, which
+    is what they were always about.
+    """
 
     def setUp(self):
-        self.dimensionless = Unit(name="ratio", dimension=NONE, aliases=())
+        self.dimensionless = Unit(name="", dimension=NONE, aliases=())
 
     def test_scaled_dimensionless_absorbs_into_canonical_scale(self):
         # A dimensionless factor with a non-unit scale is dropped from
@@ -253,7 +268,7 @@ class TestCanonicalScaleSeed(unittest.TestCase):
 
     def test_seed_composes_with_dimensionless_absorption(self):
         # Seed multiplies with the absorbed-dimensionless scale.
-        dimensionless = Unit(name="ratio", dimension=NONE, aliases=())
+        dimensionless = Unit(name="", dimension=NONE, aliases=())  # the unity
         r = UnitFactor(dimensionless, Scale.kilo)
         u = UnitProduct({r: 1.0}, canonical_scale=2.0)
         self.assertEqual(u.factors, {})

@@ -700,12 +700,30 @@ class TestUnitEdgeCases(unittest.TestCase):
         self.assertEqual(result.dimension, Dimension.none)
         self.assertEqual(result.name, '')
 
-    def test_multiplying_with_dimensionless_returns_self(self):
+    def test_multiplying_with_unity_returns_self(self):
+        """Multiplying by the *identity* leaves the unit alone.
+
+        The unity is the unnamed ``Dimension(none)`` unit (and the catalog's
+        ``one``). A dimension-one unit that *names* a quantity survives the
+        product instead -- see the next test and #318.
+        """
         m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
-        none = Unit(name='none', dimension=Dimension.none)
-        result = m * none
+        unity = Unit(name='', dimension=Dimension.none)
+        result = m * unity
         self.assertEqual(result.dimension, Dimension.length)
         self.assertEqual('m', result.shorthand)
+
+    def test_multiplying_with_a_named_dimensionless_keeps_it(self):
+        """#318 -- a currency is dimension-one and is not the identity.
+
+        It used to be dropped at construction, which made ``USD/h``
+        inexpressible and silently discarded the money.
+        """
+        m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
+        usd = Unit(name='USD', dimension=Dimension.none)
+        result = m * usd
+        self.assertEqual(result.dimension, Dimension.length)
+        self.assertIn('USD', [fu.name for fu in result.factors])
 
     def test_invalid_dimension_combinations_raise_value_error(self):
         m = Unit(name='meter', dimension=Dimension.length, aliases=('m',))
