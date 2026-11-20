@@ -679,8 +679,14 @@ matrix = [
 ]
 
 [[units]]
-name = ""
+name = "one"
 dimension = "none"
+aliases = [
+    "",
+    "1",
+    "dimensionless",
+    "unitless",
+]
 
 [[units]]
 name = "arcsecond"
@@ -714,9 +720,6 @@ name = "fraction"
 dimension = "ratio"
 aliases = [
     "frac",
-    "1",
-    "dimensionless",
-    "unitless",
 ]
 
 [[units]]

@@ -138,6 +138,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Nothing attaches them: a bare `kg` is neither a dose nor a body weight, and
   still carries no kind or aspect.
 
+- **Canonical `one`: the unity unit is named, and `"1"` resolves to it (#307).**
+  The catalog already declared a `Dimension(none)` unity unit — with
+  `name = ""`, which made it undiscoverable, so `"1"`, `"dimensionless"` and
+  `"unitless"` were given to `fraction` instead. `fraction` carries
+  `Dimension(ratio)`, so the obvious dimensionless literal landed on the one
+  fiber where a `Dimension(none)` kind cannot attach:
+
+  ```python
+  >>> Number(20, parse_unit('1'), kind=radiation_weighting_factor)
+  KindDimensionMismatch: kind has Dimension(none), unit 'fraction' has Dimension(ratio)
+  ```
+
+  The unit is now `units.one`, and those three aliases resolve to it. The one
+  shipped formula becomes usable with the literal a caller would actually write
+  — `Gy * w_R` answers `<40 Gy [dose_equivalent]>` — and a kind on
+  `Dimension(none)` now attaches to `parse_unit('1')`, which is what the
+  dimensionless cluster of #344 needs.
+
+  `""` is kept as an alias, deliberately: dimensionless **constants** are
+  carried by the empty-string unit name (`serialization.py`,
+  `const_spec.get("unit", "")`), and without it they fall through to a
+  `Unit(name="unknown")` the cache cannot resolve — 16 cache tests, measured.
+
+  `fraction` keeps `frac` and keeps `Dimension(ratio)`. Retiring the ratio
+  fiber into `Scale` is ADR 013's 3.0.0 work, not this.
+
+  Moving `dimensionless`/`unitless` reverses a deliberate earlier choice —
+  they were pointed at `fraction` because UnitSafe models emit the words for
+  ratios. Measured before reversing it: all ten benchmark rows using those
+  words are must-fails, four of them in the cluster this unblocks, and no
+  must-pass depends on the old mapping.
+
 ### Fixed
 
 - **A kind on an unnamed derived dimension no longer breaks the TOML
