@@ -268,6 +268,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- **Three roadmap corrections, all scheduling rather than scope.**
+
+  *`**` moves from v2.3.1 to v3.2.0.* The deferred-behaviour suite named the
+  contradiction: the bullet's own "Blocked by" line cites `DerivedKind` and a `**`
+  dispatch row as **v3.2.0** work, while "Fixed in" claimed v2.3.1 — three minor
+  releases ahead of its prerequisite. v3.2.0 already lists the dispatch row, so the
+  bullet now sits beside it.
+
+  The test docstring also records *why* it matters, since `kind is None` reads as
+  harmless: `**` launders the kind stratum.
+  `Gy[absorbed_dose] + Sv[dose_equivalent]` raises `JoinRefused`, while
+  `(Gy)**2 + (Sv)**2` answers `<13.0 Gy²>` — squaring two incommensurable
+  quantities makes them addable. And `None` is a false claim, not a missing one:
+  `Gy²` has a kind and lacks a *name*, as `m × m` is `derived(length^2)`.
+
+  *v2.6.0 and v3.0.0 decouple from the currency basis component (#292).* The
+  basis-component design rested on currency needing a guard that holds with no kind
+  lattice installed; #383 made that guard structural, since base-form signatures
+  carry the currency symbol. The v3.0.0 row now states the basis rename and shim
+  retirement on their own footing — `information` has held slot 8 since before
+  currency was proposed — with the slot-9 fold contingent on #292's review, and
+  v2.6.0 no longer asserts 3.0.0-prerequisite status.
+
+
+
 - **A regression suite pinning the deferred behaviours**
   (`tests/ucon/test_deferred_behaviours.py`). Eleven assertions record what
   ucon does *today* where what it does is known-wrong, filed, and blocked
