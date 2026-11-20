@@ -172,6 +172,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Division dispatches kinds through its own table (#381).** `/` consulted the
+  formula registry with the same key `*` uses, so a formula declared for a
+  *product* answered the *quotient*:
+
+  ```python
+  >>> gy * w_R
+  <40 Gy [dose_equivalent]>     # correct -- the declared formula, H = D x w_R
+  >>> gy / w_R
+  <0.1 Gy [dose_equivalent]>    # wrong -- dividing by a weighting factor is not one
+  ```
+
+  v2.3.0's #352 shipped the *refusal* half (`Gy / Sv` stopped cancelling to
+  `1.0`); the *formula dispatch* half is this.
+
+  **Operation is now part of a formula's identity.** `KindFormula` gains an
+  `operation` field — `Operation.MULTIPLY` (default) or `Operation.DIVIDE` — and
+  every registry index is keyed on it, which makes all four lookup tiers and the
+  collision guard operation-aware together. `commutative` is unchanged and
+  remains a different axis: it governs operand *order within* one operation.
+
+  **This also widens #347's guard, which was over-broad.** It read a product and
+  a quotient over one input tuple as a single signature, so
+
+  ```python
+  register(D * w_R -> dose_equivalent)   # ok
+  register(D / w_R -> absorbed_dose)     # CollidingFormula
+  ```
+
+  — the inverse declaration ADR 013 §4 names as the route to a quotient kind was
+  unregisterable. Both now register, each answers only its own operation, and a
+  genuine collision *within* an operation still refuses, with the contested
+  operation's own symbol in the message (`(dose / wr)`).
+
+  Additive: every formula declared before this defaults to `MULTIPLY` and behaves
+  as before. The two division formulas in the test suite now declare
+  `operation=Operation.DIVIDE` rather than implying it through
+  `commutative=False`. `CollidingFormula` gained an `operation` attribute, and the
+  TOML key round-trips, emitted only when non-default.
+
+
+
 - **A dimension-one unit that names a quantity survives a product (#318).**
   `UnitProduct` dropped every `Dimension(none)` factor at construction, before
   any arithmetic, keeping its *scale* and discarding the unit — so the scale

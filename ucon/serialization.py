@@ -50,6 +50,7 @@ from ucon.graph import ConversionGraph, using_conversion_graph
 from ucon.kinds import JoinPolicy, Kind, KindLattice
 from ucon.kinds.exceptions import KindNotFound
 from ucon.parsing.aspects import parse_aspects_payload
+from ucon.formulas.types import Operation
 from ucon.parsing.formulas import parse_formulas_payload
 from ucon.parsing.kinds import parse_kinds_payload
 from ucon.parsing.namespaces import rewrite_namespace
@@ -509,6 +510,8 @@ def _serialize_formula(formula) -> dict:
     d["output_kind"] = formula.output_kind.name
     if formula.commutative is not True:
         d["commutative"] = formula.commutative
+    if formula.operation is not Operation.MULTIPLY:
+        d["operation"] = formula.operation.value
     if formula.generalizes:
         d["generalizes"] = formula.generalizes
     if formula.notes:

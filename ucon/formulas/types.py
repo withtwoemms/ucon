@@ -26,7 +26,7 @@ from typing import FrozenSet, Mapping
 from ucon.kinds import Kind
 
 
-__all__ = ["KindFormula", "LookupResult", "MatchKind"]
+__all__ = ["KindFormula", "LookupResult", "MatchKind", "Operation"]
 
 
 class MatchKind(Enum):
@@ -67,6 +67,23 @@ class LookupResult:
     distance: int = 0
 
 
+class Operation(Enum):
+    """The arithmetic operation a formula declares.
+
+    Part of a formula's *identity*, not a hint. ``H = D x w_R`` says
+    nothing about ``D / w_R``, so the registry keys both its indexes and
+    its collision guard on the operation: a product formula and a
+    quotient formula may claim the same input signature with different
+    output kinds, and neither answers the other's lookup (#381).
+
+    ``commutative`` is a different axis — it governs operand *order*
+    within one operation, not which operation applies.
+    """
+
+    MULTIPLY = "*"
+    DIVIDE = "/"
+
+
 @dataclass(frozen=True)
 class KindFormula:
     """A declared relationship between kinds.
@@ -92,6 +109,11 @@ class KindFormula:
         Operand order policy under multiplication lookup. Default
         ``True`` (matching ``×``). Set to ``False`` for division and
         other order-sensitive formulas. Inert in v1.9.0.
+    operation
+        Which operation this formula declares -- ``Operation.MULTIPLY``
+        (default) or ``Operation.DIVIDE``. Keyed into the registry's
+        indexes and its collision guard, so a product and a quotient on
+        the same inputs are distinct signatures.
     notes
         Free-text documentation. Useful for capturing context that the
         formula declaration alone does not convey (e.g., "w_R depends
@@ -109,6 +131,7 @@ class KindFormula:
     output_kind: Kind
     generalizes: bool = False
     commutative: bool = True
+    operation: Operation = Operation.MULTIPLY
     notes: str = ""
 
     def __eq__(self, other: object) -> bool:

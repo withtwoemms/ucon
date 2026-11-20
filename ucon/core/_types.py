@@ -58,6 +58,7 @@ from ucon.core.exceptions import (
     UnitsNotNormalizable,
 )
 from ucon.formulas.exceptions import FormulaNotFound
+from ucon.formulas.types import Operation
 from ucon.kinds.exceptions import DisjointKinds, JoinRefused, KindNotFound
 from ucon.dimension import Dimension, NONE
 from ucon.kinds.types import JoinPolicy, Kind
@@ -2721,7 +2722,13 @@ class Number:
 
     # --- Kind dispatch helpers ---
 
-    def _resolve_mul_kind(self, other: 'Number', *, op: str = "Multiplying") -> 'Kind | None':
+    def _resolve_mul_kind(
+        self,
+        other: 'Number',
+        *,
+        op: str = "Multiplying",
+        operation: Operation = Operation.MULTIPLY,
+    ) -> 'Kind | None':
         """Resolve the result kind for multiplication or division.
 
         Consults the active ``FormulaRegistry`` when both operands
@@ -2765,6 +2772,7 @@ class Number:
         try:
             _, result_kind, _ = ctx.formulas.apply(
                 {"left": self.kind, "right": other.kind},
+                operation=operation,
                 lattice=ctx.kinds,
             )
             return result_kind
@@ -2861,6 +2869,7 @@ class Number:
         try:
             _, result_kind, _ = ctx.formulas.apply(
                 {"left": self.kind, "right": other.kind},
+                operation=Operation.DIVIDE,
                 lattice=ctx.kinds,
             )
             return result_kind
@@ -3331,7 +3340,9 @@ class Number:
         result_aspects = self._resolve_mul_aspects(other, op="Dividing")
         return Number(quantity=new_quantity, unit=unit_quot,
                       uncertainty=compute_uncertainty(new_quantity),
-                      kind=self._resolve_mul_kind(other, op="Dividing"),
+                      kind=self._resolve_mul_kind(
+                          other, op="Dividing", operation=Operation.DIVIDE,
+                      ),
                       )._carry(result_aspects)
 
     def __eq__(self, other: _Quantifiable) -> bool:
