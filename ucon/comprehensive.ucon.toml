@@ -5383,6 +5383,21 @@ name = "heat_flux"
 dimension = "mass/time^3"
 parent = "surface_power_density"
 
+# --- Cluster 14: Mass-valued clinical quantities  (M) ---
+# The two aspect families below need a kind to attach to, and ``mass`` has
+# none. Both are generic members rather than refinements: the point is not to
+# tell a drug dose from a body mass by kind, but to give the adjectives --
+# which weight basis, which administration route -- something to sit on.
+[[kinds]]
+name = "body_mass"
+dimension = "mass"
+join_policy = "refuse"
+
+[[kinds]]
+name = "drug_dose"
+dimension = "mass"
+join_policy = "refuse"
+
 # --- Cluster 12: Volumetric flow rate  (L^3/T) ---
 # A clearance and a blood flow share mL/min and are not the same quantity. A
 # clearance is a derived proportionality -- the volume of plasma cleared of
@@ -5465,6 +5480,53 @@ parent = "length_quantity"
 # ``applies_to`` names the pressure kinds only. A quantity with no kind cannot
 # carry these (``AspectNotApplicable``), which is deliberate: the caller
 # stating a role must also state what it is a role *of*.
+
+# Which weight a clinical calculation is based on. An ideal body weight is
+# computed from height; an actual body weight is measured. The same quantity --
+# the mass a dose is figured from -- determined differently, which is what an
+# aspect is for. UnitSafe: "treat ideal body weight (IBW) and actual body
+# weight (ABW) as identical for dosing".
+#
+# ``lca`` on the root for the same reason as ``pressure_role``: the policy
+# governs *addition*, and refusing the relabel is the claim gate's job (#376).
+# Nothing sums two weight bases, so the policy is inert in practice; declaring
+# it ``lca`` keeps "basis unspecified" expressible as a deliberate weakening.
+[[aspects]]
+name = "body_weight_basis"
+applies_to = ["body_mass"]
+join_policy = "lca"
+multiplication_policy = "carry"
+
+[[aspects]]
+name = "ideal_body_weight"
+parent = "body_weight_basis"
+
+[[aspects]]
+name = "actual_body_weight"
+parent = "body_weight_basis"
+
+# How a dose was administered. Oral and intravenous morphine equivalents are
+# the same quantity by different routes, and they genuinely *sum*: a total
+# opioid burden is the sum across routes, which is the whole purpose of a
+# morphine-equivalent dose. So the family lifts to its root under addition
+# while the relabel refuses -- UnitSafe's "equate oral morphine equivalent dose
+# with IV morphine equivalent dose as interchangeable".
+#
+# That summing is the test these families are chosen by: a pair that sums is an
+# aspect, a pair that does not is a kind.
+[[aspects]]
+name = "administration_route"
+applies_to = ["drug_dose"]
+join_policy = "lca"
+multiplication_policy = "carry"
+
+[[aspects]]
+name = "oral_route"
+parent = "administration_route"
+
+[[aspects]]
+name = "intravenous_route"
+parent = "administration_route"
 
 [[aspects]]
 name = "pressure_role"

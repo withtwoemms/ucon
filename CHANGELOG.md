@@ -120,6 +120,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refuse a claim the dataset makes. Recorded as a test so the omission reads as
   a decision rather than an oversight.
 
+- **Weight basis and administration route as aspects (#344).** Two more
+  unclustered `koq_mismatch` must-fails: *"treat ideal body weight and actual
+  body weight as identical for dosing"* and *"equate oral morphine equivalent
+  dose with IV morphine equivalent dose"*. `body_weight_basis`
+  (`ideal_body_weight`, `actual_body_weight`) and `administration_route`
+  (`oral_route`, `intravenous_route`), both on `join_policy = "lca"`, with
+  `body_mass` and `drug_dose` declared as the kinds they attach to since `mass`
+  had none.
+
+  Aspects rather than kinds because the pair **sums**: a total opioid burden is
+  the sum across routes, which is the entire purpose of a morphine-equivalent
+  dose. `30 mg` oral plus `10 mg` IV now answers `<40 mg [drug_dose]
+  #administration_route>` — total dose, route unspecified — while relabelling
+  one route as the other refuses. Kind-ifying them would have broken the sum.
+
+  Nothing attaches them: a bare `kg` is neither a dose nor a body weight, and
+  still carries no kind or aspect.
+
 ### Fixed
 
 - **A kind on an unnamed derived dimension no longer breaks the TOML

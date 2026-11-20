@@ -2772,10 +2772,10 @@ class TestKindsSerialization:
         assert restored_const.kind.name == "kinetic_energy"
 
     def test_builtin_kinds_roundtrip(self, tmp_path):
-        """All 40 built-in kinds survive to_toml → from_toml round-trip."""
+        """All 42 built-in kinds survive to_toml → from_toml round-trip."""
 
         original = active_kinds()
-        assert len(original) == 40, "Expected 40 built-in kinds"
+        assert len(original) == 42, "Expected 42 built-in kinds"
 
         graph = get_default_graph()
         path = tmp_path / "builtin_kinds_rt.ucon.toml"
