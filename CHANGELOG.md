@@ -172,6 +172,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A dimension-one unit that names a quantity survives a product (#318).**
+  `UnitProduct` dropped every `Dimension(none)` factor at construction, before
+  any arithmetic, keeping its *scale* and discarding the unit — so the scale
+  survived without the thing it scaled. A money-rate unit could not be
+  constructed, kinded, or carry a declaration:
+
+  ```python
+  >>> UnitProduct({UnitFactor(usd, Scale.one): 1.0,
+  ...              UnitFactor(kilowatt, Scale.one): -1.0,
+  ...              UnitFactor(hour, Scale.one): -1.0})
+  <UnitProduct 1/(kW·h)>      # the money is gone
+  >>> Number(100, kWh) * Number(0.12, rate)
+  <12.0>                      # arithmetically right, money-ness lost
+  ```
+
+  Now `<UnitProduct USD/(kW·h)>` and `<12.0 USD>`.
+
+  **The discriminator is identity, not name.** The roadmap's rule said keep
+  *named* dimension-one factors and fold only an *anonymous* unity, but #307
+  named the canonical unity `one` in this same release, so "anonymous" stopped
+  being a usable proxy for "is the identity" — the first cut rendered
+  `one * kg` as `one·kg`. Folding is keyed on the unity itself
+  (`_UNITY_NAMES`), so `one * kg` is `kg` while `USD/h` keeps its symbol.
+
+  Four sites carried the same "dimensionless means unity" assumption: the
+  reduction path, both construction fast paths, and `Unit.shorthand`, which
+  blanked every `Dimension(none)` unit — making `USD` invisible on a bare
+  `Number` while a one-factor `UnitProduct` of the same unit rendered it.
+
+  This reverses a stated canonical-form invariant. "No dimensionless factor
+  survives" is now "no *unity* factor survives"; six tests encoding the old
+  form are updated, and each gained a companion asserting that a named
+  dimension-one factor is kept.
+
+  **What it unblocks:** the money-rate pattern ADR 011 reserves for fee
+  schedules, and ADR 013 §4's worked example end to end —
+  `500 MWh × 48 USD/MWh` now answers `<24000.0 USD [usd]>` in both operand
+  orders. #318 called that pattern unwritable; it is now pinned as a test.
+  Magnitudes are unchanged: a scaled symbol carries its scale on the surviving
+  factor, and a scaled unity still folds into `canonical_scale`.
+
+
+
 - **A kind on an unnamed derived dimension no longer breaks the TOML
   round-trip.** `Dimension` renders a vector with no registered name as
   `derived(mass/time^3)`, which is a *rendering*, not an identifier —

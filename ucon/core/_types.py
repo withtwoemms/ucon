@@ -62,6 +62,13 @@ from ucon.kinds.exceptions import DisjointKinds, JoinRefused, KindNotFound
 from ucon.dimension import Dimension, NONE
 from ucon.kinds.types import JoinPolicy, Kind
 
+#: Names that denote the multiplicative identity rather than a quantity.
+#: ``""`` is the anonymous unity constructed in code (``units.none``); ``one``
+#: is the catalog's canonical unity (#307). Both fold into ``canonical_scale``
+#: in a product; any *other* dimension-one unit is a distinguishable symbol
+#: and survives as a factor (#318).
+_UNITY_NAMES = frozenset({"", "one"})
+
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
     from ucon.system import UnitSystem
@@ -704,11 +711,18 @@ class Unit:
     def shorthand(self) -> str:
         """
         Symbol used in expressions (e.g., 'm', 's').
-        For dimensionless units, returns ''.
+        For the unity, returns ''.
+
+        A dimension-one unit that *names* a quantity -- a currency, and after
+        the 3.0.0 retirement every count and ratio unit -- has a symbol and
+        renders it. Blanking every ``Dimension(none)`` unit made ``USD``
+        invisible on a bare ``Number`` while a one-factor ``UnitProduct`` of
+        the same unit rendered it, which is the same "dimensionless means
+        unity" assumption #318 unwinds in the reduction path.
 
         Note: Scale prefixes are handled by UnitFactor.shorthand, not here.
         """
-        if self.dimension == NONE:
+        if self.dimension == NONE and self.name in _UNITY_NAMES:
             return ""
         base = (self.aliases[0] if self.aliases else self.name) or ""
         return base.strip()
@@ -1144,7 +1158,9 @@ class UnitProduct:
             if not isinstance(key, UnitProduct):
                 if isinstance(key, Unit) and not isinstance(key, UnitFactor):
                     key = UnitFactor(key, Scale.one)
-                if isinstance(key, UnitFactor) and key.dimension != NONE and abs(exp) > 1e-12:
+                if isinstance(key, UnitFactor) \
+                        and (key.dimension != NONE or key.name not in _UNITY_NAMES) \
+                        and abs(exp) > 1e-12:
                     self.factors = {key: exp}
                     # canonical_scale must be 1.0 when factors is non-empty
                     # (canonical-form invariant); seed values are not absorbed
@@ -1166,7 +1182,8 @@ class UnitProduct:
                 if isinstance(k1, Unit) and not isinstance(k1, UnitFactor):
                     k1 = UnitFactor(k1, Scale.one)
                 if (isinstance(k0, UnitFactor) and isinstance(k1, UnitFactor)
-                        and k0.dimension != NONE and k1.dimension != NONE
+                        and (k0.dimension != NONE or k0.name not in _UNITY_NAMES)
+                        and (k1.dimension != NONE or k1.name not in _UNITY_NAMES)
                         and abs(e0) > 1e-12 and abs(e1) > 1e-12
                         and k0 != k1):
                     self.factors = {k0: e0, k1: e1}
@@ -1229,7 +1246,15 @@ class UnitProduct:
         for fu, exp in merged.items():
             if abs(exp) < 1e-12:
                 continue
-            if fu.dimension == NONE:
+            if fu.dimension == NONE and fu.name in _UNITY_NAMES:
+                # Only the *unity* folds into ``canonical_scale``. A
+                # dimension-one unit that names a quantity -- a currency, and
+                # after the 3.0.0 retirement every count and ratio unit -- is a
+                # distinguishable symbol, so it survives as a factor (#318).
+                #
+                # Keyed on identity, not on anonymity: #307 named the canonical
+                # unity ``one``, so "unnamed" stopped being a usable proxy for
+                # "is the identity".
                 absorbed_dimensionless_scale *= fu.scale.value.evaluated ** exp
                 continue
             simplified[fu] = exp
@@ -1340,10 +1365,11 @@ class UnitProduct:
         both Unit and UnitFactor, since UnitFactor exposes dimension,
         shorthand, name, and aliases.
         """
-        if unit.dimension == NONE:
-            return
         part = getattr(unit, "shorthand", "") or getattr(unit, "name", "") or ""
         if not part:
+            # An anonymous unity has nothing to render; a *named* dimension-one
+            # unit does, and must show -- otherwise ``USD/h`` prints as
+            # ``1/h`` and the money-ness is invisible (#318).
             return
 
         def fmt_exp(p: float) -> str:
