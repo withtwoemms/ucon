@@ -103,6 +103,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **expression** (`"mass/time^3"`) rather than a registered name, since `W/m²`
   reduces to M·T⁻³ and SI does not name it.
 
+- **Clearance vs blood flow, and hydraulic head vs distance (#344).** Two more
+  of UnitSafe's unclustered `koq_mismatch` must-fails. `volumetric_flow_rate`
+  roots `clearance` and `blood_flow` (L³/T); `length_quantity` roots `distance`
+  and `hydraulic_head`. Both pairs fail the add-test — a total clearance is the
+  sum of *clearances*, never of a clearance and a flow, and a head and a
+  distance do not sum at all — so they are kinds rather than aspects.
+
+  Nothing attaches them. `meter` carries no `default_kind` and must not: most
+  lengths are plain distances, and tagging the unit would force a claim onto
+  every one of them. Every clearance must-pass in the benchmark is a same-kind
+  unit conversion and still admits.
+
+  `gfr` is **deliberately not** declared as a sibling of `clearance`: the
+  benchmark keys its GFR must-passes as `clearance`, so splitting them would
+  refuse a claim the dataset makes. Recorded as a test so the omission reads as
+  a decision rather than an oversight.
+
 ### Fixed
 
 - **A kind on an unnamed derived dimension no longer breaks the TOML
