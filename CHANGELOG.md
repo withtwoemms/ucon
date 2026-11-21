@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-21
+
 ### Added
 
 - **The angle kinds, `plane_angle` and `solid_angle` (#348, #344).** `radian`,
@@ -27,33 +29,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`Number.to(..., kind=)` — the kind the caller claims the result is (#373,
   #342, #343).** Default `None` leaves the arrival rule in charge, so every
-  existing call is unchanged. A claim is admitted only if it is *implied* by the
-  kind already carried — it restates that kind, or weakens it to an ancestor
-  whose `join_policy` permits generalizing across that ancestor's children.
-  Strengthening a kind or exchanging it for a sibling raises the new
-  `KindClaimRefused`. A claim whose dimension differs is taken as given: the
-  conversion crossed fibers, so there is no relabel within one to police.
-  `KindNotFound` for an unresolvable name.
+  existing call is unchanged. A claim is admitted only if *implied* by the kind
+  already carried — it restates that kind, or weakens it to an ancestor whose
+  `join_policy` permits generalizing. Strengthening a kind or exchanging it for
+  a sibling raises the new `KindClaimRefused`; a cross-fiber claim is taken as
+  given; `KindNotFound` for an unresolvable name.
 
-  The gate is deliberately **not** the join `+` applies. Join answers what two
-  kinds yield together and lifts to their ancestor under its policy; a claim
-  asks whether the value supports an assertion, which the lift does not answer.
-  A family can be freely summable and still have members that are not
-  interchangeable: `electric_potential + electromotive_force` is a legitimate
-  `voltage` while reporting one as the other is not, and `static + dynamic`
-  pressure sums to a total that neither member may be relabelled as. Gating on
-  the join admitted a sibling swap and a strengthening claim in every family
-  whose root carries `JoinPolicy.LCA` — `voltage` and `molar_entropy` in the
-  shipped catalog, 8 of the 70 same-dimension kind pairs.
-
-  This reaches errors that no property of a unit can. *"Report 100 MPa of
-  tensile stress as a hydrostatic pressure"* converts `MPa → MPa`, so source and
-  target are the same unit; `0.5 MJ/m³ → kPa` is a legitimate modulus of
-  resilience while `500 kJ/m³ → kPa` *as a stress* is not, and unclaimed the two
-  are one conversion returning `<500.0 kPa>`. Only the claim separates them,
-  which is why the product-signature `default_kind` plan recorded on #342/#343
-  could not: a tag on `N·m` must pick between the torque rows and the
-  seismic-moment row and breaks whichever it does not pick.
+  This reaches errors no property of a unit can. *"Report 100 MPa of tensile
+  stress as a hydrostatic pressure"* converts `MPa → MPa`; `0.5 MJ/m³ → kPa` is
+  a legitimate modulus of resilience while `500 kJ/m³ → kPa` *as a stress* is
+  not, and unclaimed the two are one conversion returning `<500.0 kPa>`. Only
+  the claim separates them — which is why the product-signature `default_kind`
+  plan on #342/#343 could not.
 
 - **An `energy_density` kind**, declared and attached to nothing. A second root
   on `Dimension(pressure)` rather than a child of `pressure`: same dimension and
@@ -139,122 +126,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   still carries no kind or aspect.
 
 - **Canonical `one`: the unity unit is named, and `"1"` resolves to it (#307).**
-  The catalog already declared a `Dimension(none)` unity unit — with
-  `name = ""`, which made it undiscoverable, so `"1"`, `"dimensionless"` and
-  `"unitless"` were given to `fraction` instead. `fraction` carries
-  `Dimension(ratio)`, so the obvious dimensionless literal landed on the one
-  fiber where a `Dimension(none)` kind cannot attach:
+  The catalog already declared a `Dimension(none)` unity unit, but with
+  `name = ""` — undiscoverable, so `"1"`, `"dimensionless"` and `"unitless"` had
+  been given to `fraction`, which carries `Dimension(ratio)`. The obvious
+  dimensionless literal therefore landed on the one fiber where a
+  `Dimension(none)` kind cannot attach, and
+  `Number(20, parse_unit('1'), kind=radiation_weighting_factor)` raised
+  `KindDimensionMismatch`. The unit is now `units.one` and those three aliases
+  resolve to it, so `Gy * w_R` answers `<40 Gy [dose_equivalent]>` with the
+  literal a caller would write.
 
-  ```python
-  >>> Number(20, parse_unit('1'), kind=radiation_weighting_factor)
-  KindDimensionMismatch: kind has Dimension(none), unit 'fraction' has Dimension(ratio)
-  ```
-
-  The unit is now `units.one`, and those three aliases resolve to it. The one
-  shipped formula becomes usable with the literal a caller would actually write
-  — `Gy * w_R` answers `<40 Gy [dose_equivalent]>` — and a kind on
-  `Dimension(none)` now attaches to `parse_unit('1')`, which is what the
-  dimensionless cluster of #344 needs.
-
-  `""` is kept as an alias, deliberately: dimensionless **constants** are
-  carried by the empty-string unit name (`serialization.py`,
-  `const_spec.get("unit", "")`), and without it they fall through to a
-  `Unit(name="unknown")` the cache cannot resolve — 16 cache tests, measured.
-
-  `fraction` keeps `frac` and keeps `Dimension(ratio)`. Retiring the ratio
-  fiber into `Scale` is ADR 013's 3.0.0 work, not this.
-
-  Moving `dimensionless`/`unitless` reverses a deliberate earlier choice —
-  they were pointed at `fraction` because UnitSafe models emit the words for
-  ratios. Measured before reversing it: all ten benchmark rows using those
-  words are must-fails, four of them in the cluster this unblocks, and no
-  must-pass depends on the old mapping.
-
-### Fixed
+  `""` is kept as an alias deliberately: dimensionless *constants* are carried
+  by the empty-string unit name. `fraction` keeps `frac` and keeps
+  `Dimension(ratio)` — emptying the ratio fiber into `Scale` is 3.0.0's work.
 
 - **Division dispatches kinds through its own table (#381).** `/` consulted the
   formula registry with the same key `*` uses, so a formula declared for a
-  *product* answered the *quotient*:
-
-  ```python
-  >>> gy * w_R
-  <40 Gy [dose_equivalent]>     # correct -- the declared formula, H = D x w_R
-  >>> gy / w_R
-  <0.1 Gy [dose_equivalent]>    # wrong -- dividing by a weighting factor is not one
-  ```
-
-  v2.3.0's #352 shipped the *refusal* half (`Gy / Sv` stopped cancelling to
-  `1.0`); the *formula dispatch* half is this.
+  *product* answered the *quotient* — `Gy * w_R` is a dose equivalent and
+  `Gy / w_R` claimed to be one too. v2.3.0's #352 shipped the refusal half of
+  this (`Gy / Sv` stopped cancelling to `1.0`); this is the dispatch half.
 
   **Operation is now part of a formula's identity.** `KindFormula` gains an
   `operation` field — `Operation.MULTIPLY` (default) or `Operation.DIVIDE` — and
-  every registry index is keyed on it, which makes all four lookup tiers and the
-  collision guard operation-aware together. `commutative` is unchanged and
-  remains a different axis: it governs operand *order within* one operation.
+  every registry index is keyed on it, so all four lookup tiers and the
+  collision guard became operation-aware together. `commutative` is unchanged
+  and remains a different axis: operand *order within* one operation.
 
-  **This also widens #347's guard, which was over-broad.** It read a product and
-  a quotient over one input tuple as a single signature, so
-
-  ```python
-  register(D * w_R -> dose_equivalent)   # ok
-  register(D / w_R -> absorbed_dose)     # CollidingFormula
-  ```
-
-  — the inverse declaration ADR 013 §4 names as the route to a quotient kind was
-  unregisterable. Both now register, each answers only its own operation, and a
-  genuine collision *within* an operation still refuses, with the contested
-  operation's own symbol in the message (`(dose / wr)`).
-
-  Additive: every formula declared before this defaults to `MULTIPLY` and behaves
-  as before. The two division formulas in the test suite now declare
-  `operation=Operation.DIVIDE` rather than implying it through
-  `commutative=False`. `CollidingFormula` gained an `operation` attribute, and the
-  TOML key round-trips, emitted only when non-default.
-
-
+  This widens #347's guard, which read a product and a quotient over one input
+  tuple as a single signature — so the inverse declaration ADR 013 §4 names as
+  the route to a quotient kind was unregisterable. Both now register, each
+  answers only its own operation, and a collision *within* an operation still
+  refuses. Additive: formulas declared before this default to `MULTIPLY`.
 
 - **A dimension-one unit that names a quantity survives a product (#318).**
-  `UnitProduct` dropped every `Dimension(none)` factor at construction, before
-  any arithmetic, keeping its *scale* and discarding the unit — so the scale
-  survived without the thing it scaled. A money-rate unit could not be
-  constructed, kinded, or carry a declaration:
+  `UnitProduct` dropped every `Dimension(none)` factor at construction, keeping
+  its *scale* and discarding the unit — so the scale survived without the thing
+  it scaled, and a money-rate unit could not be constructed, kinded, or carry a
+  declaration. `USD/kWh` rendered as `1/(kW·h)` and `100 kWh × 0.12 USD/kWh`
+  answered `<12.0>`; they are now `<UnitProduct USD/(kW·h)>` and `<12.0 USD>`.
 
-  ```python
-  >>> UnitProduct({UnitFactor(usd, Scale.one): 1.0,
-  ...              UnitFactor(kilowatt, Scale.one): -1.0,
-  ...              UnitFactor(hour, Scale.one): -1.0})
-  <UnitProduct 1/(kW·h)>      # the money is gone
-  >>> Number(100, kWh) * Number(0.12, rate)
-  <12.0>                      # arithmetically right, money-ness lost
-  ```
-
-  Now `<UnitProduct USD/(kW·h)>` and `<12.0 USD>`.
-
-  **The discriminator is identity, not name.** The roadmap's rule said keep
-  *named* dimension-one factors and fold only an *anonymous* unity, but #307
-  named the canonical unity `one` in this same release, so "anonymous" stopped
-  being a usable proxy for "is the identity" — the first cut rendered
-  `one * kg` as `one·kg`. Folding is keyed on the unity itself
-  (`_UNITY_NAMES`), so `one * kg` is `kg` while `USD/h` keeps its symbol.
+  The discriminator is **identity, not name**: #307 named the canonical unity
+  `one` in this same release, so "anonymous" stopped being a usable proxy for
+  "is the identity" — a first cut rendered `one * kg` as `one·kg`. Folding keys
+  on the unity itself, so `one * kg` is `kg` while `USD/h` keeps its symbol.
 
   Four sites carried the same "dimensionless means unity" assumption: the
   reduction path, both construction fast paths, and `Unit.shorthand`, which
   blanked every `Dimension(none)` unit — making `USD` invisible on a bare
   `Number` while a one-factor `UnitProduct` of the same unit rendered it.
 
-  This reverses a stated canonical-form invariant. "No dimensionless factor
-  survives" is now "no *unity* factor survives"; six tests encoding the old
-  form are updated, and each gained a companion asserting that a named
-  dimension-one factor is kept.
-
-  **What it unblocks:** the money-rate pattern ADR 011 reserves for fee
-  schedules, and ADR 013 §4's worked example end to end —
-  `500 MWh × 48 USD/MWh` now answers `<24000.0 USD [usd]>` in both operand
-  orders. #318 called that pattern unwritable; it is now pinned as a test.
-  Magnitudes are unchanged: a scaled symbol carries its scale on the surviving
-  factor, and a scaled unity still folds into `canonical_scale`.
-
-
+  This reverses a stated canonical-form invariant: "no dimensionless factor
+  survives" becomes "no *unity* factor survives". Six tests encoding the old
+  form are updated, each gaining a companion for the new rule. Magnitudes are
+  unchanged — a scaled symbol carries its scale on the surviving factor, a
+  scaled unity still folds into `canonical_scale`. Unblocks the money-rate
+  pattern ADR 011 reserves for fee schedules: `500 MWh × 48 USD/MWh` now
+  answers `<24000.0 USD [usd]>` in both operand orders, pinned as a test.
 
 - **A kind on an unnamed derived dimension no longer breaks the TOML
   round-trip.** `Dimension` renders a vector with no registered name as
