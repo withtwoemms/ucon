@@ -290,3 +290,40 @@ class TestCanonicalScaleSeed(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCanonicalScaleParticipatesInIdentity(unittest.TestCase):
+    """``canonical_scale`` is part of a product's identity.
+
+    Invariant 4d permits a non-unit ``canonical_scale`` exactly when
+    ``factors`` is empty — and that is the case identity used to miss.
+    ``UnitProduct({}, 1.0)`` and ``UnitProduct({}, 100.0)`` compared equal and
+    hashed equal while yielding magnitudes 100x apart, so equal objects were
+    not interchangeable and were unsafe as dict or cache keys.
+    """
+
+    def test_differing_residual_scales_are_not_equal(self):
+        self.assertNotEqual(UnitProduct({}, 1.0), UnitProduct({}, 100.0))
+
+    def test_differing_residual_scales_do_not_collide(self):
+        self.assertNotEqual(hash(UnitProduct({}, 1.0)), hash(UnitProduct({}, 100.0)))
+
+    def test_the_magnitudes_they_yield_differ(self):
+        """Why the above matters, rather than being a formality."""
+        from ucon import Number
+        self.assertEqual(Number(1, UnitProduct({}, 1.0)).canonical_magnitude, 1.0)
+        self.assertEqual(Number(1, UnitProduct({}, 100.0)).canonical_magnitude, 100.0)
+
+    def test_matching_residual_scales_are_still_equal(self):
+        self.assertEqual(UnitProduct({}, 5.0), UnitProduct({}, 5.0))
+        self.assertEqual(hash(UnitProduct({}, 5.0)), hash(UnitProduct({}, 5.0)))
+
+    def test_a_plain_product_still_equals_its_unit(self):
+        meter = Unit(name="meter", dimension=LENGTH, aliases=("m",))
+        self.assertEqual(UnitProduct({UnitFactor(meter, Scale.one): 1.0}), meter)
+
+    def test_a_product_carrying_a_residual_does_not_equal_a_bare_unit(self):
+        """A plain ``Unit`` has no residual scale, so one that does differs."""
+        meter = Unit(name="meter", dimension=LENGTH, aliases=("m",))
+        seeded = UnitProduct({UnitFactor(meter, Scale.one): 1.0}, 100.0)
+        self.assertNotEqual(seeded, meter)

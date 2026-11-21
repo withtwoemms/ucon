@@ -1663,15 +1663,35 @@ class UnitProduct:
 
     def __eq__(self, other):
         if isinstance(other, Unit):
-            # Only equal to a plain Unit if we have exactly that unit^1
+            # Only equal to a plain Unit if we have exactly that unit^1 and
+            # carry no residual scale -- a plain Unit has none, so a product
+            # that does is a different quantity.
             # Here, the tuple comparison will invoke UnitFactor.__eq__(Unit)
             # on the key when factors are keyed by UnitFactor.
-            return len(self.factors) == 1 and list(self.factors.items()) == [(other, 1.0)]
-        return isinstance(other, UnitProduct) and self.factors == other.factors
+            return (
+                self.canonical_scale == 1.0
+                and len(self.factors) == 1
+                and list(self.factors.items()) == [(other, 1.0)]
+            )
+        return (
+            isinstance(other, UnitProduct)
+            and self.factors == other.factors
+            and self.canonical_scale == other.canonical_scale
+        )
 
     def __hash__(self):
         # Sort by name; UnitFactor exposes .name, so this is stable.
-        return hash(tuple(sorted(self.factors.items(), key=lambda x: x[0].name)))
+        #
+        # ``canonical_scale`` participates: the canonical form permits a
+        # non-unit residual exactly when ``factors`` is empty (invariant 4d),
+        # and that is the case identity used to miss -- ``UnitProduct({}, 1.0)``
+        # and ``UnitProduct({}, 100.0)`` compared equal and hashed equal while
+        # yielding magnitudes 100x apart, so equal objects were not
+        # interchangeable and were unsafe as dict or cache keys.
+        return hash((
+            tuple(sorted(self.factors.items(), key=lambda x: x[0].name)),
+            self.canonical_scale,
+        ))
 
     def __call__(self, quantity, uncertainty=None):
         """Create a Number or NumberArray with this unit product.
