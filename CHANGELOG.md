@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`UnitProduct.canonical_scale` participates in identity.** `__eq__` compared
+  only `factors`, so two products differing solely in their residual scale were
+  equal and hashed equal while yielding different magnitudes:
+
+  ```python
+  >>> UnitProduct({}, 1.0) == UnitProduct({}, 100.0)
+  True                        # magnitudes 1.0 and 100.0
+  ```
+
+  Equal objects that are not interchangeable, and unsafe as dict or cache keys.
+  Canonical-form invariant 4d permits a non-unit `canonical_scale` exactly when
+  `factors` is empty — which is the case identity missed. A product carrying a
+  residual also no longer equals a bare `Unit`, since a `Unit` has none.
+
+  The canonical-form invariant list is also corrected. #318 made a named
+  dimension-one factor survive a product but left 4a asserting "no
+  dimensionless (NONE-dim) factor survives", and narrowed 5 to the unity
+  without saying so — both stated the pre-#318 contract. Amended in place.
+
+  Not fixed, and filed as #387: invariant 4d (`canonical_scale == 1.0` whenever
+  `factors` is non-empty) and invariant 7 (the constructor seed composes) cannot
+  both hold for a seeded non-empty product. That is a question about what such a
+  product means, not about where to put a number.
+
+
 ## [2.4.0] - 2026-11-21
 
 ### Added
