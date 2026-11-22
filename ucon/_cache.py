@@ -40,7 +40,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 _MAGIC = b"UCM\x01"
-_CACHE_SCHEMA = 4  # Bump when _to_primitives/_from_primitives change shape
+_CACHE_SCHEMA = 5  # Bump when _to_primitives/_from_primitives change shape
 
 # Header layout: magic(4) + format_ver(2) + py_major(1) + py_minor(1) + cache_ver(1) + reserved(3) = 12
 _HEADER_FMT = "!4sHBBB3s"
@@ -232,9 +232,11 @@ def _unit_ref(u: "Unit | UnitProduct") -> dict:
         factors = []
         for f, exp in u.factors.items():
             if isinstance(f, UnitFactor):
-                factors.append((f.unit.name, f.scale.name, exp))
+                # Exact (base, power), not the prefix name: a scale no
+                # prefix names has no name to store (#390).
+                factors.append((f.unit.name, f.scale.value.parts(), exp))
             else:
-                factors.append((f.name, "one", exp))
+                factors.append((f.name, (10, 0), exp))
         return {"_t": "UP", "fs": factors, "cs": u.canonical_scale}
     # Plain Unit
     return {"_t": "UR", "n": u.name}
@@ -503,7 +505,7 @@ def _serialize_product_key(key: tuple) -> list:
         result.append((
             name,
             dim.name if hasattr(dim, "name") else str(dim),
-            scale.name if hasattr(scale, "name") else str(scale),
+            scale.value.parts() if hasattr(scale, "value") else (10, 0),
             exp,
         ))
     return result
@@ -577,9 +579,9 @@ def _resolve_unit_ref(
         return unit_map[ref["n"]]
     if ref["_t"] == "UP":
         factors: dict = {}
-        for unit_name, scale_name, exp in ref["fs"]:
+        for unit_name, scale_parts, exp in ref["fs"]:
             u = unit_map[unit_name]
-            s = Scale[scale_name]
+            s = Scale.of(*scale_parts)
             factors[UnitFactor(u, s)] = exp
         return UnitProduct(factors, canonical_scale=ref.get("cs", 1.0))
     raise ValueError(f"Unknown unit ref type: {ref['_t']}")
@@ -973,14 +975,17 @@ def _deserialize_product_key(
 
     factors: dict = {}
     for item in ser:
-        name, _dim_name, scale_name, exp = item
+        name, _dim_name, scale_parts, exp = item
         u = unit_map.get(name)
         if u is None:
             return None
         try:
-            s = Scale[scale_name]
-        except KeyError:
-            s = Scale.one
+            s = Scale.of(*scale_parts)
+        except Exception:
+            # A malformed entry makes the whole key unreconstructable, the
+            # same verdict an unknown unit gets above. Falling back to
+            # ``Scale.one`` would read a stored scale back as 1.0.
+            return None
         factors[UnitFactor(u, s)] = exp
     if not factors:
         return None
@@ -999,13 +1004,13 @@ def _deserialize_product_tuple_key(
 
     result = []
     for item in ser:
-        name, dim_name, scale_name, exp = item
+        name, dim_name, scale_parts, exp = item
         u = unit_map.get(name)
         if u is None:
             return None
         try:
-            s = Scale[scale_name]
-        except KeyError:
-            s = Scale.one
+            s = Scale.of(*scale_parts)
+        except Exception:
+            return None
         result.append((name, u.dimension, s, exp))
     return tuple(result)

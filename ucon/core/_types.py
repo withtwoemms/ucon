@@ -31,6 +31,7 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
+from types import DynamicClassAttribute
 from typing import TYPE_CHECKING, Any, Dict, FrozenSet, Iterator, Tuple, Union
 
 if sys.version_info >= (3, 9):
@@ -262,6 +263,54 @@ class Scale(Enum):
     pico  = _ScaleDescriptor(Exponent(10,-12), "p", "pico")
     femto = _ScaleDescriptor(Exponent(10,-15), "f", "femto")
 
+    # ---------- Exact construction (#390) ----------
+    #
+    # The conventional prefixes declared above are a *registry* over
+    # ``Exponent``, not the set of representable scales. A product of two
+    # scales has an exact power whether or not a prefix happens to name it,
+    # so ``of()`` returns the named member when one exists and an unnamed
+    # member otherwise. Unnamed members are built the way ``enum.Flag``
+    # builds composite members: ``isinstance(x, Scale)`` holds, iteration
+    # over ``Scale`` still yields only the conventional prefixes (so
+    # ``nearest()``, ``all()`` and the parser's shorthand map are
+    # unaffected), and ``Scale.kilo`` keeps its identity.
+
+    @classmethod
+    @lru_cache(maxsize=None)
+    def _unnamed(cls, base: int, power: Union[int, float]) -> "Scale":
+        """An interned ``Scale`` for an exact power no prefix names.
+
+        ``lru_cache`` is the interning table — the same ``(base, power)``
+        returns the same object, so ``is`` comparison stays meaningful
+        without a module-level registry.
+
+        The descriptor's ``shorthand`` is the rendered exponent rather than
+        the empty string. An empty prefix would make
+        :attr:`UnitFactor.shorthand` drop the scale and render ``10^-4 m``
+        as ``m`` — a silent magnitude error, which is the class of defect
+        this fix exists to remove.
+        """
+        rendered = str(Exponent(base, power))
+        unnamed = object.__new__(cls)
+        unnamed._value_ = _ScaleDescriptor(Exponent(base, power), rendered, "")
+        unnamed._name_ = None
+        return unnamed
+
+    @classmethod
+    def of(cls, base: int, power: Union[int, float]) -> "Scale":
+        """The ``Scale`` for an exact ``base ** power``, named or not.
+
+        ``power == 0`` is the multiplicative identity in every base, so it
+        resolves to :attr:`Scale.one` rather than minting ``2^0`` as a
+        second unity.
+        """
+        if power == 0:
+            return cls.one
+        named = cls.all().get((base, power))
+        if named is not None:
+            return cls[named]
+        return cls._unnamed(base, power)
+
     @property
     def descriptor(self) -> _ScaleDescriptor:
         return self.value
@@ -273,6 +322,25 @@ class Scale(Enum):
     @property
     def alias(self) -> str:
         return self.value.alias
+
+    @DynamicClassAttribute
+    def name(self) -> str:
+        """The prefix name, or the rendered exponent when none names it.
+
+        ``Dimension`` already renders an unnamed dimension as
+        ``derived(mass/time^3)``; an unnamed scale renders as ``10^-4`` on
+        the same principle — the value is exact, only the name is absent.
+        ``DynamicClassAttribute`` rather than ``property`` so that ``Scale``
+        keeps the lookup behaviour ``Enum`` defines for this attribute.
+        """
+        if self._name_ is not None:
+            return self._name_
+        return str(self.value.exponent)
+
+    def __repr__(self) -> str:
+        if self._name_ is not None:
+            return f"<Scale.{self._name_}: {self.value!r}>"
+        return f"<Scale {self.value.exponent}>"
 
     @staticmethod
     @lru_cache(maxsize=1)
@@ -342,13 +410,14 @@ class Scale(Enum):
                 return self
 
             result = self.value.exponent * other.value.exponent
-            include_binary = 2 in {self.value.base, other.value.base}
 
+            # Same base: the product has an exact power, so return it
+            # whether or not a prefix names it. Mixed base: no exact power
+            # exists in either base, so approximation is correct here.
             if isinstance(result, Exponent):
-                match = Scale.all().get(result.parts())
-                if match:
-                    return Scale[match]
+                return Scale.of(*result.parts())
 
+            include_binary = 2 in {self.value.base, other.value.base}
             return Scale.nearest(float(result), include_binary=include_binary)
 
         return NotImplemented
@@ -360,18 +429,14 @@ class Scale(Enum):
             return Scale.one
         result = self.value.exponent / other.value.exponent
         if isinstance(result, Exponent):
-            match = Scale.all().get(result.parts())
-            if match:
-                return Scale[match]
+            return Scale.of(*result.parts())
         include_binary = 2 in {self.value.base, other.value.base}
         return Scale.nearest(float(result), include_binary=include_binary)
 
     def __pow__(self, power):
         result = self.value.exponent ** power
         if isinstance(result, Exponent):
-            match = Scale.all().get(result.parts())
-            if match:
-                return Scale[match]
+            return Scale.of(*result.parts())
         include_binary = self.value.base == 2
         return Scale.nearest(float(result), include_binary=include_binary)
 

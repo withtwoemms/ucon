@@ -27,6 +27,7 @@ from ucon.conversion import Graph
 from ucon.core._types import _get_numpy as _types_get_numpy
 from ucon.maps import _get_numpy as _maps_get_numpy
 from ucon import units
+from ucon._cache import _deserialize_product_key
 from ucon._cache import _deserialize_product_tuple_key
 from ucon._cache import _deserialize_product_tuple_key, _serialize_product_key
 from ucon._cache import _fraction_to_prim, _prim_to_fraction
@@ -846,19 +847,79 @@ class TestFractionFromString(unittest.TestCase):
         self.assertEqual(result, Fraction(1, 2))
 
 
-class TestProductTupleKeyUnknownScale(unittest.TestCase):
-    """_deserialize_product_tuple_key falls back to Scale.one for unknown scales."""
+class TestProductKeyScaleWireForm(unittest.TestCase):
+    """``_deserialize_product_key`` reads the (base, power) wire form.
 
-    def test_unknown_scale_defaults_to_one(self):
+    Its sibling ``_deserialize_product_tuple_key`` was already covered; this
+    function reconstructs a ``UnitProduct`` rather than a key tuple and had no
+    test, so #390's wire-format change landed on it unexercised.
+    """
 
+    def test_named_and_unnamed_scales_round_trip(self):
+        """A scale no prefix names survives into the rebuilt product."""
+        meter = Unit(name="meter", dimension=LENGTH)
+        unit_map = {"meter": meter}
+
+        unnamed = Scale.centi * Scale.centi
+        self.assertEqual(unnamed.name, "10^-4")
+
+        for scale in (Scale.one, Scale.kilo, Scale.kibi, unnamed):
+            with self.subTest(scale=scale.name):
+                ser = [("meter", "length", scale.value.parts(), 1)]
+                result = _deserialize_product_key(ser, unit_map)
+                self.assertIsNotNone(result)
+                self.assertEqual(len(result.factors), 1)
+                factor = next(iter(result.factors))
+                self.assertIs(factor.scale, scale)
+
+    def test_malformed_scale_returns_none(self):
+        """Unreadable scale data refuses rather than defaulting to 1.0."""
         meter = Unit(name="meter", dimension=LENGTH)
         unit_map = {"meter": meter}
 
         ser = [("meter", "length", "bogus_scale", 1)]
-        result = _deserialize_product_tuple_key(ser, unit_map)
-        self.assertIsNotNone(result)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0][2], Scale.one)
+        self.assertIsNone(_deserialize_product_key(ser, unit_map))
+
+    def test_unknown_unit_returns_none(self):
+        """The pre-existing refusal for a unit not in the map still holds."""
+        ser = [("nonexistent", "length", (10, 0), 1)]
+        self.assertIsNone(_deserialize_product_key(ser, {}))
+
+    def test_empty_serialization_returns_none(self):
+        self.assertIsNone(_deserialize_product_key([], {}))
+
+
+class TestProductTupleKeyScaleWireForm(unittest.TestCase):
+    """The scale wire form is the exact (base, power), and bad data refuses."""
+
+    def test_malformed_scale_returns_none(self):
+        """Unreadable scale data makes the key unreconstructable.
+
+        Pre-#390 the wire form was the prefix name, and an unrecognized name
+        read back as ``Scale.one`` — turning a stored scale into a silent
+        1.0. A malformed entry now gets the same verdict an unknown unit
+        already gets: the key is not reconstructed.
+        """
+        meter = Unit(name="meter", dimension=LENGTH)
+        unit_map = {"meter": meter}
+
+        ser = [("meter", "length", "bogus_scale", 1)]
+        self.assertIsNone(_deserialize_product_tuple_key(ser, unit_map))
+
+    def test_named_and_unnamed_scales_round_trip(self):
+        """(base, power) round-trips a scale no prefix names, by identity."""
+        meter = Unit(name="meter", dimension=LENGTH)
+        unit_map = {"meter": meter}
+
+        unnamed = Scale.centi * Scale.centi
+        self.assertEqual(unnamed.name, "10^-4")
+
+        for scale in (Scale.one, Scale.kilo, Scale.kibi, unnamed):
+            with self.subTest(scale=scale.name):
+                ser = [("meter", "length", scale.value.parts(), 1)]
+                result = _deserialize_product_tuple_key(ser, unit_map)
+                self.assertIsNotNone(result)
+                self.assertIs(result[0][2], scale)
 
 
 class TestContextCodecPrimitives(unittest.TestCase):
