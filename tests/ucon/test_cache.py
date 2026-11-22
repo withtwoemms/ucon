@@ -846,19 +846,37 @@ class TestFractionFromString(unittest.TestCase):
         self.assertEqual(result, Fraction(1, 2))
 
 
-class TestProductTupleKeyUnknownScale(unittest.TestCase):
-    """_deserialize_product_tuple_key falls back to Scale.one for unknown scales."""
+class TestProductTupleKeyScaleWireForm(unittest.TestCase):
+    """The scale wire form is the exact (base, power), and bad data refuses."""
 
-    def test_unknown_scale_defaults_to_one(self):
+    def test_malformed_scale_returns_none(self):
+        """Unreadable scale data makes the key unreconstructable.
 
+        Pre-#390 the wire form was the prefix name, and an unrecognized name
+        read back as ``Scale.one`` — turning a stored scale into a silent
+        1.0. A malformed entry now gets the same verdict an unknown unit
+        already gets: the key is not reconstructed.
+        """
         meter = Unit(name="meter", dimension=LENGTH)
         unit_map = {"meter": meter}
 
         ser = [("meter", "length", "bogus_scale", 1)]
-        result = _deserialize_product_tuple_key(ser, unit_map)
-        self.assertIsNotNone(result)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0][2], Scale.one)
+        self.assertIsNone(_deserialize_product_tuple_key(ser, unit_map))
+
+    def test_named_and_unnamed_scales_round_trip(self):
+        """(base, power) round-trips a scale no prefix names, by identity."""
+        meter = Unit(name="meter", dimension=LENGTH)
+        unit_map = {"meter": meter}
+
+        unnamed = Scale.centi * Scale.centi
+        self.assertEqual(unnamed.name, "10^-4")
+
+        for scale in (Scale.one, Scale.kilo, Scale.kibi, unnamed):
+            with self.subTest(scale=scale.name):
+                ser = [("meter", "length", scale.value.parts(), 1)]
+                result = _deserialize_product_tuple_key(ser, unit_map)
+                self.assertIsNotNone(result)
+                self.assertIs(result[0][2], scale)
 
 
 class TestContextCodecPrimitives(unittest.TestCase):

@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`Scale` arithmetic computes the exact power.** `Scale.__mul__`,
+  `__truediv__` and `__pow__` computed the exact `Exponent`, looked for a
+  *named* member at that power, and discarded the exact result when none
+  matched — falling through to `Scale.nearest()`, which answers with the
+  closest named prefix. **244 of 522 single-base operations returned a wrong
+  scale** (#390):
+
+  ```python
+  >>> Scale.kilo * Scale.deca
+  <Scale.kilo>        # 1000; exact answer is 10000
+  >>> Scale.centi * Scale.centi
+  <Scale.milli>       # 0.001; exact answer is 0.0001
+  >>> Scale.femto * Scale.femto
+  <Scale.femto>       # 1e-15; exact answer is 1e-30, nearest clamps at the end
+  ```
+
+  Naming cannot close this: a finite set of powers is never closed under
+  multiplication, and adding the full SI prefix set *raises* the unnamed count
+  from 208 to 528. So the conventional prefixes are now a **registry over
+  `Exponent`** rather than the set of representable scales. An exact
+  `(base, power)` with no prefix interns to an unnamed `Scale` whose `.name`
+  renders `10^-4`, the way `Dimension` already renders
+  `derived(mass/time^3)`.
+
+  ```python
+  >>> (Scale.centi * Scale.centi).name
+  '10^-4'
+  >>> Scale.milli * Scale.kilo is Scale.one
+  True
+  ```
+
+  Unnamed members are built the way `enum.Flag` builds composite members, so
+  `isinstance(x, Scale)` holds, iteration over `Scale` still yields only the
+  21 conventional prefixes — leaving `nearest()`, `all()` and the parser's
+  shorthand map untouched — and `Scale.kilo` keeps its identity. Verified
+  identical on 3.7 through 3.14.
+
+  **Cross-base operands keep `nearest()`.** `kibi * kilo` has no exact power
+  in either base, so approximating there is correct rather than a defect.
+
+  **Wire format.** The graph cache stored a scale by `.name` and read it back
+  with `Scale[name]`, which cannot round-trip a scale no prefix names — and
+  two of the three decode sites fell back to `Scale.one` on `KeyError`,
+  reading a stored scale back as a silent 1.0. The scale wire form is now the
+  exact `(base, power)`, unreadable scale data makes a key unreconstructable
+  instead of defaulting, and `_CACHE_SCHEMA` is bumped to 5 so stale caches
+  are discarded rather than misread. The cache is generated, gitignored and
+  rebuilt on first import, so no action is required.
+
+  Not included, and independent of this fix: the ten absent SI prefixes
+  (`quetta`, `ronna`, `yotta`, `zetta`, `exa`, `atto`, `zepto`, `yocto`,
+  `ronto`, `quecto`). That is additive vocabulary; the arithmetic has to be
+  exact whether or not those names exist.
+
 
 ## [2.4.1] - 2026-11-22
 
