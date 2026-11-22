@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import math
 import sys
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache, reduce, total_ordering
@@ -70,6 +71,74 @@ from ucon.kinds.types import JoinPolicy, Kind
 #: in a product; any *other* dimension-one unit is a distinguishable symbol
 #: and survives as a factor (#318).
 _UNITY_NAMES = frozenset({"", "one"})
+
+#: Linear ratio units that [ADR 013] retires in favour of a ``Scale`` on the
+#: unity unit, paired with the scale that replaces each. Rung one of the
+#: deprecation ladder (#393) warns here; rung two raises it to
+#: ``DeprecationWarning``; removal is 3.0.0.
+#:
+#: ``basis_point``'s replacement became expressible only in 2.4.2 (#390) --
+#: before exact ``Scale`` powers, 10**-4 had no representation at all.
+#:
+#: A tuple of pairs rather than a dict: the module holds no mutable state,
+#: and six entries make the cold-path lookup free.
+_DEPRECATED_RATIO_UNITS = (
+    ("fraction", "Scale.one"),
+    ("percent", "Scale.centi"),
+    ("permille", "Scale.milli"),
+    ("basis_point", "Scale.of(10, -4)"),
+    ("ppm", "Scale.micro"),
+    ("ppb", "Scale.nano"),
+)
+
+#: Membership test for the hot path, so an ordinary ``Number`` pays one
+#: frozenset lookup rather than a scan.
+_DEPRECATED_RATIO_NAMES = frozenset(name for name, _ in _DEPRECATED_RATIO_UNITS)
+
+
+def _deprecated_ratio_units_in(unit) -> tuple:
+    """Names of retiring ratio units carried by ``unit``.
+
+    Covers both a bare :class:`Unit` and a :class:`UnitProduct`, so
+    ``percent`` is caught whether it arrives alone or as a factor of
+    ``kg*%``. Attribute access is duck-typed because this runs before
+    ``UnitProduct`` is defined.
+    """
+    if getattr(unit, "name", None) in _DEPRECATED_RATIO_NAMES:
+        return (unit.name,)
+    factors = getattr(unit, "factors", None)
+    if not factors:
+        return ()
+    found = []
+    for factor in factors:
+        name = getattr(getattr(factor, "unit", factor), "name", None)
+        if name in _DEPRECATED_RATIO_NAMES:
+            found.append(name)
+    return tuple(found)
+
+
+def _warn_deprecated_ratio_units(unit) -> None:
+    """Emit rung one for every retiring ratio unit ``unit`` carries.
+
+    Warns at :class:`Number` construction rather than on attribute access:
+    ``ucon.units`` injects its units into the module dict at import, so a
+    module ``__getattr__`` would never fire for them. Construction also
+    catches a unit however it was obtained -- attribute, alias or parsed
+    string.
+    """
+    names = _deprecated_ratio_units_in(unit)
+    if not names:
+        return
+    replacements = dict(_DEPRECATED_RATIO_UNITS)
+    for name in names:
+        warnings.warn(
+            f"{name!r} as a unit is deprecated and will be removed in ucon "
+            f"3.0.0. Use a Scale on the unity unit instead: "
+            f"UnitFactor(units.one, {replacements[name]}). "
+            f"See docs/internal/decisions/013-the-vector-is-the-only-carrier.md.",
+            PendingDeprecationWarning,
+            stacklevel=4,
+        )
 
 if TYPE_CHECKING:
     from ucon.graph import ConversionGraph
@@ -1909,6 +1978,9 @@ class Number:
     def __post_init__(self):
         if self.unit is None:
             object.__setattr__(self, 'unit', UnitProduct({}))
+        # Rung one of the linear-ratio retirement (#393). Placed after the
+        # unit is settled so the default empty product is not inspected.
+        _warn_deprecated_ratio_units(self.unit)
         if self.kind is None:
             # A unit may declare the kind it measures by default; an
             # explicit kind= (handled by the guard above) always wins.

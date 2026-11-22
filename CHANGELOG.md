@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deprecated
+
+- **Rung one of the linear-ratio retirement.** `fraction`, `percent`,
+  `permille`, `basis_point`, `ppm` and `ppb` as *units* now emit
+  `PendingDeprecationWarning` at `Number` construction, citing the removal
+  version and a migration path (#393). [ADR 013] routes "a power of a small
+  radix on unity" to `Scale`, which makes these six scales that were filed as
+  units:
+
+  | unit | 1 unit in `fraction` | replacement |
+  |---|---|---|
+  | `fraction` | 1.0 | `Scale.one` |
+  | `percent` | 0.01 | `Scale.centi` |
+  | `permille` | 0.001 | `Scale.milli` |
+  | `basis_point` | 0.0001 | `Scale.of(10, -4)` |
+  | `ppm` | 1e-06 | `Scale.micro` |
+  | `ppb` | 1e-09 | `Scale.nano` |
+
+  `basis_point`'s replacement became expressible only in 2.4.2 (#390) — before
+  exact `Scale` powers, 10⁻⁴ had no representation, which is why ADR 013 called
+  for adding a member and why its amendment withdraws that.
+
+  The warning fires at construction rather than on attribute access: `ucon.units`
+  injects its units into the module dict at import, so a module `__getattr__`
+  never fires for them. Construction also catches a unit however it was
+  obtained — attribute, alias or parsed string — and catches one hiding as a
+  factor of a product, so `kg·%` warns too.
+
+  Nothing changes behaviourally, and `PendingDeprecationWarning` is silent under
+  Python's default filters. `import ucon` emits nothing.
+
+  **Not in this rung:** the count units (`each`, `flop`, `op`, `instruction`,
+  `cycle`, `request`, `event`) and the logarithmic ratios (`bel`, `decibel`,
+  `neper`, `nines`). Their migration targets — kinds on unity and the transform
+  stratum — land at v3.2.0, and ADR 013's own disposition table marks the latter
+  unbuilt. A warning that cannot name a path a caller can take is noise, so they
+  get their rung when that machinery is in sight. The pseudo-dimension tags
+  already have rung one: `Dimension.pseudo()` has warned since the tag was
+  introduced.
+
+
 
 ## [2.4.2] - 2026-11-22
 
