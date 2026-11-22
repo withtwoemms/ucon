@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [2.4.2] - 2026-11-22
+
 ### Fixed
 
 - **`Scale` arithmetic computes the exact power.** `Scale.__mul__`,
