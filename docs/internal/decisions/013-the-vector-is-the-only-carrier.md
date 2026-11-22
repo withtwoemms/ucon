@@ -1,6 +1,6 @@
 # 013 — The vector is the only carrier
 
-**Status:** Proposed (2026-10-15); corrections from a five-perspective adversarial review incorporated 2026-10-17
+**Status:** Proposed (2026-10-15); corrections from a five-perspective adversarial review incorporated 2026-10-17; **§2's `Scale` member count superseded 2026-11-22** — see [§Amendment](#amendment-2026-11-22)
 **Supersedes:** [`005-pseudo-dimension-tuple-values.md`](005-pseudo-dimension-tuple-values.md) in full;
 [`011-currency-kinds-and-contexts.md`](011-currency-kinds-and-contexts.md) in full (its context and
 arrival machinery is re-adopted in [§5](#5-re-adopted-from-011));
@@ -135,7 +135,8 @@ and by derived kinds after. So `count` is a kind on unity. Promotion was conside
 
 `Scale` is already multi-radix — 21 members, 6 at base 2 and 15 at base 10, shaped `base^exponent`.
 The linear ratios are `Scale` values that were filed as units (`basis_point` is 10⁻⁴; `Scale` runs
-−15…15 and skips −4, so one member is added). The cost of the misfiling is not
+−15…15 and skips −4, so one member is added — **no longer so; see**
+[**§Amendment**](#amendment-2026-11-22)). The cost of the misfiling is not
 cosmetic:
 
 ```python
@@ -478,6 +479,54 @@ Nothing in 1–4 is unwound by 5.
 - **`None` or a per-shape formula as the answer to kinded `×`** — the former launders, the latter is
   combinatorial; ADR 012's *"a money-rate is a kind"* is correct only once kinds compose.
 - **Meaning-closure as a basis criterion** — see §1.
+
+## Amendment (2026-11-22)
+
+**The Decision is unchanged.** The criterion, the disposition rule and the
+retirement all stand. What changes is one parenthetical in
+[§2](#2-the-disposition-rule), whose premise no longer holds.
+
+### What the parenthetical assumed
+
+§2 routes "a power of a small radix on unity" to `Scale`, and noted that
+`basis_point` is 10⁻⁴ while "`Scale` runs −15…15 and skips −4, so one member
+is added." That reasoning treated `Scale` as **the set of its named members**.
+
+### What changed
+
+[#390](https://github.com/withtwoemms/ucon/issues/390) made the conventional
+prefixes a **registry over `Exponent`** rather than the set of representable
+scales, because `Scale` arithmetic was discarding exact powers no prefix named
+— 244 of 522 single-base operations returned a wrong scale. `Scale.of(10, -4)`
+is now exact and renders `10^-4`, the way `Dimension` renders
+`derived(mass/time^3)`.
+
+So **no member is added for `basis_point`.** Measured against the shipped
+catalog, four of §2's five linear ratios already resolve to named prefixes:
+
+| ratio | power | resolves to |
+|---|---|---|
+| `percent` | 10⁻² | `centi` |
+| `permille` | 10⁻³ | `milli` |
+| `basis_point` | 10⁻⁴ | `10^-4` — exact, unnamed |
+| `ppm` | 10⁻⁶ | `micro` |
+| `ppb` | 10⁻⁹ | `nano` |
+
+`Number(50.0, UnitFactor(one, Scale.of(10, -4)))` carries canonical magnitude
+`0.005`, so the retirement's requirement is met today.
+
+### What this does not change
+
+The requirement was never the member — it was **representability**, and that
+is now satisfied. Two things remain open and are unaffected:
+
+- Whether 10⁻⁴ should also carry a *name*. `‱` would be terminology this
+  project coins rather than represents, so the amendment takes no position
+  beyond removing the obligation.
+- **Rendering.** `Number(50.0, UnitFactor(one, Scale.of(10, -4)))` renders
+  `<50.0>`, dropping the scale, because `one` has an empty shorthand. The
+  rendering table for scales on unity is still owed, and is still carried on
+  the roadmap's v2.5.0 row.
 
 ## Open
 
