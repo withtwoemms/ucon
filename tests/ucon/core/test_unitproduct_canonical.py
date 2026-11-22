@@ -17,7 +17,11 @@ code is now allowed to rely on:
 3. **Idempotence** — ``UnitProduct(u.factors, u.canonical_scale)`` is
    structurally equal to ``u``.
 4. **Canonical-form invariants** (per-UnitFactor grain):
-   a. no dimensionless (NONE-dim) factor survives in ``factors``;
+   a. no *unity* factor survives in ``factors`` — the anonymous unity and
+      the catalog's ``one``. **Amended by #318:** this read "no
+      dimensionless (NONE-dim) factor survives" until a dimension-one unit
+      that *names* a quantity was made to survive, so ``USD/h`` keeps its
+      ``USD``. Only the multiplicative identity is dropped.
    b. no zero-exponent factor survives in ``factors``;
    c. at most one entry per distinct ``UnitFactor`` — i.e. per
       ``(unit_name, dimension, aliases, scale)`` tuple. Cross-scale
@@ -25,8 +29,13 @@ code is now allowed to rely on:
       distinct UnitFactors and both survive; their scale ratio is
       recoverable via ``fold_scale()``.
    d. ``canonical_scale == 1.0`` whenever ``factors`` is non-empty.
-5. **Dimensionless absorption** — scale of dropped dim=NONE factors is
-   folded into ``canonical_scale`` instead of being silently discarded.
+      **Not enforced for a seeded product** — ``UnitProduct({m: 1.0}, 100.0)``
+      keeps the seed, which conflicts with invariant 7; see #387, which is a
+      question about what such a product means rather than an enforcement gap.
+5. **Unity absorption** — the scale of a dropped *unity* factor is folded
+   into ``canonical_scale`` instead of being silently discarded. **Narrowed
+   by #318:** a named dimension-one factor is not dropped, so it carries its
+   own scale on the factor and ``canonical_scale`` stays ``1.0``.
 6. **Cross-scale preservation** — ``mg/kg`` retains both factors
    (shorthand ``"mg/kg"``), ``fold_scale() == 1e-6``, and downstream
    composition works: ``(mg/kg) * kg == mg``.
